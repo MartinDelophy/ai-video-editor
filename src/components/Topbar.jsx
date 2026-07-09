@@ -1,0 +1,179 @@
+import {
+  ArrowClockwise,
+  ArrowCounterClockwise,
+  CaretDown,
+  FileArrowDown,
+  GearSix,
+  Pause,
+  Play,
+  ShieldCheck,
+  SlidersHorizontal,
+} from "@phosphor-icons/react";
+
+import { RATIO_OPTIONS } from "../config/editor.js";
+import { APP_LANGUAGES, saveLanguagePreference } from "../i18n.js";
+import { IconButton, Popover } from "./ui.jsx";
+
+export function Topbar({
+  t,
+  compactRail,
+  setCompactRail,
+  lastSaved,
+  undo,
+  redo,
+  ratio,
+  ratioId,
+  showRatioMenu,
+  setShowRatioMenu,
+  setRatioId,
+  notify,
+  isPlaying,
+  handlePlayToggle,
+  imageSrc,
+  exporting,
+  handleExportVideo,
+  showSettings,
+  setShowSettings,
+  activeLanguage,
+  setUiLanguage,
+  captionsEnabled,
+  setCaptionsEnabled,
+  trackVisibility,
+  toggleTrackVisibility,
+}) {
+  return (
+    <header className="topbar">
+      <div className="project-cluster">
+        <IconButton label={t("collapseSidebar")} active={compactRail} onClick={() => setCompactRail((v) => !v)}>
+          <SlidersHorizontal size={19} />
+        </IconButton>
+        <div>
+          <div className="project-title">{t("projectTitle")}</div>
+          <div className="autosave">
+            <ShieldCheck size={13} weight="fill" />
+            {t("autosave")} · {lastSaved}
+          </div>
+        </div>
+      </div>
+
+      <div className="topbar-center">
+        <button className="ghost-action" type="button" onClick={undo}>
+          <ArrowCounterClockwise size={16} />
+          {t("undo")}
+        </button>
+        <button className="ghost-action" type="button" onClick={redo}>
+          <ArrowClockwise size={16} />
+          {t("redo")}
+        </button>
+        <span className="divider" />
+        <div className="menu-anchor">
+          <button
+            className="ratio-select"
+            type="button"
+            onClick={() => setShowRatioMenu((open) => !open)}
+          >
+            {ratio.label} <CaretDown size={14} />
+          </button>
+          {showRatioMenu ? (
+            <Popover onClose={() => setShowRatioMenu(false)}>
+              <div className="menu-list">
+                {RATIO_OPTIONS.map((option) => (
+                  <button
+                    type="button"
+                    className={option.id === ratioId ? "is-selected" : ""}
+                    key={option.id}
+                    onClick={() => {
+                      setRatioId(option.id);
+                      setShowRatioMenu(false);
+                      notify(`画布比例已切换为 ${option.label}`);
+                    }}
+                  >
+                    {option.label}
+                    <span>
+                      {option.width} x {option.height}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </Popover>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="topbar-actions">
+        <button className="preview-button" type="button" onClick={handlePlayToggle}>
+          {isPlaying ? <Pause size={16} weight="fill" /> : <Play size={16} weight="fill" />}
+          {t("preview")}
+        </button>
+        <button className="export-button" type="button" disabled={!imageSrc || exporting} onClick={handleExportVideo}>
+          <FileArrowDown size={17} weight="bold" />
+          {exporting ? t("exporting") : t("exportMp4")}
+        </button>
+        <div className="menu-anchor">
+          <IconButton label={t("settings")} active={showSettings} onClick={() => setShowSettings((open) => !open)}>
+            <GearSix size={19} />
+          </IconButton>
+          {showSettings ? (
+            <Popover onClose={() => setShowSettings(false)}>
+              <div className="settings-panel">
+                <strong>{t("exportSettings")}</strong>
+                <label>
+                  <span>{t("language")}</span>
+                  <select
+                    value={activeLanguage}
+                    onChange={(event) => {
+                      const nextLanguage = event.target.value;
+                      saveLanguagePreference(nextLanguage);
+                      setUiLanguage(nextLanguage);
+                    }}
+                  >
+                    {APP_LANGUAGES.map((language) => (
+                      <option value={language.id} key={language.id}>
+                        {language.nativeName}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={captionsEnabled}
+                    onChange={(event) => setCaptionsEnabled(event.target.checked)}
+                  />
+                  {t("exportCaptions")}
+                </label>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={trackVisibility.audio}
+                    onChange={() => toggleTrackVisibility("audio")}
+                  />
+                  {t("enableAudioTrack")}
+                </label>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={trackVisibility.source}
+                    onChange={() => toggleTrackVisibility("source")}
+                  />
+                  {t("enableSourceTrack")}
+                </label>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={trackVisibility.music}
+                    onChange={() => toggleTrackVisibility("music")}
+                  />
+                  {t("enableMusicTrack")}
+                </label>
+                <button type="button" onClick={() => notify("模型会由浏览器自动缓存到本地存储")}>
+                  {t("checkModelCache")}
+                </button>
+              </div>
+            </Popover>
+          ) : null}
+        </div>
+      </div>
+    </header>
+  );
+}

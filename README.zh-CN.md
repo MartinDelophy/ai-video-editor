@@ -4,6 +4,24 @@
 
 一个浏览器优先的 AI 视频编辑器，支持图片/视频时间线、AI 配音、字幕、视频原声、背景音乐以及 MP4/WebM 导出。当前原型参考了 CapCut/剪映一类深色时间线编辑器，但重点放在 Web 端 AI 配音和轻量视频编辑流程。
 
+## 界面截图
+
+### 英文编辑工作台
+
+![英文编辑工作台](docs/screenshots/editor-empty-en.png)
+
+### 时间线编辑与 AI 配音工作区
+
+![时间线编辑与 AI 配音工作区](docs/screenshots/editor-timeline.png)
+
+### 配音与字幕对齐
+
+![配音与字幕对齐](docs/screenshots/voice-caption-alignment.png)
+
+### 导出进度浮层
+
+![导出进度浮层](docs/screenshots/export-progress.png)
+
 ## 当前能力
 
 - 本地上传图片、视频、音频素材。

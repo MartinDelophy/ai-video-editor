@@ -12,6 +12,7 @@
     "@diffusionstudio/vits-web": "^1.0.3",
     "@ffmpeg/ffmpeg": "^0.12.15",
     "@ffmpeg/util": "^0.12.2",
+    "@huggingface/transformers": "^3.8.1",
     "@phosphor-icons/react": "^2.1.10",
     "@vitejs/plugin-react": "5.0.4",
     "kokoro-js": "^1.2.1",

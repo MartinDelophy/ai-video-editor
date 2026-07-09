@@ -1,3 +1,4 @@
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowClockwise,
   ArrowCounterClockwise,
@@ -22,11 +23,59 @@ import {
 
 import { IMAGE_SEGMENT_SECONDS } from "../config/editor.js";
 import { formatClock, formatTime, getImageThumbnailCount, getSegmentStartTime } from "../lib/timeline.js";
+import {
+  TIMELINE_MIN_ZOOM,
+  clampTimelineZoom,
+  getTimelineRulerTicks,
+  getTimelineTrackWidthPercent,
+  getTimelineZoomLabel,
+} from "../lib/timelineScale.js";
 import { IconButton, WaveformStrip } from "./ui.jsx";
 
-const MIN_TIMELINE_ZOOM = 0.25;
-const MAX_TIMELINE_ZOOM = 3;
-const TIMELINE_WHEEL_ZOOM_RATIO = 1.12;
+const TIMELINE_WHEEL_ZOOM_SENSITIVITY = 0.00034;
+const TIMELINE_WHEEL_ZOOM_COMMIT_DELAY = 180;
+const TIMELINE_BUTTON_ZOOM_RATIO = 1.25;
+const VIDEO_FRAME_MIN_COUNT = 1;
+
+function getSampledVideoFrames(frames, count) {
+  if (!Array.isArray(frames) || !frames.length) {
+    return [];
+  }
+
+  const safeCount = Math.max(VIDEO_FRAME_MIN_COUNT, Math.min(frames.length, count));
+  if (safeCount >= frames.length) {
+    return frames;
+  }
+
+  if (safeCount === 1) {
+    return [frames[Math.floor(frames.length / 2)]];
+  }
+
+  return Array.from({ length: safeCount }, (_, index) => {
+    const frameIndex = Math.round((index / (safeCount - 1)) * (frames.length - 1));
+    return frames[frameIndex];
+  });
+}
+
+function getVideoTimelineFrameCount({ duration, timelineDuration, contentWidth, timelineZoom, availableFrames }) {
+  if (!availableFrames || timelineDuration <= 0 || contentWidth <= 0) {
+    return VIDEO_FRAME_MIN_COUNT;
+  }
+
+  const clipPixelWidth = Math.max(68, (Math.max(0, duration || 0) / timelineDuration) * contentWidth);
+  const targetCellWidth =
+    timelineZoom >= 8
+      ? 34
+      : timelineZoom >= 3
+        ? 42
+        : timelineZoom >= 1
+          ? 54
+          : 82;
+  return Math.max(
+    VIDEO_FRAME_MIN_COUNT,
+    Math.min(availableFrames, Math.ceil(clipPixelWidth / targetCellWidth)),
+  );
+}
 
 export function Timeline({
   t,
@@ -47,12 +96,12 @@ export function Timeline({
   setTimelineZoom,
   selectedTrack,
   setSelectedTrack,
+  setActiveTool,
   trackVisibility,
   toggleTrackVisibility,
   trackLocks,
   toggleTrackLock,
   trackScrollRef,
-  trackWidth,
   startTimelineSeek,
   timelineDuration,
   currentTime,
@@ -66,6 +115,11 @@ export function Timeline({
   handleTrackAssetDragLeave,
   handleTrackAssetDrop,
   activeTimelineClipDrag,
+  showStickerTrack,
+  stickerSegments,
+  currentStickerSegment,
+  selectedStickerSegmentId,
+  setSelectedStickerSegmentId,
   imageSrc,
   displayedVisualSegments,
   renderedVisualTimeline,
@@ -78,6 +132,7 @@ export function Timeline({
   suppressTimelineClipClickRef,
   startTimelineClipDrag,
   startImageResize,
+  startStickerSegmentMove,
   displayedCaptionSegments,
   displayedCaptionTimeline,
   currentCaptionSegment,
@@ -87,6 +142,7 @@ export function Timeline({
   sourceAudioBlob,
   sourceAudioPeaks,
   sourceAudioClipPercent,
+  sourceAudioStartPercent,
   sourceAudioDuration,
   audioBlob,
   peaks,
@@ -105,14 +161,168 @@ export function Timeline({
     activeTimelineClipDrag?.track === "caption"
       ? displayedCaptionSegments.find((segment) => segment.id === activeTimelineClipDrag.segmentId)
       : null;
-  const adjustTimelineZoom = (nextZoomOrUpdater) => {
-    setTimelineZoom((currentZoom) => {
-      const rawNextZoom =
-        typeof nextZoomOrUpdater === "function"
-          ? nextZoomOrUpdater(currentZoom)
-          : nextZoomOrUpdater;
-      return Math.max(MIN_TIMELINE_ZOOM, Math.min(MAX_TIMELINE_ZOOM, rawNextZoom));
-    });
+  const timelineTrackRows = showStickerTrack
+    ? "28px 46px 46px 46px 58px 58px 58px"
+    : "28px 46px 46px 58px 58px 58px";
+  const timelineLabelRows = showStickerTrack
+    ? "46px 46px 46px 58px 58px 58px"
+    : "46px 46px 58px 58px 58px";
+  const timelineTrackLabels = [
+    ["image", t("imageTrack")],
+    ...(showStickerTrack ? [["sticker", t("stickerTrack")]] : []),
+    ["caption", t("caption")],
+    ["source", t("sourceTrack")],
+    ["audio", t("voiceTrack")],
+    ["music", t("musicTrack")],
+  ];
+  const [rulerViewport, setRulerViewport] = useState({
+    scrollLeft: 0,
+    viewportWidth: 0,
+    contentWidth: 0,
+  });
+  const [localTimelineZoom, setLocalTimelineZoom] = useState(() => clampTimelineZoom(timelineZoom));
+  const timelineZoomRef = useRef(timelineZoom);
+  const wheelZoomFrameRef = useRef(0);
+  const commitZoomTimerRef = useRef(0);
+  const rulerViewportFrameRef = useRef(0);
+  const pendingWheelDeltaRef = useRef(0);
+  const pendingWheelAnchorRef = useRef(null);
+  const timelineWheelHandlerRef = useRef(null);
+  useEffect(() => {
+    const trackElement = trackScrollRef.current;
+    const scrollElement = trackElement?.parentElement;
+    if (!trackElement || !scrollElement) {
+      return undefined;
+    }
+
+    const applyRulerViewportUpdate = () => {
+      rulerViewportFrameRef.current = 0;
+      const nextViewport = {
+        scrollLeft: scrollElement.scrollLeft,
+        viewportWidth: scrollElement.clientWidth,
+        contentWidth: trackElement.clientWidth,
+      };
+      setRulerViewport((viewport) =>
+        Math.abs(viewport.scrollLeft - nextViewport.scrollLeft) < 0.5 &&
+        Math.abs(viewport.viewportWidth - nextViewport.viewportWidth) < 0.5 &&
+        Math.abs(viewport.contentWidth - nextViewport.contentWidth) < 0.5
+          ? viewport
+          : nextViewport,
+      );
+    };
+    const scheduleRulerViewportUpdate = () => {
+      if (rulerViewportFrameRef.current) {
+        return;
+      }
+      rulerViewportFrameRef.current = window.requestAnimationFrame(applyRulerViewportUpdate);
+    };
+    const resizeObserver =
+      typeof ResizeObserver === "undefined" ? null : new ResizeObserver(scheduleRulerViewportUpdate);
+
+    applyRulerViewportUpdate();
+    scrollElement.addEventListener("scroll", scheduleRulerViewportUpdate, { passive: true });
+    resizeObserver?.observe(scrollElement);
+    resizeObserver?.observe(trackElement);
+
+    return () => {
+      scrollElement.removeEventListener("scroll", scheduleRulerViewportUpdate);
+      if (rulerViewportFrameRef.current) {
+        window.cancelAnimationFrame(rulerViewportFrameRef.current);
+        rulerViewportFrameRef.current = 0;
+      }
+      resizeObserver?.disconnect();
+    };
+  }, [trackScrollRef]);
+  useEffect(() => {
+    const nextZoom = clampTimelineZoom(timelineZoom);
+    if (Math.abs(nextZoom - timelineZoomRef.current) < 0.0008) {
+      return;
+    }
+    timelineZoomRef.current = nextZoom;
+    setLocalTimelineZoom(nextZoom);
+  }, [timelineZoom]);
+  useEffect(
+    () => () => {
+      if (wheelZoomFrameRef.current) {
+        window.cancelAnimationFrame(wheelZoomFrameRef.current);
+      }
+      window.clearTimeout(commitZoomTimerRef.current);
+    },
+    [],
+  );
+  const secondsPerPixel =
+    timelineDuration > 0 && rulerViewport.contentWidth > 0
+      ? timelineDuration / rulerViewport.contentWidth
+      : 0;
+  const rulerVisibleStart = Math.max(0, rulerViewport.scrollLeft * secondsPerPixel);
+  const rulerVisibleEnd = Math.min(
+    timelineDuration,
+    (rulerViewport.scrollLeft + rulerViewport.viewportWidth) * secondsPerPixel,
+  );
+  const rulerTicks = useMemo(
+    () => getTimelineRulerTicks(timelineDuration, localTimelineZoom, rulerVisibleStart, rulerVisibleEnd),
+    [timelineDuration, localTimelineZoom, rulerVisibleEnd, rulerVisibleStart],
+  );
+  const zoomReadout = getTimelineZoomLabel(localTimelineZoom);
+  const localTrackWidth = `${getTimelineTrackWidthPercent(timelineDuration, localTimelineZoom)}%`;
+  const commitTimelineZoom = (nextZoom, delay = 0) => {
+    window.clearTimeout(commitZoomTimerRef.current);
+    if (delay <= 0) {
+      setTimelineZoom(nextZoom);
+      return;
+    }
+    commitZoomTimerRef.current = window.setTimeout(() => {
+      setTimelineZoom(nextZoom);
+    }, delay);
+  };
+  const adjustTimelineZoom = (nextZoomOrUpdater, { commitDelay = 0 } = {}) => {
+    const currentZoom = clampTimelineZoom(timelineZoomRef.current);
+    const rawNextZoom =
+      typeof nextZoomOrUpdater === "function"
+        ? nextZoomOrUpdater(currentZoom)
+        : nextZoomOrUpdater;
+    const nextZoom = clampTimelineZoom(rawNextZoom);
+    if (Math.abs(nextZoom - currentZoom) < 0.0008) {
+      return;
+    }
+
+    timelineZoomRef.current = nextZoom;
+    setLocalTimelineZoom(nextZoom);
+    commitTimelineZoom(nextZoom, commitDelay);
+  };
+  const flushWheelZoom = () => {
+    wheelZoomFrameRef.current = 0;
+
+    const anchor = pendingWheelAnchorRef.current;
+    const wheelDelta = Math.max(-640, Math.min(640, pendingWheelDeltaRef.current));
+    pendingWheelDeltaRef.current = 0;
+    if (!anchor) {
+      return;
+    }
+
+    const currentZoom = clampTimelineZoom(timelineZoomRef.current);
+    const nextZoom = clampTimelineZoom(
+      currentZoom * Math.exp(-wheelDelta * TIMELINE_WHEEL_ZOOM_SENSITIVITY),
+    );
+
+    if (Math.abs(nextZoom - currentZoom) < 0.0008) {
+      return;
+    }
+
+    const currentTrackWidthPercent = getTimelineTrackWidthPercent(timelineDuration, currentZoom);
+    const nextTrackWidthPercent = getTimelineTrackWidthPercent(timelineDuration, nextZoom);
+    const nextTrackWidth =
+      anchor.trackWidth * (nextTrackWidthPercent / Math.max(currentTrackWidthPercent, 0.001));
+    const nextScrollLeft =
+      anchor.trackContentStart +
+      anchor.pointerTrackRatio * nextTrackWidth -
+      anchor.pointerViewportX;
+    const syncScrollAnchor = () => {
+      anchor.scrollElement.scrollLeft = Math.max(0, nextScrollLeft);
+    };
+
+    adjustTimelineZoom(nextZoom, { commitDelay: TIMELINE_WHEEL_ZOOM_COMMIT_DELAY });
+    window.requestAnimationFrame(syncScrollAnchor);
   };
   const handleTimelineWheel = (event) => {
     if (event.shiftKey || Math.abs(event.deltaX) > Math.abs(event.deltaY)) {
@@ -126,17 +336,6 @@ export function Timeline({
     }
 
     event.preventDefault();
-    const currentZoom = Math.max(MIN_TIMELINE_ZOOM, Math.min(MAX_TIMELINE_ZOOM, timelineZoom));
-    const zoomDirection = event.deltaY < 0 ? 1 : -1;
-    const nextZoom =
-      zoomDirection > 0
-        ? Math.min(MAX_TIMELINE_ZOOM, currentZoom * TIMELINE_WHEEL_ZOOM_RATIO)
-        : Math.max(MIN_TIMELINE_ZOOM, currentZoom / TIMELINE_WHEEL_ZOOM_RATIO);
-
-    if (Math.abs(nextZoom - currentZoom) < 0.001) {
-      return;
-    }
-
     const trackRect = trackElement.getBoundingClientRect();
     const scrollRect = scrollElement.getBoundingClientRect();
     const trackContentStart = trackRect.left - scrollRect.left + scrollElement.scrollLeft;
@@ -144,17 +343,40 @@ export function Timeline({
       0,
       Math.min(1, (event.clientX - trackRect.left) / Math.max(trackRect.width, 1)),
     );
-    const nextTrackWidth = (trackRect.width / currentZoom) * nextZoom;
-    const nextScrollLeft =
-      trackContentStart + pointerTrackRatio * nextTrackWidth - (event.clientX - scrollRect.left);
-    const syncScrollAnchor = () => {
-      scrollElement.scrollLeft = Math.max(0, nextScrollLeft);
+    const deltaModeMultiplier =
+      event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? scrollElement.clientHeight : 1;
+    const normalizedDelta = Math.max(
+      -280,
+      Math.min(280, event.deltaY * deltaModeMultiplier),
+    );
+
+    pendingWheelDeltaRef.current = Math.max(
+      -720,
+      Math.min(720, pendingWheelDeltaRef.current + normalizedDelta),
+    );
+    pendingWheelAnchorRef.current = {
+      pointerTrackRatio,
+      pointerViewportX: event.clientX - scrollRect.left,
+      scrollElement,
+      trackContentStart,
+      trackWidth: trackRect.width,
     };
 
-    adjustTimelineZoom(nextZoom);
-    window.requestAnimationFrame(syncScrollAnchor);
-    window.setTimeout(syncScrollAnchor, 180);
+    if (!wheelZoomFrameRef.current) {
+      wheelZoomFrameRef.current = window.requestAnimationFrame(flushWheelZoom);
+    }
   };
+  timelineWheelHandlerRef.current = handleTimelineWheel;
+  useEffect(() => {
+    const scrollElement = trackScrollRef.current?.parentElement;
+    if (!scrollElement) {
+      return undefined;
+    }
+
+    const handleWheel = (event) => timelineWheelHandlerRef.current?.(event);
+    scrollElement.addEventListener("wheel", handleWheel, { passive: false });
+    return () => scrollElement.removeEventListener("wheel", handleWheel);
+  }, [trackScrollRef]);
   const renderAssetDropSlot = (track) =>
     assetDropTargetTrack === track ? (
       <div
@@ -180,8 +402,70 @@ export function Timeline({
             ? t("assetAudio")
             : assetDragPreview?.type === "video"
               ? t("assetVideo")
+              : assetDragPreview?.type === "sticker"
+                ? t("assetSticker")
               : t("assetImage")}
         </strong>
+      </div>
+    ) : null;
+  const renderStickerTrack = () =>
+    showStickerTrack ? (
+      <div
+        className={`sticker-track ${selectedTrack === "sticker" ? "is-selected" : ""} ${
+          assetDropTargetTrack === "sticker" ? "is-drop-target" : ""
+        } ${assetDropPulseTrack === "sticker" ? "is-drop-landing" : ""}`}
+        onClick={() => {
+          setSelectedTrack("sticker");
+          setActiveTool("stickers");
+        }}
+        onDragOver={(event) => handleTrackAssetDragOver(event, "sticker")}
+        onDragLeave={(event) => handleTrackAssetDragLeave(event, "sticker")}
+        onDrop={(event) => handleTrackAssetDrop(event, "sticker")}
+        data-asset-drop-track="sticker"
+      >
+        {assetDropTargetTrack === "sticker" ? (
+          <div className="track-drop-hint">{t("dropStickerHere")}</div>
+        ) : null}
+        {trackVisibility.sticker
+          ? stickerSegments.map((segment) => {
+              const segmentLeft =
+                timelineDuration > 0
+                  ? Math.max(0, Math.min(100, ((segment.start || 0) / timelineDuration) * 100))
+                  : 0;
+              const segmentWidth =
+                timelineDuration > 0
+                  ? Math.max(0.4, Math.min(100 - segmentLeft, ((segment.duration || 0) / timelineDuration) * 100))
+                  : 0;
+              return (
+                <button
+                  className={`sticker-segment ${
+                    segment.id === currentStickerSegment?.id ? "is-current" : ""
+                  } ${segment.id === selectedStickerSegmentId ? "is-selected-segment" : ""}`}
+                  type="button"
+                  key={segment.id}
+                  style={{
+                    "--sticker-left": `${segmentLeft}%`,
+                    "--sticker-width": `${segmentWidth}%`,
+                  }}
+                  onPointerDown={(event) => startStickerSegmentMove(event, segment.id)}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    if (suppressTimelineClipClickRef.current === segment.id) {
+                      return;
+                    }
+                    setSelectedTrack("sticker");
+                    setActiveTool("stickers");
+                    setSelectedStickerSegmentId(segment.id);
+                    seekTo(segment.start || 0);
+                  }}
+                >
+                  <img src={segment.src} alt="" draggable={false} />
+                  <span>{segment.name}</span>
+                </button>
+              );
+            })
+          : null}
+        {renderAssetDropSlot("sticker")}
       </div>
     ) : null;
 
@@ -233,28 +517,26 @@ export function Timeline({
           </IconButton>
         </div>
         <div className="timeline-icon-group">
-          <IconButton label={t("zoomOut")} onClick={() => adjustTimelineZoom((zoom) => zoom - 0.25)}>
+          <IconButton label={t("zoomOut")} onClick={() => adjustTimelineZoom((zoom) => zoom / TIMELINE_BUTTON_ZOOM_RATIO)}>
             <MagnifyingGlassMinus size={17} />
           </IconButton>
-          <span className="zoom-readout">{Math.round(timelineZoom * 100)}%</span>
-          <IconButton label={t("fitTimeline")} active={timelineZoom === 1} onClick={() => setTimelineZoom(1)}>
+          <span className="zoom-readout">{zoomReadout}</span>
+          <IconButton
+            label={t("fitTimeline")}
+            active={Math.abs(localTimelineZoom - TIMELINE_MIN_ZOOM) < 0.001}
+            onClick={() => adjustTimelineZoom(TIMELINE_MIN_ZOOM)}
+          >
             <MonitorPlay size={17} />
           </IconButton>
-          <IconButton label={t("zoomIn")} onClick={() => adjustTimelineZoom((zoom) => zoom + 0.25)}>
+          <IconButton label={t("zoomIn")} onClick={() => adjustTimelineZoom((zoom) => zoom * TIMELINE_BUTTON_ZOOM_RATIO)}>
             <MagnifyingGlassPlus size={17} />
           </IconButton>
         </div>
       </div>
 
       <div className="timeline-board">
-        <div className="track-labels">
-          {[
-            ["image", t("imageTrack")],
-            ["caption", t("caption")],
-            ["source", t("sourceTrack")],
-            ["audio", t("voiceTrack")],
-            ["music", t("musicTrack")],
-          ].map(([track, label]) => (
+        <div className="track-labels" style={{ gridTemplateRows: timelineLabelRows }}>
+          {timelineTrackLabels.map(([track, label]) => (
             <div className={selectedTrack === track ? "is-selected" : ""} key={track}>
               <button
                 type="button"
@@ -283,15 +565,15 @@ export function Timeline({
           ))}
         </div>
 
-        <div className="tracks" onWheel={handleTimelineWheel}>
+        <div className="tracks">
           <div
             ref={trackScrollRef}
             className="track-scroll"
-            style={{ width: trackWidth, "--timeline-zoom": timelineZoom }}
+            style={{ width: localTrackWidth, "--timeline-zoom": localTimelineZoom, gridTemplateRows: timelineTrackRows }}
             onPointerDown={(event) => {
               if (
                 event.target.closest(
-                  "button, .image-clip, .caption-segment, .audio-track, .waveform-strip",
+                  "button, .image-clip, .caption-segment, .sticker-track, .sticker-segment, .audio-track, .waveform-strip",
                 )
               ) {
                 return;
@@ -300,8 +582,14 @@ export function Timeline({
             }}
           >
             <div className="ruler" onPointerDown={startTimelineSeek}>
-              {Array.from({ length: 11 }, (_, index) => (
-                <span key={index}>{formatClock((timelineDuration / 10) * index)}</span>
+              {rulerTicks.map((tick) => (
+                <span
+                  className={`ruler-tick ${tick.isMajor ? "is-major" : "is-minor"}`}
+                  key={tick.id}
+                  style={{ left: `${tick.left}%` }}
+                >
+                  {tick.label}
+                </span>
               ))}
             </div>
             <div
@@ -346,7 +634,7 @@ export function Timeline({
                     const segmentType = segment.type || visualType;
                     const segmentWidth =
                       timelineDuration > 0
-                        ? Math.max(0.8, Math.min(100, (segment.duration / timelineDuration) * 100))
+                        ? Math.max(0.01, Math.min(100, (segment.duration / timelineDuration) * 100))
                         : 0;
                     const segmentRange = renderedVisualTimeline[index];
                     const isCurrentVisualSegment =
@@ -362,6 +650,21 @@ export function Timeline({
                       activeTimelineClipDrag?.track === "image" &&
                       activeTimelineClipDrag.overIndex === index &&
                       !isDraggingVisualSegment;
+                    const videoTrackFrames = Array.isArray(segment.trackFrames) ? segment.trackFrames : [];
+                    const visibleVideoFrames =
+                      segmentType === "video" && videoTrackFrames.length
+                        ? getSampledVideoFrames(
+                            videoTrackFrames,
+                            getVideoTimelineFrameCount({
+                              duration: segment.duration,
+                              timelineDuration,
+                              contentWidth: rulerViewport.contentWidth,
+                              timelineZoom: localTimelineZoom,
+                              availableFrames: videoTrackFrames.length,
+                            }),
+                          )
+                        : [];
+                    const isPortraitVideo = segmentType === "video" && (segment.height || 0) > (segment.width || 0);
 
                     return (
                       <div
@@ -397,9 +700,24 @@ export function Timeline({
                           }
                         }}
                       >
-                        <div className={`image-thumbnails ${segmentType === "video" ? "is-video" : ""}`}>
+                        <div
+                          className={`image-thumbnails ${segmentType === "video" ? "is-video" : ""} ${
+                            isPortraitVideo ? "is-portrait-video" : ""
+                          }`}
+                        >
                           {segmentType === "video" ? (
-                            <video src={segmentSrc} muted playsInline preload="metadata" draggable={false} />
+                            visibleVideoFrames.length ? (
+                              visibleVideoFrames.map((frameSrc, frameIndex) => (
+                                <img
+                                  src={frameSrc}
+                                  alt=""
+                                  draggable={false}
+                                  key={`${segment.id}-frame-${frameIndex}`}
+                                />
+                              ))
+                            ) : (
+                              <video src={segmentSrc} muted playsInline preload="metadata" draggable={false} />
+                            )
                           ) : (
                             Array.from(
                               {
@@ -429,19 +747,28 @@ export function Timeline({
                 : null}
               {renderAssetDropSlot("image")}
             </div>
+            {renderStickerTrack()}
             <div
               className={`caption-track ${selectedTrack === "caption" ? "is-selected" : ""} ${
                 activeTimelineClipDrag?.track === "caption" ? "is-reordering" : ""
               }`}
-              onClick={() => setSelectedTrack("caption")}
+              onClick={() => {
+                setSelectedTrack("caption");
+                setActiveTool("caption");
+              }}
               data-timeline-reorder-track="caption"
             >
               {trackVisibility.caption
                 ? displayedCaptionSegments.map((segment, index) => {
+                    const segmentRange = displayedCaptionTimeline[index];
                     const segmentDuration = displayedCaptionTimeline[index]?.duration ?? 0;
+                    const segmentLeft =
+                      segmentRange && timelineDuration > 0
+                        ? Math.max(0, Math.min(100, (segmentRange.start / timelineDuration) * 100))
+                        : 0;
                     const segmentWidth =
                       timelineDuration > 0
-                        ? Math.max(0.6, Math.min(100, (segmentDuration / timelineDuration) * 100))
+                        ? Math.max(0.01, Math.min(100, (segmentDuration / timelineDuration) * 100))
                         : 0;
                     const isDraggingCaptionSegment =
                       activeTimelineClipDrag?.track === "caption" &&
@@ -450,9 +777,9 @@ export function Timeline({
                       activeTimelineClipDrag?.track === "caption" &&
                       activeTimelineClipDrag.overIndex === index &&
                       !isDraggingCaptionSegment;
-
                     return (
                       <button
+                        key={segment.id}
                         type="button"
                         className={`caption-segment ${
                           segment.id === currentCaptionSegment?.id ? "is-current" : ""
@@ -461,12 +788,14 @@ export function Timeline({
                         } ${isDraggingCaptionSegment ? "is-reorder-dragging" : ""} ${
                           isReorderTarget ? "is-reorder-target" : ""
                         }`}
-                        key={segment.id}
                         data-timeline-segment-track="caption"
                         data-timeline-segment-index={index}
                         data-timeline-segment-id={segment.id}
                         data-placeholder={t("dropSlot", "放置位置")}
-                        style={{ "--caption-width": `${segmentWidth}%` }}
+                        style={{
+                          "--caption-left": `${segmentLeft}%`,
+                          "--caption-width": `${segmentWidth}%`,
+                        }}
                         onPointerDown={(event) => startTimelineClipDrag(event, "caption", segment.id, index)}
                         onClick={(event) => {
                           event.stopPropagation();
@@ -474,8 +803,9 @@ export function Timeline({
                             return;
                           }
                           setSelectedTrack("caption");
+                          setActiveTool("caption");
                           setSelectedSegmentId(segment.id);
-                          seekTo(getSegmentStartTime(displayedCaptionSegments, index, captionTargetDuration));
+                          seekTo(segmentRange?.start ?? getSegmentStartTime(displayedCaptionSegments, index, captionTargetDuration));
                         }}
                       >
                         {segment.text}
@@ -500,7 +830,13 @@ export function Timeline({
                 ) : null}
               {renderAssetDropSlot("source")}
                 {trackVisibility.source && sourceAudioBlob ? (
-                <div className="audio-clip is-source" style={{ width: `${sourceAudioClipPercent}%` }}>
+                <div
+                  className="audio-clip is-source"
+                  style={{
+                    width: `${sourceAudioClipPercent}%`,
+                    marginLeft: `${sourceAudioStartPercent}%`,
+                  }}
+                >
                   <WaveformStrip peaks={sourceAudioPeaks} active />
                   <span className="audio-clip-duration">{formatTime(sourceAudioDuration)}</span>
                 </div>

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
   ASSET_DRAG_MIME,
+  DEFAULT_STICKER_SEGMENT_SECONDS,
   DEFAULT_SCRIPT,
   FILTER_OPTIONS,
   IMAGE_RESIZE_OVERFLOW_SECONDS_PER_PIXEL,
@@ -24,8 +25,10 @@ import { VoicePanel } from "./components/VoicePanel.jsx";
 import { Timeline } from "./components/Timeline.jsx";
 import { Topbar } from "./components/Topbar.jsx";
 import { createTranslator, getStoredLanguage, saveLanguagePreference, translateOptionName } from "./i18n.js";
+import { transcribeAudioToCaptionSegments } from "./lib/asr.js";
 import {
   createCaptionSegments,
+  createStickerSegment,
   createVisualSegment,
   estimateDuration,
   formatClock,
@@ -33,10 +36,13 @@ import {
   formatTime,
   getCaptionScript,
   getCaptionTimeline,
+  hasExplicitCaptionTiming,
   getImageThumbnailCount,
   getScriptSegments,
   getSegmentIndexAtTime,
   getSegmentStartTime,
+  getTimedSegmentIndexAtTime,
+  getTimedSegmentsEnd,
   getVisualAssetPayload,
   getVisualSegmentIndexAtTime,
   getVisualSegmentTimeline,
@@ -48,11 +54,47 @@ import {
   decodeWaveform,
   downloadBlob,
   exportBrowserVideo,
+  extractVideoTrackFrames,
   extractAudioFromVideo,
   getAudioRecordingFormat,
   getSupportedRecordingFormat,
   transcodeWebmToMp4,
 } from "./lib/media.js";
+import {
+  clearPiperCacheIfStorageTight,
+  isPiperSymbolError,
+  isStorageQuotaError,
+  prepareTextForVoice,
+  TtsInputError,
+} from "./lib/ttsText.js";
+
+const PLAYBACK_UI_FRAME_MS = 50;
+
+function getNearestRatioIdForSize(width, height) {
+  const mediaWidth = Number(width);
+  const mediaHeight = Number(height);
+  if (!Number.isFinite(mediaWidth) || !Number.isFinite(mediaHeight) || mediaWidth <= 0 || mediaHeight <= 0) {
+    return "";
+  }
+
+  const mediaRatio = mediaWidth / mediaHeight;
+  return RATIO_OPTIONS.reduce(
+    (best, option) => {
+      const optionRatio = option.width / option.height;
+      const distance = Math.abs(Math.log(mediaRatio / optionRatio));
+      return distance < best.distance ? { id: option.id, distance } : best;
+    },
+    { id: RATIO_OPTIONS[0]?.id ?? "", distance: Number.POSITIVE_INFINITY },
+  ).id;
+}
+
+function getTimelineTrackLocalTime(time, start = 0, duration = 0) {
+  return Math.max(0, Math.min(duration || 0, time - start));
+}
+
+function isTimelineTimeInsideTrack(time, start = 0, duration = 0) {
+  return duration > 0 && time >= start && time <= start + duration;
+}
 
 export function App() {
   const [uiLanguage, setUiLanguage] = useState(() => getStoredLanguage());
@@ -81,6 +123,7 @@ export function App() {
   const [sourceAudioDuration, setSourceAudioDuration] = useState(0);
   const [sourceAudioPeaks, setSourceAudioPeaks] = useState([]);
   const [sourceAudioVolume, setSourceAudioVolume] = useState(1);
+  const [sourceAudioStart, setSourceAudioStart] = useState(0);
   const [status, setStatus] = useState("ready");
   const [statusText, setStatusText] = useState("模型待命");
   const [progress, setProgress] = useState(0);
@@ -112,6 +155,7 @@ export function App() {
   const [trackVisibility, setTrackVisibility] = useState({
     image: true,
     caption: true,
+    sticker: true,
     source: true,
     audio: true,
     music: true,
@@ -119,13 +163,14 @@ export function App() {
   const [trackLocks, setTrackLocks] = useState({
     image: false,
     caption: false,
+    sticker: false,
     source: false,
     audio: false,
     music: false,
   });
   const [captionPosition, setCaptionPosition] = useState("bottom");
   const [captionPlacement, setCaptionPlacement] = useState({ x: 50, y: 78 });
-  const [captionSize, setCaptionSize] = useState(28);
+  const [captionSize, setCaptionSize] = useState(12);
   const [captionsEnabled, setCaptionsEnabled] = useState(true);
   const [captionSegments, setCaptionSegments] = useState(() => createCaptionSegments(DEFAULT_SCRIPT));
   const [selectedSegmentId, setSelectedSegmentId] = useState("");
@@ -138,6 +183,8 @@ export function App() {
   const [selectedFilterId, setSelectedFilterId] = useState("none");
   const [selectedTransitionId, setSelectedTransitionId] = useState("none");
   const [selectedStickerId, setSelectedStickerId] = useState("none");
+  const [stickerSegments, setStickerSegments] = useState([]);
+  const [selectedStickerSegmentId, setSelectedStickerSegmentId] = useState("");
   const [userAssets, setUserAssets] = useState([]);
   const [favoriteVoiceIds, setFavoriteVoiceIds] = useState(["zh_CN-huayan-medium"]);
   const [historyItems, setHistoryItems] = useState([]);
@@ -163,6 +210,7 @@ export function App() {
   const visualPlaybackFrameRef = useRef(0);
   const visualPlaybackStartedAtRef = useRef(0);
   const visualPlaybackStartTimeRef = useRef(0);
+  const visualPlaybackLastUpdateRef = useRef(0);
   const audioUrlRef = useRef("");
   const sourceAudioUrlRef = useRef("");
   const musicUrlRef = useRef("");
@@ -180,9 +228,16 @@ export function App() {
   const assetDropPulseTimerRef = useRef(0);
   const timelineClipDragRef = useRef(null);
   const suppressTimelineClipClickRef = useRef("");
+  const autoRatioSourceKeyRef = useRef("");
   const activeLanguage = uiLanguage || "zh";
   const t = useMemo(() => createTranslator(activeLanguage), [activeLanguage]);
-  const trOption = (name) => translateOptionName(activeLanguage, name);
+  const trOption = (name, option) => {
+    if (option?.kind === "stickerCategory") {
+      return activeLanguage !== "zh" && option.nameEn ? option.nameEn : name;
+    }
+
+    return activeLanguage !== "zh" && option?.nameEn ? option.nameEn : translateOptionName(activeLanguage, name);
+  };
   const shouldShowLanguageIntro = !uiLanguage;
 
   const selectedVoice = useMemo(
@@ -205,25 +260,40 @@ export function App() {
     [selectedStickerId],
   );
 
+  const getStickerDragAsset = (sticker) =>
+    sticker?.id && sticker.id !== "none"
+      ? {
+          ...sticker,
+          type: "sticker",
+          meta: "贴纸",
+          duration: DEFAULT_STICKER_SEGMENT_SECONDS,
+        }
+      : null;
+
   const segments = useMemo(() => captionSegments.map((segment) => segment.text), [captionSegments]);
   const captionTargetDuration = audioBlob ? audioDuration : 0;
   const captionTimeline = useMemo(
     () => getCaptionTimeline(captionSegments, captionTargetDuration),
     [captionSegments, captionTargetDuration],
   );
+  const captionDuration = captionTimeline.at(-1)?.end ?? 0;
   const visualTimeline = useMemo(() => getVisualSegmentTimeline(visualSegments), [visualSegments]);
+  const stickerDuration = useMemo(() => getTimedSegmentsEnd(stickerSegments), [stickerSegments]);
   const estimatedDuration = useMemo(
     () =>
       Math.max(
         audioBlob ? audioDuration : 0,
-        sourceAudioBlob ? sourceAudioDuration : 0,
+        captionDuration,
+        sourceAudioBlob ? sourceAudioStart + sourceAudioDuration : 0,
         musicBlob ? musicDuration : 0,
+        stickerDuration,
         estimateDuration(script),
         imageSrc ? imageDuration : 0,
       ),
     [
       audioBlob,
       audioDuration,
+      captionDuration,
       imageDuration,
       imageSrc,
       musicBlob,
@@ -231,13 +301,12 @@ export function App() {
       script,
       sourceAudioBlob,
       sourceAudioDuration,
+      sourceAudioStart,
+      stickerDuration,
     ],
   );
   const timelineDuration = useMemo(
-    () =>
-      estimatedDuration > 0
-        ? Math.min(MAX_TIMELINE_DURATION_SECONDS, Math.max(10, estimatedDuration))
-        : 0,
+    () => (estimatedDuration > 0 ? MAX_TIMELINE_DURATION_SECONDS : 0),
     [estimatedDuration],
   );
   timelineDurationRef.current = timelineDuration;
@@ -258,6 +327,19 @@ export function App() {
     captionSegments.find((segment) => segment.id === selectedSegmentId) ??
     currentCaptionSegment;
   const currentCaption = currentCaptionSegment && !currentCaptionSegment.hidden ? currentCaptionSegment.text : "";
+  const currentStickerSegmentIndex = getTimedSegmentIndexAtTime(stickerSegments, currentTime);
+  const currentStickerSegment =
+    currentStickerSegmentIndex >= 0 ? stickerSegments[currentStickerSegmentIndex] ?? null : null;
+  const selectedStickerSegmentIndex = Math.max(
+    0,
+    stickerSegments.findIndex((segment) => segment.id === selectedStickerSegmentId),
+  );
+  const previewSticker =
+    trackVisibility.sticker && currentStickerSegment
+      ? currentStickerSegment
+      : stickerSegments.length
+        ? STICKERS[0]
+        : selectedSticker;
   const currentVisualSegmentIndex = getVisualSegmentIndexAtTime(visualSegments, currentTime);
   const currentVisualSegment =
     currentVisualSegmentIndex >= 0 ? visualSegments[currentVisualSegmentIndex] ?? null : null;
@@ -300,10 +382,39 @@ export function App() {
         src: SAMPLE_IMAGE,
         name: "sample-portrait.png",
         meta: "1920 x 1080",
+        width: 1920,
+        height: 1080,
       },
     ],
     [],
   );
+
+  useEffect(() => {
+    setFitMode("contain");
+  }, [ratioId]);
+
+  useEffect(() => {
+    const ratioSource = visualSegments.find((segment) => segment.width > 0 && segment.height > 0);
+    if (!ratioSource) {
+      autoRatioSourceKeyRef.current = "";
+      return;
+    }
+
+    const sourceKey = `${ratioSource.assetId || ratioSource.id}:${ratioSource.width}x${ratioSource.height}`;
+    if (autoRatioSourceKeyRef.current === sourceKey) {
+      return;
+    }
+    autoRatioSourceKeyRef.current = sourceKey;
+
+    const nextRatioId = getNearestRatioIdForSize(ratioSource.width, ratioSource.height);
+    if (!nextRatioId || nextRatioId === ratioId) {
+      return;
+    }
+
+    const nextRatio = RATIO_OPTIONS.find((option) => option.id === nextRatioId);
+    setRatioId(nextRatioId);
+    notify(`已根据素材自动切换为 ${nextRatio?.label ?? nextRatioId}`);
+  }, [ratioId, visualSegments]);
 
   useEffect(() => {
     if (audioRef.current) {
@@ -317,6 +428,39 @@ export function App() {
       sourceAudioRef.current.volume = sourceAudioVolume;
     }
   }, [sourceAudioVolume, sourceAudioUrl]);
+
+  useEffect(() => {
+    const sourceAudio = sourceAudioRef.current;
+    if (!sourceAudio || !sourceAudioUrl) {
+      return;
+    }
+
+    const localTime = getTimelineTrackLocalTime(currentTime, sourceAudioStart, sourceAudioDuration);
+    if (Math.abs(sourceAudio.currentTime - localTime) > 0.22) {
+      sourceAudio.currentTime = localTime;
+    }
+
+    const shouldPlaySource =
+      isPlaying &&
+      trackVisibility.source &&
+      isTimelineTimeInsideTrack(currentTime, sourceAudioStart, sourceAudioDuration);
+
+    if (shouldPlaySource && sourceAudio.paused) {
+      sourceAudio.play().catch(() => {});
+      return;
+    }
+
+    if (!shouldPlaySource && !sourceAudio.paused) {
+      sourceAudio.pause();
+    }
+  }, [
+    currentTime,
+    isPlaying,
+    sourceAudioDuration,
+    sourceAudioStart,
+    sourceAudioUrl,
+    trackVisibility.source,
+  ]);
 
   useEffect(() => {
     if (musicRef.current) {
@@ -395,12 +539,26 @@ export function App() {
   }, [previewVisualLocalTime, previewVisualSrc, previewVisualType]);
 
   useEffect(() => {
-    if (!isPlaying || hasPlayableAudioTimeline || !hasPlayableVisualTimeline || imageDuration <= 0) {
+    const video = previewVideoRef.current;
+    if (!video || previewVisualType !== "video") {
+      return;
+    }
+
+    if (!isPlaying || !trackVisibility.image) {
+      video.pause();
+      return;
+    }
+
+    video.play().catch(() => {});
+  }, [isPlaying, previewVisualSrc, previewVisualType, trackVisibility.image]);
+
+  useEffect(() => {
+    if (!isPlaying || estimatedDuration <= 0) {
       return undefined;
     }
 
     const startTime =
-      currentTimeRef.current >= imageDuration - 0.02 ? 0 : Math.max(0, currentTimeRef.current);
+      currentTimeRef.current >= estimatedDuration - 0.02 ? 0 : Math.max(0, currentTimeRef.current);
     if (startTime !== currentTimeRef.current) {
       setCurrentTime(startTime);
       currentTimeRef.current = startTime;
@@ -408,18 +566,22 @@ export function App() {
 
     visualPlaybackStartTimeRef.current = startTime;
     visualPlaybackStartedAtRef.current = performance.now();
+    visualPlaybackLastUpdateRef.current = 0;
 
     const tick = (now) => {
       const elapsedSeconds = (now - visualPlaybackStartedAtRef.current) / 1000;
       const nextTime = Math.min(
-        imageDuration,
+        estimatedDuration,
         visualPlaybackStartTimeRef.current + elapsedSeconds,
       );
       currentTimeRef.current = nextTime;
-      setCurrentTime(nextTime);
+      if (now - visualPlaybackLastUpdateRef.current > PLAYBACK_UI_FRAME_MS || nextTime >= estimatedDuration) {
+        visualPlaybackLastUpdateRef.current = now;
+        setCurrentTime(nextTime);
+      }
 
-      if (nextTime >= imageDuration) {
-        previewVideoRef.current?.pause();
+      if (nextTime >= estimatedDuration) {
+        pauseTimelineMedia();
         setIsPlaying(false);
         visualPlaybackFrameRef.current = 0;
         return;
@@ -436,7 +598,7 @@ export function App() {
         visualPlaybackFrameRef.current = 0;
       }
     };
-  }, [hasPlayableAudioTimeline, hasPlayableVisualTimeline, imageDuration, isPlaying]);
+  }, [estimatedDuration, isPlaying]);
 
   useEffect(() => {
     setCurrentTime((time) => {
@@ -445,14 +607,18 @@ export function App() {
         audioRef.current.currentTime = clamped;
       }
       if (sourceAudioRef.current && clamped !== time) {
-        sourceAudioRef.current.currentTime = clamped;
+        sourceAudioRef.current.currentTime = getTimelineTrackLocalTime(
+          clamped,
+          sourceAudioStart,
+          sourceAudioDuration,
+        );
       }
       if (musicRef.current && clamped !== time) {
         musicRef.current.currentTime = clamped;
       }
       return clamped;
     });
-  }, [estimatedDuration]);
+  }, [estimatedDuration, sourceAudioDuration, sourceAudioStart]);
 
   useEffect(() => {
     if (!captionSegments.length) {
@@ -480,7 +646,7 @@ export function App() {
     if (currentVisualSegment?.src) {
       setCurrentVisualAsset(currentVisualSegment);
     }
-  }, [currentVisualSegment?.id]);
+  }, [currentVisualSegment]);
 
   useEffect(() => {
     const handleKeyDown = (event) => {
@@ -535,6 +701,7 @@ export function App() {
     musicVolume,
     sourceAudioName,
     sourceAudioDuration,
+    sourceAudioStart,
     sourceAudioVolume,
     ratioId,
     fitMode,
@@ -573,7 +740,11 @@ export function App() {
   function selectTool(toolId) {
     setActiveTool(toolId);
     if (toolId === "audio") {
+      setSelectedTrack("audio");
       setVoiceTab("synthesis");
+    }
+    if (toolId === "caption") {
+      setSelectedTrack("caption");
     }
   }
 
@@ -974,18 +1145,27 @@ export function App() {
     notify(message);
   }
 
-  function replaceSourceAudio(blob, duration, nextPeaks, nextName, message = "视频原声已分离到时间线") {
+  function replaceSourceAudio(
+    blob,
+    duration,
+    nextPeaks,
+    nextName,
+    message = "视频原声已分离到时间线",
+    timelineStart = 0,
+  ) {
     if (sourceAudioUrlRef.current) {
       URL.revokeObjectURL(sourceAudioUrlRef.current);
     }
     const nextUrl = URL.createObjectURL(blob);
     sourceAudioUrlRef.current = nextUrl;
+    const nextStart = Math.max(0, Math.min(MAX_TIMELINE_DURATION_SECONDS, timelineStart || 0));
     setSourceAudioBlob(blob);
     setSourceAudioUrl(nextUrl);
     setSourceAudioName(nextName);
     setSourceAudioDuration(duration || 0);
     setSourceAudioPeaks(nextPeaks);
     setSourceAudioVolume(1);
+    setSourceAudioStart(nextStart);
     setSelectedTrack("source");
     setActiveTool("audio");
     setStatus("done");
@@ -1007,11 +1187,13 @@ export function App() {
     setSourceAudioName("");
     setSourceAudioDuration(0);
     setSourceAudioPeaks([]);
+    setSourceAudioStart(0);
     setCurrentTime((time) =>
       Math.min(
         time,
         Math.max(
           audioBlob ? audioDuration : 0,
+          captionDuration,
           musicBlob ? musicDuration : 0,
           imageSrc ? imageDuration : 0,
           estimateDuration(script),
@@ -1043,7 +1225,8 @@ export function App() {
         time,
         Math.max(
           audioBlob ? audioDuration : 0,
-          sourceAudioBlob ? sourceAudioDuration : 0,
+          captionDuration,
+          sourceAudioBlob ? sourceAudioStart + sourceAudioDuration : 0,
           imageSrc ? imageDuration : 0,
           estimateDuration(script),
         ),
@@ -1074,6 +1257,9 @@ export function App() {
       name: previewVisualSegment?.name || imageName,
       meta: previewVisualSegment?.meta || imageMeta,
       blob: previewVisualSegment?.blob || null,
+      width: previewVisualSegment?.width || 0,
+      height: previewVisualSegment?.height || 0,
+      trackFrames: previewVisualSegment?.trackFrames || [],
     };
   }
 
@@ -1110,12 +1296,13 @@ export function App() {
     if (selectedSegment?.src) {
       setCurrentVisualAsset(selectedSegment);
     }
-    setCurrentTime((time) => Math.min(time, Math.max(nextDuration, estimateDuration(script))));
+    setCurrentTime((time) => Math.min(time, Math.max(nextDuration, captionDuration, estimateDuration(script))));
     notify(message);
   }
 
   function replaceVisualTimeline(asset, duration = getVisualDurationForAsset(asset)) {
     const segment = createVisualSegment(duration, asset);
+    setFitMode("contain");
     setCurrentVisualAsset(asset);
     setVisualSegments([segment]);
     setSelectedVisualSegmentId(segment.id);
@@ -1143,6 +1330,7 @@ export function App() {
 
     const segmentDuration = Math.min(getVisualDurationForAsset(asset), availableDuration);
     const nextSegment = createVisualSegment(segmentDuration, asset);
+    setFitMode("contain");
     setCurrentVisualAsset(asset);
     commitVisualSegments(
       [...sourceSegments, nextSegment],
@@ -1151,8 +1339,63 @@ export function App() {
     );
     seekTo(totalDuration);
     if (asset.type === "video") {
-      extractVideoSourceAudio(asset);
+      extractVideoSourceAudio(asset, totalDuration);
     }
+  }
+
+  function getTimelineTimeFromDropPercent(percent = 0) {
+    const safePercent = Math.max(0, Math.min(100, Number.isFinite(percent) ? percent : 0));
+    const duration = timelineDurationRef.current || Math.max(estimatedDuration, 10);
+    return Math.max(0, Math.min(MAX_TIMELINE_DURATION_SECONDS, (safePercent / 100) * duration));
+  }
+
+  function commitStickerSegments(nextSegments, message, selectedId = "") {
+    const normalizedSegments = nextSegments
+      .filter((segment) => segment?.src && segment.duration > 0.05)
+      .map((segment) => {
+        const duration = Math.max(
+          MIN_VISUAL_SEGMENT_SECONDS,
+          Math.min(MAX_TIMELINE_DURATION_SECONDS, segment.duration),
+        );
+        return {
+          ...segment,
+          duration,
+          start: Math.max(0, Math.min(MAX_TIMELINE_DURATION_SECONDS - duration, segment.start || 0)),
+        };
+      });
+
+    setStickerSegments(normalizedSegments);
+    setSelectedTrack("sticker");
+    setActiveTool("stickers");
+    const selectedSegment =
+      normalizedSegments.find((segment) => segment.id === selectedId) ??
+      normalizedSegments[Math.max(0, normalizedSegments.length - 1)] ??
+      null;
+    setSelectedStickerSegmentId(selectedSegment?.id ?? "");
+    if (selectedSegment?.stickerId) {
+      setSelectedStickerId(selectedSegment.stickerId);
+    }
+    notify(message);
+  }
+
+  function addStickerAssetToTimeline(asset, options = {}) {
+    if (trackLocks.sticker) {
+      notify("贴纸轨已锁定，无法添加贴纸");
+      return;
+    }
+
+    if (!asset?.src) {
+      notify("当前贴纸素材不可用");
+      return;
+    }
+
+    const startTime = Math.min(
+      MAX_TIMELINE_DURATION_SECONDS - DEFAULT_STICKER_SEGMENT_SECONDS,
+      getTimelineTimeFromDropPercent(options.percent ?? 0),
+    );
+    const nextSegment = createStickerSegment(asset, startTime, DEFAULT_STICKER_SEGMENT_SECONDS);
+    commitStickerSegments([...stickerSegments, nextSegment], "贴纸已添加到贴纸轨", nextSegment.id);
+    seekTo(startTime);
   }
 
   function updateVisualAssetInTimeline(assetId, updates) {
@@ -1189,7 +1432,8 @@ export function App() {
   function clearImageTrack(message = "图片素材已从时间线移除") {
     const remainingDuration = Math.max(
       audioBlob ? audioDuration : 0,
-      sourceAudioBlob ? sourceAudioDuration : 0,
+      captionDuration,
+      sourceAudioBlob ? sourceAudioStart + sourceAudioDuration : 0,
       musicBlob ? musicDuration : 0,
       estimateDuration(script),
     );
@@ -1354,8 +1598,20 @@ export function App() {
   }
 
   async function generateVoiceover() {
-    const text = script.trim();
-    if (!text || status === "generating") {
+    const rawText = script.trim();
+    if (!rawText || status === "generating" || status === "captioning") {
+      return;
+    }
+
+    let preparedText;
+    try {
+      preparedText = prepareTextForVoice(rawText, selectedVoice);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "当前文案不适合所选语音";
+      setStatus("error");
+      setStatusText(message);
+      setProgress(0);
+      notify(message);
       return;
     }
 
@@ -1363,25 +1619,42 @@ export function App() {
     setStatus("generating");
     setStatusText("准备本地模型");
     setProgress(6);
+    if (preparedText.warning) {
+      notify(preparedText.warning);
+    }
 
     try {
       let blob;
 
       if (selectedVoice.engine === "piper") {
         const tts = await import("@diffusionstudio/vits-web");
+        const cacheWasCleared = await clearPiperCacheIfStorageTight(tts);
+        if (cacheWasCleared) {
+          notify("浏览器模型缓存空间紧张，已清理 Piper 缓存后继续生成。");
+        }
         setStatusText("下载或读取中文 ONNX 模型");
-        blob = await tts.predict(
-          {
-            text,
-            voiceId: selectedVoice.id,
-          },
-          (event) => {
-            if (event?.total) {
-              const nextProgress = Math.round((event.loaded / event.total) * 76);
-              setProgress(Math.min(88, Math.max(12, nextProgress)));
-            }
-          },
-        );
+        const progressCallback = (event) => {
+          if (event?.total) {
+            const nextProgress = Math.round((event.loaded / event.total) * 76);
+            setProgress((currentProgress) => Math.max(currentProgress, Math.min(88, Math.max(12, nextProgress))));
+          }
+        };
+        const piperInput = {
+          text: preparedText.text,
+          voiceId: selectedVoice.id,
+        };
+
+        try {
+          blob = await tts.predict(piperInput, progressCallback);
+        } catch (error) {
+          if (!isStorageQuotaError(error)) {
+            throw error;
+          }
+
+          setStatusText("模型缓存空间不足，正在清理后重试");
+          await tts.flush?.();
+          blob = await tts.predict(piperInput, progressCallback);
+        }
       } else {
         const { KokoroTTS } = await import("kokoro-js");
         setStatusText("加载 Kokoro 82M q8");
@@ -1390,12 +1663,14 @@ export function App() {
           device: "wasm",
           progress_callback: (event) => {
             if (event?.progress) {
-              setProgress(Math.min(86, Math.max(10, Math.round(event.progress))));
+              setProgress((currentProgress) =>
+                Math.max(currentProgress, Math.min(86, Math.max(10, Math.round(event.progress)))),
+              );
             }
           },
         });
         setStatusText("生成英文配音");
-        const audio = await tts.generate(text, {
+        const audio = await tts.generate(preparedText.text, {
           voice: selectedVoice.id,
           speed,
         });
@@ -1407,13 +1682,77 @@ export function App() {
       notify("配音已生成并写入时间线");
     } catch (error) {
       console.error(error);
+      const message =
+        error instanceof TtsInputError
+          ? error.message
+          : selectedVoice.engine === "piper" && isPiperSymbolError(error)
+            ? "当前中文语音模型不支持这段文案里的部分字符，请清理英文/特殊符号，或切换 English 声音。"
+            : isStorageQuotaError(error)
+              ? "浏览器模型缓存空间不足，请在设置里清理模型缓存后重试。"
+              : error instanceof Error
+                ? error.message
+                : "生成失败，请重试";
       setStatus("error");
-      setStatusText(error instanceof Error ? error.message : "生成失败，请重试");
+      setStatusText(message);
       setProgress(0);
+      notify(message);
     }
   }
 
-  async function extractVideoSourceAudio(asset) {
+  async function generateCaptionsFromSourceAudio() {
+    if (status === "generating" || status === "captioning") {
+      return;
+    }
+
+    if (trackLocks.caption) {
+      notify("字幕轨已锁定，无法生成自动字幕");
+      return;
+    }
+
+    if (!sourceAudioBlob) {
+      notify("请先上传视频或把音频拖到原声轨");
+      return;
+    }
+
+    setStatus("captioning");
+    setStatusText("准备自动字幕模型");
+    setProgress(4);
+    setActiveTool("audio");
+
+    try {
+      const result = await transcribeAudioToCaptionSegments(sourceAudioBlob, {
+        preferredLanguage: uiLanguage,
+        timelineOffset: sourceAudioStart,
+        onProgress: ({ progress: nextProgress, phase }) => {
+          setProgress((currentProgress) => Math.max(currentProgress, nextProgress));
+          setStatusText(phase);
+        },
+      });
+
+      pushScriptHistory(script);
+      setRedoStack([]);
+      setCaptionSegments(result.segments);
+      setScript(result.text);
+      setSelectedSegmentId(result.segments[0]?.id ?? "");
+      setSelectedTrack("caption");
+      setActiveTool("caption");
+      setCaptionsEnabled(true);
+      setTrackVisibility((visibility) => ({ ...visibility, caption: true }));
+      setStatus("done");
+      setStatusText(`已生成 ${result.segments.length} 条自动字幕`);
+      setProgress(100);
+      seekTo(result.segments[0]?.start ?? 0);
+      notify(`已生成 ${result.segments.length} 条自动字幕`);
+    } catch (error) {
+      console.error(error);
+      setStatus("error");
+      setStatusText(error instanceof Error ? error.message : "自动字幕生成失败");
+      setProgress(0);
+      notify("自动字幕生成失败，请换一段有清晰人声的音频试试");
+    }
+  }
+
+  async function extractVideoSourceAudio(asset, timelineStart = 0) {
     if (!asset?.blob) {
       clearSourceAudioTrack(null);
       notify("当前视频素材缺少原文件，无法分离原声");
@@ -1439,6 +1778,8 @@ export function App() {
         decoded.duration,
         decoded.peaks,
         `${asset.name.replace(/\.[^.]+$/, "")} 原声.wav`,
+        "视频原声已分离到时间线",
+        timelineStart,
       );
     } catch (error) {
       console.warn(error);
@@ -1455,7 +1796,12 @@ export function App() {
       return null;
     }
 
-    return [...userAssets, ...builtInAssets].find((asset) => asset.id === assetId) ?? null;
+    const mediaAsset = [...userAssets, ...builtInAssets].find((asset) => asset.id === assetId);
+    if (mediaAsset) {
+      return mediaAsset;
+    }
+
+    return getStickerDragAsset(STICKERS.find((sticker) => sticker.id === assetId));
   }
 
   function getDraggedAsset(event) {
@@ -1467,6 +1813,16 @@ export function App() {
     return findAssetById(assetId);
   }
 
+  function getActiveDraggedAsset() {
+    return findAssetById(draggedAssetIdRef.current || draggedAssetId);
+  }
+
+  function getTimelineDropPercent(clientX, rect) {
+    return rect?.width
+      ? Math.max(8, Math.min(92, ((clientX - rect.left) / rect.width) * 100))
+      : 50;
+  }
+
   function canDropAssetOnTrack(asset, track) {
     if (!asset || trackLocks[track]) {
       return false;
@@ -1474,6 +1830,10 @@ export function App() {
 
     if (track === "image") {
       return asset.type === "image" || asset.type === "video";
+    }
+
+    if (track === "sticker") {
+      return asset.type === "sticker";
     }
 
     if (track === "audio" || track === "music") {
@@ -1509,16 +1869,20 @@ export function App() {
       return { track: "", percent: 50 };
     }
 
+    const activeDraggedAsset = getActiveDraggedAsset();
+    const timelineElement = elementAtPoint.closest(".track-scroll, .tracks");
+    if (activeDraggedAsset?.type === "sticker" && timelineElement instanceof HTMLElement) {
+      const rect = trackScrollRef.current?.getBoundingClientRect() ?? timelineElement.getBoundingClientRect();
+      return { track: "sticker", percent: getTimelineDropPercent(clientX, rect) };
+    }
+
     const trackElement = elementAtPoint.closest("[data-asset-drop-track]");
     const track = trackElement?.dataset.assetDropTrack ?? "";
     if (!track || !(trackElement instanceof HTMLElement)) {
       return { track, percent: 50 };
     }
 
-    const rect = trackElement.getBoundingClientRect();
-    const percent = rect.width
-      ? Math.max(8, Math.min(92, ((clientX - rect.left) / rect.width) * 100))
-      : 50;
+    const percent = getTimelineDropPercent(clientX, trackElement.getBoundingClientRect());
     return { track, percent };
   }
 
@@ -1583,11 +1947,13 @@ export function App() {
 
       const dropInfo = getDropTrackInfoFromPoint(moveEvent.clientX, moveEvent.clientY);
       const draggedAsset = findAssetById(dragState.assetId);
-      const nextTargetTrack = canDropAssetOnTrack(draggedAsset, dropInfo.track) ? dropInfo.track : "";
-      setAssetDropTargetTrack(nextTargetTrack);
+      const nextTargetTrack =
+        draggedAsset?.type === "sticker" && dropInfo.track ? "sticker" : dropInfo.track;
+      const acceptedTargetTrack = canDropAssetOnTrack(draggedAsset, nextTargetTrack) ? nextTargetTrack : "";
+      setAssetDropTargetTrack(acceptedTargetTrack);
       setAssetDropPosition(
-        nextTargetTrack
-          ? { track: nextTargetTrack, percent: dropInfo.percent }
+        acceptedTargetTrack
+          ? { track: acceptedTargetTrack, percent: dropInfo.percent }
           : { track: "", percent: 50 },
       );
       setAssetDragPreview({
@@ -1618,6 +1984,7 @@ export function App() {
 
     const handlePointerUp = (upEvent) => {
       const dragState = pointerAssetDragRef.current;
+      const dropInfo = getDropTrackInfoFromPoint(upEvent.clientX, upEvent.clientY);
       cleanupPointerDrag();
 
       if (!dragState?.dragging) {
@@ -1631,11 +1998,11 @@ export function App() {
         }
       }, 300);
 
-      const dropTrack = getDropTrackFromPoint(upEvent.clientX, upEvent.clientY);
       const draggedAsset = findAssetById(dragState.assetId);
+      const dropTrack = draggedAsset?.type === "sticker" && dropInfo.track ? "sticker" : dropInfo.track;
       if (canDropAssetOnTrack(draggedAsset, dropTrack)) {
         triggerAssetDropPulse(dropTrack);
-        void applyAssetToTrack(draggedAsset, dropTrack);
+        void applyAssetToTrack(draggedAsset, dropTrack, { percent: dropInfo.percent });
       }
     };
 
@@ -1656,10 +2023,24 @@ export function App() {
     notify("素材已选中，请拖到对应轨道使用");
   }
 
+  function handleStickerClick(event, sticker) {
+    if (suppressAssetClickRef.current === sticker.id) {
+      suppressAssetClickRef.current = "";
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+
+    setSelectedStickerId(sticker.id);
+    setSelectedStickerSegmentId("");
+    notify(t("stickerApplied"));
+  }
+
   function handleTrackAssetDragOver(event, track) {
     const asset = getDraggedAsset(event);
-    if (!canDropAssetOnTrack(asset, track)) {
-      if (assetDropTargetTrack === track) {
+    const targetTrack = asset?.type === "sticker" ? "sticker" : track;
+    if (!canDropAssetOnTrack(asset, targetTrack)) {
+      if (assetDropTargetTrack === targetTrack) {
         setAssetDropTargetTrack("");
         setAssetDropPosition({ track: "", percent: 50 });
       }
@@ -1668,14 +2049,15 @@ export function App() {
 
     event.preventDefault();
     event.dataTransfer.dropEffect = "copy";
-    const rect = event.currentTarget.getBoundingClientRect();
-    const percent = rect.width
-      ? Math.max(8, Math.min(92, ((event.clientX - rect.left) / rect.width) * 100))
-      : 50;
-    if (assetDropTargetTrack !== track) {
-      setAssetDropTargetTrack(track);
+    const rect =
+      targetTrack === "sticker"
+        ? trackScrollRef.current?.getBoundingClientRect() ?? event.currentTarget.getBoundingClientRect()
+        : event.currentTarget.getBoundingClientRect();
+    const percent = getTimelineDropPercent(event.clientX, rect);
+    if (assetDropTargetTrack !== targetTrack) {
+      setAssetDropTargetTrack(targetTrack);
     }
-    setAssetDropPosition({ track, percent });
+    setAssetDropPosition({ track: targetTrack, percent });
   }
 
   function handleTrackAssetDragLeave(event, track) {
@@ -1684,19 +2066,25 @@ export function App() {
       return;
     }
 
-    setAssetDropTargetTrack((currentTrack) => (currentTrack === track ? "" : currentTrack));
+    const targetTrack = getActiveDraggedAsset()?.type === "sticker" ? "sticker" : track;
+    setAssetDropTargetTrack((currentTrack) => (currentTrack === targetTrack ? "" : currentTrack));
     setAssetDropPosition((currentPosition) =>
-      currentPosition.track === track ? { track: "", percent: 50 } : currentPosition,
+      currentPosition.track === targetTrack ? { track: "", percent: 50 } : currentPosition,
     );
   }
 
-  async function applyAssetToTrack(asset, track) {
+  async function applyAssetToTrack(asset, track, options = {}) {
     if (!canDropAssetOnTrack(asset, track)) {
       notify("请把素材拖到匹配的轨道");
       return;
     }
 
     setSelectedLibraryAssetId(asset.id);
+
+    if (track === "sticker") {
+      addStickerAssetToTimeline(asset, options);
+      return;
+    }
 
     if (track === "image") {
       appendVisualAssetToTimeline(asset);
@@ -1733,18 +2121,24 @@ export function App() {
 
   function handleTrackAssetDrop(event, track) {
     const asset = getDraggedAsset(event);
-    if (!canDropAssetOnTrack(asset, track)) {
+    const targetTrack = asset?.type === "sticker" ? "sticker" : track;
+    if (!canDropAssetOnTrack(asset, targetTrack)) {
       return;
     }
 
     event.preventDefault();
     event.stopPropagation();
+    const rect =
+      targetTrack === "sticker"
+        ? trackScrollRef.current?.getBoundingClientRect() ?? event.currentTarget.getBoundingClientRect()
+        : event.currentTarget.getBoundingClientRect();
+    const percent = getTimelineDropPercent(event.clientX, rect);
     draggedAssetIdRef.current = "";
     setDraggedAssetId("");
     setAssetDropTargetTrack("");
     setAssetDropPosition({ track: "", percent: 50 });
-    triggerAssetDropPulse(track);
-    void applyAssetToTrack(asset, track);
+    triggerAssetDropPulse(targetTrack);
+    void applyAssetToTrack(asset, targetTrack, { percent });
   }
 
   async function selectAsset(asset) {
@@ -1827,6 +2221,9 @@ export function App() {
         meta: "读取中",
         blob: file,
         duration: type === "video" ? 0 : 4,
+        width: 0,
+        height: 0,
+        trackFrames: [],
       };
     });
 
@@ -1863,12 +2260,32 @@ export function App() {
             MAX_TIMELINE_DURATION_SECONDS,
             Math.max(0.5, video.duration || 1),
           );
-          const meta = `${video.videoWidth || "?"} x ${video.videoHeight || "?"} · ${formatClock(duration)}`;
+          const width = video.videoWidth || 0;
+          const height = video.videoHeight || 0;
+          const meta = `${width || "?"} x ${height || "?"} · ${formatClock(duration)}`;
+          const updates = { meta, duration, width, height, type: "video" };
           setUserAssets((assets) =>
             assets.map((item) =>
-              item.id === asset.id ? { ...item, meta, duration } : item,
+              item.id === asset.id ? { ...item, ...updates } : item,
             ),
           );
+          updateVisualAssetInTimeline(asset.id, updates);
+          extractVideoTrackFrames(asset.src, { duration, width, height })
+            .then((trackFrames) => {
+              if (!trackFrames.length) {
+                return;
+              }
+              const frameUpdates = { trackFrames };
+              setUserAssets((assets) =>
+                assets.map((item) =>
+                  item.id === asset.id ? { ...item, ...frameUpdates } : item,
+                ),
+              );
+              updateVisualAssetInTimeline(asset.id, frameUpdates);
+            })
+            .catch((error) => {
+              console.warn("Video timeline frame extraction failed", error);
+            });
         };
         video.onerror = () => {
           setUserAssets((assets) =>
@@ -1881,10 +2298,14 @@ export function App() {
 
       const image = new Image();
       image.onload = () => {
-        const meta = `${image.naturalWidth} x ${image.naturalHeight}`;
+        const width = image.naturalWidth || 0;
+        const height = image.naturalHeight || 0;
+        const meta = `${width} x ${height}`;
+        const updates = { meta, width, height, type: "image" };
         setUserAssets((assets) =>
-          assets.map((item) => (item.id === asset.id ? { ...item, meta } : item)),
+          assets.map((item) => (item.id === asset.id ? { ...item, ...updates } : item)),
         );
+        updateVisualAssetInTimeline(asset.id, updates);
       };
       image.onerror = () => {
         setUserAssets((assets) =>
@@ -1901,89 +2322,101 @@ export function App() {
     );
   }
 
+  function pauseTimelineMedia() {
+    audioRef.current?.pause();
+    sourceAudioRef.current?.pause();
+    musicRef.current?.pause();
+    previewVideoRef.current?.pause();
+  }
+
   function handlePlayToggle() {
     const previewVideo = previewVideoRef.current;
     const voiceAudio = trackVisibility.audio ? audioRef.current : null;
     const sourceAudio = trackVisibility.source ? sourceAudioRef.current : null;
     const musicAudio = trackVisibility.music ? musicRef.current : null;
-    const sourceReady = sourceAudio && sourceAudioUrl;
-    const musicReady = musicAudio && musicUrl;
-    const secondaryAudios = [sourceReady ? sourceAudio : null, musicReady ? musicAudio : null].filter(Boolean);
-    const syncMediaTime = (media) => {
-      media.currentTime = Math.min(currentTime, media.duration || currentTime);
+    const currentTimelineTime = currentTimeRef.current;
+    const syncVoiceAudioTime = () => {
+      if (!voiceAudio || !audioUrl) {
+        return false;
+      }
+      const timelineTime = currentTimeRef.current;
+      voiceAudio.currentTime = Math.max(0, Math.min(audioDuration || timelineTime, timelineTime));
+      return timelineTime <= (audioDuration || timelineTime);
     };
-    const syncPreviewVideoTime = (media) => {
-      media.currentTime = Math.min(previewVisualLocalTime, media.duration || previewVisualLocalTime);
+    const syncSourceAudioTime = () => {
+      if (!sourceAudio || !sourceAudioUrl) {
+        return false;
+      }
+      const timelineTime = currentTimeRef.current;
+      const localTime = getTimelineTrackLocalTime(timelineTime, sourceAudioStart, sourceAudioDuration);
+      sourceAudio.currentTime = localTime;
+      return isTimelineTimeInsideTrack(timelineTime, sourceAudioStart, sourceAudioDuration);
     };
-    const playPreviewVideo = () => {
-      if (previewVisualType === "video" && previewVideo) {
-        syncPreviewVideoTime(previewVideo);
-        previewVideo.play().catch(() => {});
+    const syncMusicTime = () => {
+      if (!musicAudio || !musicUrl) {
+        return false;
+      }
+      const timelineTime = currentTimeRef.current;
+      musicAudio.currentTime = Math.max(0, Math.min(musicDuration || timelineTime, timelineTime));
+      return timelineTime <= (musicDuration || timelineTime);
+    };
+    const syncPreviewVideoTime = () => {
+      if (previewVisualType !== "video" || !previewVideo) {
+        return false;
+      }
+      const timelineTime = currentTimeRef.current;
+      const visualIndex = getVisualSegmentIndexAtTime(visualSegments, timelineTime);
+      const visualRange = visualTimeline[Math.max(0, visualIndex)] ?? currentVisualRange;
+      const localTime = visualRange ? Math.max(0, timelineTime - visualRange.start) : timelineTime;
+      previewVideo.currentTime = Math.min(localTime, previewVideo.duration || localTime);
+      return true;
+    };
+    const playIfReady = (media, ready) => {
+      if (ready) {
+        media?.play().catch(() => {});
+      } else {
+        media?.pause();
       }
     };
-    const pausePreviewAndAudio = () => {
-      secondaryAudios.forEach((audio) => audio.pause());
-      previewVideo?.pause();
-    };
 
-    if (!voiceAudio || !audioUrl) {
-      const masterAudio = sourceReady ? sourceAudio : musicReady ? musicAudio : null;
+    if (isPlaying) {
+      pauseTimelineMedia();
+      setIsPlaying(false);
+      return;
+    }
 
-      if (masterAudio) {
-        if (masterAudio.paused) {
-          playPreviewVideo();
-          secondaryAudios.forEach((audio) => {
-            syncMediaTime(audio);
-            audio.play().catch(() => {});
-          });
-        } else {
-          pausePreviewAndAudio();
-        }
-        return;
-      }
-
-      if (previewVisualType === "video" && previewVideo) {
-        if (previewVideo.paused) {
-          playPreviewVideo();
-        } else {
-          previewVideo.pause();
-        }
-        return;
-      }
-
-      if (hasPlayableVisualTimeline) {
-        if (isPlaying) {
-          setIsPlaying(false);
-          pausePreviewAndAudio();
-        } else {
-          if (currentTimeRef.current >= imageDuration - 0.02) {
-            seekTo(0);
-            currentTimeRef.current = 0;
-          }
-          setIsPlaying(true);
-        }
-        return;
-      }
-
+    if (!canPreview) {
       notify("请先上传图片/视频素材、生成配音或上传背景音乐");
       return;
     }
 
-    if (voiceAudio.paused) {
-      if (currentTimeRef.current >= estimatedDuration - 0.02) {
-        seekTo(0);
-      }
-      syncMediaTime(voiceAudio);
-      playPreviewVideo();
-      secondaryAudios.forEach((audio) => {
-        syncMediaTime(audio);
-        audio.play().catch(() => {});
-      });
-      voiceAudio.play();
-    } else {
-      voiceAudio.pause();
-      pausePreviewAndAudio();
+    if (currentTimelineTime >= estimatedDuration - 0.02) {
+      seekTo(0);
+      currentTimeRef.current = 0;
     }
+
+    const nextTime = currentTimeRef.current;
+    if (nextTime !== currentTimelineTime) {
+      if (voiceAudio && audioUrl) {
+        voiceAudio.currentTime = 0;
+      }
+      if (sourceAudio && sourceAudioUrl) {
+        const localTime = getTimelineTrackLocalTime(nextTime, sourceAudioStart, sourceAudioDuration);
+        sourceAudio.currentTime = localTime;
+      }
+      if (musicAudio && musicUrl) {
+        musicAudio.currentTime = 0;
+      }
+      if (previewVideo && previewVisualType === "video") {
+        previewVideo.currentTime = 0;
+      }
+    }
+
+    playIfReady(voiceAudio, syncVoiceAudioTime());
+    playIfReady(sourceAudio, syncSourceAudioTime());
+    playIfReady(musicAudio, syncMusicTime());
+    playIfReady(previewVideo, syncPreviewVideoTime());
+    setIsPlaying(true);
   }
 
   function seekTo(nextTime) {
@@ -1994,7 +2427,11 @@ export function App() {
       audioRef.current.currentTime = clamped;
     }
     if (sourceAudioRef.current) {
-      sourceAudioRef.current.currentTime = clamped;
+      sourceAudioRef.current.currentTime = getTimelineTrackLocalTime(
+        clamped,
+        sourceAudioStart,
+        sourceAudioDuration,
+      );
     }
     if (musicRef.current) {
       musicRef.current.currentTime = clamped;
@@ -2030,6 +2467,97 @@ export function App() {
 
     window.addEventListener("pointermove", handlePointerMove);
     window.addEventListener("pointerup", handlePointerUp, { once: true });
+  }
+
+  function startStickerSegmentMove(event, segmentId = "") {
+    if (event.button !== 0) {
+      return;
+    }
+
+    const segment = stickerSegments.find((item) => item.id === segmentId);
+    if (!segment) {
+      return;
+    }
+
+    if (trackLocks.sticker) {
+      notify("贴纸轨已锁定，无法移动贴纸");
+      return;
+    }
+
+    const rect = trackScrollRef.current?.getBoundingClientRect();
+    const duration = timelineDurationRef.current || Math.max(estimatedDuration, segment.start + segment.duration, 10);
+    if (!rect || duration <= 0) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    setSelectedTrack("sticker");
+    setActiveTool("stickers");
+    setSelectedStickerSegmentId(segment.id);
+    if (segment.stickerId) {
+      setSelectedStickerId(segment.stickerId);
+    }
+
+    const startX = event.clientX;
+    const startY = event.clientY;
+    const startTime = segment.start || 0;
+    const segmentDuration = Math.max(MIN_VISUAL_SEGMENT_SECONDS, segment.duration || DEFAULT_STICKER_SEGMENT_SECONDS);
+    let moved = false;
+    let latestStart = startTime;
+
+    const getNextStart = (clientX) => {
+      const deltaSeconds = ((clientX - startX) / Math.max(rect.width, 1)) * duration;
+      return Math.max(0, Math.min(MAX_TIMELINE_DURATION_SECONDS - segmentDuration, startTime + deltaSeconds));
+    };
+
+    const applyNextStart = (clientX) => {
+      latestStart = getNextStart(clientX);
+      setStickerSegments((segments) =>
+        segments.map((item) => (item.id === segment.id ? { ...item, start: latestStart } : item)),
+      );
+    };
+
+    const cleanup = () => {
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+      window.removeEventListener("pointercancel", handlePointerCancel);
+    };
+
+    const handlePointerMove = (moveEvent) => {
+      const distance = Math.hypot(moveEvent.clientX - startX, moveEvent.clientY - startY);
+      if (!moved && distance < 4) {
+        return;
+      }
+
+      moved = true;
+      moveEvent.preventDefault();
+      applyNextStart(moveEvent.clientX);
+    };
+
+    const handlePointerUp = () => {
+      cleanup();
+      if (!moved) {
+        return;
+      }
+
+      suppressTimelineClipClickRef.current = segment.id;
+      window.setTimeout(() => {
+        if (suppressTimelineClipClickRef.current === segment.id) {
+          suppressTimelineClipClickRef.current = "";
+        }
+      }, 160);
+      seekTo(latestStart);
+      notify("贴纸片段位置已调整");
+    };
+
+    const handlePointerCancel = () => {
+      cleanup();
+    };
+
+    window.addEventListener("pointermove", handlePointerMove, { passive: false });
+    window.addEventListener("pointerup", handlePointerUp);
+    window.addEventListener("pointercancel", handlePointerCancel);
   }
 
   function startImageResize(event, segmentId = "", segmentIndex = -1) {
@@ -2094,7 +2622,7 @@ export function App() {
     const sourceSnapPoint =
       sourceAudioBlob && sourceAudioDuration > 0
         ? {
-            time: Math.min(MAX_TIMELINE_DURATION_SECONDS, sourceAudioDuration),
+            time: Math.min(MAX_TIMELINE_DURATION_SECONDS, sourceAudioStart + sourceAudioDuration),
             label: "原声结尾",
           }
         : null;
@@ -2148,7 +2676,8 @@ export function App() {
       const nextVisualDuration = getVisualSegmentsTotal(nextSegments);
       const nextProjectDuration = Math.max(
         audioBlob ? audioDuration : 0,
-        sourceAudioBlob ? sourceAudioDuration : 0,
+        captionDuration,
+        sourceAudioBlob ? sourceAudioStart + sourceAudioDuration : 0,
         musicBlob ? musicDuration : 0,
         estimateDuration(script),
         nextVisualDuration,
@@ -2231,14 +2760,17 @@ export function App() {
         voiceVolume: volume,
         sourceAudioBlob: trackVisibility.source ? sourceAudioBlob : null,
         sourceAudioVolume,
+        sourceAudioStart,
         musicBlob: trackVisibility.music ? musicBlob : null,
         musicVolume,
         text: script,
         captionSegments,
         duration: Math.max(
           trackVisibility.audio && audioBlob ? audioDuration : 0,
-          trackVisibility.source && sourceAudioBlob ? sourceAudioDuration : 0,
+          captionDuration,
+          trackVisibility.source && sourceAudioBlob ? sourceAudioStart + sourceAudioDuration : 0,
           trackVisibility.music && musicBlob ? musicDuration : 0,
+          trackVisibility.sticker ? stickerDuration : 0,
           imageDuration,
           estimateDuration(script),
         ),
@@ -2249,7 +2781,8 @@ export function App() {
         captionPosition,
         captionPlacement,
         captionSize,
-        sticker: selectedSticker,
+        sticker: stickerSegments.length ? null : selectedSticker,
+        stickerSegments: trackVisibility.sticker ? stickerSegments : [],
         transitionId: selectedTransitionId,
         onProgress: updateExportProgress,
       });
@@ -2297,6 +2830,41 @@ export function App() {
     }
   }
 
+  function getFocusedStickerSegmentIndex() {
+    if (!stickerSegments.length) {
+      return -1;
+    }
+
+    if (selectedStickerSegmentId) {
+      const selectedIndex = stickerSegments.findIndex((segment) => segment.id === selectedStickerSegmentId);
+      if (selectedIndex >= 0) {
+        return selectedIndex;
+      }
+    }
+
+    return currentStickerSegmentIndex >= 0 ? currentStickerSegmentIndex : 0;
+  }
+
+  function deleteCurrentStickerSegment() {
+    if (trackLocks.sticker) {
+      notify("贴纸轨已锁定，无法删除");
+      return;
+    }
+
+    const index = getFocusedStickerSegmentIndex();
+    if (index < 0) {
+      notify("当前没有贴纸片段可删除");
+      return;
+    }
+
+    const nextSegments = stickerSegments.filter((_, segmentIndex) => segmentIndex !== index);
+    commitStickerSegments(
+      nextSegments,
+      nextSegments.length ? "已删除当前贴纸片段" : "已删除最后一个贴纸片段",
+      nextSegments[Math.max(0, index - 1)]?.id ?? "",
+    );
+  }
+
   function handleDeleteTrack() {
     if (trackLocks[selectedTrack]) {
       notify("当前轨道已锁定，无法删除");
@@ -2305,6 +2873,11 @@ export function App() {
 
     if (selectedTrack === "caption") {
       handleRemoveSegment();
+      return;
+    }
+
+    if (selectedTrack === "sticker") {
+      deleteCurrentStickerSegment();
       return;
     }
 
@@ -2351,6 +2924,29 @@ export function App() {
   }
 
   function handleDuplicateTrack() {
+    if (selectedTrack === "sticker") {
+      if (!stickerSegments.length) {
+        notify("当前没有可复制的贴纸片段");
+        return;
+      }
+      const index = getFocusedStickerSegmentIndex();
+      const source = stickerSegments[index];
+      if (!source) {
+        notify("请先选择一个贴纸片段");
+        return;
+      }
+      const nextSegment = {
+        ...source,
+        id: makeId("sticker"),
+        start: Math.min(
+          MAX_TIMELINE_DURATION_SECONDS - source.duration,
+          source.start + source.duration + 0.2,
+        ),
+      };
+      commitStickerSegments([...stickerSegments, nextSegment], "已复制当前贴纸片段", nextSegment.id);
+      return;
+    }
+
     if (selectedTrack === "caption") {
       if (!captionSegments.length) {
         notify("当前没有可复制的字幕片段");
@@ -2506,17 +3102,62 @@ export function App() {
     }
 
     const splitAt = Math.max(2, Math.ceil(source.text.length / 2));
+    const splitTime =
+      hasExplicitCaptionTiming(source) && source.end - source.start > 0.4
+        ? source.start + (source.end - source.start) / 2
+        : null;
     const nextSegments = [...captionSegments];
     nextSegments.splice(
       index,
       1,
-      { ...source, id: makeId("caption"), text: source.text.slice(0, splitAt), weight: Math.max(0.7, source.weight / 2) },
-      { ...source, id: makeId("caption"), text: source.text.slice(splitAt), weight: Math.max(0.7, source.weight / 2) },
+      {
+        ...source,
+        id: makeId("caption"),
+        text: source.text.slice(0, splitAt),
+        weight: Math.max(0.7, (source.weight ?? 1) / 2),
+        ...(splitTime ? { end: splitTime } : {}),
+      },
+      {
+        ...source,
+        id: makeId("caption"),
+        text: source.text.slice(splitAt),
+        weight: Math.max(0.7, (source.weight ?? 1) / 2),
+        ...(splitTime ? { start: splitTime } : {}),
+      },
     );
     commitCaptionSegments(nextSegments, "已把当前字幕片段拆成两段", index + 1);
   }
 
   function handleCutTrack() {
+    if (selectedTrack === "sticker") {
+      if (trackLocks.sticker) {
+        notify("贴纸轨已锁定，无法剪切");
+        return;
+      }
+      const index = getFocusedStickerSegmentIndex();
+      const source = stickerSegments[index];
+      if (!source) {
+        notify("请先选择一个贴纸片段");
+        return;
+      }
+      const splitTime = Math.max(source.start, Math.min(source.start + source.duration, currentTime));
+      if (splitTime <= source.start + 0.35 || splitTime >= source.start + source.duration - 0.35) {
+        notify("请把播放头放在贴纸片段中间再剪切");
+        return;
+      }
+      const firstSegment = { ...source, id: makeId("sticker"), duration: splitTime - source.start };
+      const secondSegment = {
+        ...source,
+        id: makeId("sticker"),
+        start: splitTime,
+        duration: source.start + source.duration - splitTime,
+      };
+      const nextSegments = [...stickerSegments];
+      nextSegments.splice(index, 1, firstSegment, secondSegment);
+      commitStickerSegments(nextSegments, "已在播放头位置切开贴纸片段", secondSegment.id);
+      return;
+    }
+
     if (selectedTrack === "image") {
       handleCutVisualSegment();
       return;
@@ -2531,6 +3172,23 @@ export function App() {
   }
 
   function handleAddSegment() {
+    if (selectedTrack === "sticker") {
+      if (trackLocks.sticker) {
+        notify("贴纸轨已锁定，无法新增贴纸片段");
+        return;
+      }
+      const source =
+        stickerSegments[getFocusedStickerSegmentIndex()] ??
+        getStickerDragAsset(selectedSticker);
+      if (!source?.src) {
+        notify("请先选择一个贴纸");
+        return;
+      }
+      const nextSegment = createStickerSegment(source, currentTime, DEFAULT_STICKER_SEGMENT_SECONDS);
+      commitStickerSegments([...stickerSegments, nextSegment], "已新增贴纸片段", nextSegment.id);
+      return;
+    }
+
     if (selectedTrack === "image") {
       if (trackLocks.image) {
         notify("图片轨已锁定，无法新增片段");
@@ -2576,17 +3234,36 @@ export function App() {
     }
 
     const index = selectedSegmentId ? selectedSegmentIndex : focusedSegmentIndex;
+    const previousSegment = captionSegments[index];
+    const nextSegment = captionSegments[index + 1];
+    const timedInsertStart = hasExplicitCaptionTiming(previousSegment)
+      ? previousSegment.end
+      : null;
+    const timedInsertEnd =
+      timedInsertStart !== null && hasExplicitCaptionTiming(nextSegment) && nextSegment.start - timedInsertStart > 0.45
+        ? nextSegment.start
+        : timedInsertStart !== null
+          ? Math.min(MAX_TIMELINE_DURATION_SECONDS, timedInsertStart + 1.8)
+          : null;
     const nextSegments = [...captionSegments];
     nextSegments.splice(captionSegments.length ? index + 1 : 0, 0, {
       id: makeId("caption"),
       text: "新的字幕片段",
       weight: captionSegments[index]?.weight ?? 1,
       hidden: false,
+      ...(timedInsertStart !== null && timedInsertEnd !== null
+        ? { start: timedInsertStart, end: Math.max(timedInsertStart + 0.45, timedInsertEnd) }
+        : {}),
     });
     commitCaptionSegments(nextSegments, "已新增字幕片段", index + 1);
   }
 
   function handleRemoveSegment() {
+    if (selectedTrack === "sticker") {
+      deleteCurrentStickerSegment();
+      return;
+    }
+
     if (selectedTrack === "image") {
       if (trackLocks.image) {
         notify("图片轨已锁定，无法减少片段");
@@ -2643,6 +3320,32 @@ export function App() {
   }
 
   function adjustSelectedSegmentWeight(delta) {
+    if (selectedTrack === "sticker") {
+      if (trackLocks.sticker) {
+        notify("贴纸轨已锁定，无法调整片段长度");
+        return;
+      }
+      const index = getFocusedStickerSegmentIndex();
+      const source = stickerSegments[index];
+      if (!source) {
+        notify("请先选择一个贴纸片段");
+        return;
+      }
+      const nextDuration = Math.max(
+        MIN_VISUAL_SEGMENT_SECONDS,
+        Math.min(MAX_TIMELINE_DURATION_SECONDS - source.start, source.duration + (delta > 0 ? 0.5 : -0.5)),
+      );
+      if (Math.abs(nextDuration - source.duration) < 0.001) {
+        notify(delta > 0 ? "当前贴纸片段已到最大长度" : "当前贴纸片段已到最短时长");
+        return;
+      }
+      const nextSegments = stickerSegments.map((segment, segmentIndex) =>
+        segmentIndex === index ? { ...segment, duration: nextDuration } : segment,
+      );
+      commitStickerSegments(nextSegments, delta > 0 ? "当前贴纸片段已加长" : "当前贴纸片段已缩短", source.id);
+      return;
+    }
+
     if (selectedTrack === "image") {
       if (trackLocks.image) {
         notify("图片轨已锁定，无法调整片段长度");
@@ -2711,9 +3414,30 @@ export function App() {
     }
 
     const index = selectedSegmentId ? selectedSegmentIndex : focusedSegmentIndex;
+    const targetCaption = captionSegments[index];
+    if (hasExplicitCaptionTiming(targetCaption)) {
+      const nextTimedSegment = captionSegments.slice(index + 1).find(hasExplicitCaptionTiming);
+      const maxEnd = Math.min(MAX_TIMELINE_DURATION_SECONDS, nextTimedSegment?.start ?? MAX_TIMELINE_DURATION_SECONDS);
+      const nextEnd = Math.max(
+        targetCaption.start + 0.45,
+        Math.min(maxEnd, targetCaption.end + (delta > 0 ? 0.6 : -0.6)),
+      );
+
+      if (Math.abs(nextEnd - targetCaption.end) < 0.001) {
+        notify(delta > 0 ? "当前字幕已贴近下一段" : "当前字幕已到最短时长");
+        return;
+      }
+
+      const nextSegments = captionSegments.map((segment, segmentIndex) =>
+        segmentIndex === index ? { ...segment, end: nextEnd } : segment,
+      );
+      commitCaptionSegments(nextSegments, delta > 0 ? "当前字幕片段已加长" : "当前字幕片段已缩短", index);
+      return;
+    }
+
     const nextSegments = captionSegments.map((segment, segmentIndex) =>
       segmentIndex === index
-        ? { ...segment, weight: Math.max(0.5, Math.min(5, segment.weight + delta)) }
+        ? { ...segment, weight: Math.max(0.5, Math.min(5, (segment.weight ?? 1) + delta)) }
         : segment,
     );
     commitCaptionSegments(nextSegments, delta > 0 ? "当前字幕片段已加长" : "当前字幕片段已缩短", index);
@@ -2749,13 +3473,19 @@ export function App() {
     Math.min(100, ((currentTime || 0) / Math.max(timelineDuration, 1)) * 100),
   );
   const previewRatio = `${ratio.width} / ${ratio.height}`;
-  const trackWidth = `${Math.round(100 * timelineZoom)}%`;
   const renderedVisualSegments = imageSrc
     ? visualSegments.length
       ? visualSegments
       : [{ id: "visual-fallback", duration: imageDuration, ...getVisualAssetPayload(getCurrentVisualAssetSnapshot()) }]
     : [];
   const activeTimelineClipDrag = timelineClipDrag?.dragging ? timelineClipDrag : null;
+  const draggedAsset = draggedAssetId ? findAssetById(draggedAssetId) : null;
+  const showStickerTrack =
+    stickerSegments.length > 0 ||
+    selectedTrack === "sticker" ||
+    assetDropTargetTrack === "sticker" ||
+    assetDragPreview?.type === "sticker" ||
+    draggedAsset?.type === "sticker";
   const displayedVisualSegments =
     activeTimelineClipDrag?.track === "image"
       ? reorderTimelineItems(
@@ -2779,15 +3509,22 @@ export function App() {
       : captionTimeline;
   const audioClipPercent =
     audioBlob && timelineDuration > 0
-      ? Math.max(0.6, Math.min(100, (audioDuration / timelineDuration) * 100))
+      ? Math.max(0.01, Math.min(100, (audioDuration / timelineDuration) * 100))
+      : 0;
+  const sourceAudioStartPercent =
+    sourceAudioBlob && timelineDuration > 0
+      ? Math.max(0, Math.min(100, (sourceAudioStart / timelineDuration) * 100))
       : 0;
   const sourceAudioClipPercent =
     sourceAudioBlob && timelineDuration > 0
-      ? Math.max(0.6, Math.min(100, (sourceAudioDuration / timelineDuration) * 100))
+      ? Math.max(
+          0.01,
+          Math.min(100 - sourceAudioStartPercent, (sourceAudioDuration / timelineDuration) * 100),
+        )
       : 0;
   const musicClipPercent =
     musicBlob && timelineDuration > 0
-      ? Math.max(0.6, Math.min(100, (musicDuration / timelineDuration) * 100))
+      ? Math.max(0.01, Math.min(100, (musicDuration / timelineDuration) * 100))
       : 0;
   const exportPercent = Math.max(0, Math.min(100, Math.round(exportProgress)));
   const previewFrameStyle =
@@ -2892,6 +3629,8 @@ export function App() {
               setSelectedTransitionId={setSelectedTransitionId}
               selectedStickerId={selectedStickerId}
               setSelectedStickerId={setSelectedStickerId}
+              handleStickerPointerDown={handleAssetPointerDown}
+              handleStickerClick={handleStickerClick}
               audioBlob={audioBlob}
               audioDuration={audioDuration}
               sourceAudioBlob={sourceAudioBlob}
@@ -2900,6 +3639,9 @@ export function App() {
               sourceAudioVolume={sourceAudioVolume}
               setSourceAudioVolume={setSourceAudioVolume}
               clearSourceAudioTrack={clearSourceAudioTrack}
+              generateCaptionsFromSourceAudio={generateCaptionsFromSourceAudio}
+              isGeneratingCaptions={status === "captioning"}
+              automaticCaptionProgress={status === "captioning" ? progress : 0}
               musicBlob={musicBlob}
               musicName={musicName}
               musicDuration={musicDuration}
@@ -2930,16 +3672,13 @@ export function App() {
           selectedFilter={selectedFilter}
           fitMode={fitMode}
           setFitMode={setFitMode}
-          audioUrl={audioUrl}
-          setIsPlaying={setIsPlaying}
-          setCurrentTime={setCurrentTime}
           captionsEnabled={captionsEnabled}
           currentCaption={currentCaption}
           captionSize={captionSize}
           captionPlacement={captionPlacement}
           startCaptionDrag={startCaptionDrag}
           setActiveTool={setActiveTool}
-          selectedSticker={selectedSticker}
+          selectedSticker={previewSticker}
           isPlaying={isPlaying}
           canPreview={canPreview}
           handlePlayToggle={handlePlayToggle}
@@ -2951,6 +3690,7 @@ export function App() {
 
         <VoicePanel
           t={t}
+          activeTool={activeTool}
           status={status}
           statusText={statusText}
           voiceTab={voiceTab}
@@ -2987,14 +3727,24 @@ export function App() {
           notify={notify}
           audioUrl={audioUrl}
           audioRef={audioRef}
-          setIsPlaying={setIsPlaying}
           sourceAudioRef={sourceAudioRef}
           musicRef={musicRef}
-          previewVideoRef={previewVideoRef}
           sourceAudioUrl={sourceAudioUrl}
-          trackVisibility={trackVisibility}
           musicUrl={musicUrl}
-          setCurrentTime={setCurrentTime}
+          captionSegments={captionSegments}
+          selectedCaptionSegment={selectedCaptionSegment}
+          selectedSegmentId={selectedSegmentId}
+          setSelectedSegmentId={setSelectedSegmentId}
+          currentSegmentIndex={currentSegmentIndex}
+          captionTargetDuration={captionTargetDuration}
+          updateCaptionSegmentText={updateCaptionSegmentText}
+          toggleCaptionSegmentHidden={toggleCaptionSegmentHidden}
+          deleteCaptionSegment={deleteCaptionSegment}
+          seekTo={seekTo}
+          sourceAudioBlob={sourceAudioBlob}
+          generateCaptionsFromSourceAudio={generateCaptionsFromSourceAudio}
+          isGeneratingCaptions={status === "captioning"}
+          automaticCaptionProgress={status === "captioning" ? progress : 0}
         />
       </section>
 
@@ -3017,12 +3767,12 @@ export function App() {
         setTimelineZoom={setTimelineZoom}
         selectedTrack={selectedTrack}
         setSelectedTrack={setSelectedTrack}
+        setActiveTool={setActiveTool}
         trackVisibility={trackVisibility}
         toggleTrackVisibility={toggleTrackVisibility}
         trackLocks={trackLocks}
         toggleTrackLock={toggleTrackLock}
         trackScrollRef={trackScrollRef}
-        trackWidth={trackWidth}
         startTimelineSeek={startTimelineSeek}
         timelineDuration={timelineDuration}
         currentTime={currentTime}
@@ -3036,6 +3786,11 @@ export function App() {
         handleTrackAssetDragLeave={handleTrackAssetDragLeave}
         handleTrackAssetDrop={handleTrackAssetDrop}
         activeTimelineClipDrag={activeTimelineClipDrag}
+        showStickerTrack={showStickerTrack}
+        stickerSegments={stickerSegments}
+        currentStickerSegment={currentStickerSegment}
+        selectedStickerSegmentId={selectedStickerSegmentId}
+        setSelectedStickerSegmentId={setSelectedStickerSegmentId}
         imageSrc={imageSrc}
         displayedVisualSegments={displayedVisualSegments}
         renderedVisualTimeline={renderedVisualTimeline}
@@ -3048,6 +3803,7 @@ export function App() {
         suppressTimelineClipClickRef={suppressTimelineClipClickRef}
         startTimelineClipDrag={startTimelineClipDrag}
         startImageResize={startImageResize}
+        startStickerSegmentMove={startStickerSegmentMove}
         displayedCaptionSegments={displayedCaptionSegments}
         displayedCaptionTimeline={displayedCaptionTimeline}
         currentCaptionSegment={currentCaptionSegment}
@@ -3057,6 +3813,7 @@ export function App() {
         sourceAudioBlob={sourceAudioBlob}
         sourceAudioPeaks={sourceAudioPeaks}
         sourceAudioClipPercent={sourceAudioClipPercent}
+        sourceAudioStartPercent={sourceAudioStartPercent}
         sourceAudioDuration={sourceAudioDuration}
         audioBlob={audioBlob}
         peaks={peaks}
@@ -3089,7 +3846,9 @@ export function App() {
               ? t("assetAudio")
               : assetDragPreview.type === "video"
                 ? t("assetVideo")
-                : t("assetImage")}
+                : assetDragPreview.type === "sticker"
+                  ? t("assetSticker")
+                  : t("assetImage")}
           </span>
           <strong>{assetDragPreview.name}</strong>
         </div>

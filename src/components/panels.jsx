@@ -1,7 +1,10 @@
+import { useEffect, useMemo, useRef, useState } from "react";
+
 import {
   CaretDown,
   Check,
   CloudArrowUp,
+  ClosedCaptioning,
   DownloadSimple,
   MicrophoneStage,
   MusicNote,
@@ -10,7 +13,16 @@ import {
   Waveform,
 } from "@phosphor-icons/react";
 
-import { EFFECT_OPTIONS, FILTER_OPTIONS, SAMPLE_IMAGE, STICKERS, TRANSITIONS, VOICES } from "../config/editor.js";
+import {
+  EFFECT_OPTIONS,
+  FILTER_OPTIONS,
+  SAMPLE_IMAGE,
+  STICKERS,
+  STICKER_CATEGORIES,
+  STICKER_PAGE_SIZE,
+  TRANSITIONS,
+  VOICES,
+} from "../config/editor.js";
 import { APP_LANGUAGES } from "../i18n.js";
 import { formatClock, formatTime, getSegmentStartTime } from "../lib/timeline.js";
 import { Popover } from "./ui.jsx";
@@ -216,6 +228,8 @@ export function ToolPanel(props) {
     setSelectedTransitionId,
     selectedStickerId,
     setSelectedStickerId,
+    handleStickerPointerDown,
+    handleStickerClick,
     audioBlob,
     audioDuration,
     sourceAudioBlob,
@@ -224,6 +238,9 @@ export function ToolPanel(props) {
     sourceAudioVolume,
     setSourceAudioVolume,
     clearSourceAudioTrack,
+    generateCaptionsFromSourceAudio,
+    isGeneratingCaptions,
+    automaticCaptionProgress,
     musicBlob,
     musicName,
     musicDuration,
@@ -264,7 +281,7 @@ export function ToolPanel(props) {
 
   if (activeTool === "caption") {
     return (
-      <div className="tool-panel">
+      <div className="tool-panel caption-tool-panel">
         <h2>{t("caption")}</h2>
         <label className="switch-row">
           <input type="checkbox" checked={captionsEnabled} onChange={(event) => setCaptionsEnabled(event.target.checked)} />
@@ -290,7 +307,7 @@ export function ToolPanel(props) {
           <input
             id="caption-size"
             type="range"
-            min="20"
+            min="12"
             max="42"
             step="1"
             value={captionSize}
@@ -365,6 +382,23 @@ export function ToolPanel(props) {
             <strong>{t("aiVoiceEntryTitle")}</strong>
             <em>{t("aiVoiceEntryDesc")}</em>
           </span>
+        </button>
+        <button
+          className="audio-entry-card caption-entry-card"
+          type="button"
+          disabled={!sourceAudioBlob || isGeneratingCaptions}
+          onClick={generateCaptionsFromSourceAudio}
+        >
+          <ClosedCaptioning size={24} weight="duotone" />
+          <span>
+            <strong>{isGeneratingCaptions ? t("autoCaptionsRunning") : t("autoCaptionsTitle")}</strong>
+            <em>{sourceAudioBlob ? t("autoCaptionsDesc") : t("autoCaptionsNeedsSource")}</em>
+          </span>
+          {isGeneratingCaptions ? (
+            <span className="inline-progress" aria-hidden="true">
+              <span style={{ width: `${automaticCaptionProgress}%` }} />
+            </span>
+          ) : null}
         </button>
         <div className="metric-list">
           <div>
@@ -493,11 +527,14 @@ export function ToolPanel(props) {
 
   if (activeTool === "stickers") {
     return (
-      <ChoicePanel
+      <StickerPanel
         title={t("stickers")}
         options={STICKERS}
         selectedId={selectedStickerId}
         trOption={trOption}
+        t={t}
+        onStickerPointerDown={handleStickerPointerDown}
+        onStickerClick={handleStickerClick}
         onSelect={(id) => {
           setSelectedStickerId(id);
           notify(t("stickerApplied"));
@@ -541,7 +578,7 @@ function VisualChoicePanel({ title, kind, options, selectedId, trOption = (name)
           >
             <span className="visual-choice-thumb" aria-hidden="true" />
             <span className="visual-choice-label">
-              <span>{trOption(option.name)}</span>
+              <span>{trOption(option.name, option)}</span>
               {selectedId === option.id ? <Check size={14} weight="bold" /> : null}
             </span>
           </button>
@@ -558,11 +595,136 @@ function ChoicePanel({ title, options, selectedId, trOption = (name) => name, on
       <div className="choice-list">
         {options.map((option) => (
           <button className={selectedId === option.id ? "is-selected" : ""} type="button" key={option.id} onClick={() => onSelect(option.id)}>
-            <span>{trOption(option.name)}</span>
+            <span>{trOption(option.name, option)}</span>
             {selectedId === option.id ? <Check size={16} /> : null}
           </button>
         ))}
       </div>
+    </div>
+  );
+}
+
+function StickerPanel({
+  title,
+  options,
+  selectedId,
+  trOption = (name) => name,
+  onSelect,
+  t,
+  onStickerPointerDown,
+  onStickerClick,
+}) {
+  const [activeCategory, setActiveCategory] = useState("all");
+  const [visibleCount, setVisibleCount] = useState(STICKER_PAGE_SIZE);
+  const loadMoreRef = useRef(null);
+  const emptySticker = options.find((option) => option.id === "none") ?? { id: "none", name: "无贴纸" };
+  const stickerOptions = useMemo(() => options.filter((option) => option.id !== "none"), [options]);
+  const filteredStickers = useMemo(
+    () =>
+      activeCategory === "all"
+        ? stickerOptions
+        : stickerOptions.filter((option) => option.category === activeCategory),
+    [activeCategory, stickerOptions],
+  );
+  const visibleStickers = filteredStickers.slice(0, visibleCount);
+  const hasMore = visibleCount < filteredStickers.length;
+
+  useEffect(() => {
+    setVisibleCount(STICKER_PAGE_SIZE);
+  }, [activeCategory]);
+
+  useEffect(() => {
+    if (!hasMore || !loadMoreRef.current) {
+      return undefined;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (!entries.some((entry) => entry.isIntersecting)) {
+          return;
+        }
+
+        setVisibleCount((count) => Math.min(count + STICKER_PAGE_SIZE, filteredStickers.length));
+      },
+      { root: null, rootMargin: "120px 0px" },
+    );
+    observer.observe(loadMoreRef.current);
+
+    return () => observer.disconnect();
+  }, [filteredStickers.length, hasMore]);
+
+  const loadMore = () => {
+    setVisibleCount((count) => Math.min(count + STICKER_PAGE_SIZE, filteredStickers.length));
+  };
+
+  return (
+    <div className="tool-panel sticker-panel">
+      <h2>{title}</h2>
+      <button
+        className={`sticker-none-button ${selectedId === emptySticker.id ? "is-selected" : ""}`}
+        type="button"
+        onClick={() => onSelect(emptySticker.id)}
+      >
+        <span>{trOption(emptySticker.name, emptySticker)}</span>
+        {selectedId === emptySticker.id ? <Check size={15} weight="bold" /> : null}
+      </button>
+      <div className="sticker-category-row" role="tablist" aria-label={t("stickerCategories")}>
+        {STICKER_CATEGORIES.map((category) => (
+          <button
+            className={activeCategory === category.id ? "is-active" : ""}
+            type="button"
+            role="tab"
+            aria-selected={activeCategory === category.id}
+            key={category.id}
+            onClick={() => setActiveCategory(category.id)}
+          >
+            {trOption(category.name, category)}
+          </button>
+        ))}
+      </div>
+      <div className="sticker-grid" aria-live="polite">
+        {visibleStickers.map((option) => {
+          const dragAsset = {
+            ...option,
+            type: "sticker",
+            meta: "贴纸",
+          };
+
+          return (
+          <button
+            className={`sticker-tile ${selectedId === option.id ? "is-selected" : ""}`}
+            type="button"
+            key={option.id}
+            onPointerDown={(event) => onStickerPointerDown?.(event, dragAsset)}
+            onClick={(event) => {
+              if (onStickerClick) {
+                onStickerClick(event, option);
+                return;
+              }
+              onSelect(option.id);
+            }}
+          >
+            <span className="sticker-tile-thumb" aria-hidden="true">
+              <img src={option.src} alt="" loading="lazy" draggable={false} />
+            </span>
+            <span className="sticker-tile-label">
+              <span>{trOption(option.name, option)}</span>
+              {selectedId === option.id ? <Check size={13} weight="bold" /> : null}
+            </span>
+          </button>
+          );
+        })}
+      </div>
+      {hasMore ? (
+        <button className="sticker-load-more" type="button" ref={loadMoreRef} onClick={loadMore}>
+          <span>{t("loadMoreStickers")}</span>
+          <span>
+            {visibleStickers.length}/{filteredStickers.length}
+          </span>
+        </button>
+      ) : (
+        <span className="sticker-load-sentinel" ref={loadMoreRef} aria-hidden="true" />
+      )}
     </div>
   );
 }

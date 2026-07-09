@@ -25,9 +25,6 @@ export function PreviewStage({
   selectedFilter,
   fitMode,
   setFitMode,
-  audioUrl,
-  setIsPlaying,
-  setCurrentTime,
   captionsEnabled,
   currentCaption,
   captionSize,
@@ -43,16 +40,19 @@ export function PreviewStage({
   seekTo,
   notify,
 }) {
+  const hasStickerOverlay = Boolean(selectedSticker?.src || selectedSticker?.text);
+  const hasPreviewContent = Boolean(previewVisualSrc || hasStickerOverlay);
+
   return (
     <section className="preview-stage">
       <div
         ref={previewShellRef}
-        className={`preview-canvas fit-${fitMode} ${previewVisualSrc ? "" : "is-empty"} ${
+        className={`preview-canvas fit-${fitMode} ${hasPreviewContent ? "" : "is-empty"} ${
           previewVisualSrc && !trackVisibility.image ? "is-image-hidden" : ""
         }`}
         style={{ "--preview-ratio": previewRatio }}
       >
-        {!previewVisualSrc ? (
+        {!hasPreviewContent ? (
           <button className="preview-empty" type="button" style={previewFrameStyle} onClick={() => fileInputRef.current?.click()}>
             <CloudArrowUp size={38} />
             <strong>{t("previewEmptyTitle")}</strong>
@@ -65,7 +65,7 @@ export function PreviewStage({
             data-hidden-label={t("imageHidden")}
             style={previewFrameStyle}
           >
-            {trackVisibility.image && previewVisualType === "image" ? (
+            {previewVisualSrc && trackVisibility.image && previewVisualType === "image" ? (
               <img
                 src={previewVisualSrc}
                 alt={t("currentMediaAlt")}
@@ -75,7 +75,7 @@ export function PreviewStage({
                 }}
               />
             ) : null}
-            {trackVisibility.image && previewVisualType === "video" ? (
+            {previewVisualSrc && trackVisibility.image && previewVisualType === "video" ? (
               <video
                 key={previewVisualSrc}
                 ref={previewVideoRef}
@@ -87,25 +87,6 @@ export function PreviewStage({
                 style={{
                   filter: selectedFilter.css,
                   objectFit: fitMode,
-                }}
-                onPlay={() => {
-                  if (!audioUrl) {
-                    setIsPlaying(true);
-                  }
-                }}
-                onPause={() => {
-                  if (!audioUrl) {
-                    setIsPlaying(false);
-                  }
-                }}
-                onEnded={() => {
-                  setIsPlaying(false);
-                  setCurrentTime(0);
-                }}
-                onTimeUpdate={(event) => {
-                  if (!audioUrl) {
-                    setCurrentTime(event.currentTarget.currentTime);
-                  }
                 }}
               />
             ) : null}
@@ -124,7 +105,11 @@ export function PreviewStage({
                 {currentCaption}
               </button>
             ) : null}
-            {selectedSticker.text ? <div className="sticker-overlay">{selectedSticker.text}</div> : null}
+            {selectedSticker.src ? (
+              <img className="sticker-overlay is-image" src={selectedSticker.src} alt="" draggable={false} />
+            ) : selectedSticker.text ? (
+              <div className="sticker-overlay is-label">{selectedSticker.text}</div>
+            ) : null}
           </div>
         )}
       </div>

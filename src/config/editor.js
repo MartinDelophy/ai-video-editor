@@ -9,8 +9,9 @@ import {
   TextT,
 } from "@phosphor-icons/react";
 
+export { MODEL_ID, AUTOMATIC_CAPTION_MODEL_ID, AUTOMATIC_CAPTION_MODEL_LABEL } from "./models.js";
+
 export const SAMPLE_IMAGE = "/assets/sample-portrait.png";
-export const MODEL_ID = "onnx-community/Kokoro-82M-v1.0-ONNX";
 export const FFMPEG_CLASS_WORKER_URL = "https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.15/dist/esm/worker.js";
 export const FFMPEG_CORE_BASE_URL = "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/esm";
 export const MAX_TIMELINE_DURATION_SECONDS = 30 * 60;
@@ -156,9 +157,57 @@ export const TRANSITIONS = [
   { id: "glitch", name: "故障闪" },
 ];
 
+export const STICKER_PAGE_SIZE = 9;
+export const DEFAULT_STICKER_SEGMENT_SECONDS = 3;
+
+export const STICKER_CATEGORIES = [
+  { id: "all", name: "全部", nameEn: "All", kind: "stickerCategory" },
+  { id: "trending", name: "热门", nameEn: "Hot", kind: "stickerCategory" },
+  { id: "voice", name: "旁白", nameEn: "Voiceover", kind: "stickerCategory" },
+  { id: "reaction", name: "互动", nameEn: "Reactions", kind: "stickerCategory" },
+  { id: "commerce", name: "带货", nameEn: "Shop", kind: "stickerCategory" },
+];
+
+export const STICKER_LIBRARY = [
+  { id: "trend-flame", name: "热度火焰", nameEn: "Hot Flame", category: "trending", src: "/assets/stickers/trend-flame.png" },
+  { id: "trend-spark", name: "闪光爆点", nameEn: "Spark Burst", category: "trending", src: "/assets/stickers/trend-spark.png" },
+  { id: "trend-bolt", name: "闪电强调", nameEn: "Lightning", category: "trending", src: "/assets/stickers/trend-bolt.png" },
+  { id: "trend-starburst", name: "爆点星芒", nameEn: "Starburst", category: "trending", src: "/assets/stickers/trend-starburst.png" },
+  { id: "trend-crown", name: "精选皇冠", nameEn: "Crown", category: "trending", src: "/assets/stickers/trend-crown.png" },
+  { id: "trend-megaphone", name: "扩音提醒", nameEn: "Megaphone", category: "trending", src: "/assets/stickers/trend-megaphone.png" },
+  { id: "trend-rocket", name: "起飞火箭", nameEn: "Rocket", category: "trending", src: "/assets/stickers/trend-rocket.png" },
+  { id: "trend-confetti", name: "彩带庆祝", nameEn: "Confetti", category: "trending", src: "/assets/stickers/trend-confetti.png" },
+  { id: "trend-verified", name: "认证勾选", nameEn: "Verified Check", category: "trending", src: "/assets/stickers/trend-verified.png" },
+  { id: "voice-mic", name: "录音麦克风", nameEn: "Studio Mic", category: "voice", src: "/assets/stickers/voice-mic.png" },
+  { id: "voice-waveform", name: "音频波形", nameEn: "Waveform", category: "voice", src: "/assets/stickers/voice-waveform.png" },
+  { id: "voice-headphones", name: "监听耳机", nameEn: "Headphones", category: "voice", src: "/assets/stickers/voice-headphones.png" },
+  { id: "voice-sound-ring", name: "声波圆环", nameEn: "Sound Ring", category: "voice", src: "/assets/stickers/voice-sound-ring.png" },
+  { id: "voice-caption-card", name: "字幕卡片", nameEn: "Caption Card", category: "voice", src: "/assets/stickers/voice-caption-card.png" },
+  { id: "voice-music-note", name: "音乐音符", nameEn: "Music Note", category: "voice", src: "/assets/stickers/voice-music-note.png" },
+  { id: "voice-speaker", name: "扬声器", nameEn: "Speaker", category: "voice", src: "/assets/stickers/voice-speaker.png" },
+  { id: "voice-magic-wand", name: "魔法增强", nameEn: "Magic Wand", category: "voice", src: "/assets/stickers/voice-magic-wand.png" },
+  { id: "voice-timeline-marker", name: "时间线标记", nameEn: "Timeline Marker", category: "voice", src: "/assets/stickers/voice-timeline-marker.png" },
+  { id: "react-heart", name: "爱心", nameEn: "Heart", category: "reaction", src: "/assets/stickers/react-heart.png" },
+  { id: "react-like", name: "点赞", nameEn: "Like", category: "reaction", src: "/assets/stickers/react-like.png" },
+  { id: "react-smile", name: "微笑", nameEn: "Smile", category: "reaction", src: "/assets/stickers/react-smile.png" },
+  { id: "react-surprise", name: "惊讶", nameEn: "Surprise", category: "reaction", src: "/assets/stickers/react-surprise.png" },
+  { id: "react-eyes", name: "亮眼", nameEn: "Bright Eyes", category: "reaction", src: "/assets/stickers/react-eyes.png" },
+  { id: "react-applause", name: "鼓掌", nameEn: "Applause", category: "reaction", src: "/assets/stickers/react-applause.png" },
+  { id: "react-chat", name: "评论气泡", nameEn: "Chat Bubble", category: "reaction", src: "/assets/stickers/react-chat.png" },
+  { id: "react-dots", name: "互动点点", nameEn: "Dot Bubble", category: "reaction", src: "/assets/stickers/react-dots.png" },
+  { id: "react-alert", name: "重点提醒", nameEn: "Alert Burst", category: "reaction", src: "/assets/stickers/react-alert.png" },
+  { id: "shop-gift", name: "礼盒", nameEn: "Gift", category: "commerce", src: "/assets/stickers/shop-gift.png" },
+  { id: "shop-bag", name: "购物袋", nameEn: "Shopping Bag", category: "commerce", src: "/assets/stickers/shop-bag.png" },
+  { id: "shop-tag", name: "价格标签", nameEn: "Blank Tag", category: "commerce", src: "/assets/stickers/shop-tag.png" },
+  { id: "shop-coins", name: "金币", nameEn: "Coins", category: "commerce", src: "/assets/stickers/shop-coins.png" },
+  { id: "shop-box", name: "产品盒", nameEn: "Product Box", category: "commerce", src: "/assets/stickers/shop-box.png" },
+  { id: "shop-cart", name: "购物车", nameEn: "Cart", category: "commerce", src: "/assets/stickers/shop-cart.png" },
+  { id: "shop-camera", name: "相机", nameEn: "Camera", category: "commerce", src: "/assets/stickers/shop-camera.png" },
+  { id: "shop-idea", name: "灵感灯泡", nameEn: "Idea Bulb", category: "commerce", src: "/assets/stickers/shop-idea.png" },
+  { id: "shop-calendar", name: "日历", nameEn: "Calendar", category: "commerce", src: "/assets/stickers/shop-calendar.png" },
+];
+
 export const STICKERS = [
   { id: "none", name: "无贴纸", text: "" },
-  { id: "new", name: "新品感", text: "NEW" },
-  { id: "hot", name: "热点", text: "HOT" },
-  { id: "note", name: "旁白", text: "AI VOICE" },
+  ...STICKER_LIBRARY,
 ];

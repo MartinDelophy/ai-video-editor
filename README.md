@@ -34,11 +34,20 @@ A browser-first AI video editor for image/video timelines, AI voiceover generati
 - Edit captions by dragging, hiding, deleting, and changing placement or size.
 - Upload video and separate its original audio onto a dedicated source-audio track.
 - Add background music on a dedicated music track.
+- Browse generated sticker packs in a 3x3 infinite-loading sticker panel.
+- Drop stickers anywhere on the timeline to automatically create a sticker track under the image/video track.
+- Move sticker segments on the timeline and render sticker overlays in preview/export.
 - Use multi-track controls: visibility, lock, delete, duplicate, split, zoom, snap, and reorder.
 - Apply filters, visual effects, stickers, and transition presets.
 - Export MP4 when browser support is available, with WebM fallback.
 - Show export progress during browser-side rendering.
 - Persist language selection in `localStorage`.
+
+## Recent Prototype Updates
+
+- Added timeline-native sticker overlays with generated PNG sticker assets, automatic sticker-track creation, movable sticker clips, and a cleaner scrollbar-free sticker picker.
+- Added installable PWA metadata, app icons, service-worker app shell/model caching, and cached sticker assets for faster repeat sessions.
+- Added browser-side automatic caption groundwork using Whisper ONNX workers, plus timeline snapping/alignment improvements for captions, source audio, and generated voiceover.
 
 ## AI Features
 
@@ -47,6 +56,7 @@ Current AI capabilities are designed to run in the browser as much as possible:
 - Text-to-speech with ONNX/browser engines.
 - Chinese voiceover via Piper/VITS browser ONNX models.
 - English voice options via Kokoro 82M ONNX.
+- Automatic caption generation groundwork with Whisper small q8 ONNX running through a browser worker.
 - Lightweight voice preview and generation history restore.
 - Script-to-caption timeline alignment based on generated audio duration.
 - Browser voice recording for manually captured narration.
@@ -75,8 +85,7 @@ The language picker includes English guidance so non-Chinese users can understan
 
 Planned or desirable AI capabilities:
 
-- Automatic speech recognition for uploaded videos and recorded narration.
-- Auto subtitle generation and subtitle translation.
+- Subtitle translation and multi-language caption refinement.
 - AI script writing and rewrite modes for marketing, education, short video, and product demos.
 - Voice cloning or custom speaker adaptation, with explicit consent and privacy controls.
 - Multi-speaker dubbing and role-based dialogue generation.
@@ -113,14 +122,24 @@ src/
     ui.jsx
   config/
     editor.js
+    models.js
   lib/
+    asr.js
     media.js
+    serviceWorker.js
     timeline.js
+    timelineScale.js
+    ttsText.js
+  workers/
   i18n.js
   main.jsx
   styles.css
 public/
   assets/
+    stickers/
+  icons/
+  manifest.webmanifest
+  model-cache-sw.js
 netlify.toml
 ```
 

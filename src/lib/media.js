@@ -28,6 +28,95 @@ export function getAudioRecordingFormat() {
 let ffmpegLoadPromise = null;
 let ffmpegTaskQueue = Promise.resolve();
 
+const VIDEO_TRACK_FRAME_MAX = 72;
+const VIDEO_TRACK_FRAME_HEIGHT = 90;
+
+function getVideoTrackSampleCount(duration, maxFrames = VIDEO_TRACK_FRAME_MAX) {
+  const safeDuration = Math.max(0, Number.isFinite(duration) ? duration : 0);
+  if (!safeDuration) {
+    return 0;
+  }
+
+  const targetStep =
+    safeDuration <= 20
+      ? 0.5
+      : safeDuration <= 120
+        ? 1.25
+        : safeDuration <= 600
+          ? 3
+          : 10;
+
+  return Math.max(1, Math.min(maxFrames, Math.ceil(safeDuration / targetStep)));
+}
+
+function seekVideoFrame(video, time) {
+  const safeTime = Math.max(0, Math.min(time, Math.max(0, (video.duration || time) - 0.04)));
+  if (video.readyState >= 2 && Math.abs(video.currentTime - safeTime) < 0.015) {
+    return new Promise((resolve) => window.requestAnimationFrame(resolve));
+  }
+
+  return new Promise((resolve, reject) => {
+    const cleanup = () => {
+      video.removeEventListener("seeked", handleSeeked);
+      video.removeEventListener("error", handleError);
+    };
+    const handleSeeked = () => {
+      cleanup();
+      window.requestAnimationFrame(resolve);
+    };
+    const handleError = () => {
+      cleanup();
+      reject(new Error("Video frame seek failed"));
+    };
+
+    video.addEventListener("seeked", handleSeeked, { once: true });
+    video.addEventListener("error", handleError, { once: true });
+    video.currentTime = safeTime;
+  });
+}
+
+export async function extractVideoTrackFrames(src, options = {}) {
+  const {
+    duration,
+    width,
+    height,
+    maxFrames = VIDEO_TRACK_FRAME_MAX,
+    quality = 0.72,
+  } = options;
+  const video = await loadVideo(src);
+  const safeDuration = Math.max(0, duration || video.duration || 0);
+  const frameCount = getVideoTrackSampleCount(safeDuration, maxFrames);
+  if (!frameCount) {
+    return [];
+  }
+
+  const naturalWidth = Math.max(1, width || video.videoWidth || 16);
+  const naturalHeight = Math.max(1, height || video.videoHeight || 9);
+  const aspectRatio = naturalWidth / naturalHeight;
+  const canvas = document.createElement("canvas");
+  canvas.height = VIDEO_TRACK_FRAME_HEIGHT;
+  canvas.width = Math.max(36, Math.min(180, Math.round(canvas.height * aspectRatio)));
+  const context = canvas.getContext("2d", { alpha: false });
+  if (!context) {
+    return [];
+  }
+
+  try {
+    const frames = [];
+    video.pause();
+    for (let index = 0; index < frameCount; index += 1) {
+      const time = ((index + 0.5) / frameCount) * safeDuration;
+      await seekVideoFrame(video, time);
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+      frames.push(canvas.toDataURL("image/jpeg", quality));
+    }
+    return frames;
+  } finally {
+    video.removeAttribute("src");
+    video.load();
+  }
+}
+
 export async function decodeWaveform(blob, barCount = 118) {
   const AudioContextClass = window.AudioContext || window.webkitAudioContext;
   if (!AudioContextClass) {
@@ -142,8 +231,9 @@ function drawPreviewFrame(context, visual, canvas, options) {
     captionsEnabled = true,
     captionPosition = "bottom",
     captionPlacement = null,
-    captionSize = 34,
+    captionSize = 12,
     sticker = null,
+    stickerImage = null,
     transitionId = "none",
   } = options;
 
@@ -175,7 +265,15 @@ function drawPreviewFrame(context, visual, canvas, options) {
     context.fillText(subtitle.slice(0, 34), overlayX + overlayWidth / 2, overlayY + overlayHeight * 0.62);
   }
 
-  if (sticker?.text) {
+  if (sticker?.src && stickerImage) {
+    const stickerRatio =
+      (stickerImage.naturalWidth || stickerImage.width || 1) /
+      (stickerImage.naturalHeight || stickerImage.height || 1);
+    const maxStickerSize = Math.min(width, height) * 0.22;
+    const stickerWidth = stickerRatio >= 1 ? maxStickerSize : maxStickerSize * stickerRatio;
+    const stickerHeight = stickerRatio >= 1 ? maxStickerSize / stickerRatio : maxStickerSize;
+    context.drawImage(stickerImage, width - stickerWidth - width * 0.1, height * 0.1, stickerWidth, stickerHeight);
+  } else if (sticker?.text) {
     context.fillStyle = "rgba(53, 240, 221, 0.92)";
     context.fillRect(width - 246, 54, 172, 54);
     context.fillStyle = "#061515";
@@ -256,6 +354,7 @@ export async function exportBrowserVideo({
   voiceVolume = 1,
   sourceAudioBlob,
   sourceAudioVolume = 1,
+  sourceAudioStart = 0,
   musicBlob,
   musicVolume = 0.35,
   text,
@@ -269,6 +368,7 @@ export async function exportBrowserVideo({
   captionPlacement,
   captionSize,
   sticker,
+  stickerSegments = [],
   transitionId,
   onProgress,
 }) {
@@ -287,6 +387,16 @@ export async function exportBrowserVideo({
       visual: segment.type === "video" ? await loadVideo(segment.src) : await loadImage(segment.src),
     })),
   );
+  const stickerSources = Array.from(
+    new Set([
+      ...(sticker?.src ? [sticker.src] : []),
+      ...stickerSegments.map((segment) => segment.src).filter(Boolean),
+    ]),
+  );
+  const stickerImageEntries = await Promise.all(
+    stickerSources.map(async (src) => [src, await loadImage(src).catch(() => null)]),
+  );
+  const stickerImageMap = new Map(stickerImageEntries.filter(([, image]) => image));
   onProgress?.({ progress: 8, phase: "准备画布与轨道" });
   const canvas = document.createElement("canvas");
   canvas.width = ratio.width;
@@ -300,9 +410,11 @@ export async function exportBrowserVideo({
   const sources = [];
   let destination = null;
   const audioInputs = [
-    audioBlob ? { blob: audioBlob, volume: voiceVolume, role: "voice" } : null,
-    sourceAudioBlob ? { blob: sourceAudioBlob, volume: sourceAudioVolume, role: "source" } : null,
-    musicBlob ? { blob: musicBlob, volume: musicVolume, role: "music" } : null,
+    audioBlob ? { blob: audioBlob, volume: voiceVolume, role: "voice", start: 0 } : null,
+    sourceAudioBlob
+      ? { blob: sourceAudioBlob, volume: sourceAudioVolume, role: "source", start: Math.max(0, sourceAudioStart || 0) }
+      : null,
+    musicBlob ? { blob: musicBlob, volume: musicVolume, role: "music", start: 0 } : null,
   ].filter(Boolean);
 
   if (audioInputs.length) {
@@ -330,7 +442,10 @@ export async function exportBrowserVideo({
       gain.gain.value = input.volume;
       source.connect(gain);
       gain.connect(destination);
-      sources.push(source);
+      sources.push({
+        node: source,
+        start: input.start,
+      });
     });
   }
 
@@ -345,7 +460,7 @@ export async function exportBrowserVideo({
   const totalDuration = Math.max(
     duration,
     decodedDuration,
-    ...sources.map((source) => source.buffer?.duration ?? 0),
+    ...sources.map(({ node, start }) => start + (node.buffer?.duration ?? 0)),
     1,
   );
   const captionTargetDuration = decodedDuration || 0;
@@ -381,6 +496,22 @@ export async function exportBrowserVideo({
       range: exportVisualTimeline[Math.max(0, visualIndex)] ?? exportVisualTimeline[0],
     };
   };
+  const getStickerAtTime = (elapsed) => {
+    if (!stickerSegments.length) {
+      return sticker;
+    }
+
+    for (let index = stickerSegments.length - 1; index >= 0; index -= 1) {
+      const segment = stickerSegments[index];
+      const start = Math.max(0, segment.start || 0);
+      const end = start + Math.max(0, segment.duration || 0);
+      if (elapsed >= start && elapsed < end) {
+        return segment;
+      }
+    }
+
+    return null;
+  };
   const draw = () => {
     const elapsed = Math.min(totalDuration, (performance.now() - startTime) / 1000);
     const segmentIndex = getSegmentIndexAtTime(exportSegments, elapsed, captionTargetDuration);
@@ -394,6 +525,7 @@ export async function exportBrowserVideo({
         visualItem.visual.currentTime = nextVideoTime;
       }
     }
+    const exportSticker = getStickerAtTime(elapsed);
     drawPreviewFrame(context, visualItem.visual, canvas, {
       subtitle: exportCaption,
       progress: elapsed / totalDuration,
@@ -403,7 +535,8 @@ export async function exportBrowserVideo({
       captionPosition,
       captionPlacement,
       captionSize,
-      sticker,
+      sticker: exportSticker,
+      stickerImage: exportSticker?.src ? stickerImageMap.get(exportSticker.src) : null,
       transitionId,
     });
 
@@ -421,7 +554,7 @@ export async function exportBrowserVideo({
   };
 
   draw();
-  sources.forEach((source) => source.start());
+  sources.forEach(({ node, start }) => node.start(start));
   await new Promise((resolve) => {
     window.setTimeout(resolve, totalDuration * 1000);
   });
@@ -433,6 +566,7 @@ export async function exportBrowserVideo({
   });
   const finalSegmentIndex = getSegmentIndexAtTime(exportSegments, totalDuration, captionTargetDuration);
   const { item: finalVisualItem } = getVisualItemAtTime(totalDuration);
+  const finalSticker = getStickerAtTime(totalDuration);
   drawPreviewFrame(context, finalVisualItem.visual, canvas, {
     subtitle:
       finalSegmentIndex >= 0 && !exportSegments[finalSegmentIndex]?.hidden
@@ -445,7 +579,8 @@ export async function exportBrowserVideo({
     captionPosition,
     captionPlacement,
     captionSize,
-    sticker,
+    sticker: finalSticker,
+    stickerImage: finalSticker?.src ? stickerImageMap.get(finalSticker.src) : null,
     transitionId,
   });
   recorder.stop();

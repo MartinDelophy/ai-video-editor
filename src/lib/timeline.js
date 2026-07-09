@@ -1,4 +1,5 @@
 import {
+  DEFAULT_STICKER_SEGMENT_SECONDS,
   MAX_CAPTION_SEGMENT_SECONDS,
   MAX_IMAGE_THUMBNAILS,
   MAX_TIMELINE_DURATION_SECONDS,
@@ -6,6 +7,8 @@ import {
   MIN_VISUAL_SEGMENT_SECONDS,
   IMAGE_SEGMENT_SECONDS,
 } from "../config/editor.js";
+
+const MIN_TIMED_CAPTION_SECONDS = 0.2;
 
 export function makeId(prefix) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -30,6 +33,9 @@ export function getVisualAssetPayload(asset) {
     name: asset.name ?? "",
     meta: asset.meta ?? "",
     blob: asset.blob ?? null,
+    width: asset.width ?? asset.naturalWidth ?? 0,
+    height: asset.height ?? asset.naturalHeight ?? 0,
+    trackFrames: Array.isArray(asset.trackFrames) ? asset.trackFrames : [],
   };
 }
 
@@ -39,6 +45,45 @@ export function createVisualSegment(duration = 4, asset = null) {
     duration: Math.max(MIN_VISUAL_SEGMENT_SECONDS, Math.min(MAX_TIMELINE_DURATION_SECONDS, duration)),
     ...getVisualAssetPayload(asset),
   };
+}
+
+export function createStickerSegment(sticker, start = 0, duration = DEFAULT_STICKER_SEGMENT_SECONDS) {
+  const safeDuration = Math.max(
+    MIN_VISUAL_SEGMENT_SECONDS,
+    Math.min(MAX_TIMELINE_DURATION_SECONDS, duration || DEFAULT_STICKER_SEGMENT_SECONDS),
+  );
+
+  return {
+    id: makeId("sticker"),
+    stickerId: sticker?.stickerId ?? sticker?.id ?? "",
+    name: sticker?.name ?? "",
+    nameEn: sticker?.nameEn ?? "",
+    category: sticker?.category ?? "",
+    src: sticker?.src ?? "",
+    start: Math.max(0, Math.min(MAX_TIMELINE_DURATION_SECONDS - safeDuration, start || 0)),
+    duration: safeDuration,
+  };
+}
+
+export function getTimedSegmentsEnd(segments) {
+  return segments.reduce(
+    (end, segment) => Math.max(end, Math.max(0, segment.start || 0) + Math.max(0, segment.duration || 0)),
+    0,
+  );
+}
+
+export function getTimedSegmentIndexAtTime(segments, time) {
+  const safeTime = Math.max(0, Number.isFinite(time) ? time : 0);
+  for (let index = segments.length - 1; index >= 0; index -= 1) {
+    const segment = segments[index];
+    const start = Math.max(0, segment.start || 0);
+    const end = start + Math.max(0, segment.duration || 0);
+    if (safeTime >= start && safeTime < end) {
+      return index;
+    }
+  }
+
+  return -1;
 }
 
 export function getVisualSegmentsTotal(segments) {
@@ -107,13 +152,39 @@ export function getCaptionBaseDuration(text) {
 }
 
 export function getCaptionSegmentDuration(segment) {
+  if (hasExplicitCaptionTiming(segment)) {
+    return Math.max(MIN_TIMED_CAPTION_SECONDS, segment.end - segment.start);
+  }
+
   const defaultWeight = getCaptionDefaultWeight(segment.text);
   const weight = Number.isFinite(segment.weight) ? segment.weight : defaultWeight;
   const weightScale = Math.max(0.35, weight / defaultWeight);
   return getCaptionBaseDuration(segment.text) * weightScale;
 }
 
+export function hasExplicitCaptionTiming(segment) {
+  return Number.isFinite(segment?.start) && Number.isFinite(segment?.end) && segment.end > segment.start;
+}
+
 export function getCaptionTimeline(captionSegments, targetDuration = 0) {
+  if (captionSegments.some(hasExplicitCaptionTiming)) {
+    let cursor = 0;
+    return captionSegments.map((segment) => {
+      const hasTiming = hasExplicitCaptionTiming(segment);
+      const start = hasTiming ? Math.max(0, segment.start) : cursor;
+      const duration = hasTiming
+        ? Math.max(MIN_TIMED_CAPTION_SECONDS, segment.end - segment.start)
+        : getCaptionSegmentDuration(segment);
+      const timelineItem = {
+        start,
+        end: start + duration,
+        duration,
+      };
+      cursor = timelineItem.end;
+      return timelineItem;
+    });
+  }
+
   const naturalDurations = captionSegments.map((segment) => getCaptionSegmentDuration(segment));
   const naturalTotal = naturalDurations.reduce((sum, duration) => sum + duration, 0);
   const shouldAlignToTarget = targetDuration > 0 && naturalTotal > 0;

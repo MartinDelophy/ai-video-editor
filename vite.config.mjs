@@ -5,6 +5,9 @@ export default defineConfig({
   optimizeDeps: {
     include: ["react", "react-dom/client"],
   },
+  worker: {
+    format: "es",
+  },
   server: {
     warmup: {
       clientFiles: ["./src/main.jsx"],

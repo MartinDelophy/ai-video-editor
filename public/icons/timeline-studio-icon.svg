@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Timeline Studio</title>
+  <desc id="desc">Dark editor app icon with caption and waveform marks.</desc>
+  <defs>
+    <linearGradient id="bg" x1="64" x2="448" y1="56" y2="456" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#1e2a3a" />
+      <stop offset="0.48" stop-color="#111823" />
+      <stop offset="1" stop-color="#05090f" />
+    </linearGradient>
+    <linearGradient id="accent" x1="96" x2="416" y1="366" y2="366" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#78a3ff" />
+      <stop offset="1" stop-color="#35ead9" />
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)" />
+  <rect x="88" y="108" width="336" height="230" rx="46" fill="#172232" stroke="#2a3d55" stroke-width="14" />
+  <rect x="134" y="154" width="244" height="96" rx="20" fill="#0b111a" stroke="#78a3ff" stroke-width="12" />
+  <path d="M190 224c-30 0-52-19-52-48s22-48 52-48c18 0 32 6 42 18l-22 23c-5-6-12-10-20-10-11 0-19 7-19 17s8 17 19 17c8 0 15-4 20-10l22 23c-10 12-24 18-42 18Zm126 0c-30 0-52-19-52-48s22-48 52-48c18 0 32 6 42 18l-22 23c-5-6-12-10-20-10-11 0-19 7-19 17s8 17 19 17c8 0 15-4 20-10l22 23c-10 12-24 18-42 18Z" fill="#d9ecff" />
+  <path d="M118 382h276" stroke="url(#accent)" stroke-width="24" stroke-linecap="round" />
+  <path d="M152 338v60m48-84v84m48-50v50m48-74v74m48-42v42" stroke="#d9ecff" stroke-opacity="0.82" stroke-width="18" stroke-linecap="round" />
+  <circle cx="392" cy="382" r="25" fill="#35ead9" />
+</svg>

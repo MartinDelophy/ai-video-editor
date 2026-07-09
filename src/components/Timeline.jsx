@@ -24,6 +24,10 @@ import { IMAGE_SEGMENT_SECONDS } from "../config/editor.js";
 import { formatClock, formatTime, getImageThumbnailCount, getSegmentStartTime } from "../lib/timeline.js";
 import { IconButton, WaveformStrip } from "./ui.jsx";
 
+const MIN_TIMELINE_ZOOM = 0.25;
+const MAX_TIMELINE_ZOOM = 3;
+const TIMELINE_WHEEL_ZOOM_RATIO = 1.12;
+
 export function Timeline({
   t,
   undo,
@@ -101,6 +105,56 @@ export function Timeline({
     activeTimelineClipDrag?.track === "caption"
       ? displayedCaptionSegments.find((segment) => segment.id === activeTimelineClipDrag.segmentId)
       : null;
+  const adjustTimelineZoom = (nextZoomOrUpdater) => {
+    setTimelineZoom((currentZoom) => {
+      const rawNextZoom =
+        typeof nextZoomOrUpdater === "function"
+          ? nextZoomOrUpdater(currentZoom)
+          : nextZoomOrUpdater;
+      return Math.max(MIN_TIMELINE_ZOOM, Math.min(MAX_TIMELINE_ZOOM, rawNextZoom));
+    });
+  };
+  const handleTimelineWheel = (event) => {
+    if (event.shiftKey || Math.abs(event.deltaX) > Math.abs(event.deltaY)) {
+      return;
+    }
+
+    const trackElement = trackScrollRef.current;
+    const scrollElement = trackElement?.parentElement;
+    if (!trackElement || !scrollElement) {
+      return;
+    }
+
+    event.preventDefault();
+    const currentZoom = Math.max(MIN_TIMELINE_ZOOM, Math.min(MAX_TIMELINE_ZOOM, timelineZoom));
+    const zoomDirection = event.deltaY < 0 ? 1 : -1;
+    const nextZoom =
+      zoomDirection > 0
+        ? Math.min(MAX_TIMELINE_ZOOM, currentZoom * TIMELINE_WHEEL_ZOOM_RATIO)
+        : Math.max(MIN_TIMELINE_ZOOM, currentZoom / TIMELINE_WHEEL_ZOOM_RATIO);
+
+    if (Math.abs(nextZoom - currentZoom) < 0.001) {
+      return;
+    }
+
+    const trackRect = trackElement.getBoundingClientRect();
+    const scrollRect = scrollElement.getBoundingClientRect();
+    const trackContentStart = trackRect.left - scrollRect.left + scrollElement.scrollLeft;
+    const pointerTrackRatio = Math.max(
+      0,
+      Math.min(1, (event.clientX - trackRect.left) / Math.max(trackRect.width, 1)),
+    );
+    const nextTrackWidth = (trackRect.width / currentZoom) * nextZoom;
+    const nextScrollLeft =
+      trackContentStart + pointerTrackRatio * nextTrackWidth - (event.clientX - scrollRect.left);
+    const syncScrollAnchor = () => {
+      scrollElement.scrollLeft = Math.max(0, nextScrollLeft);
+    };
+
+    adjustTimelineZoom(nextZoom);
+    window.requestAnimationFrame(syncScrollAnchor);
+    window.setTimeout(syncScrollAnchor, 180);
+  };
   const renderAssetDropSlot = (track) =>
     assetDropTargetTrack === track ? (
       <div
@@ -179,14 +233,14 @@ export function Timeline({
           </IconButton>
         </div>
         <div className="timeline-icon-group">
-          <IconButton label={t("zoomOut")} onClick={() => setTimelineZoom((zoom) => Math.max(0.25, zoom - 0.25))}>
+          <IconButton label={t("zoomOut")} onClick={() => adjustTimelineZoom((zoom) => zoom - 0.25)}>
             <MagnifyingGlassMinus size={17} />
           </IconButton>
           <span className="zoom-readout">{Math.round(timelineZoom * 100)}%</span>
           <IconButton label={t("fitTimeline")} active={timelineZoom === 1} onClick={() => setTimelineZoom(1)}>
             <MonitorPlay size={17} />
           </IconButton>
-          <IconButton label={t("zoomIn")} onClick={() => setTimelineZoom((zoom) => Math.min(3, zoom + 0.25))}>
+          <IconButton label={t("zoomIn")} onClick={() => adjustTimelineZoom((zoom) => zoom + 0.25)}>
             <MagnifyingGlassPlus size={17} />
           </IconButton>
         </div>
@@ -229,7 +283,7 @@ export function Timeline({
           ))}
         </div>
 
-        <div className="tracks">
+        <div className="tracks" onWheel={handleTimelineWheel}>
           <div
             ref={trackScrollRef}
             className="track-scroll"

@@ -50,6 +50,7 @@ import {
   exportBrowserVideo,
   extractAudioFromVideo,
   getAudioRecordingFormat,
+  getSupportedRecordingFormat,
   transcodeWebmToMp4,
 } from "./lib/media.js";
 

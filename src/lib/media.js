@@ -202,7 +202,15 @@ function drawPreviewFrame(context, visual, canvas, options) {
   context.fillRect(110, height - 24, (width - 220) * progress, 6);
 }
 
-function getSupportedRecordingFormat() {
+export function getSupportedRecordingFormat() {
+  if (typeof MediaRecorder === "undefined") {
+    return {
+      mimeType: "",
+      extension: "webm",
+      label: "默认视频",
+    };
+  }
+
   const supportedFormat = EXPORT_RECORDING_FORMATS.find((format) =>
     MediaRecorder.isTypeSupported(format.mimeType),
   );

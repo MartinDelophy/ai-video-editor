@@ -125,17 +125,6 @@ export function PreviewStage({
               </button>
             ) : null}
             {selectedSticker.text ? <div className="sticker-overlay">{selectedSticker.text}</div> : null}
-            <button
-              className={`canvas-play-button ${isPlaying ? "is-playing" : ""}`}
-              type="button"
-              aria-label={isPlaying ? t("pause") : t("play")}
-              title={isPlaying ? t("pause") : t("play")}
-              disabled={!canPreview}
-              onClick={handlePlayToggle}
-            >
-              {isPlaying ? <Pause size={18} weight="fill" /> : <Play size={18} weight="fill" />}
-              <span>{isPlaying ? t("pause") : t("play")}</span>
-            </button>
           </div>
         )}
       </div>

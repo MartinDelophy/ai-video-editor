@@ -53,7 +53,7 @@ button:disabled {
 
 .app-shell {
   display: grid;
-  grid-template-rows: 52px minmax(300px, 1fr) 410px;
+  grid-template-rows: 52px minmax(360px, 1fr) 354px;
   width: 100vw;
   height: 100vh;
   height: 100dvh;
@@ -318,7 +318,7 @@ button:disabled {
   position: relative;
   z-index: 1;
   display: grid;
-  grid-template-columns: 66px minmax(340px, 1.05fr) minmax(360px, 0.96fr) minmax(340px, 1fr);
+  grid-template-columns: 66px minmax(250px, 0.66fr) minmax(520px, 1.62fr) minmax(300px, 0.78fr);
   grid-template-rows: minmax(0, 1fr);
   gap: 6px;
   min-height: 0;
@@ -328,7 +328,7 @@ button:disabled {
 }
 
 .editor-grid.is-compact-rail {
-  grid-template-columns: 50px minmax(340px, 1.05fr) minmax(360px, 0.96fr) minmax(340px, 1fr);
+  grid-template-columns: 50px minmax(250px, 0.66fr) minmax(520px, 1.62fr) minmax(300px, 0.78fr);
 }
 
 .language-intro {
@@ -643,6 +643,7 @@ button:disabled {
   color: #8e98a4;
   font-size: 14px;
   font-weight: 650;
+  white-space: nowrap;
   background: transparent;
   cursor: pointer;
 }
@@ -1396,9 +1397,9 @@ button:disabled {
 
 .preview-stage {
   display: grid;
-  grid-template-rows: 1fr 126px;
+  grid-template-rows: 1fr 94px;
   gap: 0;
-  padding: 12px;
+  padding: 10px;
   overflow: hidden;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent 42%),
@@ -1410,7 +1411,7 @@ button:disabled {
   display: grid;
   place-items: center;
   min-height: 0;
-  padding: 42px 10px 24px;
+  padding: 20px 8px 12px;
   background: #171b22;
 }
 
@@ -1533,56 +1534,8 @@ button:disabled {
   box-shadow: 0 10px 24px rgba(0, 0, 0, 0.24);
 }
 
-.canvas-play-button {
-  position: absolute;
-  left: 50%;
-  bottom: 18px;
-  z-index: 6;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  min-width: 92px;
-  height: 38px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 8px;
-  padding: 0 14px;
-  color: #eef9fb;
-  font-size: 13px;
-  font-weight: 760;
-  background: rgba(6, 10, 14, 0.76);
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.38);
-  transform: translateX(-50%);
-  backdrop-filter: blur(14px);
-  cursor: pointer;
-}
-
-.canvas-play-button svg {
-  color: #33ead8;
-}
-
-.canvas-play-button:hover {
-  border-color: rgba(53, 234, 217, 0.72);
-  background: rgba(10, 24, 27, 0.86);
-}
-
-.canvas-play-button.is-playing {
-  color: #061515;
-  border-color: transparent;
-  background: #33ead8;
-}
-
-.canvas-play-button.is-playing svg {
-  color: #061515;
-}
-
-.canvas-play-button:disabled {
-  opacity: 0.52;
-  cursor: not-allowed;
-}
-
 .transport {
-  padding: 18px 16px 6px;
+  padding: 12px 12px 4px;
 }
 
 .scrubber,
@@ -1595,9 +1548,9 @@ button:disabled {
 
 .transport-row {
   justify-content: space-between;
-  gap: 12px;
+  gap: 10px;
   min-width: 0;
-  margin-top: 16px;
+  margin-top: 10px;
   flex-wrap: nowrap;
 }
 
@@ -2026,7 +1979,7 @@ button:disabled {
   position: relative;
   z-index: 30;
   display: grid;
-  grid-template-rows: 42px 1fr;
+  grid-template-rows: 40px 1fr;
   min-height: 0;
   margin: 0 6px 6px;
   border-radius: 7px;
@@ -2101,22 +2054,22 @@ button:disabled {
 
 .timeline-board {
   display: grid;
-  grid-template-columns: 142px 1fr;
+  grid-template-columns: 128px 1fr;
   min-height: 0;
 }
 
 .track-labels {
   display: grid;
-  grid-template-rows: 52px 52px 76px 76px 76px;
-  padding-top: 30px;
+  grid-template-rows: 46px 46px 58px 58px 58px;
+  padding-top: 28px;
   border-right: 1px solid rgba(255, 255, 255, 0.07);
 }
 
 .track-labels div {
   display: flex;
   align-items: center;
-  gap: 9px;
-  padding: 0 18px;
+  gap: 7px;
+  padding: 0 12px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.045);
   color: #c8d3db;
   font-size: 13px;
@@ -2172,7 +2125,7 @@ button:disabled {
 .tracks {
   position: relative;
   min-width: 0;
-  padding: 0 24px 18px 10px;
+  padding: 0 18px 12px 8px;
   overflow-x: auto;
   overflow-y: hidden;
 }
@@ -2180,7 +2133,7 @@ button:disabled {
 .track-scroll {
   position: relative;
   display: grid;
-  grid-template-rows: 30px 52px 52px 76px 76px 76px;
+  grid-template-rows: 28px 46px 46px 58px 58px 58px;
   min-width: 25%;
   transition: width 160ms ease;
 }
@@ -2227,7 +2180,7 @@ button:disabled {
 
 .snap-guide {
   position: absolute;
-  top: 28px;
+  top: 26px;
   bottom: 12px;
   z-index: 6;
   width: 2px;
@@ -2269,7 +2222,7 @@ button:disabled {
 .image-track {
   gap: 2px;
   overflow: hidden;
-  padding: 6px 0;
+  padding: 4px 0;
 }
 
 .image-track.is-reordering,
@@ -2286,7 +2239,7 @@ button:disabled {
   width: var(--image-clip-width, auto);
   min-width: 68px;
   max-width: 100%;
-  height: 40px;
+  height: 36px;
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 5px;
@@ -2324,7 +2277,7 @@ button:disabled {
 .image-thumbnails img {
   width: auto;
   min-width: 42px;
-  height: 40px;
+  height: 36px;
   flex: 1 1 max(42px, calc(106px * var(--timeline-zoom, 1)));
   object-fit: cover;
   user-select: none;
@@ -2333,7 +2286,7 @@ button:disabled {
 
 .image-thumbnails.is-video video {
   width: 100%;
-  height: 40px;
+  height: 36px;
   object-fit: cover;
   user-select: none;
   -webkit-user-drag: none;
@@ -2427,7 +2380,7 @@ button:disabled {
 .image-resize-handle::before,
 .image-resize-handle::after {
   position: absolute;
-  top: 11px;
+  top: 9px;
   width: 1px;
   height: 18px;
   border-radius: 999px;
@@ -2459,7 +2412,7 @@ button:disabled {
   flex: 0 0 max(56px, var(--caption-width, 12%));
   min-width: 56px;
   max-width: 100%;
-  height: 38px;
+  height: 34px;
   overflow: hidden;
   border: 0;
   border-radius: 4px;
@@ -2620,14 +2573,14 @@ button:disabled {
 
 .audio-track {
   overflow: hidden;
-  padding: 10px 0;
+  padding: 7px 0;
 }
 
 .audio-clip {
   position: relative;
   min-width: 72px;
   max-width: 100%;
-  height: 54px;
+  height: 44px;
 }
 
 .audio-clip.is-source .waveform-strip {

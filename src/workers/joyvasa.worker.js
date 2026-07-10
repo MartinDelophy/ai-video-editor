@@ -1,6 +1,6 @@
-import * as ort from "onnxruntime-web/wasm";
-import ortWasmMjsUrl from "onnxruntime-web/ort-wasm-simd-threaded.mjs?url";
-import ortWasmUrl from "../assets/ort-wasm-simd-threaded.wasm?url";
+import * as ort from "onnxruntime-web/webgpu";
+import ortWasmMjsUrl from "onnxruntime-web/ort-wasm-simd-threaded.asyncify.mjs?url";
+import ortWasmUrl from "onnxruntime-web/ort-wasm-simd-threaded.asyncify.wasm?url";
 
 import { JOYVASA_WEB_MODEL } from "../config/joyVasa.js";
 
@@ -63,10 +63,11 @@ async function fetchArtifact(key, baseUrl, start, span) {
 }
 
 async function createSession(key, bytes) {
-  // Use the deterministic WASM backend for the audio driver as well. The ORT
-  // WebGPU bundle currently fails during module initialization in some browsers,
-  // outside this session-level error boundary.
-  return ort.InferenceSession.create(bytes, { executionProviders: ["wasm"], graphOptimizationLevel: "all" });
+  if (!self.navigator?.gpu) throw new Error(`当前浏览器没有可用的 WebGPU，无法运行 JoyVASA ${key}`);
+  return ort.InferenceSession.create(bytes, {
+    executionProviders: [{ name: "webgpu", preferredLayout: "NHWC" }],
+    graphOptimizationLevel: "all",
+  });
 }
 
 function reflectPadOnce(input, amount) {
@@ -180,13 +181,13 @@ async function generate({ audioSamples, modelBaseUrl }) {
     fetchArtifact("conditioning", modelBaseUrl, 61, 1),
     fetchArtifact("schedule", modelBaseUrl, 62, 1),
   ]);
-  progress(63, "初始化 JoyVASA ONNX");
-  const [audioSession, denoiserSession] = await Promise.all([
-    createSession("audio", audioBytes),
-    createSession("denoiser", denoiserBytes),
-  ]);
+  progress(63, "初始化 JoyVASA HuBERT WebGPU");
+  const audioSession = await createSession("audio", audioBytes);
   const window = prepareWindow(new Float32Array(audioSamples));
   const audioResult = await audioSession.run({ audio_padded: tensor(window, [1, 64_080]) });
+  await audioSession.release();
+  progress(65, "初始化 JoyVASA 运动 WebGPU");
+  const denoiserSession = await createSession("denoiser", denoiserBytes);
   progress(66, "音频特征完成");
   const motion = await sampleMotion(
     denoiserSession,
@@ -194,6 +195,7 @@ async function generate({ audioSamples, modelBaseUrl }) {
     new Float32Array(conditioningBytes),
     new Float32Array(scheduleBytes),
   );
+  await denoiserSession.release();
   progress(100, "真实音频运动生成完成");
   self.postMessage({ type: "motion", motion: motion.buffer, frames: 100, fps: 25 }, [motion.buffer]);
 }

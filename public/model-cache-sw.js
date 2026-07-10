@@ -1,5 +1,5 @@
-const MODEL_CACHE_NAME = "timeline-studio-model-cache-v2";
-const APP_CACHE_NAME = "timeline-studio-app-shell-v2";
+const MODEL_CACHE_NAME = "timeline-studio-model-cache-v3";
+const APP_CACHE_NAME = "timeline-studio-app-shell-v3";
 const APP_SHELL_URLS = [
   "/",
   "/manifest.webmanifest",
@@ -10,8 +10,11 @@ const APP_SHELL_URLS = [
 ];
 const CACHEABLE_EXTENSIONS = [
   ".bin",
+  ".css",
+  ".js",
   ".json",
   ".model",
+  ".mp4",
   ".onnx",
   ".png",
   ".safetensors",

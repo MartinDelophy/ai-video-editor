@@ -114,6 +114,7 @@ export function Timeline({
   handleTrackAssetDragOver,
   handleTrackAssetDragLeave,
   handleTrackAssetDrop,
+  handleVisualStyleDrop,
   activeTimelineClipDrag,
   showStickerTrack,
   stickerSegments,
@@ -619,9 +620,12 @@ export function Timeline({
                 activeTimelineClipDrag?.track === "image" ? "is-reordering" : ""
               }`}
               onClick={() => setSelectedTrack("image")}
-              onDragOver={(event) => handleTrackAssetDragOver(event, "image")}
               onDragLeave={(event) => handleTrackAssetDragLeave(event, "image")}
-              onDrop={(event) => handleTrackAssetDrop(event, "image")}
+              onDragOver={(event) => {
+                if (event.dataTransfer?.types.includes("application/x-timeline-visual-style")) event.preventDefault();
+                else handleTrackAssetDragOver(event, "image");
+              }}
+              onDrop={(event) => handleVisualStyleDrop(event)}
               data-asset-drop-track="image"
               data-timeline-reorder-track="image"
             >

@@ -1,9 +1,12 @@
 import {
+  CheckCircle,
   ClosedCaptioning,
   Eye,
   EyeSlash,
   ListBullets,
+  PersonSimpleRun,
   Trash,
+  Waveform,
 } from "@phosphor-icons/react";
 
 import { formatTime, getSegmentStartTime } from "../lib/timeline.js";
@@ -133,6 +136,26 @@ function CaptionContextPanel({
   );
 }
 
+function AvatarContextPanel({ t, hasVisual, visualType, audioBlob, audioDuration, captionSegments, selectedVoice }) {
+  const hasPortrait = hasVisual && visualType === "image";
+  return (
+    <div className="avatar-context-panel">
+      <div className="avatar-context-hero">
+        <span><Waveform size={21} weight="duotone" /></span>
+        <div><small>{t("avatarKicker")}</small><strong>{t("avatarLipSyncTitle")}</strong><em>{t("avatarLipSyncDescription")}</em></div>
+      </div>
+      <div className="avatar-input-list">
+        <div className={hasPortrait ? "is-ready" : ""}><CheckCircle size={17} weight="fill" /><span><strong>{t("avatarPortrait")}</strong><em>{hasPortrait ? t("avatarCurrentPortrait") : t("avatarNeedsPortrait")}</em></span></div>
+        <div className={audioBlob ? "is-ready" : ""}><Waveform size={17} weight="duotone" /><span><strong>{t("avatarAudio")}</strong><em>{audioBlob ? `${selectedVoice?.name ?? "AI"} · ${audioDuration.toFixed(1)}s` : t("avatarNeedsAudio")}</em></span></div>
+        <div className={captionSegments.length ? "is-ready" : ""}><ClosedCaptioning size={17} weight="duotone" /><span><strong>{t("avatarLipSyncSource")}</strong><em>{captionSegments.length ? `${captionSegments.length} ${t("captionSegmentsUnit")} · ${t("avatarCaptionSync")}` : t("avatarNeedsCaptions")}</em></span></div>
+      </div>
+      <div className="avatar-sync-mode"><span>{t("avatarSyncMode")}</span><strong>{t("avatarSyncModeCaption")}</strong></div>
+      <p className="avatar-context-note">{t("avatarGenerationNote")}</p>
+      <div className="avatar-official-notice"><PersonSimpleRun size={17} weight="duotone" /><span><strong>{t("avatarServiceNeeded")}</strong><em>{t("avatarServiceHint")}</em></span></div>
+    </div>
+  );
+}
+
 export function VoicePanel({
   t,
   activeTool,
@@ -190,19 +213,26 @@ export function VoicePanel({
   generateCaptionsFromSourceAudio,
   isGeneratingCaptions,
   automaticCaptionProgress,
+  avatarPanelOpen,
+  hasVisual,
+  visualType,
+  audioDuration,
 }) {
   const isCaptionContext = activeTool === "caption";
-  const title = isCaptionContext ? t("caption") : t("aiVoice");
+  const isAvatarContext = activeTool === "smart" && avatarPanelOpen;
+  const title = isAvatarContext ? t("avatarTitle") : isCaptionContext ? t("caption") : t("aiVoice");
   const panelStatusText = isCaptionContext
     ? captionSegments.length
       ? `${captionSegments.length} ${t("captionSegmentsUnit", "条字幕")}`
       : t("noCaptionSegments")
+    : isAvatarContext
+      ? t("avatarServiceNeeded")
     : statusText === "模型待命"
       ? t("modelReady")
       : statusText;
 
   return (
-    <aside className={`voice-panel ${isCaptionContext ? "is-caption-context" : ""}`}>
+    <aside className={`voice-panel ${isCaptionContext ? "is-caption-context" : ""} ${isAvatarContext ? "is-avatar-context" : ""}`}>
       <div className="panel-title-row">
         <h1>{title}</h1>
         <span className={`status-pill ${isCaptionContext ? "done" : status}`}>
@@ -210,7 +240,7 @@ export function VoicePanel({
         </span>
       </div>
 
-      {!isCaptionContext ? (
+      {!isCaptionContext && !isAvatarContext ? (
         <div className="tabs compact">
           {[
             ["synthesis", t("voiceSynthesis")],
@@ -250,7 +280,9 @@ export function VoicePanel({
           />
         ) : null}
 
-        {!isCaptionContext && voiceTab === "synthesis" ? (
+        {isAvatarContext ? <AvatarContextPanel t={t} hasVisual={hasVisual} visualType={visualType} audioBlob={audioBlob} audioDuration={audioDuration} captionSegments={captionSegments} selectedVoice={selectedVoice} /> : null}
+
+        {!isCaptionContext && !isAvatarContext && voiceTab === "synthesis" ? (
           <VoiceSynthesisPanel
             script={script}
             updateScript={updateScript}
@@ -277,7 +309,7 @@ export function VoicePanel({
           />
         ) : null}
 
-        {!isCaptionContext && voiceTab === "mine" ? (
+        {!isCaptionContext && !isAvatarContext && voiceTab === "mine" ? (
           <MyVoicesPanel
             favoriteVoiceIds={favoriteVoiceIds}
             setFavoriteVoiceIds={setFavoriteVoiceIds}
@@ -295,7 +327,7 @@ export function VoicePanel({
           />
         ) : null}
 
-        {!isCaptionContext && voiceTab === "history" ? (
+        {!isCaptionContext && !isAvatarContext && voiceTab === "history" ? (
           <HistoryPanel
             historyItems={historyItems}
             useHistoryItem={useHistoryItem}

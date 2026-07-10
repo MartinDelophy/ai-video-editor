@@ -15,9 +15,9 @@ export function IconButton({ label, children, active = false, disabled = false, 
   );
 }
 
-export function Popover({ children, onClose }) {
+export function Popover({ children, onClose, className = "" }) {
   return (
-    <div className="popover" role="dialog">
+    <div className={`popover ${className}`.trim()} role="dialog">
       <button className="popover-close" type="button" aria-label="关闭" onClick={onClose}>
         <X size={14} />
       </button>
@@ -27,12 +27,13 @@ export function Popover({ children, onClose }) {
 }
 
 export function WaveformStrip({ peaks, active = false, hidden = false }) {
+  const safePeaks = Array.isArray(peaks) ? peaks : [];
   return (
     <div
       className={`waveform-strip ${active ? "is-active" : ""} ${hidden ? "is-muted" : ""}`}
       aria-hidden="true"
     >
-      {peaks.map((peak, index) => (
+      {safePeaks.map((peak, index) => (
         <span key={`${index}-${peak}`} style={{ "--bar": peak }} />
       ))}
     </div>

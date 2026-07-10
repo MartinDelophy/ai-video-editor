@@ -35,6 +35,7 @@ export function getVisualAssetPayload(asset) {
     blob: asset.blob ?? null,
     width: asset.width ?? asset.naturalWidth ?? 0,
     height: asset.height ?? asset.naturalHeight ?? 0,
+    sourceStart: Math.max(0, Number(asset.sourceStart) || 0),
     trackFrames: Array.isArray(asset.trackFrames) ? asset.trackFrames : [],
   };
 }

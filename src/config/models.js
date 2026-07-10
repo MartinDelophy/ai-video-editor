@@ -1,3 +1,9 @@
 export const MODEL_ID = "onnx-community/Kokoro-82M-v1.0-ONNX";
 export const AUTOMATIC_CAPTION_MODEL_ID = "onnx-community/whisper-small";
 export const AUTOMATIC_CAPTION_MODEL_LABEL = "Whisper small";
+export const YOLOS_TINY_MODEL_ID = "Xenova/yolos-tiny";
+export const YOLOS_TINY_MODEL_LABEL = "YOLOS tiny";
+export const YOLOS_TINY_MODEL_REVISION = "e2f9c7673f0fa61849efe2b56a0d7774779ebb9d";
+export const MODNET_MODEL_ID = "Xenova/modnet";
+export const MODNET_MODEL_LABEL = "MODNet";
+export const MODNET_MODEL_REVISION = "fa2fa546052fba4c08921230a26cc69a333fca12";

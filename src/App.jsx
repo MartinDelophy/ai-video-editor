@@ -26,6 +26,7 @@ import { Timeline } from "./components/Timeline.jsx";
 import { Topbar } from "./components/Topbar.jsx";
 import { createTranslator, getStoredLanguage, saveLanguagePreference, translateOptionName } from "./i18n.js";
 import { transcribeAudioToCaptionSegments } from "./lib/asr.js";
+import { getCaptionTextLayout } from "./lib/captionLayout.js";
 import {
   createCaptionSegments,
   createStickerSegment,
@@ -60,6 +61,7 @@ import {
   getSupportedRecordingFormat,
   transcodeWebmToMp4,
 } from "./lib/media.js";
+import { createProjectArchive, readProjectArchive, readProjectFileAsText } from "./lib/projectArchive.js";
 import {
   clearPiperCacheIfStorageTight,
   isPiperSymbolError,
@@ -67,8 +69,33 @@ import {
   prepareTextForVoice,
   TtsInputError,
 } from "./lib/ttsText.js";
+import {
+  analyzeVideoVisualTrack,
+  analyzeVisualSubject,
+  captureVisualFrame,
+  disposeVisionWorker,
+  getVisionKey,
+  resolveVisionAnalysisAtTime,
+} from "./lib/vision.js";
+import {
+  getCaptionAvoidancePlacement,
+  getSmartCropRect,
+  mapNormalizedBoxToFrame,
+} from "./lib/visualGeometry.js";
 
 const PLAYBACK_UI_FRAME_MS = 50;
+const DEFAULT_VISION_OPTIONS = Object.freeze({
+  showDetections: true,
+  removeBackground: false,
+  avoidCaptions: true,
+  smartCrop: true,
+});
+const EMPTY_VISION_OPTIONS = Object.freeze({
+  showDetections: false,
+  removeBackground: false,
+  avoidCaptions: false,
+  smartCrop: false,
+});
 
 function getNearestRatioIdForSize(width, height) {
   const mediaWidth = Number(width);
@@ -86,6 +113,42 @@ function getNearestRatioIdForSize(width, height) {
     },
     { id: RATIO_OPTIONS[0]?.id ?? "", distance: Number.POSITIVE_INFINITY },
   ).id;
+}
+
+function getObjectPositionForCrop(cropRect) {
+  const normalized = cropRect?.normalized;
+  if (!normalized) {
+    return "50% 50%";
+  }
+
+  const horizontalRange = Math.max(0, 1 - normalized.width);
+  const verticalRange = Math.max(0, 1 - normalized.height);
+  const x = horizontalRange > 0.0001 ? (normalized.xMin / horizontalRange) * 100 : 50;
+  const y = verticalRange > 0.0001 ? (normalized.yMin / verticalRange) * 100 : 50;
+  return `${Math.max(0, Math.min(100, x))}% ${Math.max(0, Math.min(100, y))}%`;
+}
+
+function isSameVisionDetection(detection, subject) {
+  if (!detection?.box || !subject?.box || detection.label !== subject.label) {
+    return false;
+  }
+
+  return [
+    ["xMin", "xmin"],
+    ["yMin", "ymin"],
+    ["xMax", "xmax"],
+    ["yMax", "ymax"],
+  ].every(([camelKey, lowerKey]) =>
+    Math.abs(
+      (detection.box[camelKey] ?? detection.box[lowerKey] ?? 0) -
+        (subject.box[camelKey] ?? subject.box[lowerKey] ?? 0),
+    ) < 0.004,
+  );
+}
+
+function revokeVisionObjectUrls(value) {
+  const urls = Array.isArray(value) ? value : value ? [value] : [];
+  urls.forEach((url) => URL.revokeObjectURL(url));
 }
 
 function getTimelineTrackLocalTime(time, start = 0, duration = 0) {
@@ -149,6 +212,7 @@ export function App() {
   const [showRatioMenu, setShowRatioMenu] = useState(false);
   const [fitMode, setFitMode] = useState("contain");
   const [showSettings, setShowSettings] = useState(false);
+  const [showFileMenu, setShowFileMenu] = useState(false);
   const [compactRail, setCompactRail] = useState(false);
   const [selectedTrack, setSelectedTrack] = useState("image");
   const [timelineZoom, setTimelineZoom] = useState(1);
@@ -171,6 +235,7 @@ export function App() {
   const [captionPosition, setCaptionPosition] = useState("bottom");
   const [captionPlacement, setCaptionPlacement] = useState({ x: 50, y: 78 });
   const [captionSize, setCaptionSize] = useState(12);
+  const [captionStyle, setCaptionStyle] = useState({ backgroundColor: "#05080d", backgroundOpacity: 0.62, textColor: "#f5fbff", borderColor: "#35f0dd", borderWidth: 0, radius: 7, paddingX: 22, paddingY: 12, shadowOpacity: 0.45, effect: "normal" });
   const [captionsEnabled, setCaptionsEnabled] = useState(true);
   const [captionSegments, setCaptionSegments] = useState(() => createCaptionSegments(DEFAULT_SCRIPT));
   const [selectedSegmentId, setSelectedSegmentId] = useState("");
@@ -196,8 +261,18 @@ export function App() {
   const [toast, setToast] = useState("");
   const [lastSaved, setLastSaved] = useState(formatSavedTime());
   const [previewFrameSize, setPreviewFrameSize] = useState({ width: 0, height: 0 });
+  const [previewVideoMediaTime, setPreviewVideoMediaTime] = useState(0);
+  const [visionRecords, setVisionRecords] = useState({});
+  const [visionJob, setVisionJob] = useState({
+    running: false,
+    key: "",
+    progress: 0,
+    phase: "",
+  });
+  const [avatarPanelOpen, setAvatarPanelOpen] = useState(false);
 
   const fileInputRef = useRef(null);
+  const projectFileInputRef = useRef(null);
   const previewShellRef = useRef(null);
   const previewCanvasRef = useRef(null);
   const audioRef = useRef(null);
@@ -229,6 +304,9 @@ export function App() {
   const timelineClipDragRef = useRef(null);
   const suppressTimelineClipClickRef = useRef("");
   const autoRatioSourceKeyRef = useRef("");
+  const visionObjectUrlsRef = useRef(new Map());
+  const visionAbortControllerRef = useRef(null);
+  const visionJobGenerationRef = useRef(0);
   const activeLanguage = uiLanguage || "zh";
   const t = useMemo(() => createTranslator(activeLanguage), [activeLanguage]);
   const trOption = (name, option) => {
@@ -244,6 +322,10 @@ export function App() {
     () => VOICES.find((voice) => voice.id === selectedVoiceId) ?? VOICES[0],
     [selectedVoiceId],
   );
+
+  function openAvatarPanel() {
+    setAvatarPanelOpen(true);
+  }
 
   const ratio = useMemo(
     () => RATIO_OPTIONS.find((option) => option.id === ratioId) ?? RATIO_OPTIONS[0],
@@ -306,7 +388,13 @@ export function App() {
     ],
   );
   const timelineDuration = useMemo(
-    () => (estimatedDuration > 0 ? MAX_TIMELINE_DURATION_SECONDS : 0),
+    () =>
+      estimatedDuration > 0
+        ? Math.min(
+            MAX_TIMELINE_DURATION_SECONDS,
+            Math.max(10, Math.ceil((estimatedDuration + 1) / 10) * 10),
+          )
+        : 0,
     [estimatedDuration],
   );
   timelineDurationRef.current = timelineDuration;
@@ -345,12 +433,59 @@ export function App() {
     currentVisualSegmentIndex >= 0 ? visualSegments[currentVisualSegmentIndex] ?? null : null;
   const currentVisualRange =
     currentVisualSegmentIndex >= 0 ? visualTimeline[currentVisualSegmentIndex] ?? null : null;
-  const previewVisualSegment = currentVisualSegment ?? visualSegments[0] ?? null;
+  const previewVisualSegmentIndex =
+    currentVisualSegmentIndex >= 0
+      ? currentVisualSegmentIndex
+      : visualSegments.length
+        ? currentTime >= imageDuration
+          ? visualSegments.length - 1
+          : 0
+        : -1;
+  const previewVisualSegment =
+    previewVisualSegmentIndex >= 0 ? visualSegments[previewVisualSegmentIndex] ?? null : null;
+  const previewVisualRange =
+    previewVisualSegmentIndex >= 0 ? visualTimeline[previewVisualSegmentIndex] ?? null : null;
   const previewVisualSrc = previewVisualSegment?.src || imageSrc;
   const previewVisualType = previewVisualSegment?.type || visualType;
-  const previewVisualLocalTime = currentVisualRange
-    ? Math.max(0, currentTime - currentVisualRange.start)
+  const activePreviewFilter = useMemo(
+    () => VISUAL_STYLE_OPTIONS.find((filter) => filter.id === (previewVisualSegment?.filterId || selectedFilterId)) ?? FILTER_OPTIONS[0],
+    [previewVisualSegment?.filterId, selectedFilterId],
+  );
+  const previewVisualLocalTime = previewVisualRange
+    ? Math.max(0, currentTime - previewVisualRange.start)
     : currentTime;
+  const previewVisualSourceTime =
+    previewVisualType === "video"
+      ? Math.max(0, Number(previewVisualSegment?.sourceStart) || 0) + previewVisualLocalTime
+      : previewVisualLocalTime;
+  const previewVisionKey = getVisionKey(
+    previewVisualSegment ??
+      (previewVisualSrc
+        ? {
+            id: "visual-fallback",
+            src: previewVisualSrc,
+            type: previewVisualType,
+            width: previewVisualSegment?.width ?? 0,
+            height: previewVisualSegment?.height ?? 0,
+          }
+        : null),
+  );
+  const previewVisionRecord = previewVisionKey ? visionRecords[previewVisionKey] ?? null : null;
+  const previewVisionBaseAnalysis = previewVisionRecord?.analysis ?? null;
+  const previewVisionAnalysis = useMemo(
+    () =>
+      resolveVisionAnalysisAtTime(
+        previewVisionBaseAnalysis,
+        previewVisualType === "video" ? previewVideoMediaTime : previewVisualSourceTime,
+      ),
+    [
+      previewVideoMediaTime,
+      previewVisionBaseAnalysis,
+      previewVisualSourceTime,
+      previewVisualType,
+    ],
+  );
+  const previewVisionOptions = previewVisionRecord?.options ?? EMPTY_VISION_OPTIONS;
   const selectedVisualSegmentIndex = Math.max(
     0,
     visualSegments.findIndex((segment) => segment.id === selectedVisualSegmentId),
@@ -364,6 +499,125 @@ export function App() {
       (trackVisibility.music && musicBlob && musicUrl),
   );
   const canPreview = hasPlayableVisualTimeline || hasPlayableAudioTimeline;
+  const previewVisionFrameSize = useMemo(
+    () => ({
+      width: previewFrameSize.width || ratio.width,
+      height: previewFrameSize.height || ratio.height,
+    }),
+    [previewFrameSize.height, previewFrameSize.width, ratio.height, ratio.width],
+  );
+  const previewSmartCropRect = useMemo(() => {
+    if (
+      !previewVisionOptions.smartCrop ||
+      !previewVisionAnalysis?.subject?.box ||
+      !previewVisionAnalysis?.sourceSize
+    ) {
+      return null;
+    }
+
+    return getSmartCropRect(
+      previewVisionAnalysis.sourceSize,
+      previewVisionFrameSize,
+      previewVisionAnalysis.subject.box,
+      { padding: 0.14 },
+    );
+  }, [
+    previewVisionAnalysis,
+    previewVisionFrameSize,
+    previewVisionOptions.smartCrop,
+  ]);
+  const previewVisionOverlayBoxes = useMemo(() => {
+    if (!previewVisionOptions.showDetections || !previewVisionAnalysis?.sourceSize) {
+      return [];
+    }
+
+    return (previewVisionAnalysis.detections ?? [])
+      .map((detection) => {
+        const mapped = mapNormalizedBoxToFrame(
+          detection.box,
+          previewVisionAnalysis.sourceSize,
+          previewVisionFrameSize,
+          {
+            fitMode,
+            smartCrop: previewSmartCropRect || false,
+            outputSize: previewVisionFrameSize,
+          },
+        );
+        if (!mapped?.normalized || mapped.width < 1 || mapped.height < 1) {
+          return null;
+        }
+
+        return {
+          ...mapped.normalized,
+          label: detection.label,
+          score: detection.score,
+          isSubject: isSameVisionDetection(detection, previewVisionAnalysis.subject),
+        };
+      })
+      .filter(Boolean);
+  }, [
+    fitMode,
+    previewSmartCropRect,
+    previewVisionAnalysis,
+    previewVisionFrameSize,
+    previewVisionOptions.showDetections,
+  ]);
+  const previewCaptionLayout = useMemo(
+    () =>
+      getCaptionTextLayout({
+        text: currentCaption,
+        captionSize,
+        captionStyle,
+        referenceFrame: previewVisionFrameSize,
+        renderFrame: previewVisionFrameSize,
+      }),
+    [captionSize, captionStyle, currentCaption, previewVisionFrameSize],
+  );
+  const effectiveCaptionPlacement = useMemo(() => {
+    if (
+      !previewVisionOptions.avoidCaptions ||
+      !previewVisionAnalysis?.subject?.box ||
+      !previewVisionAnalysis?.sourceSize
+    ) {
+      return captionPlacement;
+    }
+
+    return getCaptionAvoidancePlacement(previewVisionAnalysis.subject.box, {
+      sourceSize: previewVisionAnalysis.sourceSize,
+      frameSize: previewVisionFrameSize,
+      fitMode,
+      smartCrop: previewSmartCropRect || false,
+      basePlacement: captionPlacement,
+      previousPlacement: captionPlacement,
+      captionSize: {
+        width: previewCaptionLayout.width / Math.max(1, previewVisionFrameSize.width),
+        height: previewCaptionLayout.height,
+      },
+      safeMargin: 0.045,
+    });
+  }, [
+    captionPlacement,
+    fitMode,
+    previewCaptionLayout,
+    previewSmartCropRect,
+    previewVisionAnalysis,
+    previewVisionFrameSize,
+    previewVisionOptions.avoidCaptions,
+  ]);
+  const previewVisualRenderSrc =
+    previewVisionOptions.removeBackground &&
+    previewVisualType === "image" &&
+    previewVisionAnalysis?.cutoutUrl
+      ? previewVisionAnalysis.cutoutUrl
+      : previewVisualSrc;
+  const previewVisionMaskUrl =
+    previewVisionOptions.removeBackground && previewVisualType === "video"
+      ? previewVisionAnalysis?.cutoutUrl ?? ""
+      : "";
+  const previewVisualObjectFit = previewSmartCropRect ? "cover" : fitMode;
+  const previewVisualObjectPosition = previewSmartCropRect
+    ? getObjectPositionForCrop(previewSmartCropRect)
+    : "50% 50%";
 
   const filteredVoices = useMemo(() => {
     return VOICES.filter((voice) => {
@@ -384,6 +638,17 @@ export function App() {
         meta: "1920 x 1080",
         width: 1920,
         height: 1080,
+      },
+      {
+        id: "sample-motion",
+        type: "video",
+        src: "/assets/sample-motion.mp4",
+        name: "sample-motion.mp4",
+        meta: "640 x 360 · 00:02.50",
+        duration: 2.5,
+        width: 640,
+        height: 360,
+        trackFrames: [],
       },
     ],
     [],
@@ -527,16 +792,35 @@ export function App() {
   }, [exporting]);
 
   useEffect(() => {
+    setPreviewVideoMediaTime(
+      previewVisualType === "video"
+        ? Math.max(0, Number(previewVisualSegment?.sourceStart) || 0)
+        : 0,
+    );
+  }, [previewVisualSegment?.id, previewVisualSrc, previewVisualType]);
+
+  useEffect(() => {
     const video = previewVideoRef.current;
     if (!video || previewVisualType !== "video") {
       return;
     }
 
-    const boundedTime = Math.min(Math.max(0, previewVisualLocalTime), video.duration || previewVisualLocalTime);
+    const maximumTime = Math.max(0, (Number(video.duration) || previewVisualSourceTime) - 0.001);
+    const boundedTime = Math.min(Math.max(0, previewVisualSourceTime), maximumTime);
     if (Number.isFinite(boundedTime) && Math.abs(video.currentTime - boundedTime) > 0.2) {
       video.currentTime = boundedTime;
+      setPreviewVideoMediaTime(boundedTime);
     }
-  }, [previewVisualLocalTime, previewVisualSrc, previewVisualType]);
+    if (isPlaying && trackVisibility.image && video.paused) {
+      video.play().catch(() => {});
+    }
+  }, [
+    isPlaying,
+    previewVisualSourceTime,
+    previewVisualSrc,
+    previewVisualType,
+    trackVisibility.image,
+  ]);
 
   useEffect(() => {
     const video = previewVideoRef.current;
@@ -709,6 +993,7 @@ export function App() {
     selectedStickerId,
     captionSegments,
     visualSegments,
+    visionRecords,
     timelineZoom,
   ]);
 
@@ -725,6 +1010,10 @@ export function App() {
       }
       imageUrlRefs.current.forEach((url) => URL.revokeObjectURL(url));
       imageUrlRefs.current.clear();
+      visionAbortControllerRef.current?.abort();
+      visionObjectUrlsRef.current.forEach((urls) => revokeVisionObjectUrls(urls));
+      visionObjectUrlsRef.current.clear();
+      disposeVisionWorker();
       voiceRecorderStreamRef.current?.getTracks().forEach((track) => track.stop());
       window.clearInterval(voiceRecorderTimerRef.current);
       window.clearTimeout(toastTimerRef.current);
@@ -737,8 +1026,432 @@ export function App() {
     toastTimerRef.current = window.setTimeout(() => setToast(""), 2600);
   }
 
+  function clearAllVisionState() {
+    visionJobGenerationRef.current += 1;
+    visionAbortControllerRef.current?.abort();
+    visionAbortControllerRef.current = null;
+    visionObjectUrlsRef.current.forEach((urls) => revokeVisionObjectUrls(urls));
+    visionObjectUrlsRef.current.clear();
+    setVisionRecords({});
+    setVisionJob({ running: false, key: "", progress: 0, phase: "" });
+  }
+
+  function getProjectSnapshot() {
+    const serializableVisualSegments = visualSegments.map(({ blob, trackFrames, src, cutoutVisual, ...segment }) => segment);
+    return {
+      script, selectedVoiceId, speed, volume, ratioId, fitMode, captionPosition,
+      captionPlacement, captionSize, captionStyle, captionsEnabled, captionSegments, visualSegments: serializableVisualSegments,
+      stickerSegments, selectedFilterId, selectedTransitionId, selectedStickerId, trackVisibility, timelineZoom,
+      audioDuration, musicName, musicDuration, musicVolume, sourceAudioName, sourceAudioDuration, sourceAudioStart, sourceAudioVolume,
+    };
+  }
+
+  async function handleExportProject() {
+    setShowFileMenu(false);
+    try {
+      notify("正在打包工程与媒体素材…");
+      const archive = await createProjectArchive({
+        project: getProjectSnapshot(),
+        visualSegments,
+        audio: audioBlob ? { blob: audioBlob, name: "ai-voiceover" } : null,
+        sourceAudio: sourceAudioBlob ? { blob: sourceAudioBlob, name: sourceAudioName || "source-audio" } : null,
+        music: musicBlob ? { blob: musicBlob, name: musicName || "background-music" } : null,
+      });
+      downloadBlob(archive, "AI-配音项目.timeline");
+      notify("工程包已导出（含媒体素材）");
+    } catch (error) {
+      notify(error instanceof Error ? `工程导出失败：${error.message}` : "工程导出失败");
+    }
+  }
+
+  function handleNewProject() {
+    if (!window.confirm("新建工程将清空当前时间线，是否继续？")) return;
+    setScript(DEFAULT_SCRIPT);
+    setCaptionSegments(createCaptionSegments(DEFAULT_SCRIPT));
+    setSelectedSegmentId("");
+    clearImageTrack("");
+    clearAudioTrack("");
+    clearSourceAudioTrack("");
+    clearMusicTrack("");
+    setStickerSegments([]);
+    setSelectedStickerSegmentId("");
+    clearAllVisionState();
+    setCurrentTime(0);
+    setShowFileMenu(false);
+    notify("已新建空白工程");
+  }
+
+  async function handleImportProject(file) {
+    if (!file) {
+      projectFileInputRef.current?.click();
+      return;
+    }
+    try {
+        let archive;
+        try {
+          archive = await readProjectArchive(file);
+        } catch (archiveError) {
+          // Projects exported before the portable archive format were JSON-only.
+          // Keep them importable so upgrading the editor never strands a project.
+          const legacy = JSON.parse(await readProjectFileAsText(file));
+          if (legacy?.format !== "timeline-studio-project" || !legacy.project) throw archiveError;
+          archive = {
+            payload: { ...legacy, media: { visuals: [] } },
+            visualMedia: new Map(),
+            audio: null,
+            sourceAudio: null,
+            music: null,
+            legacy: true,
+          };
+        }
+        const { payload, visualMedia, audio: importedAudio, sourceAudio: importedSourceAudio, music: importedMusic } = archive;
+        const data = payload.project;
+        setScript(typeof data.script === "string" ? data.script : DEFAULT_SCRIPT);
+        const nextCaptions = Array.isArray(data.captionSegments) ? data.captionSegments : createCaptionSegments(data.script || DEFAULT_SCRIPT);
+        setCaptionSegments(nextCaptions);
+        setSelectedSegmentId(nextCaptions[0]?.id ?? "");
+        setSelectedVoiceId(data.selectedVoiceId || VOICES[0].id);
+        setSpeed(Number(data.speed) || 1); setVolume(Number(data.volume) || 1);
+        setRatioId(RATIO_OPTIONS.some((option) => option.id === data.ratioId) ? data.ratioId : "16:9");
+        setFitMode(data.fitMode || "contain"); setCaptionPosition(data.captionPosition || "bottom");
+        setCaptionPlacement(data.captionPlacement || { x: 50, y: 78 }); setCaptionSize(Number(data.captionSize) || 12);
+        setCaptionStyle(data.captionStyle || captionStyle);
+        setCaptionsEnabled(data.captionsEnabled !== false); setTrackVisibility(data.trackVisibility || trackVisibility);
+        setTimelineZoom(Number(data.timelineZoom) || 1); setSelectedFilterId(data.selectedFilterId || "none");
+        setSelectedTransitionId(data.selectedTransitionId || "none"); setSelectedStickerId(data.selectedStickerId || "none");
+        setStickerSegments(Array.isArray(data.stickerSegments) ? data.stickerSegments : []);
+        const importedVisuals = Array.isArray(data.visualSegments) ? data.visualSegments
+          .map((segment) => {
+            const media = visualMedia.get(segment.id);
+            if (media?.blob) return { ...segment, src: URL.createObjectURL(media.blob), blob: media.blob };
+            // JSON-era projects could only retain public/static asset URLs.
+            return segment?.src ? segment : null;
+          })
+          .filter(Boolean) : [];
+        importedVisuals.filter((segment) => segment.src?.startsWith("blob:")).forEach((segment) => imageUrlRefs.current.add(segment.src));
+        setVisualSegments(importedVisuals); setImageDuration(getVisualSegmentsTotal(importedVisuals));
+        setImageClipCount(getImageThumbnailCount(getVisualSegmentsTotal(importedVisuals)));
+        setCurrentVisualAsset(importedVisuals[0] || null);
+        if (importedAudio) {
+          const decoded = await decodeWaveform(importedAudio);
+          replaceAudio(importedAudio, Number(data.audioDuration) || decoded.duration, decoded.peaks, "已恢复工程配音");
+        } else clearAudioTrack("");
+        if (importedSourceAudio) {
+          const decoded = await decodeWaveform(importedSourceAudio);
+          replaceSourceAudio(importedSourceAudio, Number(data.sourceAudioDuration) || decoded.duration, decoded.peaks, data.sourceAudioName || "source-audio", "", Number(data.sourceAudioStart) || 0);
+        } else clearSourceAudioTrack("");
+        if (importedMusic) {
+          const decoded = await decodeWaveform(importedMusic);
+          replaceMusic(importedMusic, Number(data.musicDuration) || decoded.duration, decoded.peaks, data.musicName || "background-music", "");
+        } else clearMusicTrack("");
+        setMusicVolume(Number(data.musicVolume) || 0.35); setSourceAudioVolume(Number(data.sourceAudioVolume) || 1);
+        setCurrentTime(0); clearAllVisionState(); setShowFileMenu(false);
+        notify(archive.legacy
+          ? "旧版工程已导入；请重新添加未嵌入的本地媒体，然后导出为 .timeline 工程包"
+          : "工程包已导入，媒体素材已恢复");
+    } catch (error) {
+      const detail = error instanceof Error && error.message ? `：${error.message}` : "";
+      notify(`无法读取工程文件${detail}`);
+    }
+    if (projectFileInputRef.current) projectFileInputRef.current.value = "";
+  }
+
+  async function analyzeCurrentVisual() {
+    if (!previewVisualSrc || !previewVisionKey) {
+      notify("请先把图片或视频放到图片轨");
+      return;
+    }
+
+    if (visionJob.running && visionJob.key === previewVisionKey) {
+      visionJobGenerationRef.current += 1;
+      visionAbortControllerRef.current?.abort();
+      visionAbortControllerRef.current = null;
+      setVisionJob({ running: false, key: previewVisionKey, progress: 0, phase: "分析已取消" });
+      notify("已取消当前视觉分析");
+      return;
+    }
+
+    visionAbortControllerRef.current?.abort();
+    const controller = new AbortController();
+    visionAbortControllerRef.current = controller;
+    const jobGeneration = visionJobGenerationRef.current + 1;
+    visionJobGenerationRef.current = jobGeneration;
+    const analysisKey = previewVisionKey;
+    const analysisType = previewVisualType;
+    setVisionJob({
+      running: true,
+      key: analysisKey,
+      progress: 1,
+      phase: analysisType === "video" ? "准备分析整段视频" : "截取当前视觉画面",
+    });
+
+    try {
+      const handleVisionProgress = ({ progress: nextProgress, phase }) => {
+        setVisionJob((job) =>
+          job.key === analysisKey
+            ? {
+                ...job,
+                progress: Math.max(job.progress, nextProgress),
+                phase: phase || job.phase,
+              }
+            : job,
+        );
+      };
+      const source = previewVisualSegment?.blob || previewVisualSrc;
+      let analysis;
+      let nextObjectUrls = [];
+
+      if (analysisType === "video") {
+        const videoDuration = Math.max(
+          0.05,
+          Number(previewVideoRef.current?.duration) ||
+            Number(previewVisualSegment?.duration) ||
+            0.05,
+        );
+        const result = await analyzeVideoVisualTrack({
+          src: source,
+          duration: videoDuration,
+          includeMatting: true,
+          fps: 2,
+          maxSamples: 180,
+          maxDimension: 512,
+          threshold: 0.32,
+          preferredLabels: ["person", "cat", "dog", "car", "bottle", "chair"],
+          signal: controller.signal,
+          onProgress: handleVisionProgress,
+        });
+        const samples = result.samples.map((sample) => {
+          const { cutoutBlob, ...sampleData } = sample;
+          const cutoutUrl = cutoutBlob ? URL.createObjectURL(cutoutBlob) : "";
+          if (cutoutUrl) {
+            nextObjectUrls.push(cutoutUrl);
+          }
+          return { ...sampleData, cutoutUrl };
+        });
+        analysis = {
+          ...result,
+          samples,
+          analyzedAt: Date.now(),
+          visualType: analysisType,
+        };
+      } else {
+        const frameBlob = await captureVisualFrame({
+          src: source,
+          type: analysisType,
+          maxDimension: 1024,
+          outputType: "image/png",
+          quality: 0.92,
+          signal: controller.signal,
+        });
+        const result = await analyzeVisualSubject({
+          blob: frameBlob,
+          includeMatting: true,
+          threshold: 0.32,
+          preferredLabels: ["person", "cat", "dog", "car", "bottle", "chair"],
+          signal: controller.signal,
+          onProgress: handleVisionProgress,
+        });
+        const cutoutUrl = result.cutoutBlob ? URL.createObjectURL(result.cutoutBlob) : "";
+        if (cutoutUrl) {
+          nextObjectUrls = [cutoutUrl];
+        }
+        analysis = {
+          ...result,
+          cutoutUrl,
+          analyzedAt: Date.now(),
+          visualType: analysisType,
+        };
+      }
+
+      if (controller.signal.aborted || jobGeneration !== visionJobGenerationRef.current) {
+        return;
+      }
+
+      const previousUrls = visionObjectUrlsRef.current.get(analysisKey);
+      revokeVisionObjectUrls(previousUrls);
+      visionObjectUrlsRef.current.set(analysisKey, nextObjectUrls);
+
+      setVisionRecords((records) => {
+        const previous = records[analysisKey];
+        return {
+          ...records,
+          [analysisKey]: {
+            analysis,
+            options: previous?.options ?? {
+              ...DEFAULT_VISION_OPTIONS,
+              removeBackground: false,
+            },
+          },
+        };
+      });
+      setVisionJob({
+        running: false,
+        key: analysisKey,
+        progress: 100,
+        phase: "视觉主体分析完成",
+      });
+      notify(
+        analysisType === "image"
+          ? "YOLOS tiny 主体识别与 MODNet 抠图已就绪"
+          : `全视频分析完成：YOLOS + MODNet 已覆盖 ${analysis.samples.length} 个时序帧`,
+      );
+    } catch (error) {
+      if (error?.name === "AbortError") {
+        return;
+      }
+      console.error(error);
+      setVisionJob({
+        running: false,
+        key: analysisKey,
+        progress: 0,
+        phase: "视觉分析失败",
+      });
+      notify(error?.message || "视觉主体分析失败，请重试");
+    } finally {
+      if (visionAbortControllerRef.current === controller) {
+        visionAbortControllerRef.current = null;
+        setVisionJob((job) => (job.running && job.key === analysisKey ? { ...job, running: false } : job));
+      }
+    }
+  }
+
+  function toggleVisionOption(optionId) {
+    if (!previewVisionKey || !previewVisionRecord) {
+      return;
+    }
+
+    const hasMatting =
+      Boolean(previewVisionAnalysis?.cutoutUrl) ||
+      Boolean(previewVisionBaseAnalysis?.samples?.some((sample) => sample.cutoutUrl));
+    if (optionId === "removeBackground" && !hasMatting) {
+      notify("请先完成当前图片或整段视频的 MODNet 分析");
+      return;
+    }
+
+    const nextEnabled = !previewVisionOptions[optionId];
+    setVisionRecords((records) => {
+      const record = records[previewVisionKey];
+      if (!record) {
+        return records;
+      }
+      return {
+        ...records,
+        [previewVisionKey]: {
+          ...record,
+          options: {
+            ...record.options,
+            [optionId]: nextEnabled,
+          },
+        },
+      };
+    });
+
+    const optionLabels = {
+      showDetections: "主体识别框",
+      removeBackground: "MODNet 抠图",
+      avoidCaptions: "字幕智能避让",
+      smartCrop: "主体智能裁切",
+    };
+    notify(`${optionLabels[optionId] ?? "智能画面"}已${nextEnabled ? "开启" : "关闭"}`);
+  }
+
+  function setFitModeFromUser(nextModeOrUpdater) {
+    setFitMode(nextModeOrUpdater);
+    if (!previewVisionKey || !previewVisionRecord?.options?.smartCrop) {
+      return;
+    }
+    setVisionRecords((records) => {
+      const record = records[previewVisionKey];
+      return record
+        ? {
+            ...records,
+            [previewVisionKey]: {
+              ...record,
+              options: { ...record.options, smartCrop: false },
+            },
+          }
+        : records;
+    });
+  }
+
+  function clearVisionAnalysis() {
+    if (!previewVisionKey) {
+      return;
+    }
+
+    if (visionJob.running && visionJob.key === previewVisionKey) {
+      visionJobGenerationRef.current += 1;
+      visionAbortControllerRef.current?.abort();
+      visionAbortControllerRef.current = null;
+    }
+    const cutoutUrls = visionObjectUrlsRef.current.get(previewVisionKey);
+    if (cutoutUrls) {
+      revokeVisionObjectUrls(cutoutUrls);
+      visionObjectUrlsRef.current.delete(previewVisionKey);
+    }
+    setVisionRecords((records) => {
+      const nextRecords = { ...records };
+      delete nextRecords[previewVisionKey];
+      return nextRecords;
+    });
+    setVisionJob({ running: false, key: "", progress: 0, phase: "" });
+    notify("当前素材的视觉分析已清除");
+  }
+
+  function downloadVisionCutout() {
+    if (previewVisualType === "video") {
+      notify("视频 MODNet 遮罩会随时间变化，并随视频一起预览和导出");
+      return;
+    }
+    const cutoutBlob = previewVisionAnalysis?.cutoutBlob;
+    if (!cutoutBlob) {
+      notify("当前素材还没有透明抠图");
+      return;
+    }
+    const baseName = (previewVisualSegment?.name || imageName || "subject")
+      .replace(/\.[^.]+$/, "")
+      .replace(/[^\w\u3400-\u9fff-]+/g, "-");
+    downloadBlob(cutoutBlob, `${baseName || "subject"}-modnet.png`);
+    notify("透明 PNG 已下载");
+  }
+
+  function removeVisionRecordsForAsset(asset) {
+    if (!asset?.id && !asset?.src) {
+      return;
+    }
+
+    const belongsToAsset = (key) =>
+      Boolean(
+        (asset.id && key.startsWith(`${asset.id}::`)) ||
+          (asset.src && key.includes(`::${asset.src}`)),
+      );
+    if (visionJob.running && belongsToAsset(visionJob.key)) {
+      visionJobGenerationRef.current += 1;
+      visionAbortControllerRef.current?.abort();
+      visionAbortControllerRef.current = null;
+      setVisionJob({ running: false, key: "", progress: 0, phase: "" });
+    }
+
+    setVisionRecords((records) => {
+      const nextRecords = { ...records };
+      Object.keys(records).forEach((key) => {
+        if (!belongsToAsset(key)) {
+          return;
+        }
+        const cutoutUrls = visionObjectUrlsRef.current.get(key);
+        if (cutoutUrls) {
+          revokeVisionObjectUrls(cutoutUrls);
+          visionObjectUrlsRef.current.delete(key);
+        }
+        delete nextRecords[key];
+      });
+      return nextRecords;
+    });
+  }
+
   function selectTool(toolId) {
     setActiveTool(toolId);
+    if (toolId !== "smart") setAvatarPanelOpen(false);
     if (toolId === "audio") {
       setSelectedTrack("audio");
       setVoiceTab("synthesis");
@@ -819,6 +1532,21 @@ export function App() {
     };
     setCaptionPosition(position);
     setCaptionPlacement(placementMap[position] ?? placementMap.bottom);
+    if (previewVisionKey && previewVisionRecord?.options?.avoidCaptions) {
+      setVisionRecords((records) => {
+        const record = records[previewVisionKey];
+        return record
+          ? {
+              ...records,
+              [previewVisionKey]: {
+                ...record,
+                options: { ...record.options, avoidCaptions: false },
+              },
+            }
+          : records;
+      });
+      notify("已切回手动字幕位置，智能避让已关闭");
+    }
   }
 
   function startCaptionDrag(event) {
@@ -833,6 +1561,23 @@ export function App() {
 
     event.preventDefault();
     event.stopPropagation();
+    const disabledSmartAvoidance = Boolean(
+      previewVisionKey && previewVisionRecord?.options?.avoidCaptions,
+    );
+    if (disabledSmartAvoidance) {
+      setVisionRecords((records) => {
+        const record = records[previewVisionKey];
+        return record
+          ? {
+              ...records,
+              [previewVisionKey]: {
+                ...record,
+                options: { ...record.options, avoidCaptions: false },
+              },
+            }
+          : records;
+      });
+    }
     setSelectedTrack("caption");
     if (currentCaptionSegment) {
       setSelectedSegmentId(currentCaptionSegment.id);
@@ -857,7 +1602,7 @@ export function App() {
     const handlePointerUp = () => {
       window.removeEventListener("pointermove", handlePointerMove);
       window.removeEventListener("pointerup", handlePointerUp);
-      notify("字幕位置已调整");
+      notify(disabledSmartAvoidance ? "字幕位置已手动调整，智能避让已关闭" : "字幕位置已调整");
     };
 
     window.addEventListener("pointermove", handlePointerMove);
@@ -1259,6 +2004,7 @@ export function App() {
       blob: previewVisualSegment?.blob || null,
       width: previewVisualSegment?.width || 0,
       height: previewVisualSegment?.height || 0,
+      sourceStart: Math.max(0, Number(previewVisualSegment?.sourceStart) || 0),
       trackFrames: previewVisualSegment?.trackFrames || [],
     };
   }
@@ -2020,6 +2766,11 @@ export function App() {
     }
 
     setSelectedLibraryAssetId(asset.id);
+    if (event.detail >= 2) {
+      const targetTrack = asset.type === "audio" ? "music" : "image";
+      void applyAssetToTrack(asset, targetTrack);
+      return;
+    }
     notify("素材已选中，请拖到对应轨道使用");
   }
 
@@ -2141,6 +2892,29 @@ export function App() {
     void applyAssetToTrack(asset, targetTrack, { percent });
   }
 
+  function handleVisualStyleDrop(event) {
+    const payload = event.dataTransfer?.getData("application/x-timeline-visual-style") || "";
+    const [kind, styleId] = payload.split(":");
+    if (!styleId || (kind !== "effect" && kind !== "transition")) {
+      handleTrackAssetDrop(event, "image");
+      return;
+    }
+    const clip = event.target.closest?.("[data-timeline-segment-id]");
+    const segmentId = clip?.dataset.timelineSegmentId;
+    if (!segmentId) {
+      notify("请将效果或转场拖到具体的画面片段上");
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    setVisualSegments((segments) => segments.map((segment) => segment.id === segmentId ? { ...segment, [kind === "effect" ? "filterId" : "transitionId"]: styleId } : segment));
+    setSelectedVisualSegmentId(segmentId);
+    setSelectedTrack("image");
+    if (kind === "effect") setSelectedFilterId(styleId);
+    else setSelectedTransitionId(styleId);
+    notify(kind === "effect" ? "效果已应用到该画面片段" : "转场已绑定到该片段的结尾");
+  }
+
   async function selectAsset(asset) {
     if (asset.type === "audio") {
       if (!asset.blob) {
@@ -2163,6 +2937,7 @@ export function App() {
   }
 
   function deleteUserAsset(asset) {
+    removeVisionRecordsForAsset(asset);
     const hasOtherAssetUsingUrl = userAssets.some(
       (item) => item.id !== asset.id && item.src === asset.src,
     );
@@ -2755,7 +3530,18 @@ export function App() {
       const video = await exportBrowserVideo({
         imageSrc,
         visualType,
-        visualSegments: renderedVisualSegments,
+        visualSegments: renderedVisualSegments.map((segment) => {
+          const record = visionRecords[getVisionKey(segment)];
+          return record
+            ? {
+                ...segment,
+                vision: {
+                  ...record.analysis,
+                  options: record.options,
+                },
+              }
+            : segment;
+        }),
         audioBlob: trackVisibility.audio ? audioBlob : null,
         voiceVolume: volume,
         sourceAudioBlob: trackVisibility.source ? sourceAudioBlob : null,
@@ -2781,6 +3567,14 @@ export function App() {
         captionPosition,
         captionPlacement,
         captionSize,
+        captionStyle,
+        captionReferenceSize:
+          previewFrameSize.width > 0 && previewFrameSize.height > 0
+            ? previewFrameSize
+            : {
+                width: (360 * ratio.width) / ratio.height,
+                height: 360,
+              },
         sticker: stickerSegments.length ? null : selectedSticker,
         stickerSegments: trackVisibility.sticker ? stickerSegments : [],
         transitionId: selectedTransitionId,
@@ -3082,6 +3876,10 @@ export function App() {
       ...source,
       id: makeId("visual"),
       duration: secondDuration,
+      sourceStart:
+        source.type === "video"
+          ? Math.max(0, Number(source.sourceStart) || 0) + firstDuration
+          : Math.max(0, Number(source.sourceStart) || 0),
     };
     const nextSegments = [...sourceSegments];
     nextSegments.splice(segmentIndex, 1, firstSegment, secondSegment);
@@ -3564,6 +4362,12 @@ export function App() {
         setCaptionsEnabled={setCaptionsEnabled}
         trackVisibility={trackVisibility}
         toggleTrackVisibility={toggleTrackVisibility}
+        showFileMenu={showFileMenu}
+        setShowFileMenu={setShowFileMenu}
+        handleNewProject={handleNewProject}
+        handleExportProject={handleExportProject}
+        handleImportProject={handleImportProject}
+        projectFileInputRef={projectFileInputRef}
       />
 
       <section className={`editor-grid ${compactRail ? "is-compact-rail" : ""}`}>
@@ -3603,6 +4407,7 @@ export function App() {
           ) : (
             <ToolPanel
               activeTool={activeTool}
+              uiLanguage={activeLanguage}
               script={script}
               updateScript={updateScript}
               segments={segments}
@@ -3621,6 +4426,8 @@ export function App() {
               setCaptionPosition={handleCaptionPositionChange}
               captionSize={captionSize}
               setCaptionSize={setCaptionSize}
+              captionStyle={captionStyle}
+              setCaptionStyle={setCaptionStyle}
               captionsEnabled={captionsEnabled}
               setCaptionsEnabled={setCaptionsEnabled}
               selectedFilterId={selectedFilterId}
@@ -3642,6 +4449,18 @@ export function App() {
               generateCaptionsFromSourceAudio={generateCaptionsFromSourceAudio}
               isGeneratingCaptions={status === "captioning"}
               automaticCaptionProgress={status === "captioning" ? progress : 0}
+              hasVisual={Boolean(previewVisualSrc)}
+              visualType={previewVisualType}
+              visionAnalysis={previewVisionAnalysis}
+              visionOptions={previewVisionOptions}
+              visionRunning={visionJob.running && visionJob.key === previewVisionKey}
+              visionProgress={visionJob.key === previewVisionKey ? visionJob.progress : 0}
+              visionPhase={visionJob.key === previewVisionKey ? visionJob.phase : ""}
+              analyzeCurrentVisual={analyzeCurrentVisual}
+              toggleVisionOption={toggleVisionOption}
+              clearVisionAnalysis={clearVisionAnalysis}
+              downloadVisionCutout={downloadVisionCutout}
+              openAvatarPanel={openAvatarPanel}
               musicBlob={musicBlob}
               musicName={musicName}
               musicDuration={musicDuration}
@@ -3663,19 +4482,36 @@ export function App() {
           previewShellRef={previewShellRef}
           previewCanvasRef={previewCanvasRef}
           previewVideoRef={previewVideoRef}
+          onPreviewVideoTimeUpdate={setPreviewVideoMediaTime}
           previewVisualSrc={previewVisualSrc}
+          previewVisualRenderSrc={previewVisualRenderSrc}
+          previewVisionMaskUrl={previewVisionMaskUrl}
           previewVisualType={previewVisualType}
           previewRatio={previewRatio}
           previewFrameStyle={previewFrameStyle}
+          previewFrameSize={previewFrameSize}
           trackVisibility={trackVisibility}
           fileInputRef={fileInputRef}
-          selectedFilter={selectedFilter}
+          selectedFilter={activePreviewFilter}
           fitMode={fitMode}
-          setFitMode={setFitMode}
+          visualObjectFit={previewVisualObjectFit}
+          visualObjectPosition={previewVisualObjectPosition}
+          visionOverlayBoxes={previewVisionOverlayBoxes}
+          showVisionOverlays={previewVisionOptions.showDetections}
+          backgroundRemoved={
+            previewVisionOptions.removeBackground &&
+            Boolean(previewVisionAnalysis?.cutoutUrl)
+          }
+          smartCropActive={Boolean(previewSmartCropRect)}
+          captionAvoidanceActive={
+            previewVisionOptions.avoidCaptions && Boolean(previewVisionAnalysis?.subject?.box)
+          }
+          setFitMode={setFitModeFromUser}
           captionsEnabled={captionsEnabled}
           currentCaption={currentCaption}
           captionSize={captionSize}
-          captionPlacement={captionPlacement}
+          captionStyle={captionStyle}
+          captionPlacement={effectiveCaptionPlacement}
           startCaptionDrag={startCaptionDrag}
           setActiveTool={setActiveTool}
           selectedSticker={previewSticker}
@@ -3745,6 +4581,10 @@ export function App() {
           generateCaptionsFromSourceAudio={generateCaptionsFromSourceAudio}
           isGeneratingCaptions={status === "captioning"}
           automaticCaptionProgress={status === "captioning" ? progress : 0}
+          avatarPanelOpen={avatarPanelOpen}
+          hasVisual={Boolean(previewVisualSrc)}
+          visualType={previewVisualType}
+          audioDuration={audioDuration}
         />
       </section>
 
@@ -3756,7 +4596,7 @@ export function App() {
         handleDuplicateTrack={handleDuplicateTrack}
         handleCutTrack={handleCutTrack}
         fitMode={fitMode}
-        setFitMode={setFitMode}
+        setFitMode={setFitModeFromUser}
         canPreview={canPreview}
         handlePlayToggle={handlePlayToggle}
         isPlaying={isPlaying}
@@ -3785,6 +4625,7 @@ export function App() {
         handleTrackAssetDragOver={handleTrackAssetDragOver}
         handleTrackAssetDragLeave={handleTrackAssetDragLeave}
         handleTrackAssetDrop={handleTrackAssetDrop}
+        handleVisualStyleDrop={handleVisualStyleDrop}
         activeTimelineClipDrag={activeTimelineClipDrag}
         showStickerTrack={showStickerTrack}
         stickerSegments={stickerSegments}

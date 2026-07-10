@@ -11,6 +11,13 @@ import {
   getVisualSegmentTimeline,
   makeId,
 } from "./timeline.js";
+import {
+  drawCaptionLayout,
+  getCaptionTextLayout,
+  positionCaptionLayout,
+} from "./captionLayout.js";
+import { resolveVisionAnalysisAtTime } from "./vision.js";
+import { getCaptionAvoidancePlacement, getSmartCropRect } from "./visualGeometry.js";
 
 export function getAudioRecordingFormat() {
   if (typeof MediaRecorder === "undefined") {
@@ -178,6 +185,96 @@ function loadImage(src) {
   });
 }
 
+function createTemporalMaskCache(urls, maxEntries = 8) {
+  const orderedUrls = Array.from(new Set(urls.filter(Boolean)));
+  const urlIndexes = new Map(orderedUrls.map((url, index) => [url, index]));
+  const entries = new Map();
+  let lastReadyImage = null;
+
+  const evictIfNeeded = () => {
+    while (entries.size > maxEntries) {
+      const candidate = Array.from(entries.entries()).find(([, entry]) => entry.image);
+      if (!candidate) {
+        return;
+      }
+      const [url, entry] = candidate;
+      entries.delete(url);
+      if (lastReadyImage === entry.image) {
+        lastReadyImage = null;
+      }
+      entry.image.removeAttribute("src");
+    }
+  };
+
+  const load = (url) => {
+    if (!url) {
+      return Promise.resolve(null);
+    }
+    const existing = entries.get(url);
+    if (existing?.image) {
+      entries.delete(url);
+      entries.set(url, existing);
+      return Promise.resolve(existing.image);
+    }
+    if (existing?.promise) {
+      return existing.promise;
+    }
+
+    const entry = { image: null, promise: null };
+    entry.promise = loadImage(url)
+      .then((image) => {
+        entry.image = image;
+        entry.promise = null;
+        lastReadyImage = image;
+        entries.delete(url);
+        entries.set(url, entry);
+        evictIfNeeded();
+        return image;
+      })
+      .catch(() => {
+        entries.delete(url);
+        return null;
+      });
+    entries.set(url, entry);
+    return entry.promise;
+  };
+
+  const prefetchAround = (url) => {
+    const index = urlIndexes.get(url);
+    if (!Number.isInteger(index)) {
+      return load(url);
+    }
+    return Promise.all(
+      [orderedUrls[index], orderedUrls[index + 1], orderedUrls[index - 1]]
+        .filter(Boolean)
+        .map(load),
+    );
+  };
+
+  return {
+    async prepare(url) {
+      await prefetchAround(url);
+    },
+    get(url) {
+      const entry = entries.get(url);
+      if (entry?.image) {
+        entries.delete(url);
+        entries.set(url, entry);
+        prefetchAround(url).catch(() => {});
+        lastReadyImage = entry.image;
+        return entry.image;
+      }
+      prefetchAround(url).catch(() => {});
+      return lastReadyImage;
+    },
+    dispose() {
+      entries.forEach((entry) => entry.image?.removeAttribute("src"));
+      entries.clear();
+      lastReadyImage = null;
+    },
+  };
+}
+
 function loadVideo(src) {
   return new Promise((resolve, reject) => {
     const video = document.createElement("video");
@@ -198,28 +295,113 @@ function getVisualDimensions(visual) {
   };
 }
 
-function drawFittedVisual(context, visual, canvas, fitMode, filter) {
-  const { width, height } = canvas;
-  const visualSize = getVisualDimensions(visual);
-  const imageRatio = visualSize.width / visualSize.height;
-  const canvasRatio = width / height;
-  const cover = fitMode === "cover";
-  let drawWidth;
-  let drawHeight;
+const maskedVisualLayerCache = new WeakMap();
 
-  if (cover ? imageRatio > canvasRatio : imageRatio < canvasRatio) {
-    drawHeight = height;
-    drawWidth = height * imageRatio;
-  } else {
-    drawWidth = width;
-    drawHeight = width / imageRatio;
+function getMaskedVisualLayer(canvas) {
+  let layer = maskedVisualLayerCache.get(canvas);
+  if (!layer) {
+    layer = document.createElement("canvas");
+    maskedVisualLayerCache.set(canvas, layer);
+  }
+  if (layer.width !== canvas.width || layer.height !== canvas.height) {
+    layer.width = canvas.width;
+    layer.height = canvas.height;
+  }
+  return layer;
+}
+
+function drawVisualUsingLayout(context, visual, layout, isMask = false) {
+  if (layout.smartCropRect) {
+    const visualSize = getVisualDimensions(visual);
+    const scaleX = isMask ? visualSize.width / Math.max(1, layout.sourceSize.width) : 1;
+    const scaleY = isMask ? visualSize.height / Math.max(1, layout.sourceSize.height) : 1;
+    context.drawImage(
+      visual,
+      layout.smartCropRect.x * scaleX,
+      layout.smartCropRect.y * scaleY,
+      layout.smartCropRect.width * scaleX,
+      layout.smartCropRect.height * scaleY,
+      0,
+      0,
+      layout.outputSize.width,
+      layout.outputSize.height,
+    );
+    return;
   }
 
-  const x = (width - drawWidth) / 2;
-  const y = (height - drawHeight) / 2;
-  context.filter = filter;
-  context.drawImage(visual, x, y, drawWidth, drawHeight);
-  context.filter = "none";
+  context.drawImage(
+    visual,
+    layout.drawRect.x,
+    layout.drawRect.y,
+    layout.drawRect.width,
+    layout.drawRect.height,
+  );
+}
+
+function drawFittedVisual(context, visual, canvas, fitMode, filter, vision = null) {
+  const { width, height } = canvas;
+  const visualSize = getVisualDimensions(visual);
+  const smartCropEnabled = Boolean(vision?.options?.smartCrop && vision?.subject?.box);
+  const smartCropRect = smartCropEnabled
+    ? getSmartCropRect(visualSize, canvas, vision.subject.box, { padding: 0.14 })
+    : null;
+
+  let layout;
+  if (smartCropRect) {
+    layout = {
+      sourceSize: visualSize,
+      smartCropRect,
+      drawRect: { x: 0, y: 0, width, height },
+      fitMode: "cover",
+      outputSize: { width, height },
+    };
+  } else {
+    const imageRatio = visualSize.width / visualSize.height;
+    const canvasRatio = width / height;
+    const cover = fitMode === "cover";
+    let drawWidth;
+    let drawHeight;
+
+    if (cover ? imageRatio > canvasRatio : imageRatio < canvasRatio) {
+      drawHeight = height;
+      drawWidth = height * imageRatio;
+    } else {
+      drawWidth = width;
+      drawHeight = width / imageRatio;
+    }
+
+    const x = (width - drawWidth) / 2;
+    const y = (height - drawHeight) / 2;
+    layout = {
+      sourceSize: visualSize,
+      smartCropRect: null,
+      drawRect: { x, y, width: drawWidth, height: drawHeight },
+      fitMode,
+      outputSize: { width, height },
+    };
+  }
+
+  const maskVisual =
+    vision?.options?.removeBackground && vision?.maskVisual ? vision.maskVisual : null;
+  if (maskVisual) {
+    const layer = getMaskedVisualLayer(canvas);
+    const layerContext = layer.getContext("2d");
+    layerContext.clearRect(0, 0, layer.width, layer.height);
+    layerContext.save();
+    layerContext.filter = filter;
+    drawVisualUsingLayout(layerContext, visual, layout);
+    layerContext.filter = "none";
+    layerContext.globalCompositeOperation = "destination-in";
+    drawVisualUsingLayout(layerContext, maskVisual, layout, true);
+    layerContext.restore();
+    context.drawImage(layer, 0, 0);
+  } else {
+    context.filter = filter;
+    drawVisualUsingLayout(context, visual, layout);
+    context.filter = "none";
+  }
+
+  return layout;
 }
 
 function drawPreviewFrame(context, visual, canvas, options) {
@@ -232,37 +414,52 @@ function drawPreviewFrame(context, visual, canvas, options) {
     captionPosition = "bottom",
     captionPlacement = null,
     captionSize = 12,
+    captionStyle = {},
+    captionReferenceSize = null,
     sticker = null,
     stickerImage = null,
     transitionId = "none",
+    vision = null,
   } = options;
 
   const { width, height } = canvas;
   context.clearRect(0, 0, width, height);
   context.fillStyle = "#090b0f";
   context.fillRect(0, 0, width, height);
-  drawFittedVisual(context, visual, canvas, fitMode, filter);
+  const visualLayout = drawFittedVisual(context, visual, canvas, fitMode, filter, vision);
 
   if (captionsEnabled && subtitle) {
-    const overlayHeight = Math.max(72, captionSize * 2.25);
-    const yMap = {
-      top: 48,
-      middle: height / 2 - overlayHeight / 2,
-      bottom: height - overlayHeight - 42,
-    };
-    const overlayWidth = width - 192;
-    const overlayX = captionPlacement
-      ? Math.max(24, Math.min(width - overlayWidth - 24, (width * captionPlacement.x) / 100 - overlayWidth / 2))
-      : 96;
-    const overlayY = captionPlacement
-      ? Math.max(24, Math.min(height - overlayHeight - 24, (height * captionPlacement.y) / 100 - overlayHeight / 2))
-      : yMap[captionPosition] ?? yMap.bottom;
-    context.fillStyle = "rgba(5, 8, 13, 0.62)";
-    context.fillRect(overlayX, overlayY, overlayWidth, overlayHeight);
-    context.font = `600 ${captionSize}px Inter, system-ui, sans-serif`;
-    context.textAlign = "center";
-    context.fillStyle = "#f5fbff";
-    context.fillText(subtitle.slice(0, 34), overlayX + overlayWidth / 2, overlayY + overlayHeight * 0.62);
+    const captionLayout = getCaptionTextLayout({
+      context,
+      text: subtitle,
+      captionSize,
+      captionStyle,
+      referenceFrame: captionReferenceSize ?? canvas,
+      renderFrame: canvas,
+    });
+    const baseCaptionPlacement = captionPlacement ?? captionPosition;
+    const avoidingPlacement =
+      vision?.options?.avoidCaptions && vision?.subject?.box
+        ? getCaptionAvoidancePlacement(vision.subject.box, {
+            sourceSize: visualLayout.sourceSize,
+            frameSize: canvas,
+            fitMode: visualLayout.fitMode,
+            smartCrop: visualLayout.smartCropRect || false,
+            basePlacement: baseCaptionPlacement,
+            previousPlacement: baseCaptionPlacement,
+            captionSize: {
+              width: captionLayout.width / Math.max(1, width),
+              height: captionLayout.height,
+            },
+            safeMargin: 0.045,
+          })
+        : null;
+    const effectiveCaptionPlacement = avoidingPlacement || baseCaptionPlacement;
+    drawCaptionLayout(
+      context,
+      captionLayout,
+      positionCaptionLayout(captionLayout, effectiveCaptionPlacement),
+    );
   }
 
   if (sticker?.src && stickerImage) {
@@ -367,6 +564,8 @@ export async function exportBrowserVideo({
   captionPosition,
   captionPlacement,
   captionSize,
+  captionStyle,
+  captionReferenceSize,
   sticker,
   stickerSegments = [],
   transitionId,
@@ -376,16 +575,59 @@ export async function exportBrowserVideo({
     throw new Error("当前浏览器不支持 MediaRecorder，无法导出视频。");
   }
 
+  if (document.fonts?.ready) {
+    await document.fonts.ready.catch(() => {});
+  }
+
   onProgress?.({ progress: 4, phase: "准备导出画面" });
   const exportVisualSegments = visualSegments.some((segment) => segment.src)
     ? visualSegments.filter((segment) => segment.src)
     : [{ id: "export-visual", src: imageSrc, type: visualType, duration }];
   const exportVisualTimeline = getVisualSegmentTimeline(exportVisualSegments);
   const visualItems = await Promise.all(
-    exportVisualSegments.map(async (segment) => ({
-      segment,
-      visual: segment.type === "video" ? await loadVideo(segment.src) : await loadImage(segment.src),
-    })),
+    exportVisualSegments.map(async (segment) => {
+      const visual = segment.type === "video" ? await loadVideo(segment.src) : await loadImage(segment.src);
+      if (segment.type === "video") {
+        await seekVideoFrame(
+          visual,
+          Math.max(0, Number(segment.sourceStart) || 0),
+        );
+      }
+      const shouldUseCutout = Boolean(
+        segment.type === "image" &&
+          segment.vision?.options?.removeBackground &&
+          segment.vision?.cutoutUrl,
+      );
+      const cutoutVisual = shouldUseCutout
+        ? await loadImage(segment.vision.cutoutUrl).catch(() => null)
+        : null;
+      const temporalMaskUrls =
+        segment.type === "video" && segment.vision?.options?.removeBackground
+          ? Array.from(
+              new Set(
+                (segment.vision.samples ?? [])
+                  .map((sample) => sample.cutoutUrl)
+                  .filter(Boolean),
+              ),
+            )
+          : [];
+      const temporalMaskCache = temporalMaskUrls.length
+        ? createTemporalMaskCache(temporalMaskUrls)
+        : null;
+      if (temporalMaskCache) {
+        const initialVision = resolveVisionAnalysisAtTime(
+          segment.vision,
+          Math.max(0, Number(segment.sourceStart) || 0),
+        );
+        await temporalMaskCache.prepare(initialVision?.cutoutUrl);
+      }
+      return {
+        segment,
+        visual,
+        cutoutVisual,
+        temporalMaskCache,
+      };
+    }),
   );
   const stickerSources = Array.from(
     new Set([
@@ -477,24 +719,46 @@ export async function exportBrowserVideo({
 
   onProgress?.({ progress: 16, phase: "开始录制视频流" });
   recorder.start(250);
-  const singleVideo =
-    visualItems.length === 1 && visualItems[0]?.segment.type === "video"
-      ? visualItems[0].visual
-      : null;
-  if (singleVideo) {
-    singleVideo.currentTime = 0;
-    singleVideo.loop = totalDuration > (singleVideo.duration || totalDuration);
-    await singleVideo.play().catch(() => {});
-  }
   const startTime = performance.now();
   let animationFrame = 0;
   let lastProgressUpdate = 0;
+  let activeVideoItem = null;
   const getVisualItemAtTime = (elapsed) => {
     const visualIndex = getVisualSegmentIndexAtTime(exportVisualSegments, elapsed);
+    const resolvedIndex =
+      visualIndex >= 0
+        ? visualIndex
+        : Math.max(0, visualItems.length - 1);
     return {
-      item: visualItems[Math.max(0, visualIndex)] ?? visualItems[0],
-      range: exportVisualTimeline[Math.max(0, visualIndex)] ?? exportVisualTimeline[0],
+      item: visualItems[resolvedIndex] ?? visualItems[0],
+      range: exportVisualTimeline[resolvedIndex] ?? exportVisualTimeline[0],
     };
+  };
+  const syncVideoItem = (visualItem, localTime) => {
+    if (visualItem?.segment.type !== "video") {
+      activeVideoItem?.visual.pause();
+      activeVideoItem = null;
+      return Math.max(0, Number(visualItem?.segment.sourceStart) || 0) + localTime;
+    }
+
+    const video = visualItem.visual;
+    const maximumTime = Math.max(0, (Number(video.duration) || 0) - 0.001);
+    const expectedTime = Math.min(
+      maximumTime,
+      Math.max(0, Number(visualItem.segment.sourceStart) || 0) + localTime,
+    );
+    if (activeVideoItem !== visualItem) {
+      activeVideoItem?.visual.pause();
+      activeVideoItem = visualItem;
+      video.loop = false;
+      if (Math.abs(video.currentTime - expectedTime) > 0.03) {
+        video.currentTime = expectedTime;
+      }
+      video.play().catch(() => {});
+    } else if (!video.seeking && Math.abs(video.currentTime - expectedTime) > 0.35) {
+      video.currentTime = expectedTime;
+    }
+    return Math.min(maximumTime, Math.max(0, Number(video.currentTime) || expectedTime));
   };
   const getStickerAtTime = (elapsed) => {
     if (!stickerSegments.length) {
@@ -518,15 +782,24 @@ export async function exportBrowserVideo({
     const exportCaption =
       segmentIndex >= 0 && !exportSegments[segmentIndex]?.hidden ? segments[segmentIndex] : "";
     const { item: visualItem, range: visualRange } = getVisualItemAtTime(elapsed);
-    if (visualItem?.segment.type === "video" && !singleVideo) {
-      const localTime = Math.max(0, elapsed - (visualRange?.start ?? 0));
-      const nextVideoTime = Math.min(localTime, visualItem.visual.duration || localTime);
-      if (Math.abs(visualItem.visual.currentTime - nextVideoTime) > 0.18) {
-        visualItem.visual.currentTime = nextVideoTime;
-      }
-    }
+    const localTime = Math.max(0, elapsed - (visualRange?.start ?? 0));
+    const visualSourceTime = syncVideoItem(visualItem, localTime);
     const exportSticker = getStickerAtTime(elapsed);
-    drawPreviewFrame(context, visualItem.visual, canvas, {
+    const exportVisual = visualItem.cutoutVisual || visualItem.visual;
+    const resolvedVision = resolveVisionAnalysisAtTime(
+      visualItem.segment.vision ?? null,
+      visualSourceTime,
+    );
+    const frameVision = resolvedVision
+      ? {
+          ...resolvedVision,
+          options: visualItem.segment.vision?.options ?? resolvedVision.options,
+          maskVisual: resolvedVision.cutoutUrl
+            ? visualItem.temporalMaskCache?.get(resolvedVision.cutoutUrl) ?? null
+            : null,
+        }
+      : null;
+    drawPreviewFrame(context, exportVisual, canvas, {
       subtitle: exportCaption,
       progress: elapsed / totalDuration,
       fitMode,
@@ -535,9 +808,12 @@ export async function exportBrowserVideo({
       captionPosition,
       captionPlacement,
       captionSize,
+      captionStyle,
+      captionReferenceSize,
       sticker: exportSticker,
       stickerImage: exportSticker?.src ? stickerImageMap.get(exportSticker.src) : null,
       transitionId,
+      vision: frameVision,
     });
 
     if (elapsed === totalDuration || performance.now() - lastProgressUpdate > 180) {
@@ -565,9 +841,24 @@ export async function exportBrowserVideo({
     }
   });
   const finalSegmentIndex = getSegmentIndexAtTime(exportSegments, totalDuration, captionTargetDuration);
-  const { item: finalVisualItem } = getVisualItemAtTime(totalDuration);
+  const { item: finalVisualItem, range: finalVisualRange } = getVisualItemAtTime(totalDuration);
   const finalSticker = getStickerAtTime(totalDuration);
-  drawPreviewFrame(context, finalVisualItem.visual, canvas, {
+  const finalLocalTime = Math.max(0, totalDuration - (finalVisualRange?.start ?? 0));
+  const finalVisualSourceTime = syncVideoItem(finalVisualItem, finalLocalTime);
+  const finalResolvedVision = resolveVisionAnalysisAtTime(
+    finalVisualItem.segment.vision ?? null,
+    finalVisualSourceTime,
+  );
+  const finalFrameVision = finalResolvedVision
+    ? {
+        ...finalResolvedVision,
+        options: finalVisualItem.segment.vision?.options ?? finalResolvedVision.options,
+        maskVisual: finalResolvedVision.cutoutUrl
+          ? finalVisualItem.temporalMaskCache?.get(finalResolvedVision.cutoutUrl) ?? null
+          : null,
+      }
+    : null;
+  drawPreviewFrame(context, finalVisualItem.cutoutVisual || finalVisualItem.visual, canvas, {
     subtitle:
       finalSegmentIndex >= 0 && !exportSegments[finalSegmentIndex]?.hidden
         ? segments[finalSegmentIndex]
@@ -579,9 +870,12 @@ export async function exportBrowserVideo({
     captionPosition,
     captionPlacement,
     captionSize,
+    captionStyle,
+    captionReferenceSize,
     sticker: finalSticker,
     stickerImage: finalSticker?.src ? stickerImageMap.get(finalSticker.src) : null,
     transitionId,
+    vision: finalFrameVision,
   });
   recorder.stop();
   onProgress?.({ progress: 94, phase: "封装导出文件" });
@@ -589,6 +883,14 @@ export async function exportBrowserVideo({
   canvasStream.getTracks().forEach((track) => track.stop());
   destination?.stream.getTracks().forEach((track) => track.stop());
   await audioContext?.close().catch(() => {});
+  visualItems.forEach((item) => {
+    item.temporalMaskCache?.dispose();
+    if (item.segment.type === "video") {
+      item.visual.pause();
+      item.visual.removeAttribute("src");
+      item.visual.load();
+    }
+  });
 
   const blobType = recorder.mimeType || recordingFormat.mimeType || "video/webm";
 

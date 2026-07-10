@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import {
   CaretDown,
   CloudArrowUp,
@@ -9,6 +10,7 @@ import {
 } from "@phosphor-icons/react";
 
 import { formatTime } from "../lib/timeline.js";
+import { CaptionOverlay } from "./CaptionOverlay.jsx";
 import { IconButton } from "./ui.jsx";
 
 export function PreviewStage({
@@ -16,18 +18,30 @@ export function PreviewStage({
   previewShellRef,
   previewCanvasRef,
   previewVideoRef,
+  onPreviewVideoTimeUpdate,
   previewVisualSrc,
+  previewVisualRenderSrc,
+  previewVisionMaskUrl = "",
   previewVisualType,
   previewRatio,
   previewFrameStyle,
+  previewFrameSize,
   trackVisibility,
   fileInputRef,
   selectedFilter,
   fitMode,
+  visualObjectFit,
+  visualObjectPosition,
+  visionOverlayBoxes = [],
+  showVisionOverlays = false,
+  backgroundRemoved = false,
+  smartCropActive = false,
+  captionAvoidanceActive = false,
   setFitMode,
   captionsEnabled,
   currentCaption,
   captionSize,
+  captionStyle,
   captionPlacement,
   startCaptionDrag,
   setActiveTool,
@@ -42,6 +56,35 @@ export function PreviewStage({
 }) {
   const hasStickerOverlay = Boolean(selectedSticker?.src || selectedSticker?.text);
   const hasPreviewContent = Boolean(previewVisualSrc || hasStickerOverlay);
+  const renderedVisualSrc = previewVisualRenderSrc || previewVisualSrc;
+  const activeObjectFit = visualObjectFit || fitMode;
+  const activeObjectPosition = visualObjectPosition || "50% 50%";
+
+  useEffect(() => {
+    const video = previewVideoRef.current;
+    if (
+      previewVisualType !== "video" ||
+      !video ||
+      typeof video.requestVideoFrameCallback !== "function"
+    ) {
+      return undefined;
+    }
+
+    let callbackId = 0;
+    const handleVideoFrame = (_now, metadata) => {
+      onPreviewVideoTimeUpdate?.(
+        Number.isFinite(metadata?.mediaTime) ? metadata.mediaTime : video.currentTime,
+      );
+      callbackId = video.requestVideoFrameCallback(handleVideoFrame);
+    };
+    callbackId = video.requestVideoFrameCallback(handleVideoFrame);
+    return () => video.cancelVideoFrameCallback?.(callbackId);
+  }, [
+    onPreviewVideoTimeUpdate,
+    previewVideoRef,
+    previewVisualSrc,
+    previewVisualType,
+  ]);
 
   return (
     <section className="preview-stage">
@@ -61,17 +104,20 @@ export function PreviewStage({
         ) : (
           <div
             ref={previewCanvasRef}
-            className={`preview-frame ${previewVisualSrc && !trackVisibility.image ? "is-image-hidden" : ""}`}
+            className={`preview-frame ${previewVisualSrc && !trackVisibility.image ? "is-image-hidden" : ""} ${
+              backgroundRemoved ? "has-background-removed" : ""
+            } ${smartCropActive ? "has-smart-crop" : ""}`}
             data-hidden-label={t("imageHidden")}
             style={previewFrameStyle}
           >
-            {previewVisualSrc && trackVisibility.image && previewVisualType === "image" ? (
+            {renderedVisualSrc && trackVisibility.image && previewVisualType === "image" ? (
               <img
-                src={previewVisualSrc}
+                src={renderedVisualSrc}
                 alt={t("currentMediaAlt")}
                 style={{
                   filter: selectedFilter.css,
-                  objectFit: fitMode,
+                  objectFit: activeObjectFit,
+                  objectPosition: activeObjectPosition,
                 }}
               />
             ) : null}
@@ -84,26 +130,67 @@ export function PreviewStage({
                 muted
                 playsInline
                 preload="metadata"
+                onTimeUpdate={(event) =>
+                  onPreviewVideoTimeUpdate?.(event.currentTarget.currentTime)
+                }
+                onSeeked={(event) =>
+                  onPreviewVideoTimeUpdate?.(event.currentTarget.currentTime)
+                }
                 style={{
                   filter: selectedFilter.css,
-                  objectFit: fitMode,
+                  objectFit: activeObjectFit,
+                  objectPosition: activeObjectPosition,
+                  WebkitMaskImage: previewVisionMaskUrl
+                    ? `url("${previewVisionMaskUrl}")`
+                    : undefined,
+                  maskImage: previewVisionMaskUrl
+                    ? `url("${previewVisionMaskUrl}")`
+                    : undefined,
+                  WebkitMaskSize: previewVisionMaskUrl ? activeObjectFit : undefined,
+                  maskSize: previewVisionMaskUrl ? activeObjectFit : undefined,
+                  WebkitMaskPosition: previewVisionMaskUrl ? activeObjectPosition : undefined,
+                  maskPosition: previewVisionMaskUrl ? activeObjectPosition : undefined,
+                  WebkitMaskRepeat: previewVisionMaskUrl ? "no-repeat" : undefined,
+                  maskRepeat: previewVisionMaskUrl ? "no-repeat" : undefined,
                 }}
               />
             ) : null}
+            {showVisionOverlays
+              ? visionOverlayBoxes.map((detection, index) => (
+                  <div
+                    className={`vision-detection-box ${detection.isSubject ? "is-subject" : ""}`}
+                    key={`${detection.label || "object"}-${index}`}
+                    style={{
+                      left: `${detection.xMin * 100}%`,
+                      top: `${detection.yMin * 100}%`,
+                      width: `${Math.max(0, detection.xMax - detection.xMin) * 100}%`,
+                      height: `${Math.max(0, detection.yMax - detection.yMin) * 100}%`,
+                    }}
+                  >
+                    <span>
+                      {detection.label || "subject"}
+                      {Number.isFinite(detection.score) ? ` ${Math.round(detection.score * 100)}%` : ""}
+                    </span>
+                  </div>
+                ))
+              : null}
+            {smartCropActive || captionAvoidanceActive || backgroundRemoved ? (
+              <div className="preview-ai-badges" aria-hidden="true">
+                {backgroundRemoved ? <span>MODNet</span> : null}
+                {smartCropActive ? <span>{t("smartVisionCrop")}</span> : null}
+                {captionAvoidanceActive ? <span>{t("smartVisionCaptionAvoidance")}</span> : null}
+              </div>
+            ) : null}
             {captionsEnabled && trackVisibility.caption && currentCaption ? (
-              <button
-                className="caption-overlay"
-                type="button"
-                style={{
-                  fontSize: captionSize,
-                  left: `${captionPlacement.x}%`,
-                  top: `${captionPlacement.y}%`,
-                }}
+              <CaptionOverlay
+                text={currentCaption}
+                captionSize={captionSize}
+                captionStyle={captionStyle}
+                placement={captionPlacement}
+                frameSize={previewFrameSize}
                 onPointerDown={startCaptionDrag}
                 onDoubleClick={() => setActiveTool("caption")}
-              >
-                {currentCaption}
-              </button>
+              />
             ) : null}
             {selectedSticker.src ? (
               <img className="sticker-overlay is-image" src={selectedSticker.src} alt="" draggable={false} />

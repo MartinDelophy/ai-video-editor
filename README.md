@@ -39,6 +39,9 @@ A browser-first AI video editor for image/video timelines, AI voiceover generati
 - Move sticker segments on the timeline and render sticker overlays in preview/export.
 - Use multi-track controls: visibility, lock, delete, duplicate, split, zoom, snap, and reorder.
 - Apply filters, visual effects, stickers, and transition presets.
+- Detect the primary subject in an image or scan a complete video into a timestamped YOLOS tiny subject track in a browser worker.
+- Generate transparent portrait cutouts with MODNet; videos are pre-analyzed into a full-duration temporal mask track used by preview and export.
+- Use normalized subject geometry for smart caption avoidance and subject-aware cropping across aspect ratios.
 - Export MP4 when browser support is available, with WebM fallback.
 - Show export progress during browser-side rendering.
 - Persist language selection in `localStorage`.
@@ -48,6 +51,7 @@ A browser-first AI video editor for image/video timelines, AI voiceover generati
 - Added timeline-native sticker overlays with generated PNG sticker assets, automatic sticker-track creation, movable sticker clips, and a cleaner scrollbar-free sticker picker.
 - Added installable PWA metadata, app icons, service-worker app shell/model caching, and cached sticker assets for faster repeat sessions.
 - Added browser-side automatic caption groundwork using Whisper ONNX workers, plus timeline snapping/alignment improvements for captions, source audio, and generated voiceover.
+- Added lazy-loaded YOLOS tiny and MODNet vision workers with subject overlays, portrait matting, caption avoidance, and preview/export-consistent smart crop geometry.
 
 ## AI Features
 
@@ -61,6 +65,9 @@ Current AI capabilities are designed to run in the browser as much as possible:
 - Script-to-caption timeline alignment based on generated audio duration.
 - Browser voice recording for manually captured narration.
 - Local waveform decoding for voiceover, source audio, and background music.
+- YOLOS tiny q8 ONNX subject detection and MODNet q8 ONNX portrait matting with revision-pinned, service-worker-cached model assets.
+
+MODNet is portrait-oriented, while YOLOS tiny covers common COCO categories. Images support the full matting path. Videos are pre-analyzed across their full duration before export, then resolve timestamped YOLOS geometry and MODNet masks for preview, caption avoidance, smart crop, and every rendered export time instead of freezing the first-frame result. Long videos automatically use a wider temporal sampling interval to keep WASM inference and memory bounded.
 
 ## Multilingual UI
 
@@ -94,7 +101,7 @@ Planned or desirable AI capabilities:
 - Automatic highlight extraction from long videos.
 - AI background music recommendation and beat matching.
 - Noise reduction, loudness normalization, and vocal enhancement.
-- AI image/video enhancement, background removal, and object segmentation.
+- General-purpose product/animal segmentation and offline per-frame video background removal.
 - Cloud-assisted model loading for larger models while keeping an offline/local-first mode.
 - Batch export and template-based video generation.
 
@@ -130,7 +137,10 @@ src/
     timeline.js
     timelineScale.js
     ttsText.js
+    vision.js
+    visualGeometry.js
   workers/
+    vision.worker.js
   i18n.js
   main.jsx
   styles.css

@@ -1,14 +1,20 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
+  BoundingBox,
   CaretDown,
   Check,
   CloudArrowUp,
   ClosedCaptioning,
+  Crop,
   DownloadSimple,
   MicrophoneStage,
   MusicNote,
   Pause,
+  PersonSimpleRun,
+  Scan,
+  SelectionBackground,
+  Target,
   Trash,
   Waveform,
 } from "@phosphor-icons/react";
@@ -202,6 +208,7 @@ function AssetRow({ asset, selected, t }) {
 export function ToolPanel(props) {
   const {
     activeTool,
+    uiLanguage,
     script,
     updateScript,
     segments,
@@ -220,6 +227,8 @@ export function ToolPanel(props) {
     setCaptionPosition,
     captionSize,
     setCaptionSize,
+    captionStyle,
+    setCaptionStyle,
     captionsEnabled,
     setCaptionsEnabled,
     selectedFilterId,
@@ -241,6 +250,18 @@ export function ToolPanel(props) {
     generateCaptionsFromSourceAudio,
     isGeneratingCaptions,
     automaticCaptionProgress,
+    hasVisual,
+    visualType,
+    visionAnalysis,
+    visionOptions,
+    visionRunning,
+    visionProgress,
+    visionPhase,
+    analyzeCurrentVisual,
+    toggleVisionOption,
+    clearVisionAnalysis,
+    downloadVisionCutout,
+    openAvatarPanel,
     musicBlob,
     musicName,
     musicDuration,
@@ -314,54 +335,44 @@ export function ToolPanel(props) {
             onChange={(event) => setCaptionSize(Number(event.target.value))}
           />
         </div>
-        {selectedCaptionSegment ? (
-          <div className="caption-editor">
-            <label htmlFor="caption-editor">{t("currentCaption")}</label>
-            <textarea
-              id="caption-editor"
-              value={selectedCaptionSegment.text}
-              onChange={(event) => updateCaptionSegmentText(selectedCaptionSegment.id, event.target.value)}
-            />
-            <label className="switch-row">
-              <input
-                type="checkbox"
-                checked={!selectedCaptionSegment.hidden}
-                onChange={() => toggleCaptionSegmentHidden(selectedCaptionSegment.id)}
-              />
-              {t("showCurrentCaption")}
-            </label>
-            <button
-              className="panel-danger"
-              type="button"
-              onClick={() => deleteCaptionSegment(selectedCaptionSegment.id)}
-            >
-              <Trash size={15} />
-              {t("deleteCurrentCaption")}
-            </button>
+        <div className="caption-style-panel">
+          <div className="caption-style-heading"><strong>{t("captionStyle")}</strong><span>{t("captionStyleHint")}</span></div>
+          <div className="caption-style-presets">
+            {[['normal', t('captionPresetClassic')], ['neon', t('captionPresetNeon')], ['bubble', t('captionPresetBubble')]].map(([effect, label]) => (
+              <button key={effect} type="button" className={captionStyle.effect === effect ? "is-active" : ""} onClick={() => setCaptionStyle((style) => ({ ...style, effect, ...(effect === 'neon' ? { backgroundOpacity: 0.18, borderWidth: 1, borderColor: '#35f0dd' } : effect === 'bubble' ? { backgroundOpacity: 0.88, borderWidth: 0, radius: 18 } : {}) }))}>{label}</button>
+            ))}
           </div>
-        ) : null}
-        <div className="segment-list">
-          {captionSegments.length ? (
-            captionSegments.map((segment, index) => (
-              <button
-                type="button"
-                className={`${index === currentSegmentIndex ? "is-current" : ""} ${
-                  segment.id === selectedSegmentId ? "is-selected" : ""
-                } ${segment.hidden ? "is-hidden" : ""}`}
-                key={segment.id}
-                onClick={() => {
-                  setSelectedSegmentId(segment.id);
-                  seekTo(getSegmentStartTime(captionSegments, index, captionTargetDuration));
-                }}
-              >
-                {segment.text}
-              </button>
-            ))
-          ) : (
-            <div className="empty-state">{t("noCaptionSegments")}</div>
-          )}
+          <div className="caption-color-row">
+            <label>{t("captionTextColor")}<input type="color" value={captionStyle.textColor} onChange={(event) => setCaptionStyle((style) => ({ ...style, textColor: event.target.value }))} /></label>
+            <label>{t("captionBackground")}<input type="color" value={captionStyle.backgroundColor} onChange={(event) => setCaptionStyle((style) => ({ ...style, backgroundColor: event.target.value }))} /></label>
+            <label>{t("captionBorderColor")}<input type="color" value={captionStyle.borderColor} onChange={(event) => setCaptionStyle((style) => ({ ...style, borderColor: event.target.value }))} /></label>
+          </div>
+          {[['backgroundOpacity', t('captionOpacity'), 0, 1, 0.05, '%'], ['borderWidth', t('captionBorderWidth'), 0, 8, 1, 'px'], ['radius', t('captionRadius'), 0, 28, 1, 'px'], ['paddingX', t('captionPaddingX'), 0, 52, 1, 'px'], ['paddingY', t('captionPaddingY'), 0, 32, 1, 'px'], ['shadowOpacity', t('captionShadow'), 0, 1, 0.05, '%']].map(([key, label, min, max, step, unit]) => (
+            <div className="slider-field compact-slider" key={key}><div><label>{label}</label><span>{unit === '%' ? `${Math.round(captionStyle[key] * 100)}%` : `${captionStyle[key]}${unit}`}</span></div><input type="range" min={min} max={max} step={step} value={captionStyle[key]} onChange={(event) => setCaptionStyle((style) => ({ ...style, [key]: Number(event.target.value) }))} /></div>
+          ))}
         </div>
       </div>
+    );
+  }
+
+  if (activeTool === "smart") {
+    return (
+      <SmartVisionPanel
+        t={t}
+        language={uiLanguage}
+        hasVisual={hasVisual}
+        visualType={visualType}
+        analysis={visionAnalysis}
+        options={visionOptions}
+        running={visionRunning}
+        progress={visionProgress}
+        phase={visionPhase}
+        onAnalyze={analyzeCurrentVisual}
+        onToggle={toggleVisionOption}
+        onClear={clearVisionAnalysis}
+        onDownloadCutout={downloadVisionCutout}
+        onOpenAvatarPanel={openAvatarPanel}
+      />
     );
   }
 
@@ -558,6 +569,244 @@ export function ToolPanel(props) {
   );
 }
 
+const SUBJECT_LABELS_ZH = {
+  foreground: "前景主体",
+  person: "人物",
+  cat: "猫",
+  dog: "狗",
+  bird: "鸟",
+  horse: "马",
+  car: "汽车",
+  motorcycle: "摩托车",
+  bicycle: "自行车",
+  bus: "公交车",
+  truck: "卡车",
+  bottle: "瓶子",
+  cup: "杯子",
+  chair: "椅子",
+  laptop: "笔记本电脑",
+  "cell phone": "手机",
+  book: "书",
+};
+
+function getDisplaySubjectLabel(label, language) {
+  const normalized = String(label ?? "").trim();
+  if (!normalized) {
+    return language === "zh" ? "前景主体" : "Foreground subject";
+  }
+  return language === "zh" ? SUBJECT_LABELS_ZH[normalized.toLowerCase()] ?? normalized : normalized;
+}
+
+function SmartVisionPanel({
+  t,
+  language = "zh",
+  hasVisual,
+  visualType,
+  analysis,
+  options = {},
+  running,
+  progress = 0,
+  phase = "",
+  onAnalyze,
+  onToggle,
+  onClear,
+  onDownloadCutout,
+  onOpenAvatarPanel,
+}) {
+  const subject = analysis?.subject ?? null;
+  const detections = Array.isArray(analysis?.detections) ? analysis.detections : [];
+  const canUseSubject = Boolean(subject?.box);
+  const temporalSamples = Array.isArray(analysis?.samples) ? analysis.samples : [];
+  const canUseMatting =
+    Boolean(analysis?.cutoutUrl) || temporalSamples.some((sample) => sample.cutoutUrl);
+  const canDownloadCutout = Boolean(analysis?.cutoutBlob) && visualType === "image";
+  const statusText = running
+    ? t("smartVisionRunning")
+    : analysis
+      ? t("smartVisionReady")
+      : t("smartVisionIdle");
+  const featureRows = [
+    {
+      id: "showDetections",
+      icon: BoundingBox,
+      title: t("smartVisionDetection"),
+      description: t("smartVisionDetectionDesc"),
+      disabled: !detections.length,
+    },
+    {
+      id: "removeBackground",
+      icon: SelectionBackground,
+      title: t("smartVisionMatting"),
+      description: t("smartVisionMattingDesc"),
+      disabled: !canUseMatting,
+    },
+    {
+      id: "avoidCaptions",
+      icon: ClosedCaptioning,
+      title: t("smartVisionCaptionAvoidance"),
+      description: t("smartVisionCaptionAvoidanceDesc"),
+      disabled: !canUseSubject,
+    },
+    {
+      id: "smartCrop",
+      icon: Crop,
+      title: t("smartVisionCrop"),
+      description: t("smartVisionCropDesc"),
+      disabled: !canUseSubject,
+    },
+  ];
+
+  return (
+    <div className="tool-panel smart-vision-panel">
+      <div className="smart-vision-heading">
+        <div>
+          <span>{t("smartVisionKicker")}</span>
+          <h2>{t("smartVisionTitle")}</h2>
+        </div>
+        <span className={`smart-vision-status ${running ? "is-running" : analysis ? "is-ready" : ""}`}>
+          <i />
+          {statusText}
+        </span>
+      </div>
+
+      <div className="vision-model-stack" aria-label={t("smartVisionModels")}>
+        <div>
+          <BoundingBox size={20} weight="duotone" />
+          <span>
+            <strong>YOLOS tiny</strong>
+            <em>{t("smartVisionDetection")}</em>
+          </span>
+        </div>
+        <div>
+          <SelectionBackground size={20} weight="duotone" />
+          <span>
+            <strong>MODNet</strong>
+            <em>{t("smartVisionMatting")}</em>
+          </span>
+        </div>
+      </div>
+
+      {!hasVisual ? <div className="vision-empty-state">{t("smartVisionNoMedia")}</div> : null}
+
+      <button
+        className="panel-primary vision-analyze-button"
+        type="button"
+        disabled={!hasVisual}
+        onClick={onAnalyze}
+      >
+        <Scan size={18} weight="bold" />
+        {running
+          ? t("smartVisionCancel")
+          : visualType === "video"
+          ? analysis
+            ? t("smartVisionAnalyzeAgainVideo")
+            : t("smartVisionAnalyzeVideo")
+          : analysis
+            ? t("smartVisionAnalyzeAgain")
+            : t("smartVisionAnalyze")}
+      </button>
+
+      {running ? (
+        <div className="vision-progress" role="status" aria-live="polite">
+          <div>
+            <span>{phase || t("smartVisionRunning")}</span>
+            <strong>{Math.max(0, Math.min(100, Math.round(progress)))}%</strong>
+          </div>
+          <span className="vision-progress-track">
+            <span style={{ width: `${Math.max(0, Math.min(100, progress))}%` }} />
+          </span>
+        </div>
+      ) : null}
+
+      {analysis ? (
+        <div className="vision-result-card">
+          {subject ? (
+            <>
+              <div className="vision-subject-icon">
+                <Target size={22} weight="duotone" />
+              </div>
+              <div>
+                <span>{t("smartVisionSubject")}</span>
+                <strong>{getDisplaySubjectLabel(subject.label, language)}</strong>
+              </div>
+              <div className="vision-confidence">
+                <span>{t("smartVisionConfidence")}</span>
+                <strong>{Math.round((subject.score ?? 0) * 100)}%</strong>
+              </div>
+              <div className="vision-object-count">
+                <span>{t("smartVisionObjects")}</span>
+                <strong>{detections.length}</strong>
+              </div>
+            </>
+          ) : (
+            <p>{t("smartVisionNoSubject")}</p>
+          )}
+        </div>
+      ) : null}
+
+      {visualType === "video" && temporalSamples.length ? (
+        <div className="vision-timeline-summary">
+          <span>{t("smartVisionVideoCoverage")}</span>
+          <strong>{temporalSamples.length}</strong>
+          <em>{t("smartVisionTemporalFrames")}</em>
+        </div>
+      ) : null}
+
+      <div className="vision-feature-list">
+        {featureRows.map(({ id, icon: Icon, title, description, disabled }) => (
+          <label className={`${disabled ? "is-disabled" : ""} ${options[id] ? "is-active" : ""}`} key={id}>
+            <Icon size={19} weight="duotone" />
+            <span>
+              <strong>{title}</strong>
+              <em>{description}</em>
+            </span>
+            <input
+              type="checkbox"
+              checked={Boolean(options[id])}
+              disabled={disabled}
+              onChange={() => onToggle?.(id)}
+            />
+          </label>
+        ))}
+      </div>
+
+      <p className="vision-model-note">{t("smartVisionImageOnly")}</p>
+
+      <section className="avatar-lab-card" aria-label={t("avatarTitle")}>
+        <div className="avatar-lab-heading">
+          <span className="avatar-lab-icon"><PersonSimpleRun size={18} weight="duotone" /></span>
+          <div><span>{t("avatarKicker")}</span><strong>{t("avatarTitle")}</strong></div>
+          <em className="is-ready">{t("avatarOfficial")}</em>
+        </div>
+        <p>{t("avatarDescription")}</p>
+        <div className="avatar-lab-requirements">
+          <span className={hasVisual && visualType === "image" ? "is-ready" : ""}>{t("avatarPortrait")}</span>
+          <span className="is-ready">{t("avatarService")}</span>
+          <span>{t("avatarAudio")}</span>
+        </div>
+        <button className="panel-primary avatar-open-button" type="button" onClick={onOpenAvatarPanel}>
+          <PersonSimpleRun size={16} />{t("avatarOpen")}
+        </button>
+      </section>
+
+      {analysis ? (
+        <div className="vision-result-actions">
+          <button className="panel-secondary" type="button" disabled={!canDownloadCutout} onClick={onDownloadCutout}>
+            <DownloadSimple size={16} />
+            {visualType === "video"
+              ? t("smartVisionVideoCutoutExport")
+              : t("smartVisionCutoutDownload")}
+          </button>
+          <button className="panel-secondary" type="button" onClick={onClear}>
+            <Trash size={16} />
+            {t("smartVisionClear")}
+          </button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function VisualChoicePanel({ title, kind, options, selectedId, trOption = (name) => name, onSelect }) {
   return (
     <div className="tool-panel">
@@ -570,11 +819,17 @@ function VisualChoicePanel({ title, kind, options, selectedId, trOption = (name)
             }`}
             type="button"
             key={option.id}
+            draggable={option.id !== "none"}
             style={{
               "--choice-image": `url(${SAMPLE_IMAGE})`,
               "--choice-filter": option.css ?? "none",
             }}
             onClick={() => onSelect(option.id)}
+            onDragStart={(event) => {
+              event.dataTransfer.effectAllowed = "copy";
+              event.dataTransfer.setData("application/x-timeline-visual-style", `${kind}:${option.id}`);
+              event.dataTransfer.setData("text/plain", `visual-style:${kind}:${option.id}`);
+            }}
           >
             <span className="visual-choice-thumb" aria-hidden="true" />
             <span className="visual-choice-label">

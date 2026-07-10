@@ -82,6 +82,7 @@ import {
   getSmartCropRect,
   mapNormalizedBoxToFrame,
 } from "./lib/visualGeometry.js";
+import { JOYVASA_PROJECT_MODEL_BASE_URL } from "./config/joyVasa.js";
 
 const PLAYBACK_UI_FRAME_MS = 50;
 const DEFAULT_VISION_OPTIONS = Object.freeze({
@@ -96,6 +97,59 @@ const EMPTY_VISION_OPTIONS = Object.freeze({
   avoidCaptions: false,
   smartCrop: false,
 });
+
+async function decodeAvatarAudio16k(blob) {
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContextClass) throw new Error("当前浏览器不支持音频解码");
+  const context = new AudioContextClass();
+  try {
+    const decoded = await context.decodeAudioData((await blob.arrayBuffer()).slice(0));
+    const mono = new Float32Array(decoded.length);
+    for (let channel = 0; channel < decoded.numberOfChannels; channel += 1) {
+      const values = decoded.getChannelData(channel);
+      for (let i = 0; i < mono.length; i += 1) mono[i] += values[i] / decoded.numberOfChannels;
+    }
+    const outputLength = Math.min(64_000, Math.ceil(decoded.duration * 16_000));
+    const resampled = new Float32Array(64_000);
+    for (let i = 0; i < outputLength; i += 1) {
+      const position = (i * decoded.sampleRate) / 16_000;
+      const left = Math.min(mono.length - 1, Math.floor(position));
+      const right = Math.min(mono.length - 1, left + 1);
+      const ratio = position - left;
+      resampled[i] = mono[left] * (1 - ratio) + mono[right] * ratio;
+    }
+    return resampled;
+  } finally {
+    await context.close().catch(() => {});
+  }
+}
+
+async function encodeAvatarFrames(blobs, width, height, fps) {
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const context = canvas.getContext("2d", { alpha: false });
+  const stream = canvas.captureStream(fps);
+  const mimeType = ["video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm"]
+    .find((type) => MediaRecorder.isTypeSupported(type));
+  const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+  const chunks = [];
+  recorder.ondataavailable = (event) => { if (event.data.size) chunks.push(event.data); };
+  const stopped = new Promise((resolve, reject) => {
+    recorder.onstop = () => resolve(new Blob(chunks, { type: recorder.mimeType || "video/webm" }));
+    recorder.onerror = () => reject(recorder.error || new Error("数字人视频编码失败"));
+  });
+  recorder.start();
+  for (const blob of blobs) {
+    const bitmap = await createImageBitmap(blob);
+    context.drawImage(bitmap, 0, 0, width, height);
+    bitmap.close();
+    await new Promise((resolve) => window.setTimeout(resolve, 1000 / fps));
+  }
+  recorder.stop();
+  stream.getTracks().forEach((track) => track.stop());
+  return stopped;
+}
 
 function getNearestRatioIdForSize(width, height) {
   const mediaWidth = Number(width);
@@ -270,6 +324,7 @@ export function App() {
     phase: "",
   });
   const [avatarPanelOpen, setAvatarPanelOpen] = useState(false);
+  const [avatarJob, setAvatarJob] = useState({ running: false, progress: 0, phase: "" });
 
   const fileInputRef = useRef(null);
   const projectFileInputRef = useRef(null);
@@ -307,6 +362,8 @@ export function App() {
   const visionObjectUrlsRef = useRef(new Map());
   const visionAbortControllerRef = useRef(null);
   const visionJobGenerationRef = useRef(0);
+  const avatarWorkerRef = useRef(null);
+  const avatarTestImportedRef = useRef(false);
   const activeLanguage = uiLanguage || "zh";
   const t = useMemo(() => createTranslator(activeLanguage), [activeLanguage]);
   const trOption = (name, option) => {
@@ -325,6 +382,112 @@ export function App() {
 
   function openAvatarPanel() {
     setAvatarPanelOpen(true);
+  }
+
+  async function generateAvatarAcceptanceFrame() {
+    if (avatarJob.running) return;
+    if (!previewVisualSrc || previewVisualType !== "image") {
+      notify(t("avatarNeedsPortrait"));
+      return;
+    }
+    if (!audioBlob) {
+      notify(t("avatarNeedsAudio"));
+      return;
+    }
+
+    setAvatarJob({ running: true, progress: 1, phase: t("avatarPreparing") });
+    try {
+      const sourceBlob = previewVisualSegment?.blob instanceof Blob
+        ? previewVisualSegment.blob
+        : await fetch(previewVisualSrc).then((response) => {
+          if (!response.ok) throw new Error(`读取肖像失败（HTTP ${response.status}）`);
+          return response.blob();
+        });
+      const sourceDuration = Math.max(MIN_VISUAL_SEGMENT_SECONDS, Math.min(4, audioDuration || imageDuration || 4));
+      const audioSamples = await decodeAvatarAudio16k(audioBlob);
+      const motionWorker = new Worker(new URL("./workers/joyvasa.worker.js", import.meta.url), { type: "module" });
+      avatarWorkerRef.current?.terminate();
+      avatarWorkerRef.current = motionWorker;
+
+      motionWorker.onmessage = (event) => {
+        if (event.data?.type === "progress") {
+          setAvatarJob({ running: true, progress: event.data.progress, phase: event.data.phase });
+          return;
+        }
+        if (event.data?.type === "error") {
+          console.error("LivePortrait worker error", event.data.message);
+          setAvatarJob({ running: false, progress: 0, phase: `${t("avatarGenerationFailed")}：${event.data.message}` });
+          notify(`${t("avatarGenerationFailed")}：${event.data.message}`);
+          motionWorker.terminate();
+          if (avatarWorkerRef.current === motionWorker) avatarWorkerRef.current = null;
+          return;
+        }
+        if (event.data?.type !== "motion") return;
+        motionWorker.terminate();
+        const renderWorker = new Worker(new URL("./workers/liveportrait.worker.js", import.meta.url), { type: "module" });
+        avatarWorkerRef.current = renderWorker;
+        renderWorker.onmessage = async (renderEvent) => {
+          if (renderEvent.data?.type === "progress") {
+            setAvatarJob({ running: true, progress: renderEvent.data.progress, phase: renderEvent.data.phase });
+            return;
+          }
+          if (renderEvent.data?.type === "error") {
+            setAvatarJob({ running: false, progress: 0, phase: `${t("avatarGenerationFailed")}：${renderEvent.data.message}` });
+            notify(`${t("avatarGenerationFailed")}：${renderEvent.data.message}`);
+            renderWorker.terminate();
+            if (avatarWorkerRef.current === renderWorker) avatarWorkerRef.current = null;
+            return;
+          }
+          if (renderEvent.data?.type !== "videoFrames") return;
+
+          try {
+            setAvatarJob({ running: true, progress: 99, phase: "编码数字人视频" });
+            const blob = await encodeAvatarFrames(renderEvent.data.blobs, renderEvent.data.width, renderEvent.data.height, renderEvent.data.fps);
+            const url = URL.createObjectURL(blob);
+            imageUrlRefs.current.add(url);
+            const asset = {
+              id: crypto.randomUUID(), type: "video", src: url, name: "liveportrait-joyvasa.webm",
+              meta: `${renderEvent.data.width} x ${renderEvent.data.height} · JoyVASA + LivePortrait Web`, blob,
+              duration: sourceDuration, width: renderEvent.data.width, height: renderEvent.data.height, trackFrames: [],
+            };
+            setUserAssets((assets) => [asset, ...assets]);
+            replaceVisualTimeline(asset, sourceDuration);
+            setCurrentTime(0);
+            setAvatarJob({ running: false, progress: 100, phase: t("avatarAcceptanceDone") });
+            notify(t("avatarTrackReplaced"));
+          } catch (error) {
+            setAvatarJob({ running: false, progress: 0, phase: `${t("avatarGenerationFailed")}：${error.message}` });
+            notify(`${t("avatarGenerationFailed")}：${error.message}`);
+          } finally {
+            renderWorker.terminate();
+            if (avatarWorkerRef.current === renderWorker) avatarWorkerRef.current = null;
+          }
+        };
+        renderWorker.postMessage({
+          type: "generateVideo", portraitBlob: sourceBlob, motionBuffer: event.data.motion,
+          modelBaseUrl: import.meta.env.VITE_LIVE_PORTRAIT_MODEL_BASE_URL || "",
+          joyVasaModelBaseUrl: JOYVASA_PROJECT_MODEL_BASE_URL,
+          renderFps: 8,
+        }, [event.data.motion]);
+      };
+
+      motionWorker.onerror = (event) => {
+        console.error("LivePortrait worker module error", event.message, event);
+        setAvatarJob({ running: false, progress: 0, phase: `${t("avatarGenerationFailed")}：${event.message || "Worker error"}` });
+        notify(`${t("avatarGenerationFailed")}：${event.message || "Worker error"}`);
+        motionWorker.terminate();
+        if (avatarWorkerRef.current === motionWorker) avatarWorkerRef.current = null;
+      };
+
+      motionWorker.postMessage({
+        type: "generate",
+        audioSamples: audioSamples.buffer,
+        modelBaseUrl: JOYVASA_PROJECT_MODEL_BASE_URL,
+      }, [audioSamples.buffer]);
+    } catch (error) {
+      setAvatarJob({ running: false, progress: 0, phase: "" });
+      notify(`${t("avatarGenerationFailed")}：${error instanceof Error ? error.message : String(error)}`);
+    }
   }
 
   const ratio = useMemo(
@@ -657,6 +820,40 @@ export function App() {
   useEffect(() => {
     setFitMode("contain");
   }, [ratioId]);
+
+  useEffect(() => {
+    const testImageUrl = import.meta.env.DEV ? import.meta.env.VITE_AVATAR_TEST_IMAGE_URL : "";
+    if (!testImageUrl || avatarTestImportedRef.current) return;
+    avatarTestImportedRef.current = true;
+    fetch(testImageUrl)
+      .then((response) => {
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return response.blob();
+      })
+      .then((blob) => {
+        const url = URL.createObjectURL(blob);
+        imageUrlRefs.current.add(url);
+        const asset = {
+          id: crypto.randomUUID(),
+          type: "image",
+          src: url,
+          name: "老外戴眼镜中年人物肖像生成-modnet.png",
+          meta: "819 x 1024 · E2E test",
+          blob,
+          duration: 4,
+          width: 819,
+          height: 1024,
+          trackFrames: [],
+        };
+        setUserAssets((assets) => [asset, ...assets]);
+        replaceVisualTimeline(asset, 4);
+        notify("端到端测试肖像已载入画面轨");
+      })
+      .catch((error) => {
+        avatarTestImportedRef.current = false;
+        console.error("Avatar E2E test image import failed", error);
+      });
+  }, []);
 
   useEffect(() => {
     const ratioSource = visualSegments.find((segment) => segment.width > 0 && segment.height > 0);
@@ -4585,6 +4782,8 @@ export function App() {
           hasVisual={Boolean(previewVisualSrc)}
           visualType={previewVisualType}
           audioDuration={audioDuration}
+          avatarJob={avatarJob}
+          generateAvatarAcceptanceFrame={generateAvatarAcceptanceFrame}
         />
       </section>
 

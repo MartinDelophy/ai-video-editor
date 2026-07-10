@@ -8,8 +8,11 @@ import {
   Trash,
   Waveform,
 } from "@phosphor-icons/react";
+import { useState } from "react";
 
 import { formatTime, getSegmentStartTime } from "../lib/timeline.js";
+import { LIVE_PORTRAIT_WEB_MODEL } from "../config/livePortrait.js";
+import { probeLivePortraitWebEnvironment } from "../lib/livePortraitWeb.js";
 import { HistoryPanel, MyVoicesPanel, VoiceSynthesisPanel } from "./panels.jsx";
 
 function CaptionContextPanel({
@@ -136,8 +139,22 @@ function CaptionContextPanel({
   );
 }
 
-function AvatarContextPanel({ t, hasVisual, visualType, audioBlob, audioDuration, captionSegments, selectedVoice }) {
+function AvatarContextPanel({ t, hasVisual, visualType, audioBlob, audioDuration, captionSegments, selectedVoice, avatarJob, generateAvatarAcceptanceFrame }) {
   const hasPortrait = hasVisual && visualType === "image";
+  const [probeState, setProbeState] = useState("idle");
+  const [probeResult, setProbeResult] = useState(null);
+
+  const runProbe = async () => {
+    setProbeState("running");
+    try {
+      setProbeResult(await probeLivePortraitWebEnvironment());
+      setProbeState("done");
+    } catch (error) {
+      setProbeResult({ readyForPorting: false, checks: [{ id: "runtime", state: "failed", detail: error instanceof Error ? error.message : String(error) }] });
+      setProbeState("done");
+    }
+  };
+
   return (
     <div className="avatar-context-panel">
       <div className="avatar-context-hero">
@@ -149,9 +166,37 @@ function AvatarContextPanel({ t, hasVisual, visualType, audioBlob, audioDuration
         <div className={audioBlob ? "is-ready" : ""}><Waveform size={17} weight="duotone" /><span><strong>{t("avatarAudio")}</strong><em>{audioBlob ? `${selectedVoice?.name ?? "AI"} · ${audioDuration.toFixed(1)}s` : t("avatarNeedsAudio")}</em></span></div>
         <div className={captionSegments.length ? "is-ready" : ""}><ClosedCaptioning size={17} weight="duotone" /><span><strong>{t("avatarLipSyncSource")}</strong><em>{captionSegments.length ? `${captionSegments.length} ${t("captionSegmentsUnit")} · ${t("avatarCaptionSync")}` : t("avatarNeedsCaptions")}</em></span></div>
       </div>
-      <div className="avatar-sync-mode"><span>{t("avatarSyncMode")}</span><strong>{t("avatarSyncModeCaption")}</strong></div>
+      <div className="avatar-sync-mode"><span>{t("avatarModelSource")}</span><strong>{LIVE_PORTRAIT_WEB_MODEL.id}</strong></div>
       <p className="avatar-context-note">{t("avatarGenerationNote")}</p>
-      <div className="avatar-official-notice"><PersonSimpleRun size={17} weight="duotone" /><span><strong>{t("avatarServiceNeeded")}</strong><em>{t("avatarServiceHint")}</em></span></div>
+      <div className="avatar-porting-stages" aria-label={t("avatarPortingStatus")}>
+        <div className="is-done"><span>1</span><strong>{t("avatarStagePinned")}</strong></div>
+        <div className="is-done"><span>2</span><strong>{t("avatarStageGrid")}</strong></div>
+        <div className="is-active"><span>3</span><strong>{t("avatarStageAudio")}</strong></div>
+      </div>
+      {probeResult ? (
+        <div className="avatar-probe-results">
+          {probeResult.checks.map((check) => <div className={`is-${check.state}`} key={check.id}><span />{check.detail}</div>)}
+        </div>
+      ) : null}
+      <button className="panel-secondary avatar-probe-button" type="button" disabled={probeState === "running"} onClick={runProbe}>
+        {probeState === "running" ? t("avatarChecking") : t("avatarCheck")}
+      </button>
+      {avatarJob?.running || avatarJob?.progress > 0 || avatarJob?.phase ? (
+        <div className="avatar-generation-progress" aria-live="polite">
+          <div><span>{avatarJob.phase || t("avatarGenerating")}</span><strong>{avatarJob.progress}%</strong></div>
+          <i><b style={{ width: `${avatarJob.progress}%` }} /></i>
+        </div>
+      ) : null}
+      <button
+        className="panel-primary avatar-generate-button"
+        type="button"
+        disabled={!hasPortrait || avatarJob?.running}
+        onClick={generateAvatarAcceptanceFrame}
+      >
+        <PersonSimpleRun size={17} weight="duotone" />
+        {avatarJob?.running ? t("avatarGenerating") : t("avatarGenerate")}
+      </button>
+      <div className="avatar-official-notice"><PersonSimpleRun size={17} weight="duotone" /><span><strong>{t("avatarPortingStatus")}</strong><em>{t("avatarServiceHint")}</em></span></div>
     </div>
   );
 }
@@ -217,6 +262,8 @@ export function VoicePanel({
   hasVisual,
   visualType,
   audioDuration,
+  avatarJob,
+  generateAvatarAcceptanceFrame,
 }) {
   const isCaptionContext = activeTool === "caption";
   const isAvatarContext = activeTool === "smart" && avatarPanelOpen;
@@ -226,7 +273,7 @@ export function VoicePanel({
       ? `${captionSegments.length} ${t("captionSegmentsUnit", "条字幕")}`
       : t("noCaptionSegments")
     : isAvatarContext
-      ? t("avatarServiceNeeded")
+      ? t("avatarPortingStatus")
     : statusText === "模型待命"
       ? t("modelReady")
       : statusText;
@@ -280,7 +327,7 @@ export function VoicePanel({
           />
         ) : null}
 
-        {isAvatarContext ? <AvatarContextPanel t={t} hasVisual={hasVisual} visualType={visualType} audioBlob={audioBlob} audioDuration={audioDuration} captionSegments={captionSegments} selectedVoice={selectedVoice} /> : null}
+        {isAvatarContext ? <AvatarContextPanel t={t} hasVisual={hasVisual} visualType={visualType} audioBlob={audioBlob} audioDuration={audioDuration} captionSegments={captionSegments} selectedVoice={selectedVoice} avatarJob={avatarJob} generateAvatarAcceptanceFrame={generateAvatarAcceptanceFrame} /> : null}
 
         {!isCaptionContext && !isAvatarContext && voiceTab === "synthesis" ? (
           <VoiceSynthesisPanel

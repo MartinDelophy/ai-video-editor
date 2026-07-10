@@ -43,7 +43,8 @@ function isHuggingFaceModelRequest(url) {
 
 function isRuntimeAssetRequest(url) {
   if (url.origin === self.location.origin) {
-    return url.pathname.startsWith("/assets/") && hasCacheableExtension(url.pathname);
+    return url.pathname.startsWith("/models/")
+      || (url.pathname.startsWith("/assets/") && hasCacheableExtension(url.pathname));
   }
 
   return CDN_HOSTS.has(url.hostname) && (

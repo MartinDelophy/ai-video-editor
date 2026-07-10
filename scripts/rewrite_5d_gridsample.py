@@ -47,9 +47,21 @@ def rewrite_node(node: onnx.NodeProto, input_shape: list[int], grid_shape: list[
     slice_axes = const("slice_axes", [4])
     slice_steps = const("slice_steps", [1])
     unsqueeze_depth_axis = const("unsqueeze_depth_axis", [1])
-    tile_repeats = const("tile_repeats", [1, depth, 1, 1, 1, 1])
-    shape_grid2d = const("shape_grid2d", [n * depth, out_depth * out_height, out_width, 2])
-    shape_sampled = const("shape_sampled", [n, depth, channels, out_depth, out_height, out_width])
+    shared_xy = index == 0
+    tile_repeats = const("tile_repeats", [1, depth, 1, 1, 1] if shared_xy else [1, depth, 1, 1, 1, 1])
+    shape_grid2d = const(
+        "shape_grid2d",
+        [n * depth, out_height, out_width, 2] if shared_xy else [n * depth, out_depth * out_height, out_width, 2],
+    )
+    shape_sampled = const(
+        "shape_sampled",
+        [n, depth, channels, out_height, out_width] if shared_xy else [n, depth, channels, out_depth, out_height, out_width],
+    )
+    first_depth_starts = const("first_depth_starts", [0])
+    first_depth_ends = const("first_depth_ends", [1])
+    first_depth_axes = const("first_depth_axes", [1])
+    squeeze_first_depth_axis = const("squeeze_first_depth_axis", [1])
+    add_output_depth_axis = const("add_output_depth_axis", [2])
     z_starts = const("z_starts", [2])
     z_ends = const("z_ends", [3])
     depth_values = const("depth_values", np.arange(depth).reshape(1, 1, 1, 1, depth), np.float32)
@@ -64,17 +76,34 @@ def rewrite_node(node: onnx.NodeProto, input_shape: list[int], grid_shape: list[
         "volume_ndchw", "volume_4d", "grid_xy", "grid_xy_depth", "grid_xy_tiled", "grid_2d",
         "sampled_4d", "sampled_6d", "sampled_ordered", "grid_z", "z_scaled", "z_input",
         "z_delta", "z_distance", "z_weight_raw", "z_weights", "z_weights_channel", "weighted",
+        "grid_first_depth", "grid_first_depth_xy", "grid_xy_compact", "sampled_compact",
     ]}
     nodes = [
         helper.make_node("Transpose", [node.input[0]], [names["volume_ndchw"]], perm=[0, 2, 1, 3, 4], name=f"{prefix}/volume_to_ndchw"),
         helper.make_node("Reshape", [names["volume_ndchw"], shape_volume], [names["volume_4d"]], name=f"{prefix}/volume_to_4d"),
-        helper.make_node("Slice", [node.input[1], slice_starts, slice_ends, slice_axes, slice_steps], [names["grid_xy"]], name=f"{prefix}/slice_xy"),
-        helper.make_node("Unsqueeze", [names["grid_xy"], unsqueeze_depth_axis], [names["grid_xy_depth"]], name=f"{prefix}/add_input_depth"),
+    ]
+    if shared_xy:
+        nodes.extend([
+            helper.make_node("Slice", [node.input[1], first_depth_starts, first_depth_ends, first_depth_axes, slice_steps], [names["grid_first_depth"]], name=f"{prefix}/first_output_depth"),
+            helper.make_node("Slice", [names["grid_first_depth"], slice_starts, slice_ends, slice_axes, slice_steps], [names["grid_first_depth_xy"]], name=f"{prefix}/slice_shared_xy"),
+            helper.make_node("Squeeze", [names["grid_first_depth_xy"], squeeze_first_depth_axis], [names["grid_xy_compact"]], name=f"{prefix}/remove_output_depth"),
+            helper.make_node("Unsqueeze", [names["grid_xy_compact"], unsqueeze_depth_axis], [names["grid_xy_depth"]], name=f"{prefix}/add_input_depth"),
+        ])
+    else:
+        nodes.extend([
+            helper.make_node("Slice", [node.input[1], slice_starts, slice_ends, slice_axes, slice_steps], [names["grid_xy"]], name=f"{prefix}/slice_xy"),
+            helper.make_node("Unsqueeze", [names["grid_xy"], unsqueeze_depth_axis], [names["grid_xy_depth"]], name=f"{prefix}/add_input_depth"),
+        ])
+    nodes.extend([
         helper.make_node("Tile", [names["grid_xy_depth"], tile_repeats], [names["grid_xy_tiled"]], name=f"{prefix}/tile_xy"),
         helper.make_node("Reshape", [names["grid_xy_tiled"], shape_grid2d], [names["grid_2d"]], name=f"{prefix}/grid_to_2d"),
         helper.make_node("GridSample", [names["volume_4d"], names["grid_2d"]], [names["sampled_4d"]], align_corners=0, mode="linear", padding_mode="zeros", name=f"{prefix}/grid_sample_2d"),
-        helper.make_node("Reshape", [names["sampled_4d"], shape_sampled], [names["sampled_6d"]], name=f"{prefix}/sampled_to_6d"),
-        helper.make_node("Transpose", [names["sampled_6d"]], [names["sampled_ordered"]], perm=[0, 2, 3, 4, 5, 1], name=f"{prefix}/depth_last"),
+        helper.make_node("Reshape", [names["sampled_4d"], shape_sampled], [names["sampled_6d"]], name=f"{prefix}/sampled_to_nd"),
+        helper.make_node("Transpose", [names["sampled_6d"]], [names["sampled_compact"] if shared_xy else names["sampled_ordered"]], perm=[0, 2, 3, 4, 1] if shared_xy else [0, 2, 3, 4, 5, 1], name=f"{prefix}/depth_last"),
+    ])
+    if shared_xy:
+        nodes.append(helper.make_node("Unsqueeze", [names["sampled_compact"], add_output_depth_axis], [names["sampled_ordered"]], name=f"{prefix}/broadcast_output_depth"))
+    nodes.extend([
         helper.make_node("Slice", [node.input[1], z_starts, z_ends, slice_axes, slice_steps], [names["grid_z"]], name=f"{prefix}/slice_z"),
         helper.make_node("Mul", [names["grid_z"], z_scale], [names["z_scaled"]], name=f"{prefix}/scale_z"),
         helper.make_node("Add", [names["z_scaled"], z_offset], [names["z_input"]], name=f"{prefix}/offset_z"),
@@ -85,7 +114,7 @@ def rewrite_node(node: onnx.NodeProto, input_shape: list[int], grid_shape: list[
         helper.make_node("Unsqueeze", [names["z_weights"], channel_axis], [names["z_weights_channel"]], name=f"{prefix}/z_weight_channel"),
         helper.make_node("Mul", [names["sampled_ordered"], names["z_weights_channel"]], [names["weighted"]], name=f"{prefix}/apply_z_weights"),
         helper.make_node("ReduceSum", [names["weighted"], reduce_axis], [node.output[0]], keepdims=0, name=f"{prefix}/sum_z"),
-    ]
+    ])
     return nodes, initializers
 
 

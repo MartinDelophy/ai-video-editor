@@ -171,7 +171,7 @@ function AvatarContextPanel({ t, hasVisual, visualType, audioBlob, audioDuration
       <div className="avatar-porting-stages" aria-label={t("avatarPortingStatus")}>
         <div className="is-done"><span>1</span><strong>{t("avatarStagePinned")}</strong></div>
         <div className="is-done"><span>2</span><strong>{t("avatarStageGrid")}</strong></div>
-        <div className="is-active"><span>3</span><strong>{t("avatarStageAudio")}</strong></div>
+        <div className="is-done"><span>3</span><strong>{t("avatarStageAudio")}</strong></div>
       </div>
       {probeResult ? (
         <div className="avatar-probe-results">

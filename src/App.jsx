@@ -83,6 +83,7 @@ import {
   mapNormalizedBoxToFrame,
 } from "./lib/visualGeometry.js";
 import { JOYVASA_PROJECT_MODEL_BASE_URL } from "./config/joyVasa.js";
+import { LIVE_PORTRAIT_WEBGPU_PROJECT_MODEL_BASE_URL } from "./config/livePortrait.js";
 
 const PLAYBACK_UI_FRAME_MS = 50;
 const DEFAULT_VISION_OPTIONS = Object.freeze({
@@ -364,6 +365,7 @@ export function App() {
   const visionJobGenerationRef = useRef(0);
   const avatarWorkerRef = useRef(null);
   const avatarTestImportedRef = useRef(false);
+  const avatarTestAudioImportedRef = useRef(false);
   const activeLanguage = uiLanguage || "zh";
   const t = useMemo(() => createTranslator(activeLanguage), [activeLanguage]);
   const trOption = (name, option) => {
@@ -467,7 +469,8 @@ export function App() {
           type: "generateVideo", portraitBlob: sourceBlob, motionBuffer: event.data.motion,
           modelBaseUrl: import.meta.env.VITE_LIVE_PORTRAIT_MODEL_BASE_URL || "",
           joyVasaModelBaseUrl: JOYVASA_PROJECT_MODEL_BASE_URL,
-          renderFps: 8,
+          webGpuModelBaseUrl: LIVE_PORTRAIT_WEBGPU_PROJECT_MODEL_BASE_URL,
+          renderFps: Math.max(1, Number(import.meta.env.VITE_AVATAR_RENDER_FPS || 8)),
         }, [event.data.motion]);
       };
 
@@ -852,6 +855,25 @@ export function App() {
       .catch((error) => {
         avatarTestImportedRef.current = false;
         console.error("Avatar E2E test image import failed", error);
+      });
+  }, []);
+
+  useEffect(() => {
+    if (!import.meta.env.DEV || !import.meta.env.VITE_AVATAR_TEST_IMAGE_URL || avatarTestAudioImportedRef.current) return;
+    avatarTestAudioImportedRef.current = true;
+    fetch("/assets/avatar-e2e-16k.wav")
+      .then((response) => {
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return response.blob();
+      })
+      .then(async (blob) => {
+        const waveform = await decodeWaveform(blob);
+        replaceAudio(blob, waveform.duration, waveform.peaks, "端到端测试配音已载入");
+        notify("端到端测试配音已载入配音轨");
+      })
+      .catch((error) => {
+        avatarTestAudioImportedRef.current = false;
+        console.error("Avatar E2E test audio import failed", error);
       });
   }, []);
 

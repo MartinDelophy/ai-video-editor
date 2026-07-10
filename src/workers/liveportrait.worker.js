@@ -1,6 +1,6 @@
-import * as ort from "onnxruntime-web/wasm";
-import ortWasmMjsUrl from "onnxruntime-web/ort-wasm-simd-threaded.mjs?url";
-import ortWasmUrl from "../assets/ort-wasm-simd-threaded.wasm?url";
+import * as ort from "onnxruntime-web/webgpu";
+import ortWasmMjsUrl from "onnxruntime-web/ort-wasm-simd-threaded.asyncify.mjs?url";
+import ortWasmUrl from "onnxruntime-web/ort-wasm-simd-threaded.asyncify.wasm?url";
 
 import { LIVE_PORTRAIT_WEB_MODEL, getLivePortraitModelUrl } from "../config/livePortrait.js";
 
@@ -15,34 +15,45 @@ function postProgress(progress, phase) {
 }
 
 function resolveModelUrl(file, modelBaseUrl) {
-  return modelBaseUrl ? new URL(file, modelBaseUrl).href : getLivePortraitModelUrl(file);
+  return modelBaseUrl
+    ? new URL(file, new URL(modelBaseUrl, self.location.origin)).href
+    : getLivePortraitModelUrl(file);
 }
 
 async function fetchModel(key, file, modelBaseUrl, completedBytes, totalBytes) {
-  const response = await fetch(resolveModelUrl(file, modelBaseUrl));
-  if (!response.ok) throw new Error(`${file} 下载失败（HTTP ${response.status}）`);
-  if (!response.body) return response.arrayBuffer();
+  const files = Array.isArray(file) ? file : [file];
+  const parts = [];
   let loaded = 0;
-  const stream = response.body.pipeThrough(new TransformStream({
-    transform(chunk, controller) {
-      loaded += chunk.byteLength;
-      postProgress(5 + ((completedBytes + loaded) / totalBytes) * 55, `下载 ${key}`);
-      controller.enqueue(chunk);
-    },
-  }));
-  return new Response(stream).arrayBuffer();
+  for (const partFile of files) {
+    const response = await fetch(resolveModelUrl(partFile, modelBaseUrl));
+    if (!response.ok) throw new Error(`${partFile} 下载失败（HTTP ${response.status}）`);
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    parts.push(bytes);
+    loaded += bytes.byteLength;
+    postProgress(5 + ((completedBytes + loaded) / totalBytes) * 55, `下载 ${key}`);
+  }
+  const combined = new Uint8Array(loaded);
+  let offset = 0;
+  for (const part of parts) {
+    combined.set(part, offset);
+    offset += part.byteLength;
+  }
+  return combined.buffer;
 }
 
-async function loadSession(key, modelBaseUrl, downloadState) {
+async function loadSession(key, modelBaseUrl, downloadState, executionProvider = "wasm") {
   const file = LIVE_PORTRAIT_WEB_MODEL.files[key];
   const bytes = LIVE_PORTRAIT_WEB_MODEL.knownArtifacts[key]?.bytes ?? 0;
   const model = await fetchModel(key, file, modelBaseUrl, downloadState.completed, downloadState.total);
   downloadState.completed += bytes;
   postProgress(5 + (downloadState.completed / downloadState.total) * 55, `初始化 ${key}`);
-  // Keep the accepted browser pipeline on WASM until the complete LivePortrait
-  // graph has been validated on WebGPU. Importing the WebGPU bundle can throw an
-  // asynchronous ORT-internal error before session fallback gets a chance to run.
-  return ort.InferenceSession.create(model, { executionProviders: ["wasm"], graphOptimizationLevel: "all" });
+  if (executionProvider === "webgpu" && !self.navigator?.gpu) {
+    throw new Error("当前浏览器没有可用的 WebGPU，无法运行全 GPU LivePortrait");
+  }
+  const provider = executionProvider === "webgpu" && key === "generatorWebGpu"
+    ? { name: "webgpu", preferredLayout: "NHWC" }
+    : executionProvider;
+  return ort.InferenceSession.create(model, { executionProviders: [provider], graphOptimizationLevel: "all" });
 }
 
 function preprocessPortrait(blob) {
@@ -197,21 +208,28 @@ function buildDrivingKeypoints(motion, source, driving, initialDriving) {
   return output;
 }
 
-async function generateVideo({ portraitBlob, motionBuffer, modelBaseUrl, joyVasaModelBaseUrl, renderFps = 8 }) {
+async function generateVideo({ portraitBlob, motionBuffer, modelBaseUrl, joyVasaModelBaseUrl, webGpuModelBaseUrl, renderFps = 8 }) {
   postProgress(2, "准备肖像与真实口型运动");
   const image = await preprocessPortrait(portraitBlob);
-  const keys = ["appearanceFeatureExtractor", "motionExtractor", "stitching", "warping", "spadeGenerator"];
+  const keys = ["appearanceFeatureExtractorWebGpu", "motionExtractorWebGpu", "stitchingWebGpu", "generatorWebGpu"];
   const downloadState = { completed: 0, total: keys.reduce((sum, key) => sum + (LIVE_PORTRAIT_WEB_MODEL.knownArtifacts[key]?.bytes ?? 0), 0) };
   const sessions = {};
-  for (const key of keys) sessions[key] = await loadSession(key, modelBaseUrl, downloadState);
+  for (const key of keys) {
+    sessions[key] = await loadSession(
+      key,
+      webGpuModelBaseUrl,
+      downloadState,
+      "webgpu",
+    );
+  }
   const templateResponse = await fetch(new URL("joyvasa-motion-template.json", new URL(joyVasaModelBaseUrl, self.location.origin)));
   if (!templateResponse.ok) throw new Error(`JoyVASA 运动模板下载失败（HTTP ${templateResponse.status}）`);
   const template = await templateResponse.json();
   const coefficients = new Float32Array(motionBuffer);
 
   postProgress(63, "提取人物 3D 特征");
-  const feature = (await sessions.appearanceFeatureExtractor.run({ img: image })).output;
-  const sourceMotion = await sessions.motionExtractor.run({ img: image });
+  const feature = (await sessions.appearanceFeatureExtractorWebGpu.run({ img: image })).output;
+  const sourceMotion = await sessions.motionExtractorWebGpu.run({ img: image });
   const source = transformKeypoints(sourceMotion);
   const initialDriving = decodeJoyVasaFrame(coefficients, 0, template);
   const frameCount = Math.ceil(4 * renderFps);
@@ -224,7 +242,7 @@ async function generateVideo({ portraitBlob, motionBuffer, modelBaseUrl, joyVasa
       const input = new Float32Array(126);
       input.set(source);
       input.set(rawDriving, 63);
-      const result = await sessions.stitching.run({ input: tensor(input, [1, 126]) });
+      const result = await sessions.stitchingWebGpu.run({ input: tensor(input, [1, 126]) });
       const value = new Float32Array(rawDriving);
       for (let i = 0; i < 63; i += 1) value[i] += result.output.data[i];
       for (let point = 0; point < 21; point += 1) {
@@ -233,10 +251,18 @@ async function generateVideo({ portraitBlob, motionBuffer, modelBaseUrl, joyVasa
       }
       return value;
     })();
-    const warped = await sessions.warping.run({ feature_3d: feature, kp_source: tensor(source, [1, 21, 3]), kp_driving: tensor(stitched, [1, 21, 3]) });
-    const generated = await sessions.spadeGenerator.run({ input: warped["879"] });
-    blobs.push(await outputToBlob(generated.output));
-    postProgress(68 + ((outputFrame + 1) / frameCount) * 31, `渲染口型帧 ${outputFrame + 1}/${frameCount}`);
+    const inferenceStarted = performance.now();
+    const generated = await sessions.generatorWebGpu.run({
+      feature_3d: feature,
+      kp_source: tensor(source, [1, 21, 3]),
+      kp_driving: tensor(stitched, [1, 21, 3]),
+    });
+    const inferenceMs = performance.now() - inferenceStarted;
+    postProgress(68 + (outputFrame / frameCount) * 31, `WebGPU 帧 ${outputFrame + 1}/${frameCount} · ${(inferenceMs / 1000).toFixed(1)}s`);
+    const encodeStarted = performance.now();
+    blobs.push(await outputToBlob(generated.out));
+    const encodeMs = performance.now() - encodeStarted;
+    postProgress(68 + ((outputFrame + 1) / frameCount) * 31, `完成帧 ${outputFrame + 1}/${frameCount} · 编码 ${(encodeMs / 1000).toFixed(1)}s`);
   }
   postProgress(100, "真实口型帧生成完成");
   self.postMessage({ type: "videoFrames", blobs, width: 512, height: 512, fps: renderFps, duration: 4 });

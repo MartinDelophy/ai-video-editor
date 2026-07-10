@@ -17,6 +17,7 @@
     "@vitejs/plugin-react": "5.0.4",
     "fflate": "^0.8.3",
     "kokoro-js": "^1.2.1",
+    "onnxruntime-web": "^1.27.0",
     "react": "19.2.0",
     "react-dom": "19.2.0",
     "vite": "6.4.2"

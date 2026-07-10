@@ -776,12 +776,12 @@ function SmartVisionPanel({
         <div className="avatar-lab-heading">
           <span className="avatar-lab-icon"><PersonSimpleRun size={18} weight="duotone" /></span>
           <div><span>{t("avatarKicker")}</span><strong>{t("avatarTitle")}</strong></div>
-          <em className="is-ready">{t("avatarOfficial")}</em>
+          <em className="is-ready">{t("avatarWebPort")}</em>
         </div>
         <p>{t("avatarDescription")}</p>
         <div className="avatar-lab-requirements">
           <span className={hasVisual && visualType === "image" ? "is-ready" : ""}>{t("avatarPortrait")}</span>
-          <span className="is-ready">{t("avatarService")}</span>
+          <span className="is-ready">{t("avatarWebgpu")}</span>
           <span>{t("avatarAudio")}</span>
         </div>
         <button className="panel-primary avatar-open-button" type="button" onClick={onOpenAvatarPanel}>

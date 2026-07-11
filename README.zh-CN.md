@@ -39,9 +39,17 @@
 - 使用 YOLOS tiny 在浏览器 Worker 中识别图片主体，或扫描整段视频生成带时间戳的主体轨迹。
 - 使用 MODNet 为图片生成透明人像抠图；视频会先生成覆盖全片的时序遮罩，再用于播放与导出。
 - 基于归一化主体框自动做字幕避让和跨画幅智能裁切。
+- 使用当前正脸图片与配音，通过浏览器 JoyVASA 音频驱动和 LivePortrait 神经渲染生成数字人口型视频。
+- 数字人支持混合 FP16 256px 快速预览与 512px 高质量档、自适应神经关键帧以及自动替换画面轨。
 - 浏览器支持时导出 MP4，不支持时回退到 WebM。
 - 本地渲染导出时显示导出进度。
 - 首次语言选择会保存到 `localStorage`。
+
+## 最近更新
+
+- 完成 JoyVASA 音频到运动 ONNX 与 LivePortrait WebGPU 的浏览器端到端数字人链路。
+- 使用自适应 1–2fps 神经关键帧、输出帧保持和画面轨自动替换，避免整张人脸交叉淡化造成重影。
+- 将约 906MB 数字人模型迁移到锁定 revision 的 [Timeline Studio ONNX 模型仓库](https://huggingface.co/haixin/timeline-studio-onnx-models/tree/a201b681c8f96672b5c3f624e32d4dc932f150af)，Git 仓库不再保存大模型二进制文件。
 
 ## AI 功能
 
@@ -55,6 +63,9 @@
 - 浏览器录音，可手动录制旁白并写入配音轨。
 - 本地解析配音、视频原声、背景音乐波形。
 - YOLOS tiny q8 ONNX 主体检测与 MODNet q8 ONNX 人像抠图，模型按需加载并由 Service Worker 缓存。
+- JoyVASA + LivePortrait ONNX 数字人生成，包含 WebGPU 推理、混合 FP16 生成器、人物 GPU 特征复用、模型分片并行下载，以及两套大型 GPU 模型之间的显存隔离。
+
+数字人模型固定从 Hugging Face revision `a201b681c8f96672b5c3f624e32d4dc932f150af` 加载。每个神经关键帧都会检查非有限数值和时序离群；异常帧会原位重推一次，仍异常则沿用上一正常帧，不会把损坏纹理编码进视频。
 
 MODNet 主要面向人像抠图，YOLOS tiny 覆盖 COCO 常见类别。图片支持完整抠图；视频采用导出前全片预分析，按时间解析 YOLOS 主体轨迹与 MODNet 遮罩，因此预览、字幕避让、智能裁切和导出不再静态复用首帧。为控制浏览器内存与 WASM 推理耗时，长视频会自动降低时序采样密度并在相邻主体帧之间插值。
 
@@ -119,12 +130,16 @@ src/
     ui.jsx
   config/
     editor.js
+    joyVasa.js
+    livePortrait.js
   lib/
     media.js
     timeline.js
     vision.js
     visualGeometry.js
   workers/
+    joyvasa.worker.js
+    liveportrait.worker.js
     vision.worker.js
   i18n.js
   main.jsx
@@ -179,6 +194,7 @@ npx netlify-cli deploy --prod --dir=dist
 - `.netlify/`
 - 本地 npm 缓存和机器相关配置
 - 本地 Codex/agent 工作说明
+- 已迁移到固定 Hugging Face revision 的大型数字人 ONNX 文件
 
 ## License
 

@@ -1,4 +1,5 @@
 const LIVE_PORTRAIT_REVISION = "e6c5d2407593a39f29c92ffd5ea3eaf5e59d52a1";
+const TIMELINE_STUDIO_MODEL_REVISION = "a201b681c8f96672b5c3f624e32d4dc932f150af";
 
 export const LIVE_PORTRAIT_WEB_MODEL = Object.freeze({
   id: "dyicnc/Live-Portrait-ONNX",
@@ -16,16 +17,19 @@ export const LIVE_PORTRAIT_WEB_MODEL = Object.freeze({
     stitching: "stitching.onnx",
     stitchingLip: "stitching_lip.onnx",
     stitchingRetargeting: "stitching_retargeting.onnx",
-    generatorWebGpu: Object.freeze([
-      "liveportrait-generator-webgpu.onnx.part-aa?v=03defe3d",
-      "liveportrait-generator-webgpu.onnx.part-ab?v=03defe3d",
-      "liveportrait-generator-webgpu.onnx.part-ac?v=03defe3d",
-      "liveportrait-generator-webgpu.onnx.part-ad?v=03defe3d",
-      "liveportrait-generator-webgpu.onnx.part-ae?v=03defe3d",
-      "liveportrait-generator-webgpu.onnx.part-af?v=03defe3d",
-      "liveportrait-generator-webgpu.onnx.part-ag?v=03defe3d",
-      "liveportrait-generator-webgpu.onnx.part-ah?v=03defe3d",
-      "liveportrait-generator-webgpu.onnx.part-ai?v=03defe3d",
+    generatorPreviewFp16: Object.freeze([
+      "liveportrait-generator-preview-fp16.onnx.part-aa?v=5fdb50d2",
+      "liveportrait-generator-preview-fp16.onnx.part-ab?v=5fdb50d2",
+      "liveportrait-generator-preview-fp16.onnx.part-ac?v=5fdb50d2",
+      "liveportrait-generator-preview-fp16.onnx.part-ad?v=5fdb50d2",
+      "liveportrait-generator-preview-fp16.onnx.part-ae?v=5fdb50d2",
+    ]),
+    generatorQualityFp16: Object.freeze([
+      "liveportrait-generator-quality-fp16.onnx.part-aa?v=1b4630bf",
+      "liveportrait-generator-quality-fp16.onnx.part-ab?v=1b4630bf",
+      "liveportrait-generator-quality-fp16.onnx.part-ac?v=1b4630bf",
+      "liveportrait-generator-quality-fp16.onnx.part-ad?v=1b4630bf",
+      "liveportrait-generator-quality-fp16.onnx.part-ae?v=1b4630bf",
     ]),
     appearanceFeatureExtractorWebGpu: "liveportrait-appearance_feature_extractor.onnx",
     motionExtractorWebGpu: Object.freeze([
@@ -68,9 +72,13 @@ export const LIVE_PORTRAIT_WEB_MODEL = Object.freeze({
       bytes: 150_609,
       sha256: "33489d795915b78a8e96787c42c367cac23a0d5d3d2bd3efbb4af5ee758d42bb",
     }),
-    generatorWebGpu: Object.freeze({
-      bytes: 421_246_756,
-      sha256: "03defe3d3a391a897ae4ed4059d19ff12c9a3f46f9c605471c365775388bc551",
+    generatorPreviewFp16: Object.freeze({
+      bytes: 210_713_705,
+      sha256: "5fdb50d2fdaf1d52a65f39dddf7b79c968725eaae735418f5494831ba4d45706",
+    }),
+    generatorQualityFp16: Object.freeze({
+      bytes: 210_713_678,
+      sha256: "1b4630bfbe499dd1d28697fa1e479ab4b305c80421aa485bfd04d36698c6fe7f",
     }),
     appearanceFeatureExtractorWebGpu: Object.freeze({
       bytes: 3_355_896,
@@ -87,7 +95,8 @@ export const LIVE_PORTRAIT_WEB_MODEL = Object.freeze({
   }),
 });
 
-export const LIVE_PORTRAIT_WEBGPU_PROJECT_MODEL_BASE_URL = "/models/liveportrait-webgpu/";
+export const LIVE_PORTRAIT_WEBGPU_PROJECT_MODEL_BASE_URL =
+  `https://huggingface.co/haixin/timeline-studio-onnx-models/resolve/${TIMELINE_STUDIO_MODEL_REVISION}/liveportrait-webgpu/`;
 
 export function getLivePortraitModelUrl(file) {
   return `https://huggingface.co/${LIVE_PORTRAIT_WEB_MODEL.id}/resolve/${LIVE_PORTRAIT_WEB_MODEL.revision}/${file}`;

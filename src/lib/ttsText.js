@@ -50,9 +50,10 @@ const ASCII_PUNCTUATION_MAP = new Map([
 ]);
 
 export class TtsInputError extends Error {
-  constructor(message) {
-    super(message);
+  constructor(code) {
+    super(code);
     this.name = "TtsInputError";
+    this.code = code;
   }
 }
 
@@ -81,7 +82,7 @@ function prepareChinesePiperText(rawText) {
   const hanCount = countMatches(normalized, /\p{Script=Han}/gu);
 
   if (latinCount > Math.max(14, hanCount * 0.8)) {
-    throw new TtsInputError("当前中文语音不适合大量英文文案，请切换 English 声音后再生成。");
+    throw new TtsInputError("ttsErrorChineseVoiceEnglishText");
   }
 
   let changed = false;
@@ -113,12 +114,12 @@ function prepareChinesePiperText(rawText) {
     .trim();
 
   if (!text) {
-    throw new TtsInputError("当前中文语音没有可朗读的中文内容，请输入中文或切换英文声音。");
+    throw new TtsInputError("ttsErrorNoChineseContent");
   }
 
   return {
     text,
-    warning: changed ? "已自动清理中文语音不支持的符号，避免本地 ONNX 运行失败。" : "",
+    warningKey: changed ? "ttsWarningChineseSymbolsCleaned" : "",
   };
 }
 
@@ -128,17 +129,17 @@ function prepareKokoroText(rawText) {
   const latinCount = countMatches(normalized, /[A-Za-z]/g);
 
   if (hanCount > Math.max(4, latinCount * 0.5)) {
-    throw new TtsInputError("当前英文语音不适合中文文案，请切换中文声音后再生成。");
+    throw new TtsInputError("ttsErrorEnglishVoiceChineseText");
   }
 
   const text = normalized.replace(/[^\p{Script=Latin}0-9\s.,!?;:'"()\-]/gu, "").trim();
   if (!text) {
-    throw new TtsInputError("当前英文语音没有可朗读的英文内容，请输入英文或切换中文声音。");
+    throw new TtsInputError("ttsErrorNoEnglishContent");
   }
 
   return {
     text,
-    warning: text !== normalized ? "已自动清理英文语音不支持的字符。" : "",
+    warningKey: text !== normalized ? "ttsWarningEnglishCharactersCleaned" : "",
   };
 }
 
@@ -153,9 +154,9 @@ export function prepareTextForVoice(rawText, voice) {
 
   const text = normalizeBaseText(rawText);
   if (!text) {
-    throw new TtsInputError("请输入要生成的文案。");
+    throw new TtsInputError("ttsErrorEmptyScript");
   }
-  return { text, warning: "" };
+  return { text, warningKey: "" };
 }
 
 export function isPiperSymbolError(error) {

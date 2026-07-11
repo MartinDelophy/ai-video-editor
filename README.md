@@ -42,6 +42,8 @@ A browser-first AI video editor for image/video timelines, AI voiceover generati
 - Detect the primary subject in an image or scan a complete video into a timestamped YOLOS tiny subject track in a browser worker.
 - Generate transparent portrait cutouts with MODNet; videos are pre-analyzed into a full-duration temporal mask track used by preview and export.
 - Use normalized subject geometry for smart caption avoidance and subject-aware cropping across aspect ratios.
+- Generate a talking portrait from a front-facing image and the current voiceover with the browser JoyVASA audio driver and LivePortrait neural renderer.
+- Choose a mixed-FP16 256px fast-preview path or a mixed-FP16 512px quality path, with adaptive neural keyframes and WebM visual-track replacement.
 - Export MP4 when browser support is available, with WebM fallback.
 - Show export progress during browser-side rendering.
 - Persist language selection in `localStorage`.
@@ -52,6 +54,8 @@ A browser-first AI video editor for image/video timelines, AI voiceover generati
 - Added installable PWA metadata, app icons, service-worker app shell/model caching, and cached sticker assets for faster repeat sessions.
 - Added browser-side automatic caption groundwork using Whisper ONNX workers, plus timeline snapping/alignment improvements for captions, source audio, and generated voiceover.
 - Added lazy-loaded YOLOS tiny and MODNet vision workers with subject overlays, portrait matting, caption avoidance, and preview/export-consistent smart crop geometry.
+- Added an end-to-end browser talking-avatar pipeline: JoyVASA audio-to-motion ONNX, LivePortrait WebGPU rendering, adaptive 1–2fps neural keyframes, safe frame holding at the output frame rate, and automatic visual-track replacement.
+- Moved the 906MB avatar model bundle to the revision-pinned [Timeline Studio ONNX model repository](https://huggingface.co/haixin/timeline-studio-onnx-models/tree/a201b681c8f96672b5c3f624e32d4dc932f150af), keeping large model binaries out of this Git repository.
 
 ## AI Features
 
@@ -66,6 +70,9 @@ Current AI capabilities are designed to run in the browser as much as possible:
 - Browser voice recording for manually captured narration.
 - Local waveform decoding for voiceover, source audio, and background music.
 - YOLOS tiny q8 ONNX subject detection and MODNet q8 ONNX portrait matting with revision-pinned, service-worker-cached model assets.
+- JoyVASA and LivePortrait ONNX talking-avatar generation with WebGPU execution, mixed-FP16 generators, GPU feature reuse, parallel model-part downloads, and explicit GPU-session isolation between the two large pipelines.
+
+Talking-avatar model files are loaded from Hugging Face at the immutable revision `a201b681c8f96672b5c3f624e32d4dc932f150af`. Generated keyframes are checked for non-finite or temporally anomalous output; a suspect frame is retried once and, if necessary, replaced with the previous valid frame instead of being encoded as a corrupted texture.
 
 MODNet is portrait-oriented, while YOLOS tiny covers common COCO categories. Images support the full matting path. Videos are pre-analyzed across their full duration before export, then resolve timestamped YOLOS geometry and MODNet masks for preview, caption avoidance, smart crop, and every rendered export time instead of freezing the first-frame result. Long videos automatically use a wider temporal sampling interval to keep WASM inference and memory bounded.
 
@@ -130,6 +137,8 @@ src/
   config/
     editor.js
     models.js
+    joyVasa.js
+    livePortrait.js
   lib/
     asr.js
     media.js
@@ -140,6 +149,8 @@ src/
     vision.js
     visualGeometry.js
   workers/
+    joyvasa.worker.js
+    liveportrait.worker.js
     vision.worker.js
   i18n.js
   main.jsx
@@ -198,6 +209,7 @@ The following are intentionally excluded from git:
 - `.netlify/`
 - local npm cache and machine-specific config
 - local Codex/agent notes
+- large avatar ONNX binaries, which are hosted in the revision-pinned Hugging Face model repository
 
 ## License
 

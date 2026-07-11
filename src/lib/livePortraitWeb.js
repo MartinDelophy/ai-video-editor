@@ -1,6 +1,9 @@
 import { LIVE_PORTRAIT_WEB_MODEL } from "../config/livePortrait.js";
 
-const REQUIRED_GENERATOR_BYTES = LIVE_PORTRAIT_WEB_MODEL.knownArtifacts.generator.bytes;
+const REQUIRED_GENERATOR_BYTES = Math.max(
+  LIVE_PORTRAIT_WEB_MODEL.knownArtifacts.generatorPreviewFp16.bytes,
+  LIVE_PORTRAIT_WEB_MODEL.knownArtifacts.generatorQualityFp16.bytes,
+);
 
 function makeCheck(id, state, detail) {
   return { id, state, detail };

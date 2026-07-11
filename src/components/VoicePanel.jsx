@@ -143,6 +143,7 @@ function AvatarContextPanel({ t, hasVisual, visualType, audioBlob, audioDuration
   const hasPortrait = hasVisual && visualType === "image";
   const [probeState, setProbeState] = useState("idle");
   const [probeResult, setProbeResult] = useState(null);
+  const [avatarQuality, setAvatarQuality] = useState("preview");
 
   const runProbe = async () => {
     setProbeState("running");
@@ -167,6 +168,14 @@ function AvatarContextPanel({ t, hasVisual, visualType, audioBlob, audioDuration
         <div className={captionSegments.length ? "is-ready" : ""}><ClosedCaptioning size={17} weight="duotone" /><span><strong>{t("avatarLipSyncSource")}</strong><em>{captionSegments.length ? `${captionSegments.length} ${t("captionSegmentsUnit")} · ${t("avatarCaptionSync")}` : t("avatarNeedsCaptions")}</em></span></div>
       </div>
       <div className="avatar-sync-mode"><span>{t("avatarModelSource")}</span><strong>{LIVE_PORTRAIT_WEB_MODEL.id}</strong></div>
+      <div className="avatar-quality-picker" aria-label={t("avatarQuality")}>
+        <button type="button" className={avatarQuality === "preview" ? "is-active" : ""} onClick={() => setAvatarQuality("preview")}>
+          <strong>{t("avatarQualityPreview")}</strong><em>{t("avatarQualityPreviewHint")}</em>
+        </button>
+        <button type="button" className={avatarQuality === "quality" ? "is-active" : ""} onClick={() => setAvatarQuality("quality")}>
+          <strong>{t("avatarQualityFull")}</strong><em>{t("avatarQualityFullHint")}</em>
+        </button>
+      </div>
       <p className="avatar-context-note">{t("avatarGenerationNote")}</p>
       <div className="avatar-porting-stages" aria-label={t("avatarPortingStatus")}>
         <div className="is-done"><span>1</span><strong>{t("avatarStagePinned")}</strong></div>
@@ -191,7 +200,7 @@ function AvatarContextPanel({ t, hasVisual, visualType, audioBlob, audioDuration
         className="panel-primary avatar-generate-button"
         type="button"
         disabled={!hasPortrait || avatarJob?.running}
-        onClick={generateAvatarAcceptanceFrame}
+        onClick={() => generateAvatarAcceptanceFrame(avatarQuality)}
       >
         <PersonSimpleRun size={17} weight="duotone" />
         {avatarJob?.running ? t("avatarGenerating") : t("avatarGenerate")}

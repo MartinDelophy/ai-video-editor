@@ -60,28 +60,28 @@ export function Topbar({
             <div className="project-title">{t("projectTitle")}</div>
             <div className="menu-anchor">
               <button className="project-file-button" type="button" onClick={() => setShowFileMenu((open) => !open)}>
-                文件 <CaretDown size={13} />
+                {t("fileMenu")} <CaretDown size={13} />
               </button>
               {showFileMenu ? (
                 <Popover className="project-file-popover" onClose={() => setShowFileMenu(false)}>
                   <div className="file-menu-card">
                     <div className="file-menu-heading">
-                      <span>工程</span>
+                      <span>{t("projectMenuHeading")}</span>
                       <small>Timeline Studio</small>
                     </div>
                     <button className="file-menu-action file-menu-new" type="button" onClick={handleNewProject}>
                       <span className="file-menu-icon"><FilePlus size={17} /></span>
-                      <span className="file-menu-copy"><strong>新建工程</strong><small>从空白时间线开始</small></span>
+                      <span className="file-menu-copy"><strong>{t("newProject")}</strong><small>{t("newProjectHint")}</small></span>
                     </button>
                     <div className="file-menu-divider" />
                     <button className="file-menu-action" type="button" onClick={() => handleImportProject()}>
                       <span className="file-menu-icon"><FileArrowUp size={17} /></span>
-                      <span className="file-menu-copy"><strong>导入工程包</strong><small>恢复时间线与全部媒体</small></span>
+                      <span className="file-menu-copy"><strong>{t("importProject")}</strong><small>{t("importProjectHint")}</small></span>
                       <span className="file-menu-format">.timeline</span>
                     </button>
                     <button className="file-menu-action is-primary" type="button" onClick={handleExportProject}>
                       <span className="file-menu-icon"><FileArrowDown size={17} /></span>
-                      <span className="file-menu-copy"><strong>导出工程包</strong><small>打包图片、视频和音频</small></span>
+                      <span className="file-menu-copy"><strong>{t("exportProject")}</strong><small>{t("exportProjectHint")}</small></span>
                       <span className="file-menu-format">.timeline</span>
                     </button>
                   </div>

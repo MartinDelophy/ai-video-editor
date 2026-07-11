@@ -1,4 +1,5 @@
 const JOYVASA_REVISION = "b8f13fe9c23679c56f21b1baafb92ed00dc087c3";
+const TIMELINE_STUDIO_MODEL_REVISION = "a201b681c8f96672b5c3f624e32d4dc932f150af";
 
 export const JOYVASA_WEB_MODEL = Object.freeze({
   id: "jdh-algo/JoyVASA",
@@ -31,4 +32,5 @@ export const JOYVASA_WEB_MODEL = Object.freeze({
   runtime: Object.freeze({ sampleRate: 16_000, windowSamples: 64_000, paddedSamples: 64_080, fps: 25, frames: 100, diffusionSteps: 50 }),
 });
 
-export const JOYVASA_PROJECT_MODEL_BASE_URL = "/models/joyvasa/";
+export const JOYVASA_PROJECT_MODEL_BASE_URL =
+  `https://huggingface.co/haixin/timeline-studio-onnx-models/resolve/${TIMELINE_STUDIO_MODEL_REVISION}/joyvasa/`;

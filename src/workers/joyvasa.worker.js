@@ -9,9 +9,11 @@ ort.env.wasm.simd = true;
 ort.env.wasm.wasmPaths = { mjs: ortWasmMjsUrl, wasm: ortWasmUrl };
 
 const tensor = (data, dims) => new ort.Tensor("float32", data, dims);
+const runtimePromises = new Map();
+const artifactPromises = new Map();
 
-function progress(value, phase) {
-  self.postMessage({ type: "progress", progress: Math.round(value), phase });
+function progress(value, phaseKey, phaseParams = {}) {
+  self.postMessage({ type: "progress", progress: Math.round(value), phaseKey, phaseParams });
 }
 
 function modelUrl(file, baseUrl) {
@@ -24,16 +26,15 @@ async function fetchArtifact(key, baseUrl, start, span) {
   const files = Array.isArray(configuredFiles) ? configuredFiles : [configuredFiles];
   const total = JOYVASA_WEB_MODEL.knownArtifacts[key].bytes;
   let loaded = 0;
-  const parts = [];
-  for (const file of files) {
+  const parts = await Promise.all(files.map(async (file) => {
     const response = await fetch(modelUrl(file, baseUrl));
     if (!response.ok) throw new Error(`${file} 下载失败（HTTP ${response.status}）`);
     const reader = response.body?.getReader();
     if (!reader) {
       const part = new Uint8Array(await response.arrayBuffer());
-      parts.push(part);
       loaded += part.byteLength;
-      continue;
+      progress(start + Math.min(1, loaded / total) * span, "avatarProgressDownloadFile", { file });
+      return part;
     }
     const chunks = [];
     let partBytes = 0;
@@ -43,7 +44,7 @@ async function fetchArtifact(key, baseUrl, start, span) {
       chunks.push(value);
       partBytes += value.byteLength;
       loaded += value.byteLength;
-      progress(start + Math.min(1, loaded / total) * span, `下载 ${file}`);
+      progress(start + Math.min(1, loaded / total) * span, "avatarProgressDownloadFile", { file });
     }
     const part = new Uint8Array(partBytes);
     let offset = 0;
@@ -51,8 +52,8 @@ async function fetchArtifact(key, baseUrl, start, span) {
       part.set(chunk, offset);
       offset += chunk.byteLength;
     }
-    parts.push(part);
-  }
+    return part;
+  }));
   const combined = new Uint8Array(loaded);
   let offset = 0;
   for (const part of parts) {
@@ -68,6 +69,41 @@ async function createSession(key, bytes) {
     executionProviders: [{ name: "webgpu", preferredLayout: "NHWC" }],
     graphOptimizationLevel: "all",
   });
+}
+
+function getRuntime(modelBaseUrl) {
+  if (runtimePromises.has(modelBaseUrl)) return runtimePromises.get(modelBaseUrl);
+  const promise = (async () => {
+    let artifacts = artifactPromises.get(modelBaseUrl);
+    if (!artifacts) {
+      artifacts = Promise.all([
+        fetchArtifact("audio", modelBaseUrl, 2, 47),
+        fetchArtifact("denoiser", modelBaseUrl, 49, 12),
+        fetchArtifact("conditioning", modelBaseUrl, 61, 1),
+        fetchArtifact("schedule", modelBaseUrl, 62, 1),
+      ]).catch((error) => {
+        artifactPromises.delete(modelBaseUrl);
+        throw error;
+      });
+      artifactPromises.set(modelBaseUrl, artifacts);
+    }
+    const [audioBytes, denoiserBytes, conditioningBytes, scheduleBytes] = await artifacts;
+    progress(63, "avatarProgressInitHubert");
+    const audioSession = await createSession("audio", audioBytes);
+    progress(65, "avatarProgressInitMotion");
+    const denoiserSession = await createSession("denoiser", denoiserBytes);
+    return {
+      audioSession,
+      denoiserSession,
+      conditioning: new Float32Array(conditioningBytes),
+      schedule: new Float32Array(scheduleBytes),
+    };
+  })().catch((error) => {
+    runtimePromises.delete(modelBaseUrl);
+    throw error;
+  });
+  runtimePromises.set(modelBaseUrl, promise);
+  return promise;
 }
 
 function reflectPadOnce(input, amount) {
@@ -168,41 +204,53 @@ async function sampleMotion(denoiser, audioFeatures, conditioning, schedule) {
     const next = new Float32Array(motion.length);
     for (let i = 0; i < next.length; i += 1) next[i] = c0 * motion[i] + c1 * target[i] + (noise ? sigma * noise[i] : 0);
     motion = next;
-    progress(66 + ((51 - step) / 50) * 32, `生成口型运动 ${51 - step}/50`);
+    progress(66 + ((51 - step) / 50) * 32, "avatarProgressMotionStep", { current: 51 - step, total: 50 });
   }
   return motion;
 }
 
 async function generate({ audioSamples, modelBaseUrl }) {
-  progress(1, "准备真实音频驱动");
-  const [audioBytes, denoiserBytes, conditioningBytes, scheduleBytes] = await Promise.all([
-    fetchArtifact("audio", modelBaseUrl, 2, 47),
-    fetchArtifact("denoiser", modelBaseUrl, 49, 12),
-    fetchArtifact("conditioning", modelBaseUrl, 61, 1),
-    fetchArtifact("schedule", modelBaseUrl, 62, 1),
-  ]);
-  progress(63, "初始化 JoyVASA HuBERT WebGPU");
-  const audioSession = await createSession("audio", audioBytes);
+  progress(1, "avatarProgressPrepareAudio");
+  const runtime = await getRuntime(modelBaseUrl);
   const window = prepareWindow(new Float32Array(audioSamples));
-  const audioResult = await audioSession.run({ audio_padded: tensor(window, [1, 64_080]) });
-  await audioSession.release();
-  progress(65, "初始化 JoyVASA 运动 WebGPU");
-  const denoiserSession = await createSession("denoiser", denoiserBytes);
-  progress(66, "音频特征完成");
+  const audioResult = await runtime.audioSession.run({ audio_padded: tensor(window, [1, 64_080]) });
+  progress(66, "avatarProgressAudioReady");
   const motion = await sampleMotion(
-    denoiserSession,
+    runtime.denoiserSession,
     audioResult.audio_features.data,
-    new Float32Array(conditioningBytes),
-    new Float32Array(scheduleBytes),
+    runtime.conditioning,
+    runtime.schedule,
   );
-  await denoiserSession.release();
-  progress(100, "真实音频运动生成完成");
+  progress(100, "avatarProgressMotionReady");
   self.postMessage({ type: "motion", motion: motion.buffer, frames: 100, fps: 25 }, [motion.buffer]);
 }
 
+async function prepare({ modelBaseUrl }) {
+  await getRuntime(modelBaseUrl);
+  self.postMessage({ type: "prepared" });
+}
+
+async function release({ modelBaseUrl }) {
+  const promise = runtimePromises.get(modelBaseUrl);
+  if (promise) {
+    const runtime = await promise;
+    runtime.audioSession.release();
+    runtime.denoiserSession.release();
+    runtimePromises.delete(modelBaseUrl);
+  }
+  self.postMessage({ type: "released" });
+}
+
 self.onmessage = (event) => {
-  if (event.data?.type !== "generate") return;
-  generate(event.data).catch((error) => {
+  const task = event.data?.type === "generate"
+    ? generate
+    : event.data?.type === "prepare"
+      ? prepare
+      : event.data?.type === "release"
+        ? release
+        : null;
+  if (!task) return;
+  task(event.data).catch((error) => {
     self.postMessage({ type: "error", message: error instanceof Error ? error.message : String(error) });
   });
 };

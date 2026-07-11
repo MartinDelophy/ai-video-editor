@@ -125,7 +125,33 @@ async function decodeAvatarAudio16k(blob) {
   }
 }
 
-async function encodeAvatarFrames(blobs, width, height, fps) {
+function runAvatarWorkerTask(worker, message, transfer, terminalType, onProgress) {
+  return new Promise((resolve, reject) => {
+    worker.onmessage = (event) => {
+      if (event.data?.type === "progress") {
+        onProgress?.(event.data);
+        return;
+      }
+      if (event.data?.type === "error") {
+        reject(new Error(event.data.message));
+        return;
+      }
+      if (event.data?.type === terminalType) resolve(event.data);
+    };
+    worker.onerror = (event) => reject(new Error(event.message || "Worker error"));
+    worker.postMessage(message, transfer);
+  });
+}
+
+function formatAvatarProgress(t, progress) {
+  const template = progress.phaseKey ? t(progress.phaseKey) : progress.phase || t("avatarGenerating");
+  return Object.entries(progress.phaseParams || {}).reduce(
+    (text, [key, value]) => text.replaceAll(`{${key}}`, String(value)),
+    template,
+  );
+}
+
+async function encodeAvatarFrames(blobs, width, height, fps, keyframeTimes = [], duration = blobs.length / fps) {
   const canvas = document.createElement("canvas");
   canvas.width = width;
   canvas.height = height;
@@ -141,15 +167,32 @@ async function encodeAvatarFrames(blobs, width, height, fps) {
     recorder.onerror = () => reject(recorder.error || new Error("数字人视频编码失败"));
   });
   recorder.start();
-  for (const blob of blobs) {
-    const bitmap = await createImageBitmap(blob);
-    context.drawImage(bitmap, 0, 0, width, height);
-    bitmap.close();
+  const bitmaps = await Promise.all(blobs.map((blob) => createImageBitmap(blob)));
+  const totalFrames = Math.max(1, Math.ceil(duration * fps));
+  for (let frame = 0; frame < totalFrames; frame += 1) {
+    const frameTime = frame / fps;
+    let nearestIndex = 0;
+    let nearestDistance = Number.POSITIVE_INFINITY;
+    for (let index = 0; index < bitmaps.length; index += 1) {
+      const time = keyframeTimes[index] ?? (index * duration) / Math.max(1, bitmaps.length - 1);
+      const distance = Math.abs(time - frameTime);
+      if (distance < nearestDistance) {
+        nearestDistance = distance;
+        nearestIndex = index;
+      }
+    }
+    // Never alpha-blend two complete portraits: even tiny head motion produces
+    // double eyes/mouth and the "ghost face" artifact. Adaptive keyframes make
+    // the held frame intervals short while preserving a single coherent face.
+    context.drawImage(bitmaps[nearestIndex], 0, 0, width, height);
     await new Promise((resolve) => window.setTimeout(resolve, 1000 / fps));
   }
+  bitmaps.forEach((bitmap) => bitmap.close());
   recorder.stop();
+  const output = await stopped;
   stream.getTracks().forEach((track) => track.stop());
-  return stopped;
+  if (!output.size) throw new Error("数字人视频编码结果为空");
+  return output;
 }
 
 function getNearestRatioIdForSize(width, height) {
@@ -363,11 +406,17 @@ export function App() {
   const visionObjectUrlsRef = useRef(new Map());
   const visionAbortControllerRef = useRef(null);
   const visionJobGenerationRef = useRef(0);
-  const avatarWorkerRef = useRef(null);
+  const avatarMotionWorkerRef = useRef(null);
+  const avatarRenderWorkerRef = useRef(null);
+  const avatarMotionCacheRef = useRef({ audioBlob: null, motion: null });
   const avatarTestImportedRef = useRef(false);
   const avatarTestAudioImportedRef = useRef(false);
   const activeLanguage = uiLanguage || "zh";
   const t = useMemo(() => createTranslator(activeLanguage), [activeLanguage]);
+  useEffect(() => () => {
+    avatarMotionWorkerRef.current?.terminate();
+    avatarRenderWorkerRef.current?.terminate();
+  }, []);
   const trOption = (name, option) => {
     if (option?.kind === "stickerCategory") {
       return activeLanguage !== "zh" && option.nameEn ? option.nameEn : name;
@@ -384,9 +433,15 @@ export function App() {
 
   function openAvatarPanel() {
     setAvatarPanelOpen(true);
+    if (!avatarMotionWorkerRef.current) {
+      avatarMotionWorkerRef.current = new Worker(new URL("./workers/joyvasa.worker.js", import.meta.url), { type: "module" });
+    }
+    if (!avatarRenderWorkerRef.current) {
+      avatarRenderWorkerRef.current = new Worker(new URL("./workers/liveportrait.worker.js", import.meta.url), { type: "module" });
+    }
   }
 
-  async function generateAvatarAcceptanceFrame() {
+  async function generateAvatarAcceptanceFrame(quality = "preview") {
     if (avatarJob.running) return;
     if (!previewVisualSrc || previewVisualType !== "image") {
       notify(t("avatarNeedsPortrait"));
@@ -405,88 +460,89 @@ export function App() {
           if (!response.ok) throw new Error(`读取肖像失败（HTTP ${response.status}）`);
           return response.blob();
         });
-      const sourceDuration = Math.max(MIN_VISUAL_SEGMENT_SECONDS, Math.min(4, audioDuration || imageDuration || 4));
-      const audioSamples = await decodeAvatarAudio16k(audioBlob);
-      const motionWorker = new Worker(new URL("./workers/joyvasa.worker.js", import.meta.url), { type: "module" });
-      avatarWorkerRef.current?.terminate();
-      avatarWorkerRef.current = motionWorker;
-
-      motionWorker.onmessage = (event) => {
-        if (event.data?.type === "progress") {
-          setAvatarJob({ running: true, progress: event.data.progress, phase: event.data.phase });
-          return;
+      const testDuration = import.meta.env.DEV ? Number(import.meta.env.VITE_AVATAR_TEST_DURATION || 0) : 0;
+      const sourceDuration = testDuration > 0
+        ? Math.max(0.5, Math.min(4, testDuration))
+        : Math.max(MIN_VISUAL_SEGMENT_SECONDS, Math.min(4, audioDuration || imageDuration || 4));
+      let motionBuffer;
+      if (avatarMotionCacheRef.current.audioBlob === audioBlob && avatarMotionCacheRef.current.motion) {
+        motionBuffer = avatarMotionCacheRef.current.motion.slice(0);
+        setAvatarJob({ running: true, progress: 65, phase: t("avatarProgressReuseMotion") });
+      } else {
+        // Never allocate JoyVASA while a previous LivePortrait graph remains
+        // resident. Some WebGPU drivers return corrupted texture-like frames
+        // under that memory pressure without reporting an inference error.
+        if (avatarRenderWorkerRef.current) {
+          await runAvatarWorkerTask(
+            avatarRenderWorkerRef.current,
+            { type: "releaseGpuSessions" },
+            [],
+            "gpuReleased",
+          );
         }
-        if (event.data?.type === "error") {
-          console.error("LivePortrait worker error", event.data.message);
-          setAvatarJob({ running: false, progress: 0, phase: `${t("avatarGenerationFailed")}：${event.data.message}` });
-          notify(`${t("avatarGenerationFailed")}：${event.data.message}`);
-          motionWorker.terminate();
-          if (avatarWorkerRef.current === motionWorker) avatarWorkerRef.current = null;
-          return;
+        const audioSamples = await decodeAvatarAudio16k(audioBlob);
+        if (!avatarMotionWorkerRef.current) {
+          avatarMotionWorkerRef.current = new Worker(new URL("./workers/joyvasa.worker.js", import.meta.url), { type: "module" });
         }
-        if (event.data?.type !== "motion") return;
-        motionWorker.terminate();
-        const renderWorker = new Worker(new URL("./workers/liveportrait.worker.js", import.meta.url), { type: "module" });
-        avatarWorkerRef.current = renderWorker;
-        renderWorker.onmessage = async (renderEvent) => {
-          if (renderEvent.data?.type === "progress") {
-            setAvatarJob({ running: true, progress: renderEvent.data.progress, phase: renderEvent.data.phase });
-            return;
-          }
-          if (renderEvent.data?.type === "error") {
-            setAvatarJob({ running: false, progress: 0, phase: `${t("avatarGenerationFailed")}：${renderEvent.data.message}` });
-            notify(`${t("avatarGenerationFailed")}：${renderEvent.data.message}`);
-            renderWorker.terminate();
-            if (avatarWorkerRef.current === renderWorker) avatarWorkerRef.current = null;
-            return;
-          }
-          if (renderEvent.data?.type !== "videoFrames") return;
-
-          try {
-            setAvatarJob({ running: true, progress: 99, phase: "编码数字人视频" });
-            const blob = await encodeAvatarFrames(renderEvent.data.blobs, renderEvent.data.width, renderEvent.data.height, renderEvent.data.fps);
-            const url = URL.createObjectURL(blob);
-            imageUrlRefs.current.add(url);
-            const asset = {
-              id: crypto.randomUUID(), type: "video", src: url, name: "liveportrait-joyvasa.webm",
-              meta: `${renderEvent.data.width} x ${renderEvent.data.height} · JoyVASA + LivePortrait Web`, blob,
-              duration: sourceDuration, width: renderEvent.data.width, height: renderEvent.data.height, trackFrames: [],
-            };
-            setUserAssets((assets) => [asset, ...assets]);
-            replaceVisualTimeline(asset, sourceDuration);
-            setCurrentTime(0);
-            setAvatarJob({ running: false, progress: 100, phase: t("avatarAcceptanceDone") });
-            notify(t("avatarTrackReplaced"));
-          } catch (error) {
-            setAvatarJob({ running: false, progress: 0, phase: `${t("avatarGenerationFailed")}：${error.message}` });
-            notify(`${t("avatarGenerationFailed")}：${error.message}`);
-          } finally {
-            renderWorker.terminate();
-            if (avatarWorkerRef.current === renderWorker) avatarWorkerRef.current = null;
-          }
-        };
-        renderWorker.postMessage({
-          type: "generateVideo", portraitBlob: sourceBlob, motionBuffer: event.data.motion,
+        const motionResult = await runAvatarWorkerTask(
+          avatarMotionWorkerRef.current,
+          { type: "generate", audioSamples: audioSamples.buffer, modelBaseUrl: JOYVASA_PROJECT_MODEL_BASE_URL },
+          [audioSamples.buffer],
+          "motion",
+          (progress) => setAvatarJob({ running: true, progress: progress.progress, phase: formatAvatarProgress(t, progress) }),
+        );
+        avatarMotionCacheRef.current = { audioBlob, motion: motionResult.motion.slice(0) };
+        motionBuffer = motionResult.motion;
+        // Keep downloaded JoyVASA bytes warm, but release its GPU weights before
+        // the portrait renderer is created.
+        await runAvatarWorkerTask(
+          avatarMotionWorkerRef.current,
+          { type: "release", modelBaseUrl: JOYVASA_PROJECT_MODEL_BASE_URL },
+          [],
+          "released",
+        );
+      }
+      if (!avatarRenderWorkerRef.current) {
+        avatarRenderWorkerRef.current = new Worker(new URL("./workers/liveportrait.worker.js", import.meta.url), { type: "module" });
+      }
+      const renderResult = await runAvatarWorkerTask(
+        avatarRenderWorkerRef.current,
+        {
+          type: "generateVideo", portraitBlob: sourceBlob, motionBuffer,
           modelBaseUrl: import.meta.env.VITE_LIVE_PORTRAIT_MODEL_BASE_URL || "",
           joyVasaModelBaseUrl: JOYVASA_PROJECT_MODEL_BASE_URL,
           webGpuModelBaseUrl: LIVE_PORTRAIT_WEBGPU_PROJECT_MODEL_BASE_URL,
+          quality,
           renderFps: Math.max(1, Number(import.meta.env.VITE_AVATAR_RENDER_FPS || 8)),
-        }, [event.data.motion]);
+          neuralFps: Math.max(1, Number(import.meta.env.VITE_AVATAR_NEURAL_FPS || 2)),
+          duration: sourceDuration,
+          portraitKey: previewVisualSegment?.id || previewVisualSrc,
+        },
+        [motionBuffer],
+        "videoFrames",
+        (progress) => setAvatarJob({ running: true, progress: progress.progress, phase: formatAvatarProgress(t, progress) }),
+      );
+      setAvatarJob({ running: true, progress: 99, phase: t("avatarProgressEncodeVideo") });
+      const blob = await encodeAvatarFrames(
+        renderResult.blobs,
+        renderResult.width,
+        renderResult.height,
+        renderResult.fps,
+        renderResult.keyframeTimes,
+        renderResult.duration,
+      );
+      const url = URL.createObjectURL(blob);
+      imageUrlRefs.current.add(url);
+      const asset = {
+        id: crypto.randomUUID(), type: "video", src: url, name: "liveportrait-joyvasa.webm",
+        meta: `${renderResult.width} x ${renderResult.height} · JoyVASA + LivePortrait FP16 WebGPU`, blob,
+        duration: sourceDuration, width: renderResult.width, height: renderResult.height, trackFrames: [],
       };
-
-      motionWorker.onerror = (event) => {
-        console.error("LivePortrait worker module error", event.message, event);
-        setAvatarJob({ running: false, progress: 0, phase: `${t("avatarGenerationFailed")}：${event.message || "Worker error"}` });
-        notify(`${t("avatarGenerationFailed")}：${event.message || "Worker error"}`);
-        motionWorker.terminate();
-        if (avatarWorkerRef.current === motionWorker) avatarWorkerRef.current = null;
-      };
-
-      motionWorker.postMessage({
-        type: "generate",
-        audioSamples: audioSamples.buffer,
-        modelBaseUrl: JOYVASA_PROJECT_MODEL_BASE_URL,
-      }, [audioSamples.buffer]);
+      setUserAssets((assets) => [asset, ...assets]);
+      replaceVisualTimeline(asset, sourceDuration);
+      setCurrentTime(0);
+      setAvatarJob({ running: false, progress: 100, phase: t("avatarAcceptanceDone") });
+      notify(t("avatarTrackReplaced"));
     } catch (error) {
       setAvatarJob({ running: false, progress: 0, phase: "" });
       notify(`${t("avatarGenerationFailed")}：${error instanceof Error ? error.message : String(error)}`);
@@ -2572,7 +2628,9 @@ export function App() {
     try {
       preparedText = prepareTextForVoice(rawText, selectedVoice);
     } catch (error) {
-      const message = error instanceof Error ? error.message : "当前文案不适合所选语音";
+      const message = error instanceof TtsInputError
+        ? t(error.code)
+        : error instanceof Error ? error.message : t("ttsErrorVoiceMismatch");
       setStatus("error");
       setStatusText(message);
       setProgress(0);
@@ -2582,10 +2640,10 @@ export function App() {
 
     setVoiceTab("synthesis");
     setStatus("generating");
-    setStatusText("准备本地模型");
+    setStatusText(t("ttsStatusPreparingModel"));
     setProgress(6);
-    if (preparedText.warning) {
-      notify(preparedText.warning);
+    if (preparedText.warningKey) {
+      notify(t(preparedText.warningKey));
     }
 
     try {
@@ -2595,9 +2653,9 @@ export function App() {
         const tts = await import("@diffusionstudio/vits-web");
         const cacheWasCleared = await clearPiperCacheIfStorageTight(tts);
         if (cacheWasCleared) {
-          notify("浏览器模型缓存空间紧张，已清理 Piper 缓存后继续生成。");
+          notify(t("ttsNoticePiperCacheCleared"));
         }
-        setStatusText("下载或读取中文 ONNX 模型");
+        setStatusText(t("ttsStatusLoadingChineseModel"));
         const progressCallback = (event) => {
           if (event?.total) {
             const nextProgress = Math.round((event.loaded / event.total) * 76);
@@ -2616,13 +2674,13 @@ export function App() {
             throw error;
           }
 
-          setStatusText("模型缓存空间不足，正在清理后重试");
+          setStatusText(t("ttsStatusClearingCache"));
           await tts.flush?.();
           blob = await tts.predict(piperInput, progressCallback);
         }
       } else {
         const { KokoroTTS } = await import("kokoro-js");
-        setStatusText("加载 Kokoro 82M q8");
+        setStatusText(t("ttsStatusLoadingKokoro"));
         const tts = await KokoroTTS.from_pretrained(MODEL_ID, {
           dtype: "q8",
           device: "wasm",
@@ -2634,7 +2692,7 @@ export function App() {
             }
           },
         });
-        setStatusText("生成英文配音");
+        setStatusText(t("ttsStatusGeneratingEnglish"));
         const audio = await tts.generate(preparedText.text, {
           voice: selectedVoice.id,
           speed,
@@ -2642,21 +2700,21 @@ export function App() {
         blob = audio.toBlob();
       }
 
-      setStatusText("解析音频波形");
-      await commitAudio(blob, `${selectedVoice.name} 已生成`);
-      notify("配音已生成并写入时间线");
+      setStatusText(t("ttsStatusDecodingWaveform"));
+      await commitAudio(blob, `${selectedVoice.name} · ${t("ttsGenerated")}`);
+      notify(t("ttsNoticeGenerated"));
     } catch (error) {
       console.error(error);
       const message =
         error instanceof TtsInputError
-          ? error.message
+          ? t(error.code)
           : selectedVoice.engine === "piper" && isPiperSymbolError(error)
-            ? "当前中文语音模型不支持这段文案里的部分字符，请清理英文/特殊符号，或切换 English 声音。"
+            ? t("ttsErrorUnsupportedPiperSymbols")
             : isStorageQuotaError(error)
-              ? "浏览器模型缓存空间不足，请在设置里清理模型缓存后重试。"
+              ? t("ttsErrorStorageQuota")
               : error instanceof Error
                 ? error.message
-                : "生成失败，请重试";
+                : t("ttsErrorGenerationFailed");
       setStatus("error");
       setStatusText(message);
       setProgress(0);

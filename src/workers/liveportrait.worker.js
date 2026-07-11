@@ -9,9 +9,13 @@ ort.env.wasm.simd = true;
 ort.env.wasm.wasmPaths = { mjs: ortWasmMjsUrl, wasm: ortWasmUrl };
 
 const tensor = (data, dims) => new ort.Tensor("float32", data, dims);
+const sessionPromises = new Map();
+let portraitCache = null;
+let motionTemplatePromise = null;
+let activeGeneratorKey = null;
 
-function postProgress(progress, phase) {
-  self.postMessage({ type: "progress", progress: Math.max(0, Math.min(100, Math.round(progress))), phase });
+function postProgress(progress, phaseKey, phaseParams = {}) {
+  self.postMessage({ type: "progress", progress: Math.max(0, Math.min(100, Math.round(progress))), phaseKey, phaseParams });
 }
 
 function resolveModelUrl(file, modelBaseUrl) {
@@ -22,16 +26,15 @@ function resolveModelUrl(file, modelBaseUrl) {
 
 async function fetchModel(key, file, modelBaseUrl, completedBytes, totalBytes) {
   const files = Array.isArray(file) ? file : [file];
-  const parts = [];
   let loaded = 0;
-  for (const partFile of files) {
+  const parts = await Promise.all(files.map(async (partFile) => {
     const response = await fetch(resolveModelUrl(partFile, modelBaseUrl));
     if (!response.ok) throw new Error(`${partFile} 下载失败（HTTP ${response.status}）`);
     const bytes = new Uint8Array(await response.arrayBuffer());
-    parts.push(bytes);
     loaded += bytes.byteLength;
-    postProgress(5 + ((completedBytes + loaded) / totalBytes) * 55, `下载 ${key}`);
-  }
+    postProgress(5 + ((completedBytes + loaded) / totalBytes) * 55, "avatarProgressDownloadModel", { model: key });
+    return bytes;
+  }));
   const combined = new Uint8Array(loaded);
   let offset = 0;
   for (const part of parts) {
@@ -42,18 +45,48 @@ async function fetchModel(key, file, modelBaseUrl, completedBytes, totalBytes) {
 }
 
 async function loadSession(key, modelBaseUrl, downloadState, executionProvider = "wasm") {
+  const cacheKey = `${executionProvider}:${modelBaseUrl || "project"}:${key}`;
+  if (sessionPromises.has(cacheKey)) return sessionPromises.get(cacheKey);
+  const promise = createSession(key, modelBaseUrl, downloadState, executionProvider).catch((error) => {
+    sessionPromises.delete(cacheKey);
+    throw error;
+  });
+  sessionPromises.set(cacheKey, promise);
+  return promise;
+}
+
+async function createSession(key, modelBaseUrl, downloadState, executionProvider) {
   const file = LIVE_PORTRAIT_WEB_MODEL.files[key];
   const bytes = LIVE_PORTRAIT_WEB_MODEL.knownArtifacts[key]?.bytes ?? 0;
   const model = await fetchModel(key, file, modelBaseUrl, downloadState.completed, downloadState.total);
   downloadState.completed += bytes;
-  postProgress(5 + (downloadState.completed / downloadState.total) * 55, `初始化 ${key}`);
+  postProgress(5 + (downloadState.completed / downloadState.total) * 55, "avatarProgressInitModel", { model: key });
   if (executionProvider === "webgpu" && !self.navigator?.gpu) {
     throw new Error("当前浏览器没有可用的 WebGPU，无法运行全 GPU LivePortrait");
   }
-  const provider = executionProvider === "webgpu" && key === "generatorWebGpu"
+  const provider = executionProvider === "webgpu" && key.startsWith("generator")
     ? { name: "webgpu", preferredLayout: "NHWC" }
     : executionProvider;
-  return ort.InferenceSession.create(model, { executionProviders: [provider], graphOptimizationLevel: "all" });
+  const options = { executionProviders: [provider], graphOptimizationLevel: "all" };
+  if (executionProvider === "webgpu" && key === "appearanceFeatureExtractorWebGpu") {
+    options.preferredOutputLocation = { output: "gpu-buffer" };
+  }
+  return ort.InferenceSession.create(model, options);
+}
+
+function getMotionTemplate(baseUrl) {
+  if (!motionTemplatePromise) {
+    motionTemplatePromise = fetch(new URL("joyvasa-motion-template.json", new URL(baseUrl, self.location.origin)))
+      .then((response) => {
+        if (!response.ok) throw new Error(`JoyVASA 运动模板下载失败（HTTP ${response.status}）`);
+        return response.json();
+      })
+      .catch((error) => {
+        motionTemplatePromise = null;
+        throw error;
+      });
+  }
+  return motionTemplatePromise;
 }
 
 function preprocessPortrait(blob) {
@@ -154,19 +187,53 @@ async function retargetAndStitch(lipSession, stitchingSession, source, targetRat
   return driving;
 }
 
-async function outputToBlob(output) {
-  const [, , height, width] = output.dims;
+async function frameDataToBlob(data, dims) {
+  const [, , height, width] = dims;
   const plane = width * height;
   const rgba = new Uint8ClampedArray(plane * 4);
   for (let i = 0; i < plane; i += 1) {
-    rgba[i * 4] = Math.round(Math.max(0, Math.min(1, output.data[i])) * 255);
-    rgba[i * 4 + 1] = Math.round(Math.max(0, Math.min(1, output.data[plane + i])) * 255);
-    rgba[i * 4 + 2] = Math.round(Math.max(0, Math.min(1, output.data[plane * 2 + i])) * 255);
+    rgba[i * 4] = Math.round(Math.max(0, Math.min(1, data[i])) * 255);
+    rgba[i * 4 + 1] = Math.round(Math.max(0, Math.min(1, data[plane + i])) * 255);
+    rgba[i * 4 + 2] = Math.round(Math.max(0, Math.min(1, data[plane * 2 + i])) * 255);
     rgba[i * 4 + 3] = 255;
   }
   const canvas = new OffscreenCanvas(width, height);
   canvas.getContext("2d").putImageData(new ImageData(rgba, width, height), 0, 0);
   return canvas.convertToBlob({ type: "image/png" });
+}
+
+function outputToBlob(output) {
+  return frameDataToBlob(output.data, output.dims);
+}
+
+function sampledFrameDistance(data, dims, reference, referenceDims) {
+  const [, channels, height, width] = dims;
+  const [, referenceChannels, referenceHeight, referenceWidth] = referenceDims;
+  const sampleSize = 32;
+  let difference = 0;
+  let samples = 0;
+  for (let channel = 0; channel < Math.min(3, channels, referenceChannels); channel += 1) {
+    const planeOffset = channel * width * height;
+    const referenceOffset = channel * referenceWidth * referenceHeight;
+    for (let row = 0; row < sampleSize; row += 1) {
+      const y = Math.min(height - 1, Math.round((row / (sampleSize - 1)) * (height - 1)));
+      const referenceY = Math.min(referenceHeight - 1, Math.round((row / (sampleSize - 1)) * (referenceHeight - 1)));
+      for (let column = 0; column < sampleSize; column += 1) {
+        const x = Math.min(width - 1, Math.round((column / (sampleSize - 1)) * (width - 1)));
+        const referenceX = Math.min(referenceWidth - 1, Math.round((column / (sampleSize - 1)) * (referenceWidth - 1)));
+        const value = data[planeOffset + y * width + x];
+        const referenceValue = reference[referenceOffset + referenceY * referenceWidth + referenceX];
+        if (!Number.isFinite(value) || !Number.isFinite(referenceValue)) return Number.POSITIVE_INFINITY;
+        difference += Math.abs(value - referenceValue);
+        samples += 1;
+      }
+    }
+  }
+  return samples ? difference / samples : Number.POSITIVE_INFINITY;
+}
+
+function disposeOutputs(result) {
+  Object.values(result || {}).forEach((value) => value?.dispose?.());
 }
 
 function templateValue(template, key, index = 0) {
@@ -185,6 +252,40 @@ function decodeJoyVasaFrame(coefficients, frame, template) {
   const yaw = interpolate("yaw", coefficients[offset + 68]);
   const roll = interpolate("roll", coefficients[offset + 69]);
   return { exp, scale, translation, rotation: rotationMatrix(pitch, yaw, roll) };
+}
+
+function selectAdaptiveMotionFrames(coefficients, duration, maximumFps) {
+  const lastFrame = Math.min(99, Math.max(1, Math.round(duration * 25)));
+  const mandatoryGap = 25;
+  const selected = new Set([0, lastFrame]);
+  for (let frame = mandatoryGap; frame < lastFrame; frame += mandatoryGap) selected.add(frame);
+
+  const candidates = [];
+  for (let frame = 1; frame < lastFrame; frame += 1) {
+    const offset = frame * 73;
+    const previous = (frame - 1) * 73;
+    let squared = 0;
+    // Expression coefficients dominate visible lip motion; head pose receives
+    // a smaller contribution so a quick turn can still request a keyframe.
+    for (let index = 0; index < 63; index += 1) {
+      const delta = coefficients[offset + index] - coefficients[previous + index];
+      squared += delta * delta;
+    }
+    for (let index = 67; index < 70; index += 1) {
+      const delta = coefficients[offset + index] - coefficients[previous + index];
+      squared += delta * delta * 0.2;
+    }
+    candidates.push({ frame, energy: Math.sqrt(squared / 63) });
+  }
+  const energies = candidates.map(({ energy }) => energy).sort((a, b) => a - b);
+  const threshold = energies[Math.floor(energies.length * 0.62)] || 0;
+  const maximumCount = Math.max(selected.size, Math.ceil(duration * maximumFps) + 1);
+  for (const candidate of candidates.sort((a, b) => b.energy - a.energy)) {
+    if (selected.size >= maximumCount || candidate.energy < threshold) break;
+    const separated = [...selected].every((frame) => Math.abs(frame - candidate.frame) >= 8);
+    if (separated) selected.add(candidate.frame);
+  }
+  return [...selected].sort((a, b) => a - b);
 }
 
 function buildDrivingKeypoints(motion, source, driving, initialDriving) {
@@ -208,68 +309,172 @@ function buildDrivingKeypoints(motion, source, driving, initialDriving) {
   return output;
 }
 
-async function generateVideo({ portraitBlob, motionBuffer, modelBaseUrl, joyVasaModelBaseUrl, webGpuModelBaseUrl, renderFps = 8 }) {
-  postProgress(2, "准备肖像与真实口型运动");
+async function generateVideo({
+  portraitBlob,
+  motionBuffer,
+  modelBaseUrl,
+  joyVasaModelBaseUrl,
+  webGpuModelBaseUrl,
+  quality = "preview",
+  renderFps = 8,
+  neuralFps = 2,
+  duration = 4,
+  portraitKey = "",
+}) {
+  postProgress(2, "avatarProgressPreparePortraitMotion");
   const image = await preprocessPortrait(portraitBlob);
-  const keys = ["appearanceFeatureExtractorWebGpu", "motionExtractorWebGpu", "stitchingWebGpu", "generatorWebGpu"];
+  const preferredGeneratorKey = quality === "quality" ? "generatorQualityFp16" : "generatorPreviewFp16";
+  if (activeGeneratorKey && activeGeneratorKey !== preferredGeneratorKey) {
+    for (const [cacheKey, promise] of sessionPromises.entries()) {
+      if (!cacheKey.endsWith(`:${activeGeneratorKey}`)) continue;
+      sessionPromises.delete(cacheKey);
+      const session = await promise.catch(() => null);
+      session?.release();
+    }
+  }
+  activeGeneratorKey = preferredGeneratorKey;
+  const keys = ["appearanceFeatureExtractorWebGpu", "motionExtractorWebGpu", "stitchingWebGpu", preferredGeneratorKey];
   const downloadState = { completed: 0, total: keys.reduce((sum, key) => sum + (LIVE_PORTRAIT_WEB_MODEL.knownArtifacts[key]?.bytes ?? 0), 0) };
   const sessions = {};
-  for (const key of keys) {
-    sessions[key] = await loadSession(
-      key,
-      webGpuModelBaseUrl,
-      downloadState,
-      "webgpu",
-    );
-  }
-  const templateResponse = await fetch(new URL("joyvasa-motion-template.json", new URL(joyVasaModelBaseUrl, self.location.origin)));
-  if (!templateResponse.ok) throw new Error(`JoyVASA 运动模板下载失败（HTTP ${templateResponse.status}）`);
-  const template = await templateResponse.json();
+  for (const key of keys) sessions[key] = await loadSession(key, webGpuModelBaseUrl, downloadState, "webgpu");
+  const template = await getMotionTemplate(joyVasaModelBaseUrl);
   const coefficients = new Float32Array(motionBuffer);
 
-  postProgress(63, "提取人物 3D 特征");
-  const feature = (await sessions.appearanceFeatureExtractorWebGpu.run({ img: image })).output;
-  const sourceMotion = await sessions.motionExtractorWebGpu.run({ img: image });
+  postProgress(63, "avatarProgressExtract3d");
+  let feature;
+  let sourceMotion;
+  let portraitPixels;
+  if (portraitKey && portraitCache?.key === portraitKey) {
+    ({ feature, sourceMotion, portraitPixels } = portraitCache);
+    image.dispose();
+    postProgress(66, "avatarProgressReuseGpuFeature");
+  } else {
+    portraitPixels = new Float32Array(image.data);
+    feature = (await sessions.appearanceFeatureExtractorWebGpu.run({ img: image })).output;
+    sourceMotion = await sessions.motionExtractorWebGpu.run({ img: image });
+    image.dispose();
+    if (portraitCache) {
+      portraitCache.feature.dispose();
+      Object.values(portraitCache.sourceMotion).forEach((value) => value?.dispose?.());
+    }
+    portraitCache = { key: portraitKey, feature, sourceMotion, portraitPixels };
+  }
   const source = transformKeypoints(sourceMotion);
+  const sourceTensor = tensor(source, [1, 21, 3]);
+  const stitchInput = new Float32Array(126);
+  const stitchTensor = tensor(stitchInput, [1, 126]);
+  const drivingInput = new Float32Array(63);
+  const drivingTensor = tensor(drivingInput, [1, 21, 3]);
   const initialDriving = decodeJoyVasaFrame(coefficients, 0, template);
-  const frameCount = Math.ceil(4 * renderFps);
+  const safeDuration = Math.max(0.25, Math.min(4, Number(duration) || 4));
+  const safeOutputFps = Math.max(1, Math.min(30, Number(renderFps) || 8));
+  const safeNeuralFps = Math.max(1, Math.min(safeOutputFps, Number(neuralFps) || 2));
+  const motionFrames = selectAdaptiveMotionFrames(coefficients, safeDuration, safeNeuralFps);
+  const frameCount = motionFrames.length;
   const blobs = [];
+  let previousFramePixels = null;
+  let previousFrameDims = null;
   for (let outputFrame = 0; outputFrame < frameCount; outputFrame += 1) {
-    const motionFrame = Math.min(99, Math.round((outputFrame / renderFps) * 25));
+    const motionFrame = motionFrames[outputFrame];
+    const frameTime = Math.min(safeDuration, motionFrame / 25);
     const driving = decodeJoyVasaFrame(coefficients, motionFrame, template);
     const rawDriving = buildDrivingKeypoints(sourceMotion, source, driving, initialDriving);
-    const stitched = await (async () => {
-      const input = new Float32Array(126);
-      input.set(source);
-      input.set(rawDriving, 63);
-      const result = await sessions.stitchingWebGpu.run({ input: tensor(input, [1, 126]) });
-      const value = new Float32Array(rawDriving);
-      for (let i = 0; i < 63; i += 1) value[i] += result.output.data[i];
-      for (let point = 0; point < 21; point += 1) {
-        value[point * 3] += result.output.data[63];
-        value[point * 3 + 1] += result.output.data[64];
+    stitchInput.set(source);
+    stitchInput.set(rawDriving, 63);
+    const stitchResult = await sessions.stitchingWebGpu.run({ input: stitchTensor });
+    drivingInput.set(rawDriving);
+    for (let i = 0; i < 63; i += 1) drivingInput[i] += stitchResult.output.data[i];
+    for (let point = 0; point < 21; point += 1) {
+      drivingInput[point * 3] += stitchResult.output.data[63];
+      drivingInput[point * 3 + 1] += stitchResult.output.data[64];
+    }
+    disposeOutputs(stitchResult);
+    let acceptedPixels = null;
+    let acceptedDims = null;
+    let inferenceMs = 0;
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const inferenceStarted = performance.now();
+      const generated = await sessions[preferredGeneratorKey].run({
+        feature_3d: feature,
+        kp_source: sourceTensor,
+        kp_driving: drivingTensor,
+      });
+      inferenceMs += performance.now() - inferenceStarted;
+      const output = generated.out;
+      const pixels = new Float32Array(output.data);
+      const dims = [...output.dims];
+      const reference = previousFramePixels || portraitPixels;
+      const referenceDims = previousFrameDims || [1, 3, 256, 256];
+      const distance = sampledFrameDistance(pixels, dims, reference, referenceDims);
+      const threshold = previousFramePixels ? 0.22 : 0.34;
+      disposeOutputs(generated);
+      if (distance <= threshold) {
+        acceptedPixels = pixels;
+        acceptedDims = dims;
+        break;
       }
-      return value;
-    })();
-    const inferenceStarted = performance.now();
-    const generated = await sessions.generatorWebGpu.run({
-      feature_3d: feature,
-      kp_source: tensor(source, [1, 21, 3]),
-      kp_driving: tensor(stitched, [1, 21, 3]),
-    });
-    const inferenceMs = performance.now() - inferenceStarted;
-    postProgress(68 + (outputFrame / frameCount) * 31, `WebGPU 帧 ${outputFrame + 1}/${frameCount} · ${(inferenceMs / 1000).toFixed(1)}s`);
+      postProgress(68 + (outputFrame / frameCount) * 31, "avatarProgressRetryCorruptFrame", { current: outputFrame + 1, total: frameCount, attempt: attempt + 1 });
+    }
+    postProgress(68 + (outputFrame / frameCount) * 31, "avatarProgressKeyframe", { current: outputFrame + 1, total: frameCount, seconds: (inferenceMs / 1000).toFixed(1) });
     const encodeStarted = performance.now();
-    blobs.push(await outputToBlob(generated.out));
+    if (acceptedPixels) {
+      blobs.push(await frameDataToBlob(acceptedPixels, acceptedDims));
+      previousFramePixels = acceptedPixels;
+      previousFrameDims = acceptedDims;
+    } else if (blobs.length) {
+      blobs.push(blobs[blobs.length - 1]);
+      postProgress(68 + (outputFrame / frameCount) * 31, "avatarProgressDroppedCorruptFrame", { current: outputFrame + 1, total: frameCount });
+    } else {
+      throw new Error("WebGPU 首帧连续异常，已阻止损坏画面写入视频；请释放其他 GPU 页面后重试");
+    }
     const encodeMs = performance.now() - encodeStarted;
-    postProgress(68 + ((outputFrame + 1) / frameCount) * 31, `完成帧 ${outputFrame + 1}/${frameCount} · 编码 ${(encodeMs / 1000).toFixed(1)}s`);
+    postProgress(68 + ((outputFrame + 1) / frameCount) * 31, "avatarProgressFrameEncoded", { current: outputFrame + 1, total: frameCount, seconds: (encodeMs / 1000).toFixed(1) });
   }
-  postProgress(100, "真实口型帧生成完成");
-  self.postMessage({ type: "videoFrames", blobs, width: 512, height: 512, fps: renderFps, duration: 4 });
+  sourceTensor.dispose();
+  stitchTensor.dispose();
+  drivingTensor.dispose();
+  const size = quality === "quality" ? 512 : 256;
+  postProgress(100, "avatarProgressInterpolate");
+  self.postMessage({
+    type: "videoFrames",
+    blobs,
+    width: size,
+    height: size,
+    fps: safeOutputFps,
+    keyframeFps: safeNeuralFps,
+    keyframeTimes: motionFrames.map((frame) => Math.min(safeDuration, frame / 25)),
+    duration: safeDuration,
+    quality,
+    precision: "mixed-fp16",
+  });
+}
+
+async function prepare({ webGpuModelBaseUrl, quality = "preview" }) {
+  const generator = quality === "quality" ? "generatorQualityFp16" : "generatorPreviewFp16";
+  const keys = ["appearanceFeatureExtractorWebGpu", "motionExtractorWebGpu", "stitchingWebGpu", generator];
+  const downloadState = { completed: 0, total: keys.reduce((sum, key) => sum + (LIVE_PORTRAIT_WEB_MODEL.knownArtifacts[key]?.bytes ?? 0), 0) };
+  for (const key of keys) await loadSession(key, webGpuModelBaseUrl, downloadState, "webgpu");
+  self.postMessage({ type: "prepared", quality });
+}
+
+async function releaseGpuSessions() {
+  if (portraitCache) {
+    portraitCache.feature.dispose();
+    Object.values(portraitCache.sourceMotion).forEach((value) => value?.dispose?.());
+    portraitCache = null;
+  }
+  const pending = [...sessionPromises.entries()];
+  sessionPromises.clear();
+  activeGeneratorKey = null;
+  for (const [, promise] of pending) {
+    const session = await promise.catch(() => null);
+    session?.release();
+  }
+  self.postMessage({ type: "gpuReleased" });
 }
 
 async function generate({ portraitBlob, modelBaseUrl }) {
-  postProgress(2, "准备肖像");
+  postProgress(2, "avatarPreparing");
   const image = await preprocessPortrait(portraitBlob);
   const keys = ["appearanceFeatureExtractor", "motionExtractor", "stitchingLip", "stitching", "warping", "spadeGenerator"];
   const downloadState = {
@@ -279,22 +484,22 @@ async function generate({ portraitBlob, modelBaseUrl }) {
   const sessions = {};
   for (const key of keys) sessions[key] = await loadSession(key, modelBaseUrl, downloadState);
 
-  postProgress(63, "提取人物特征");
+  postProgress(63, "avatarProgressExtractFeature");
   const feature = (await sessions.appearanceFeatureExtractor.run({ img: image })).output;
   const motion = await sessions.motionExtractor.run({ img: image });
   const source = transformKeypoints(motion);
   const driving = await retargetAndStitch(sessions.stitchingLip, sessions.stitching, source, 0.35);
 
-  postProgress(70, "计算 3D 形变（可能需要约 1 分钟）");
+  postProgress(70, "avatarProgressWarp3d");
   const warped = await sessions.warping.run({
     feature_3d: feature,
     kp_source: tensor(source, [1, 21, 3]),
     kp_driving: tensor(driving, [1, 21, 3]),
   });
-  postProgress(86, "渲染 512×512 人像");
+  postProgress(86, "avatarProgressRenderPortrait");
   const generated = await sessions.spadeGenerator.run({ input: warped["879"] });
   const blob = await outputToBlob(generated.output);
-  postProgress(100, "单帧验收完成");
+  postProgress(100, "avatarAcceptanceDone");
   self.postMessage({ type: "result", blob, width: 512, height: 512 });
 }
 
@@ -308,6 +513,10 @@ async function probe({ modelBaseUrl }) {
 self.onmessage = (event) => {
   const task = event.data?.type === "generateVideo"
     ? generateVideo
+    : event.data?.type === "prepare"
+      ? prepare
+    : event.data?.type === "releaseGpuSessions"
+      ? releaseGpuSessions
     : event.data?.type === "generate"
       ? generate
       : event.data?.type === "probe"

@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ASSET_DRAG_MIME,
   DEFAULT_STICKER_SEGMENT_SECONDS,
+  DEFAULT_TIMELINE_DURATION_SECONDS,
   DEFAULT_SCRIPT,
   FILTER_OPTIONS,
   IMAGE_RESIZE_OVERFLOW_SECONDS_PER_PIXEL,
@@ -59,6 +60,7 @@ import {
   extractAudioFromVideo,
   getAudioRecordingFormat,
   getSupportedRecordingFormat,
+  reverseAudioBlob,
   transcodeWebmToMp4,
 } from "./lib/media.js";
 import { createProjectArchive, readProjectArchive, readProjectFileAsText } from "./lib/projectArchive.js";
@@ -98,6 +100,16 @@ const EMPTY_VISION_OPTIONS = Object.freeze({
   avoidCaptions: false,
   smartCrop: false,
 });
+
+function getAudioSegmentPreviewVolume(segment, timelineTime) {
+  const volume = Math.max(0, Math.min(1, segment.volume ?? 1));
+  const localTime = Math.max(0, Math.min(segment.duration, timelineTime - segment.start));
+  const fadeIn = Math.max(0, Math.min(segment.duration, segment.fadeIn || 0));
+  const fadeOut = Math.max(0, Math.min(segment.duration, segment.fadeOut || 0));
+  const fadeInGain = fadeIn > 0 ? Math.min(1, localTime / fadeIn) : 1;
+  const fadeOutGain = fadeOut > 0 ? Math.min(1, (segment.duration - localTime) / fadeOut) : 1;
+  return volume * Math.max(0, Math.min(fadeInGain, fadeOutGain));
+}
 
 async function decodeAvatarAudio16k(blob) {
   const AudioContextClass = window.AudioContext || window.webkitAudioContext;
@@ -268,10 +280,9 @@ export function App() {
   const [imageName, setImageName] = useState("");
   const [imageMeta, setImageMeta] = useState("");
   const [visualType, setVisualType] = useState("image");
-  const [audioBlob, setAudioBlob] = useState(null);
-  const [audioUrl, setAudioUrl] = useState("");
-  const [audioDuration, setAudioDuration] = useState(estimateDuration(DEFAULT_SCRIPT));
-  const [peaks, setPeaks] = useState([]);
+  const [audioSegments, setAudioSegments] = useState([]);
+  const [selectedAudioSegmentId, setSelectedAudioSegmentId] = useState("");
+  const [timelineHorizon, setTimelineHorizon] = useState(DEFAULT_TIMELINE_DURATION_SECONDS);
   const [musicBlob, setMusicBlob] = useState(null);
   const [musicUrl, setMusicUrl] = useState("");
   const [musicName, setMusicName] = useState("");
@@ -313,7 +324,7 @@ export function App() {
   const [showFileMenu, setShowFileMenu] = useState(false);
   const [compactRail, setCompactRail] = useState(false);
   const [selectedTrack, setSelectedTrack] = useState("image");
-  const [timelineZoom, setTimelineZoom] = useState(1);
+  const [timelineZoom, setTimelineZoom] = useState(0.25);
   const [trackVisibility, setTrackVisibility] = useState({
     image: true,
     caption: true,
@@ -375,6 +386,7 @@ export function App() {
   const previewShellRef = useRef(null);
   const previewCanvasRef = useRef(null);
   const audioRef = useRef(null);
+  const audioSegmentRefs = useRef(new Map());
   const sourceAudioRef = useRef(null);
   const musicRef = useRef(null);
   const previewVideoRef = useRef(null);
@@ -430,6 +442,12 @@ export function App() {
     () => VOICES.find((voice) => voice.id === selectedVoiceId) ?? VOICES[0],
     [selectedVoiceId],
   );
+  const selectedAudioSegment =
+    audioSegments.find((segment) => segment.id === selectedAudioSegmentId) ?? audioSegments.at(-1) ?? null;
+  const audioBlob = selectedAudioSegment?.blob ?? null;
+  const audioUrl = selectedAudioSegment?.url ?? "";
+  const audioDuration = selectedAudioSegment?.duration ?? 0;
+  const peaks = selectedAudioSegment?.peaks ?? [];
 
   function openAvatarPanel() {
     setAvatarPanelOpen(true);
@@ -575,7 +593,8 @@ export function App() {
       : null;
 
   const segments = useMemo(() => captionSegments.map((segment) => segment.text), [captionSegments]);
-  const captionTargetDuration = audioBlob ? audioDuration : 0;
+  const voiceTrackDuration = useMemo(() => getTimedSegmentsEnd(audioSegments), [audioSegments]);
+  const captionTargetDuration = voiceTrackDuration;
   const captionTimeline = useMemo(
     () => getCaptionTimeline(captionSegments, captionTargetDuration),
     [captionSegments, captionTargetDuration],
@@ -586,7 +605,7 @@ export function App() {
   const estimatedDuration = useMemo(
     () =>
       Math.max(
-        audioBlob ? audioDuration : 0,
+        voiceTrackDuration,
         captionDuration,
         sourceAudioBlob ? sourceAudioStart + sourceAudioDuration : 0,
         musicBlob ? musicDuration : 0,
@@ -595,8 +614,7 @@ export function App() {
         imageSrc ? imageDuration : 0,
       ),
     [
-      audioBlob,
-      audioDuration,
+      voiceTrackDuration,
       captionDuration,
       imageDuration,
       imageSrc,
@@ -611,13 +629,11 @@ export function App() {
   );
   const timelineDuration = useMemo(
     () =>
-      estimatedDuration > 0
-        ? Math.min(
-            MAX_TIMELINE_DURATION_SECONDS,
-            Math.max(10, Math.ceil((estimatedDuration + 1) / 10) * 10),
-          )
-        : 0,
-    [estimatedDuration],
+      Math.min(
+        MAX_TIMELINE_DURATION_SECONDS,
+        Math.max(timelineHorizon, DEFAULT_TIMELINE_DURATION_SECONDS, Math.ceil((estimatedDuration + 1) / 10) * 10),
+      ),
+    [estimatedDuration, timelineHorizon],
   );
   timelineDurationRef.current = timelineDuration;
   const currentSegmentIndex = getSegmentIndexAtTime(
@@ -957,11 +973,28 @@ export function App() {
   }, [ratioId, visualSegments]);
 
   useEffect(() => {
-    if (audioRef.current) {
-      audioRef.current.volume = volume;
-      audioRef.current.playbackRate = speed;
-    }
-  }, [volume, speed, audioUrl]);
+    audioSegments.forEach((segment) => {
+      const audio = audioSegmentRefs.current.get(segment.id);
+      if (!audio) return;
+      audio.volume = getAudioSegmentPreviewVolume(segment, currentTime);
+    });
+  }, [audioSegments, currentTime]);
+
+  useEffect(() => {
+    if (!isPlaying || !trackVisibility.audio) return;
+    audioSegments.forEach((segment) => {
+      const audio = audioSegmentRefs.current.get(segment.id);
+      if (!audio) return;
+      const active = isTimelineTimeInsideTrack(currentTime, segment.start, segment.duration);
+      if (active) {
+        const expected = getTimelineTrackLocalTime(currentTime, segment.start, segment.duration);
+        if (Math.abs(audio.currentTime - expected) > 0.2) audio.currentTime = expected;
+        if (audio.paused) audio.play().catch(() => {});
+      } else if (!audio.paused) {
+        audio.pause();
+      }
+    });
+  }, [audioSegments, currentTime, isPlaying, trackVisibility.audio]);
 
   useEffect(() => {
     if (sourceAudioRef.current) {
@@ -1161,7 +1194,7 @@ export function App() {
 
   useEffect(() => {
     setCurrentTime((time) => {
-      const clamped = Math.min(time, estimatedDuration);
+      const clamped = Math.min(time, timelineDuration);
       if (audioRef.current && clamped !== time) {
         audioRef.current.currentTime = clamped;
       }
@@ -1177,7 +1210,7 @@ export function App() {
       }
       return clamped;
     });
-  }, [estimatedDuration, sourceAudioDuration, sourceAudioStart]);
+  }, [timelineDuration, sourceAudioDuration, sourceAudioStart]);
 
   useEffect(() => {
     if (!captionSegments.length) {
@@ -1214,6 +1247,7 @@ export function App() {
         target instanceof HTMLElement &&
         (target.tagName === "INPUT" ||
           target.tagName === "TEXTAREA" ||
+          target.tagName === "SELECT" ||
           target.isContentEditable);
 
       if (
@@ -1227,9 +1261,10 @@ export function App() {
       }
 
       const hasSelectedTimelineItem =
-        (selectedTrack === "caption" && captionSegments.length > 0) ||
-        (selectedTrack === "image" && imageSrc && imageClipCount > 0) ||
-        (selectedTrack === "audio" && audioBlob) ||
+        (selectedTrack === "caption" && selectedSegmentId && captionSegments.some((segment) => segment.id === selectedSegmentId)) ||
+        (selectedTrack === "sticker" && selectedStickerSegmentId && stickerSegments.some((segment) => segment.id === selectedStickerSegmentId)) ||
+        (selectedTrack === "image" && selectedVisualSegmentId && visualSegments.some((segment) => segment.id === selectedVisualSegmentId)) ||
+        (selectedTrack === "audio" && selectedAudioSegmentId && audioSegments.some((segment) => segment.id === selectedAudioSegmentId)) ||
         (selectedTrack === "source" && sourceAudioBlob) ||
         (selectedTrack === "music" && musicBlob);
 
@@ -1758,11 +1793,10 @@ export function App() {
   function updateScript(nextScript) {
     pushScriptHistory(script);
     setScript(nextScript);
-    const nextSegments = createCaptionSegments(nextScript);
-    setCaptionSegments(nextSegments);
-    setSelectedSegmentId(nextSegments[0]?.id ?? "");
-    if (!audioBlob) {
-      setAudioDuration(estimateDuration(nextScript));
+    if (!audioSegments.length) {
+      const nextSegments = createCaptionSegments(nextScript);
+      setCaptionSegments(nextSegments);
+      setSelectedSegmentId(nextSegments[0]?.id ?? "");
     }
   }
 
@@ -1778,9 +1812,6 @@ export function App() {
       );
       const nextScript = getCaptionScript(nextSegments);
       setScript(nextScript);
-      if (!audioBlob) {
-        setAudioDuration(estimateDuration(nextScript));
-      }
       return nextSegments;
     });
   }
@@ -1834,7 +1865,6 @@ export function App() {
       return;
     }
 
-    event.preventDefault();
     event.stopPropagation();
     const disabledSmartAvoidance = Boolean(
       previewVisionKey && previewVisionRecord?.options?.avoidCaptions,
@@ -1902,9 +1932,6 @@ export function App() {
         ? normalized[Math.min(nextSelectedIndex, normalized.length - 1)]?.id ?? ""
         : "",
     );
-    if (!audioBlob) {
-      setAudioDuration(estimateDuration(nextScript));
-    }
     notify(message);
   }
 
@@ -2090,7 +2117,6 @@ export function App() {
       const previousSegments = createCaptionSegments(previous);
       setCaptionSegments(previousSegments);
       setSelectedSegmentId(previousSegments[0]?.id ?? "");
-      setAudioDuration(estimateDuration(previous));
       notify("已撤销文本修改");
       return stack.slice(0, -1);
     });
@@ -2108,40 +2134,45 @@ export function App() {
       const nextSegments = createCaptionSegments(next);
       setCaptionSegments(nextSegments);
       setSelectedSegmentId(nextSegments[0]?.id ?? "");
-      setAudioDuration(estimateDuration(next));
       notify("已重做文本修改");
       return stack.slice(0, -1);
     });
   }
 
   function replaceAudio(blob, duration, nextPeaks, nextStatusText) {
-    if (audioUrlRef.current) {
-      URL.revokeObjectURL(audioUrlRef.current);
-    }
     const nextUrl = URL.createObjectURL(blob);
-    audioUrlRef.current = nextUrl;
-    setAudioBlob(blob);
-    setAudioUrl(nextUrl);
-    setAudioDuration(duration || estimateDuration(script));
-    setPeaks(nextPeaks);
-    setCurrentTime(0);
+    const nextDuration = duration || estimateDuration(script);
+    const start = Math.max(0, currentTimeRef.current || 0);
+    const id = crypto.randomUUID();
+    const segment = {
+      id,
+      blob,
+      url: nextUrl,
+      start,
+      duration: nextDuration,
+      peaks: nextPeaks,
+      volume: 1,
+      fadeIn: 0,
+      fadeOut: 0,
+      reversed: false,
+      name: selectedVoice?.name || t("voiceTrack"),
+    };
+    setAudioSegments((segments) => [...segments, segment]);
+    setSelectedAudioSegmentId(id);
+    setSelectedTrack("audio");
+    setTimelineHorizon((value) => Math.max(value, Math.ceil((start + nextDuration + 5) / 10) * 10));
+    setCurrentTime(start);
     setStatus("done");
     setStatusText(nextStatusText);
     setProgress(100);
+    return segment;
   }
 
   function clearAudioTrack(message = "配音音频已从时间线移除") {
-    if (audioRef.current) {
-      audioRef.current.pause();
-    }
-    if (audioUrlRef.current) {
-      URL.revokeObjectURL(audioUrlRef.current);
-      audioUrlRef.current = "";
-    }
-    setAudioBlob(null);
-    setAudioUrl("");
-    setPeaks([]);
-    setAudioDuration(estimateDuration(script));
+    audioSegmentRefs.current.forEach((audio) => audio.pause());
+    audioSegments.forEach((segment) => URL.revokeObjectURL(segment.url));
+    setAudioSegments([]);
+    setSelectedAudioSegmentId("");
     setCurrentTime(0);
     setIsPlaying(false);
     setStatus("ready");
@@ -2473,7 +2504,20 @@ export function App() {
 
   async function commitAudio(blob, nextStatusText) {
     const decoded = await decodeWaveform(blob);
-    replaceAudio(blob, decoded.duration, decoded.peaks, nextStatusText);
+    const audioSegment = replaceAudio(blob, decoded.duration, decoded.peaks, nextStatusText);
+    const generatedCaptions = createCaptionSegments(script);
+    const generatedTimeline = getCaptionTimeline(generatedCaptions, audioSegment.duration);
+    const boundCaptions = generatedCaptions.map((segment, index) => ({
+      ...segment,
+      audioSegmentId: audioSegment.id,
+      start: audioSegment.start + generatedTimeline[index].start,
+      end: audioSegment.start + generatedTimeline[index].end,
+    }));
+    setCaptionSegments((segments) => [
+      ...segments.filter((segment) => segment.audioSegmentId),
+      ...boundCaptions,
+    ].sort((a, b) => (a.start || 0) - (b.start || 0)));
+    setSelectedSegmentId(boundCaptions[0]?.id ?? "");
     setHistoryItems((items) => [
       {
         id: crypto.randomUUID(),
@@ -2487,6 +2531,62 @@ export function App() {
       },
       ...items.slice(0, 8),
     ]);
+  }
+
+  function updateAudioSegment(segmentId, patch) {
+    setAudioSegments((segments) => segments.map((segment) => {
+      if (segment.id !== segmentId) return segment;
+      const next = { ...segment, ...patch };
+      if (Number.isFinite(patch.start) && patch.start !== segment.start) {
+        const delta = patch.start - segment.start;
+        setCaptionSegments((captions) => captions.map((caption) =>
+          caption.audioSegmentId === segmentId
+            ? { ...caption, start: caption.start + delta, end: caption.end + delta }
+            : caption,
+        ));
+      }
+      setTimelineHorizon((value) => Math.max(value, Math.ceil((next.start + next.duration + 5) / 10) * 10));
+      return next;
+    }));
+  }
+
+  async function toggleAudioSegmentReverse(segmentId) {
+    const segment = audioSegments.find((item) => item.id === segmentId);
+    if (!segment || segment.reversing) return;
+    const audio = audioSegmentRefs.current.get(segmentId);
+    audio?.pause();
+    setAudioSegments((segments) => segments.map((item) => item.id === segmentId ? { ...item, reversing: true } : item));
+    try {
+      const originalBlob = segment.originalBlob || segment.blob;
+      const originalPeaks = segment.originalPeaks || segment.peaks;
+      const nextBlob = segment.reversed ? originalBlob : await reverseAudioBlob(originalBlob);
+      const nextPeaks = segment.reversed ? originalPeaks : [...originalPeaks].reverse();
+      const nextUrl = URL.createObjectURL(nextBlob);
+      URL.revokeObjectURL(segment.url);
+      setAudioSegments((segments) => segments.map((item) => item.id === segmentId ? {
+        ...item,
+        blob: nextBlob,
+        url: nextUrl,
+        peaks: nextPeaks,
+        reversed: !segment.reversed,
+        reversing: false,
+        originalBlob,
+        originalPeaks,
+      } : item));
+      notify(segment.reversed ? t("audioReverseRestored") : t("audioReversed"));
+    } catch (error) {
+      setAudioSegments((segments) => segments.map((item) => item.id === segmentId ? { ...item, reversing: false } : item));
+      notify(`${t("audioReverseFailed")}：${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  function deleteAudioSegment(segmentId) {
+    const segment = audioSegments.find((item) => item.id === segmentId);
+    if (segment) URL.revokeObjectURL(segment.url);
+    setAudioSegments((segments) => segments.filter((item) => item.id !== segmentId));
+    setCaptionSegments((segments) => segments.filter((item) => item.audioSegmentId !== segmentId));
+    setSelectedAudioSegmentId((current) => current === segmentId ? "" : current);
+    notify(t("audioClipDeleted"));
   }
 
   async function commitRecordedVoice(blob, extension = "webm") {
@@ -3375,7 +3475,7 @@ export function App() {
   }
 
   function pauseTimelineMedia() {
-    audioRef.current?.pause();
+    audioSegmentRefs.current.forEach((audio) => audio.pause());
     sourceAudioRef.current?.pause();
     musicRef.current?.pause();
     previewVideoRef.current?.pause();
@@ -3383,17 +3483,19 @@ export function App() {
 
   function handlePlayToggle() {
     const previewVideo = previewVideoRef.current;
-    const voiceAudio = trackVisibility.audio ? audioRef.current : null;
+    const voiceAudios = trackVisibility.audio
+      ? audioSegments.map((segment) => ({ segment, audio: audioSegmentRefs.current.get(segment.id) })).filter((item) => item.audio)
+      : [];
     const sourceAudio = trackVisibility.source ? sourceAudioRef.current : null;
     const musicAudio = trackVisibility.music ? musicRef.current : null;
     const currentTimelineTime = currentTimeRef.current;
-    const syncVoiceAudioTime = () => {
-      if (!voiceAudio || !audioUrl) {
-        return false;
-      }
+    const syncVoiceAudio = ({ segment, audio }) => {
       const timelineTime = currentTimeRef.current;
-      voiceAudio.currentTime = Math.max(0, Math.min(audioDuration || timelineTime, timelineTime));
-      return timelineTime <= (audioDuration || timelineTime);
+      const active = isTimelineTimeInsideTrack(timelineTime, segment.start, segment.duration);
+      audio.currentTime = getTimelineTrackLocalTime(timelineTime, segment.start, segment.duration);
+      audio.volume = getAudioSegmentPreviewVolume(segment, timelineTime);
+      audio.playbackRate = 1;
+      return active;
     };
     const syncSourceAudioTime = () => {
       if (!sourceAudio || !sourceAudioUrl) {
@@ -3449,9 +3551,7 @@ export function App() {
 
     const nextTime = currentTimeRef.current;
     if (nextTime !== currentTimelineTime) {
-      if (voiceAudio && audioUrl) {
-        voiceAudio.currentTime = 0;
-      }
+      voiceAudios.forEach(({ audio }) => { audio.currentTime = 0; });
       if (sourceAudio && sourceAudioUrl) {
         const localTime = getTimelineTrackLocalTime(nextTime, sourceAudioStart, sourceAudioDuration);
         sourceAudio.currentTime = localTime;
@@ -3464,7 +3564,7 @@ export function App() {
       }
     }
 
-    playIfReady(voiceAudio, syncVoiceAudioTime());
+    voiceAudios.forEach((item) => playIfReady(item.audio, syncVoiceAudio(item)));
     playIfReady(sourceAudio, syncSourceAudioTime());
     playIfReady(musicAudio, syncMusicTime());
     playIfReady(previewVideo, syncPreviewVideoTime());
@@ -3472,12 +3572,13 @@ export function App() {
   }
 
   function seekTo(nextTime) {
-    const clamped = Math.max(0, Math.min(estimatedDuration, nextTime));
+    const clamped = Math.max(0, Math.min(timelineDurationRef.current || MAX_TIMELINE_DURATION_SECONDS, nextTime));
     currentTimeRef.current = clamped;
     setCurrentTime(clamped);
-    if (audioRef.current) {
-      audioRef.current.currentTime = clamped;
-    }
+    audioSegments.forEach((segment) => {
+      const audio = audioSegmentRefs.current.get(segment.id);
+      if (audio) audio.currentTime = getTimelineTrackLocalTime(clamped, segment.start, segment.duration);
+    });
     if (sourceAudioRef.current) {
       sourceAudioRef.current.currentTime = getTimelineTrackLocalTime(
         clamped,
@@ -3519,6 +3620,56 @@ export function App() {
 
     window.addEventListener("pointermove", handlePointerMove);
     window.addEventListener("pointerup", handlePointerUp, { once: true });
+  }
+
+  function startAudioSegmentMove(event, segmentId = "") {
+    if (event.button !== 0) return;
+    const segment = audioSegments.find((item) => item.id === segmentId);
+    if (!segment) return;
+    if (trackLocks.audio) {
+      notify(t("audioTrackLockedMove"));
+      return;
+    }
+    const rect = trackScrollRef.current?.getBoundingClientRect();
+    const duration = timelineDurationRef.current || 10;
+    if (!rect) return;
+    event.stopPropagation();
+    setSelectedTrack("audio");
+    setSelectedAudioSegmentId(segment.id);
+    const startX = event.clientX;
+    const startTime = segment.start || 0;
+    const linkedCaptions = captionSegments.filter((caption) => caption.audioSegmentId === segment.id);
+    let moved = false;
+    let latestStart = startTime;
+    const handlePointerMove = (moveEvent) => {
+      if (!moved && Math.abs(moveEvent.clientX - startX) < 4) return;
+      moved = true;
+      moveEvent.preventDefault();
+      const delta = ((moveEvent.clientX - startX) / Math.max(rect.width, 1)) * duration;
+      latestStart = Math.max(0, Math.min(MAX_TIMELINE_DURATION_SECONDS - segment.duration, startTime + delta));
+      setAudioSegments((segments) => segments.map((item) => item.id === segment.id ? { ...item, start: latestStart } : item));
+      const captionDelta = latestStart - startTime;
+      setCaptionSegments((captions) => captions.map((caption) => {
+        const original = linkedCaptions.find((item) => item.id === caption.id);
+        return original ? { ...caption, start: original.start + captionDelta, end: original.end + captionDelta } : caption;
+      }));
+      setTimelineHorizon((value) => Math.max(value, Math.ceil((latestStart + segment.duration + 5) / 10) * 10));
+    };
+    const cleanup = () => {
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+      window.removeEventListener("pointercancel", cleanup);
+    };
+    const handlePointerUp = () => {
+      cleanup();
+      if (moved) {
+        seekTo(latestStart);
+        notify(t("audioClipMoved"));
+      }
+    };
+    window.addEventListener("pointermove", handlePointerMove, { passive: false });
+    window.addEventListener("pointerup", handlePointerUp);
+    window.addEventListener("pointercancel", cleanup);
   }
 
   function startStickerSegmentMove(event, segmentId = "") {
@@ -3819,7 +3970,8 @@ export function App() {
               }
             : segment;
         }),
-        audioBlob: trackVisibility.audio ? audioBlob : null,
+        audioBlob: null,
+        voiceAudioSegments: trackVisibility.audio ? audioSegments : [],
         voiceVolume: volume,
         sourceAudioBlob: trackVisibility.source ? sourceAudioBlob : null,
         sourceAudioVolume,
@@ -3829,7 +3981,7 @@ export function App() {
         text: script,
         captionSegments,
         duration: Math.max(
-          trackVisibility.audio && audioBlob ? audioDuration : 0,
+          trackVisibility.audio ? voiceTrackDuration : 0,
           captionDuration,
           trackVisibility.source && sourceAudioBlob ? sourceAudioStart + sourceAudioDuration : 0,
           trackVisibility.music && musicBlob ? musicDuration : 0,
@@ -3977,7 +4129,12 @@ export function App() {
     }
 
     if (selectedTrack === "audio") {
-      clearAudioTrack();
+      const segmentId = selectedAudioSegmentId || selectedAudioSegment?.id;
+      if (!segmentId) {
+        notify("当前没有选中的配音片段");
+        return;
+      }
+      deleteAudioSegment(segmentId);
       return;
     }
 
@@ -4063,6 +4220,31 @@ export function App() {
         ...assets,
       ]);
       notify("当前图片已复制到我的素材");
+      return;
+    }
+
+    if (selectedTrack === "audio") {
+      if (!selectedAudioSegment) {
+        notify(t("audioClipMissing"));
+        return;
+      }
+      const id = crypto.randomUUID();
+      const start = Math.min(MAX_TIMELINE_DURATION_SECONDS - selectedAudioSegment.duration, selectedAudioSegment.start + 0.2);
+      const copy = {
+        ...selectedAudioSegment,
+        id,
+        url: URL.createObjectURL(selectedAudioSegment.blob),
+        start,
+        name: `${selectedAudioSegment.name || t("audioClip")} ${t("copySuffix")}`,
+      };
+      const delta = start - selectedAudioSegment.start;
+      const copiedCaptions = captionSegments
+        .filter((caption) => caption.audioSegmentId === selectedAudioSegment.id)
+        .map((caption) => ({ ...caption, id: makeId("caption"), audioSegmentId: id, start: caption.start + delta, end: caption.end + delta }));
+      setAudioSegments((segments) => [...segments, copy]);
+      setCaptionSegments((segments) => [...segments, ...copiedCaptions].sort((a, b) => (a.start || 0) - (b.start || 0)));
+      setSelectedAudioSegmentId(id);
+      notify(t("audioClipDuplicated"));
       return;
     }
 
@@ -4840,6 +5022,8 @@ export function App() {
           notify={notify}
           audioUrl={audioUrl}
           audioRef={audioRef}
+          audioSegments={audioSegments}
+          audioSegmentRefs={audioSegmentRefs}
           sourceAudioRef={sourceAudioRef}
           musicRef={musicRef}
           sourceAudioUrl={sourceAudioUrl}
@@ -4864,6 +5048,11 @@ export function App() {
           audioDuration={audioDuration}
           avatarJob={avatarJob}
           generateAvatarAcceptanceFrame={generateAvatarAcceptanceFrame}
+          selectedTrack={selectedTrack}
+          selectedAudioSegment={selectedAudioSegment}
+          updateAudioSegment={updateAudioSegment}
+          toggleAudioSegmentReverse={toggleAudioSegmentReverse}
+          deleteAudioSegment={deleteAudioSegment}
         />
       </section>
 
@@ -4939,6 +5128,10 @@ export function App() {
         peaks={peaks}
         audioClipPercent={audioClipPercent}
         audioDuration={audioDuration}
+        audioSegments={audioSegments}
+        selectedAudioSegmentId={selectedAudioSegmentId}
+        setSelectedAudioSegmentId={setSelectedAudioSegmentId}
+        startAudioSegmentMove={startAudioSegmentMove}
         musicBlob={musicBlob}
         musicPeaks={musicPeaks}
         musicClipPercent={musicClipPercent}

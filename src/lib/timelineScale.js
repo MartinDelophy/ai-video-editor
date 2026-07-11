@@ -1,4 +1,4 @@
-import { MAX_TIMELINE_DURATION_SECONDS } from "../config/editor.js";
+import { DEFAULT_TIMELINE_DURATION_SECONDS } from "../config/editor.js";
 
 export const TIMELINE_MIN_ZOOM = 0.25;
 export const TIMELINE_MAX_ZOOM = 16;
@@ -18,7 +18,7 @@ export function getTimelineVisibleDuration(zoom) {
 
   if (clampedZoom <= 1) {
     const progress = (clampedZoom - TIMELINE_MIN_ZOOM) / (1 - TIMELINE_MIN_ZOOM);
-    const maxLog = Math.log(MAX_TIMELINE_DURATION_SECONDS);
+    const maxLog = Math.log(DEFAULT_TIMELINE_DURATION_SECONDS);
     const defaultLog = Math.log(TIMELINE_DEFAULT_VISIBLE_SECONDS);
     return Math.exp(maxLog + (defaultLog - maxLog) * progress);
   }

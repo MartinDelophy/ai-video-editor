@@ -4,6 +4,10 @@ Language: **English** | [中文](README.zh-CN.md)
 
 A browser-first AI video editor for image/video timelines, AI voiceover generation, captions, source audio, background music, and MP4/WebM export. The current prototype is inspired by modern dark timeline editors such as CapCut, but focuses on client-side AI voiceover and lightweight video editing workflows.
 
+## Demo Video
+
+[Watch the AI video editor demo on YouTube](https://youtu.be/mUXduGpBmwE)
+
 ## Screenshots
 
 ### English editor workspace

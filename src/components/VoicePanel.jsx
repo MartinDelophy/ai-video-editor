@@ -139,6 +139,40 @@ function CaptionContextPanel({
   );
 }
 
+function AudioClipContextPanel({ t, segment, updateAudioSegment, toggleAudioSegmentReverse, deleteAudioSegment, downloadBlob }) {
+  return (
+    <div className="audio-clip-context-panel">
+      <div className="avatar-context-hero">
+        <span><Waveform size={22} weight="duotone" /></span>
+        <div><small>{t("voiceTrack")}</small><strong>{segment.name || t("audioClip")}</strong><em>{formatTime(segment.duration)}</em></div>
+      </div>
+      <label className="audio-property-row">
+        <span>{t("audioClipStart")}</span>
+        <input type="number" min="0" step="0.1" value={Number(segment.start.toFixed(1))} onChange={(event) => updateAudioSegment(segment.id, { start: Math.max(0, Number(event.target.value) || 0) })} />
+      </label>
+      <label className="audio-property-slider">
+        <span><b>{t("volume")}</b><em>{Math.round((segment.volume ?? 1) * 100)}%</em></span>
+        <input type="range" min="0" max="1" step="0.01" value={segment.volume ?? 1} onChange={(event) => updateAudioSegment(segment.id, { volume: Number(event.target.value) })} />
+      </label>
+      <label className="audio-property-slider">
+        <span><b>{t("fadeIn")}</b><em>{(segment.fadeIn ?? 0).toFixed(1)}s</em></span>
+        <input type="range" min="0" max={Math.min(3, segment.duration / 2)} step="0.1" value={segment.fadeIn ?? 0} onChange={(event) => updateAudioSegment(segment.id, { fadeIn: Number(event.target.value) })} />
+      </label>
+      <label className="audio-property-slider">
+        <span><b>{t("fadeOut")}</b><em>{(segment.fadeOut ?? 0).toFixed(1)}s</em></span>
+        <input type="range" min="0" max={Math.min(3, segment.duration / 2)} step="0.1" value={segment.fadeOut ?? 0} onChange={(event) => updateAudioSegment(segment.id, { fadeOut: Number(event.target.value) })} />
+      </label>
+      <div className="audio-context-actions">
+        <button className={`panel-secondary ${segment.reversed ? "is-active" : ""}`} type="button" disabled={segment.reversing} onClick={() => toggleAudioSegmentReverse(segment.id)}>
+          {segment.reversing ? t("audioReversing") : segment.reversed ? t("audioReverseRestore") : t("audioReverse")}
+        </button>
+        <button className="panel-secondary" type="button" onClick={() => downloadBlob(segment.blob, `${segment.name || "voiceover"}.wav`)}>{t("downloadAudioClip")}</button>
+        <button className="panel-secondary is-danger" type="button" onClick={() => deleteAudioSegment(segment.id)}><Trash size={15} />{t("deleteAudioClip")}</button>
+      </div>
+    </div>
+  );
+}
+
 function AvatarContextPanel({ t, hasVisual, visualType, audioBlob, audioDuration, captionSegments, selectedVoice, avatarJob, generateAvatarAcceptanceFrame }) {
   const hasPortrait = hasVisual && visualType === "image";
   const [probeState, setProbeState] = useState("idle");
@@ -249,6 +283,8 @@ export function VoicePanel({
   notify,
   audioUrl,
   audioRef,
+  audioSegments,
+  audioSegmentRefs,
   sourceAudioRef,
   musicRef,
   sourceAudioUrl,
@@ -273,22 +309,30 @@ export function VoicePanel({
   audioDuration,
   avatarJob,
   generateAvatarAcceptanceFrame,
+  selectedTrack,
+  selectedAudioSegment,
+  updateAudioSegment,
+  toggleAudioSegmentReverse,
+  deleteAudioSegment,
 }) {
   const isCaptionContext = activeTool === "caption";
   const isAvatarContext = activeTool === "smart" && avatarPanelOpen;
-  const title = isAvatarContext ? t("avatarTitle") : isCaptionContext ? t("caption") : t("aiVoice");
+  const isAudioClipContext = selectedTrack === "audio" && Boolean(selectedAudioSegment);
+  const title = isAvatarContext ? t("avatarTitle") : isCaptionContext ? t("caption") : isAudioClipContext ? t("audioClipProperties") : t("aiVoice");
   const panelStatusText = isCaptionContext
     ? captionSegments.length
       ? `${captionSegments.length} ${t("captionSegmentsUnit", "条字幕")}`
       : t("noCaptionSegments")
     : isAvatarContext
       ? t("avatarPortingStatus")
+    : isAudioClipContext
+      ? `${formatTime(selectedAudioSegment.duration)} · ${selectedAudioSegment.start.toFixed(1)}s`
     : statusText === "模型待命"
       ? t("modelReady")
       : statusText;
 
   return (
-    <aside className={`voice-panel ${isCaptionContext ? "is-caption-context" : ""} ${isAvatarContext ? "is-avatar-context" : ""}`}>
+    <aside className={`voice-panel ${isCaptionContext ? "is-caption-context" : ""} ${isAvatarContext ? "is-avatar-context" : ""} ${isAudioClipContext ? "is-audio-clip-context" : ""}`}>
       <div className="panel-title-row">
         <h1>{title}</h1>
         <span className={`status-pill ${isCaptionContext ? "done" : status}`}>
@@ -296,7 +340,7 @@ export function VoicePanel({
         </span>
       </div>
 
-      {!isCaptionContext && !isAvatarContext ? (
+      {!isCaptionContext && !isAvatarContext && !isAudioClipContext ? (
         <div className="tabs compact">
           {[
             ["synthesis", t("voiceSynthesis")],
@@ -338,7 +382,9 @@ export function VoicePanel({
 
         {isAvatarContext ? <AvatarContextPanel t={t} hasVisual={hasVisual} visualType={visualType} audioBlob={audioBlob} audioDuration={audioDuration} captionSegments={captionSegments} selectedVoice={selectedVoice} avatarJob={avatarJob} generateAvatarAcceptanceFrame={generateAvatarAcceptanceFrame} /> : null}
 
-        {!isCaptionContext && !isAvatarContext && voiceTab === "synthesis" ? (
+        {isAudioClipContext ? <AudioClipContextPanel t={t} segment={selectedAudioSegment} updateAudioSegment={updateAudioSegment} toggleAudioSegmentReverse={toggleAudioSegmentReverse} deleteAudioSegment={deleteAudioSegment} downloadBlob={downloadBlob} /> : null}
+
+        {!isCaptionContext && !isAvatarContext && !isAudioClipContext && voiceTab === "synthesis" ? (
           <VoiceSynthesisPanel
             script={script}
             updateScript={updateScript}
@@ -365,7 +411,7 @@ export function VoicePanel({
           />
         ) : null}
 
-        {!isCaptionContext && !isAvatarContext && voiceTab === "mine" ? (
+        {!isCaptionContext && !isAvatarContext && !isAudioClipContext && voiceTab === "mine" ? (
           <MyVoicesPanel
             favoriteVoiceIds={favoriteVoiceIds}
             setFavoriteVoiceIds={setFavoriteVoiceIds}
@@ -383,7 +429,7 @@ export function VoicePanel({
           />
         ) : null}
 
-        {!isCaptionContext && !isAvatarContext && voiceTab === "history" ? (
+        {!isCaptionContext && !isAvatarContext && !isAudioClipContext && voiceTab === "history" ? (
           <HistoryPanel
             historyItems={historyItems}
             useHistoryItem={useHistoryItem}
@@ -394,12 +440,17 @@ export function VoicePanel({
         ) : null}
       </div>
 
-      {audioUrl ? (
+      {audioSegments.map((segment) => (
         <audio
-          ref={audioRef}
-          src={audioUrl}
+          key={segment.id}
+          ref={(node) => {
+            if (node) audioSegmentRefs.current.set(segment.id, node);
+            else audioSegmentRefs.current.delete(segment.id);
+            if (segment.id === audioSegments.at(-1)?.id) audioRef.current = node;
+          }}
+          src={segment.url}
         />
-      ) : null}
+      ))}
       {sourceAudioUrl ? (
         <audio
           ref={sourceAudioRef}

@@ -166,6 +166,59 @@ export async function decodeWaveform(blob, barCount = 118) {
   }
 }
 
+function encodeAudioBufferAsWav(buffer) {
+  const channels = Math.max(1, buffer.numberOfChannels);
+  const frames = buffer.length;
+  const bytesPerSample = 2;
+  const blockAlign = channels * bytesPerSample;
+  const output = new ArrayBuffer(44 + frames * blockAlign);
+  const view = new DataView(output);
+  const writeText = (offset, text) => {
+    for (let index = 0; index < text.length; index += 1) view.setUint8(offset + index, text.charCodeAt(index));
+  };
+  writeText(0, "RIFF");
+  view.setUint32(4, output.byteLength - 8, true);
+  writeText(8, "WAVE");
+  writeText(12, "fmt ");
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, channels, true);
+  view.setUint32(24, buffer.sampleRate, true);
+  view.setUint32(28, buffer.sampleRate * blockAlign, true);
+  view.setUint16(32, blockAlign, true);
+  view.setUint16(34, 16, true);
+  writeText(36, "data");
+  view.setUint32(40, frames * blockAlign, true);
+  const channelData = Array.from({ length: channels }, (_, channel) => buffer.getChannelData(channel));
+  let offset = 44;
+  for (let frame = 0; frame < frames; frame += 1) {
+    for (let channel = 0; channel < channels; channel += 1) {
+      const sample = Math.max(-1, Math.min(1, channelData[channel][frame]));
+      view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7fff, true);
+      offset += bytesPerSample;
+    }
+  }
+  return new Blob([output], { type: "audio/wav" });
+}
+
+export async function reverseAudioBlob(blob) {
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContextClass) throw new Error("当前浏览器不支持 AudioContext，无法反转音频。");
+  const context = new AudioContextClass();
+  try {
+    const decoded = await context.decodeAudioData((await blob.arrayBuffer()).slice(0));
+    const reversed = context.createBuffer(decoded.numberOfChannels, decoded.length, decoded.sampleRate);
+    for (let channel = 0; channel < decoded.numberOfChannels; channel += 1) {
+      const source = decoded.getChannelData(channel);
+      const target = reversed.getChannelData(channel);
+      for (let index = 0; index < source.length; index += 1) target[index] = source[source.length - 1 - index];
+    }
+    return encodeAudioBufferAsWav(reversed);
+  } finally {
+    await context.close().catch(() => {});
+  }
+}
+
 export function downloadBlob(blob, filename) {
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
@@ -548,6 +601,7 @@ export async function exportBrowserVideo({
   visualType,
   visualSegments = [],
   audioBlob,
+  voiceAudioSegments = [],
   voiceVolume = 1,
   sourceAudioBlob,
   sourceAudioVolume = 1,
@@ -652,7 +706,17 @@ export async function exportBrowserVideo({
   const sources = [];
   let destination = null;
   const audioInputs = [
-    audioBlob ? { blob: audioBlob, volume: voiceVolume, role: "voice", start: 0 } : null,
+    ...voiceAudioSegments.map((segment) => ({
+      blob: segment.blob,
+      volume: segment.volume ?? 1,
+      role: "voice",
+      start: Math.max(0, segment.start || 0),
+      fadeIn: Math.max(0, segment.fadeIn || 0),
+      fadeOut: Math.max(0, segment.fadeOut || 0),
+    })),
+    audioBlob && !voiceAudioSegments.length
+      ? { blob: audioBlob, volume: voiceVolume, role: "voice", start: 0, fadeIn: 0, fadeOut: 0 }
+      : null,
     sourceAudioBlob
       ? { blob: sourceAudioBlob, volume: sourceAudioVolume, role: "source", start: Math.max(0, sourceAudioStart || 0) }
       : null,
@@ -675,13 +739,22 @@ export async function exportBrowserVideo({
       }),
     );
 
-    decodedDuration = decodedInputs.find((input) => input.role === "voice")?.decoded.duration ?? 0;
+    decodedDuration = Math.max(0, ...decodedInputs.filter((input) => input.role === "voice").map((input) => input.start + input.decoded.duration));
 
     decodedInputs.forEach((input) => {
       const source = audioContext.createBufferSource();
       const gain = audioContext.createGain();
       source.buffer = input.decoded;
       gain.gain.value = input.volume;
+      if (input.fadeIn > 0) {
+        gain.gain.setValueAtTime(0, audioContext.currentTime + input.start);
+        gain.gain.linearRampToValueAtTime(input.volume, audioContext.currentTime + input.start + input.fadeIn);
+      }
+      if (input.fadeOut > 0) {
+        const fadeStart = audioContext.currentTime + input.start + Math.max(0, input.decoded.duration - input.fadeOut);
+        gain.gain.setValueAtTime(input.volume, fadeStart);
+        gain.gain.linearRampToValueAtTime(0, audioContext.currentTime + input.start + input.decoded.duration);
+      }
       source.connect(gain);
       gain.connect(destination);
       sources.push({

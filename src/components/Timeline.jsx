@@ -37,6 +37,35 @@ const TIMELINE_WHEEL_ZOOM_COMMIT_DELAY = 180;
 const TIMELINE_BUTTON_ZOOM_RATIO = 1.25;
 const VIDEO_FRAME_MIN_COUNT = 1;
 
+function packAudioSegmentsIntoLanes(segments) {
+  const lanes = [];
+  [...segments].sort((a, b) => a.start - b.start || a.id.localeCompare(b.id)).forEach((segment) => {
+    const laneIndex = lanes.findIndex((lane) => {
+      const last = lane.at(-1);
+      return !last || last.start + last.duration <= segment.start + 0.001;
+    });
+    if (laneIndex >= 0) lanes[laneIndex].push(segment);
+    else lanes.push([segment]);
+  });
+  return lanes.length ? lanes : [[]];
+}
+
+function packCaptionSegmentsIntoLanes(segments, timeline) {
+  const lanes = [];
+  segments
+    .map((segment, index) => ({ segment, index, range: timeline[index] }))
+    .sort((a, b) => (a.range?.start || 0) - (b.range?.start || 0))
+    .forEach((item) => {
+      const laneIndex = lanes.findIndex((lane) => {
+        const last = lane.at(-1);
+        return !last || (last.range?.end || 0) <= (item.range?.start || 0) + 0.001;
+      });
+      if (laneIndex >= 0) lanes[laneIndex].push(item);
+      else lanes.push([item]);
+    });
+  return lanes.length ? lanes : [[]];
+}
+
 function getSampledVideoFrames(frames, count) {
   if (!Array.isArray(frames) || !frames.length) {
     return [];
@@ -149,6 +178,10 @@ export function Timeline({
   peaks,
   audioClipPercent,
   audioDuration,
+  audioSegments,
+  selectedAudioSegmentId,
+  setSelectedAudioSegmentId,
+  startAudioSegmentMove,
   musicBlob,
   musicPeaks,
   musicClipPercent,
@@ -162,18 +195,20 @@ export function Timeline({
     activeTimelineClipDrag?.track === "caption"
       ? displayedCaptionSegments.find((segment) => segment.id === activeTimelineClipDrag.segmentId)
       : null;
-  const timelineTrackRows = showStickerTrack
-    ? "28px 46px 46px 46px 58px 58px 58px"
-    : "28px 46px 46px 58px 58px 58px";
-  const timelineLabelRows = showStickerTrack
-    ? "46px 46px 46px 58px 58px 58px"
-    : "46px 46px 58px 58px 58px";
+  const audioLanes = useMemo(() => packAudioSegmentsIntoLanes(audioSegments), [audioSegments]);
+  const captionLanes = useMemo(
+    () => packCaptionSegmentsIntoLanes(displayedCaptionSegments, displayedCaptionTimeline),
+    [displayedCaptionSegments, displayedCaptionTimeline],
+  );
+  const contentRows = ["46px", ...(showStickerTrack ? ["46px"] : []), ...captionLanes.map(() => "46px"), "58px", ...audioLanes.map(() => "58px"), "58px"];
+  const timelineTrackRows = ["28px", ...contentRows].join(" ");
+  const timelineLabelRows = contentRows.join(" ");
   const timelineTrackLabels = [
     ["image", t("imageTrack")],
     ...(showStickerTrack ? [["sticker", t("stickerTrack")]] : []),
-    ["caption", t("caption")],
+    ...captionLanes.map((_, index) => ["caption", `${t("caption")} ${index + 1}`, `caption-${index}`]),
     ["source", t("sourceTrack")],
-    ["audio", t("voiceTrack")],
+    ...audioLanes.map((_, index) => ["audio", `${t("voiceTrack")} ${index + 1}`, `audio-${index}`]),
     ["music", t("musicTrack")],
   ];
   const [rulerViewport, setRulerViewport] = useState({
@@ -326,7 +361,18 @@ export function Timeline({
     window.requestAnimationFrame(syncScrollAnchor);
   };
   const handleTimelineWheel = (event) => {
-    if (event.shiftKey || Math.abs(event.deltaX) > Math.abs(event.deltaY)) {
+    if (!event.ctrlKey && !event.metaKey) {
+      if (!event.shiftKey && Math.abs(event.deltaY) >= Math.abs(event.deltaX)) {
+        const board = event.currentTarget?.closest?.(".timeline")?.querySelector?.(".timeline-board");
+        if (board && board.scrollHeight > board.clientHeight) {
+          event.preventDefault();
+          board.scrollTop += event.deltaY;
+        }
+      }
+      return;
+    }
+
+    if (Math.abs(event.deltaX) > Math.abs(event.deltaY)) {
       return;
     }
 
@@ -537,8 +583,8 @@ export function Timeline({
 
       <div className="timeline-board">
         <div className="track-labels" style={{ gridTemplateRows: timelineLabelRows }}>
-          {timelineTrackLabels.map(([track, label]) => (
-            <div className={selectedTrack === track ? "is-selected" : ""} key={track}>
+          {timelineTrackLabels.map(([track, label, rowId = track]) => (
+            <div className={selectedTrack === track ? "is-selected" : ""} key={rowId}>
               <button
                 type="button"
                 aria-label={`${label} ${t("visible")}`}
@@ -752,20 +798,21 @@ export function Timeline({
               {renderAssetDropSlot("image")}
             </div>
             {renderStickerTrack()}
-            <div
-              className={`caption-track ${selectedTrack === "caption" ? "is-selected" : ""} ${
-                activeTimelineClipDrag?.track === "caption" ? "is-reordering" : ""
-              }`}
-              onClick={() => {
-                setSelectedTrack("caption");
-                setActiveTool("caption");
-              }}
-              data-timeline-reorder-track="caption"
-            >
-              {trackVisibility.caption
-                ? displayedCaptionSegments.map((segment, index) => {
-                    const segmentRange = displayedCaptionTimeline[index];
-                    const segmentDuration = displayedCaptionTimeline[index]?.duration ?? 0;
+            {captionLanes.map((lane, laneIndex) => (
+              <div
+                className={`caption-track ${selectedTrack === "caption" ? "is-selected" : ""} ${
+                  activeTimelineClipDrag?.track === "caption" ? "is-reordering" : ""
+                }`}
+                key={`caption-lane-${laneIndex}`}
+                onClick={() => {
+                  setSelectedTrack("caption");
+                  setActiveTool("caption");
+                }}
+                data-timeline-reorder-track="caption"
+              >
+                {trackVisibility.caption
+                  ? lane.map(({ segment, index, range: segmentRange }) => {
+                    const segmentDuration = segmentRange?.duration ?? 0;
                     const segmentLeft =
                       segmentRange && timelineDuration > 0
                         ? Math.max(0, Math.min(100, (segmentRange.start / timelineDuration) * 100))
@@ -815,9 +862,10 @@ export function Timeline({
                         {segment.text}
                       </button>
                     );
-                  })
-                : null}
-            </div>
+                    })
+                  : null}
+              </div>
+            ))}
             <button
               className={`audio-track source-track ${selectedTrack === "source" ? "is-selected" : ""} ${
                 assetDropTargetTrack === "source" ? "is-drop-target" : ""
@@ -846,28 +894,48 @@ export function Timeline({
                 </div>
               ) : null}
             </button>
-            <button
-              className={`audio-track ${selectedTrack === "audio" ? "is-selected" : ""} ${
-                assetDropTargetTrack === "audio" ? "is-drop-target" : ""
-              } ${assetDropPulseTrack === "audio" ? "is-drop-landing" : ""}`}
-              type="button"
-              onClick={() => setSelectedTrack("audio")}
-              onDragOver={(event) => handleTrackAssetDragOver(event, "audio")}
-              onDragLeave={(event) => handleTrackAssetDragLeave(event, "audio")}
-              onDrop={(event) => handleTrackAssetDrop(event, "audio")}
-              data-asset-drop-track="audio"
-            >
-                {assetDropTargetTrack === "audio" ? (
-                  <div className="track-drop-hint">{t("dropVoiceHere")}</div>
-                ) : null}
-              {renderAssetDropSlot("audio")}
-                {trackVisibility.audio && audioBlob ? (
-                <div className="audio-clip" style={{ width: `${audioClipPercent}%` }}>
-                  <WaveformStrip peaks={peaks} active />
-                  <span className="audio-clip-duration">{formatTime(audioDuration)}</span>
-                </div>
-              ) : null}
-            </button>
+            {audioLanes.map((lane, laneIndex) => (
+              <button
+                className={`audio-track ${selectedTrack === "audio" ? "is-selected" : ""} ${
+                  laneIndex === 0 && assetDropTargetTrack === "audio" ? "is-drop-target" : ""
+                } ${laneIndex === 0 && assetDropPulseTrack === "audio" ? "is-drop-landing" : ""}`}
+                type="button"
+                key={`audio-lane-${laneIndex}`}
+                onClick={() => setSelectedTrack("audio")}
+                onDragOver={(event) => laneIndex === 0 && handleTrackAssetDragOver(event, "audio")}
+                onDragLeave={(event) => laneIndex === 0 && handleTrackAssetDragLeave(event, "audio")}
+                onDrop={(event) => laneIndex === 0 && handleTrackAssetDrop(event, "audio")}
+                data-asset-drop-track={laneIndex === 0 ? "audio" : undefined}
+              >
+                {laneIndex === 0 && assetDropTargetTrack === "audio" ? (
+                    <div className="track-drop-hint">{t("dropVoiceHere")}</div>
+                  ) : null}
+                {laneIndex === 0 ? renderAssetDropSlot("audio") : null}
+                {trackVisibility.audio
+                  ? lane.map((segment) => {
+                    const left = timelineDuration > 0 ? (segment.start / timelineDuration) * 100 : 0;
+                    const width = timelineDuration > 0 ? (segment.duration / timelineDuration) * 100 : 0;
+                    return (
+                      <div
+                        className={`audio-clip ${selectedAudioSegmentId === segment.id ? "is-selected" : ""}`}
+                        key={segment.id}
+                        style={{ left: `${left}%`, width: `${width}%` }}
+                        onPointerDown={(event) => startAudioSegmentMove(event, segment.id)}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setSelectedTrack("audio");
+                          setSelectedAudioSegmentId(segment.id);
+                          seekTo(segment.start);
+                        }}
+                      >
+                        <WaveformStrip peaks={segment.peaks} active />
+                        <span className="audio-clip-duration">{formatTime(segment.duration)}</span>
+                      </div>
+                    );
+                  })
+                  : null}
+              </button>
+            ))}
             <button
               className={`audio-track music-track ${selectedTrack === "music" ? "is-selected" : ""} ${
                 assetDropTargetTrack === "music" ? "is-drop-target" : ""

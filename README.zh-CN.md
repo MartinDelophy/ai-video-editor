@@ -201,8 +201,8 @@ npx netlify-cli deploy --prod --dir=dist
 
 本项目采用 [MIT License](LICENSE)。在保留版权声明的前提下，可以自由使用、修改和分发。
 
-## Star 趋势
+## 社区
 
-如果 Timeline Studio 对你有帮助，欢迎点一个 Star，这会帮助更多人发现这个项目。
+README 顶部的 GitHub Stars 徽章会实时显示当前 Star 数量。
 
-[![Timeline Studio GitHub Star 趋势](docs/star-history.svg)](https://github.com/MartinDelophy/ai-video-editor/stargazers)
+[查看当前 Stargazers](https://github.com/MartinDelophy/ai-video-editor/stargazers) · [为 Timeline Studio 点 Star](https://github.com/MartinDelophy/ai-video-editor)

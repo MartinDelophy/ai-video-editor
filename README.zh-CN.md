@@ -6,6 +6,7 @@
 [![GitHub Stars](https://img.shields.io/github/stars/MartinDelophy/ai-video-editor?style=flat-square)](https://github.com/MartinDelophy/ai-video-editor/stargazers)
 [![GitHub Forks](https://img.shields.io/github/forks/MartinDelophy/ai-video-editor?style=flat-square)](https://github.com/MartinDelophy/ai-video-editor/forks)
 [![MIT License](https://img.shields.io/github/license/MartinDelophy/ai-video-editor?style=flat-square)](LICENSE)
+[![Discord](https://img.shields.io/discord/1526147673290313768?label=Discord&logo=discord&style=flat-square)](https://discord.gg/uq2uvUTBr)
 
 一个本地优先的浏览器 AI 视频编辑器，支持 ONNX AI 配音、Whisper 自动字幕、JoyVASA + LivePortrait 数字人、多轨时间线以及 MP4/WebM 导出。核心 AI 流程直接在浏览器运行，交互参考 CapCut/剪映等现代时间线编辑器。
 
@@ -202,6 +203,10 @@ npx netlify-cli deploy --prod --dir=dist
 本项目采用 [MIT License](LICENSE)。在保留版权声明的前提下，可以自由使用、修改和分发。
 
 ## 社区
+
+欢迎加入 Discord 社区，交流使用问题、产品建议和项目进展：
+
+[加入 Timeline Studio Discord 社区](https://discord.gg/uq2uvUTBr)
 
 README 顶部的 GitHub Stars 徽章会实时显示当前 Star 数量。
 

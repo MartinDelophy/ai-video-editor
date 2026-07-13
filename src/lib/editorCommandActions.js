@@ -33,7 +33,11 @@ export function createEditorCommandActions(d) {
   }
 
   function toggleTrackVisibility(track) {
-    d.setTrackVisibility((visibility) => ({ ...visibility, [track]: !visibility[track] }));
+    d.setTrackVisibility((visibility) => {
+      const baseTrack = track.replace(/-\d+$/, "");
+      const currentVisibility = visibility[track] ?? visibility[baseTrack] ?? true;
+      return { ...visibility, [track]: !currentVisibility };
+    });
   }
 
   function toggleTrackLock(track) {

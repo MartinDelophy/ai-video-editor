@@ -211,6 +211,8 @@ export function Timeline({
     ...audioLanes.map((_, index) => ["audio", `${t("voiceTrack")} ${index + 1}`, `audio-${index}`]),
     ["music", t("musicTrack")],
   ];
+  const isRowVisible = (track, rowId = track) =>
+    trackVisibility[rowId] ?? trackVisibility[track] ?? true;
   const [rulerViewport, setRulerViewport] = useState({
     scrollLeft: 0,
     viewportWidth: 0,
@@ -459,6 +461,8 @@ export function Timeline({
     showStickerTrack ? (
       <div
         className={`sticker-track ${selectedTrack === "sticker" ? "is-selected" : ""} ${
+          !trackVisibility.sticker ? "is-track-disabled" : ""
+        } ${
           assetDropTargetTrack === "sticker" ? "is-drop-target" : ""
         } ${assetDropPulseTrack === "sticker" ? "is-drop-landing" : ""}`}
         onClick={() => {
@@ -473,8 +477,7 @@ export function Timeline({
         {assetDropTargetTrack === "sticker" ? (
           <div className="track-drop-hint">{t("dropStickerHere")}</div>
         ) : null}
-        {trackVisibility.sticker
-          ? stickerSegments.map((segment) => {
+        {stickerSegments.map((segment) => {
               const segmentLeft =
                 timelineDuration > 0
                   ? Math.max(0, Math.min(100, ((segment.start || 0) / timelineDuration) * 100))
@@ -510,8 +513,7 @@ export function Timeline({
                   <span>{segment.name}</span>
                 </button>
               );
-            })
-          : null}
+            })}
         {renderAssetDropSlot("sticker")}
       </div>
     ) : null;
@@ -584,16 +586,21 @@ export function Timeline({
       <div className="timeline-board">
         <div className="track-labels" style={{ gridTemplateRows: timelineLabelRows }}>
           {timelineTrackLabels.map(([track, label, rowId = track]) => (
-            <div className={selectedTrack === track ? "is-selected" : ""} key={rowId}>
+            <div
+              className={`${selectedTrack === track ? "is-selected" : ""} ${
+                !isRowVisible(track, rowId) ? "is-track-disabled" : ""
+              }`}
+              key={rowId}
+            >
               <button
                 type="button"
                 aria-label={`${label} ${t("visible")}`}
                 onClick={(event) => {
                   event.stopPropagation();
-                  toggleTrackVisibility(track);
+                  toggleTrackVisibility(rowId);
                 }}
               >
-                {trackVisibility[track] ? <Eye size={15} /> : <EyeSlash size={15} />}
+                {isRowVisible(track, rowId) ? <Eye size={15} /> : <EyeSlash size={15} />}
               </button>
               <button
                 type="button"
@@ -661,6 +668,8 @@ export function Timeline({
             ) : null}
             <div
               className={`image-track ${selectedTrack === "image" ? "is-selected" : ""} ${
+                !trackVisibility.image ? "is-track-disabled" : ""
+              } ${
                 assetDropTargetTrack === "image" ? "is-drop-target" : ""
               } ${assetDropPulseTrack === "image" ? "is-drop-landing" : ""} ${
                 activeTimelineClipDrag?.track === "image" ? "is-reordering" : ""
@@ -678,7 +687,7 @@ export function Timeline({
               {assetDropTargetTrack === "image" ? (
                 <div className="track-drop-hint">{t("dropVisualHere")}</div>
               ) : null}
-              {trackVisibility.image && imageSrc
+              {imageSrc
                 ? displayedVisualSegments.map((segment, index) => {
                     const segmentSrc = segment.src || imageSrc;
                     const segmentType = segment.type || visualType;
@@ -801,6 +810,8 @@ export function Timeline({
             {captionLanes.map((lane, laneIndex) => (
               <div
                 className={`caption-track ${selectedTrack === "caption" ? "is-selected" : ""} ${
+                  !isRowVisible("caption", `caption-${laneIndex}`) ? "is-track-disabled" : ""
+                } ${
                   activeTimelineClipDrag?.track === "caption" ? "is-reordering" : ""
                 }`}
                 key={`caption-lane-${laneIndex}`}
@@ -810,8 +821,7 @@ export function Timeline({
                 }}
                 data-timeline-reorder-track="caption"
               >
-                {trackVisibility.caption
-                  ? lane.map(({ segment, index, range: segmentRange }) => {
+                {lane.map(({ segment, index, range: segmentRange }) => {
                     const segmentDuration = segmentRange?.duration ?? 0;
                     const segmentLeft =
                       segmentRange && timelineDuration > 0
@@ -862,12 +872,13 @@ export function Timeline({
                         {segment.text}
                       </button>
                     );
-                    })
-                  : null}
+                    })}
               </div>
             ))}
             <button
               className={`audio-track source-track ${selectedTrack === "source" ? "is-selected" : ""} ${
+                !trackVisibility.source ? "is-track-disabled" : ""
+              } ${
                 assetDropTargetTrack === "source" ? "is-drop-target" : ""
               } ${assetDropPulseTrack === "source" ? "is-drop-landing" : ""}`}
               type="button"
@@ -881,7 +892,7 @@ export function Timeline({
                   <div className="track-drop-hint">{t("dropSourceHere")}</div>
                 ) : null}
               {renderAssetDropSlot("source")}
-                {trackVisibility.source && sourceAudioBlob ? (
+                {sourceAudioBlob ? (
                 <div
                   className="audio-clip is-source"
                   style={{
@@ -897,6 +908,8 @@ export function Timeline({
             {audioLanes.map((lane, laneIndex) => (
               <button
                 className={`audio-track ${selectedTrack === "audio" ? "is-selected" : ""} ${
+                  !isRowVisible("audio", `audio-${laneIndex}`) ? "is-track-disabled" : ""
+                } ${
                   laneIndex === 0 && assetDropTargetTrack === "audio" ? "is-drop-target" : ""
                 } ${laneIndex === 0 && assetDropPulseTrack === "audio" ? "is-drop-landing" : ""}`}
                 type="button"
@@ -911,8 +924,7 @@ export function Timeline({
                     <div className="track-drop-hint">{t("dropVoiceHere")}</div>
                   ) : null}
                 {laneIndex === 0 ? renderAssetDropSlot("audio") : null}
-                {trackVisibility.audio
-                  ? lane.map((segment) => {
+                {lane.map((segment) => {
                     const left = timelineDuration > 0 ? (segment.start / timelineDuration) * 100 : 0;
                     const width = timelineDuration > 0 ? (segment.duration / timelineDuration) * 100 : 0;
                     return (
@@ -932,12 +944,13 @@ export function Timeline({
                         <span className="audio-clip-duration">{formatTime(segment.duration)}</span>
                       </div>
                     );
-                  })
-                  : null}
+                  })}
               </button>
             ))}
             <button
               className={`audio-track music-track ${selectedTrack === "music" ? "is-selected" : ""} ${
+                !trackVisibility.music ? "is-track-disabled" : ""
+              } ${
                 assetDropTargetTrack === "music" ? "is-drop-target" : ""
               } ${assetDropPulseTrack === "music" ? "is-drop-landing" : ""}`}
               type="button"
@@ -951,7 +964,7 @@ export function Timeline({
                   <div className="track-drop-hint">{t("dropMusicHere")}</div>
                 ) : null}
               {renderAssetDropSlot("music")}
-                {trackVisibility.music && musicBlob ? (
+                {musicBlob ? (
                 <div className="audio-clip is-music" style={{ width: `${musicClipPercent}%` }}>
                   <WaveformStrip peaks={musicPeaks} active />
                   <span className="audio-clip-duration">{formatTime(musicDuration)}</span>

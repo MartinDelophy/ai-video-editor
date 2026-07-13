@@ -21,6 +21,7 @@ import { useVoiceRecorder } from "./hooks/useVoiceRecorder.js";
 import { useVoiceGeneration } from "./hooks/useVoiceGeneration.js";
 import { useAutoCaptions } from "./hooks/useAutoCaptions.js";
 import { useSourceAudioExtraction } from "./hooks/useSourceAudioExtraction.js";
+import { useVocalSeparation } from "./hooks/useVocalSeparation.js";
 import { useAvatarGeneration } from "./hooks/useAvatarGeneration.js";
 import { useCaptionState } from "./hooks/useCaptionState.js";
 import { useAudioTrackState } from "./hooks/useAudioTrackState.js";
@@ -254,6 +255,9 @@ export function App() {
     setStatus, setStatusText, setTimelineHorizon, sourceAudioBlob, sourceAudioDuration,
     sourceAudioRef, sourceAudioStart, sourceAudioUrlRef, t,
   });
+  const { separateSourceVocals, vocalSeparationJob } = useVocalSeparation({
+    sourceAudioBlob, sourceAudioName, replaceSourceAudio, replaceMusic, notify, t,
+  });
 
   const {
     chooseInterfaceLanguage, clearAllVisionState, selectTool, toggleTrackLock,
@@ -277,7 +281,7 @@ export function App() {
     previewVisualSegment, script, seekTo: (...args) => seekTo(...args), setCurrentTime,
     setFitMode, setImageClipCount, setImageDuration, setImageMeta, setImageName,
     setImageSrc, setSelectedTrack, setSelectedVisualSegmentId, setVisualSegments,
-    setVisualType, sourceAudioBlob, sourceAudioDuration, sourceAudioStart, trackLocks,
+    setTimelineZoom, setVisualType, sourceAudioBlob, sourceAudioDuration, sourceAudioStart, trackLocks,
     visualSegments, visualType,
   });
 
@@ -539,6 +543,7 @@ export function App() {
           setMediaTab, setMusicVolume, setSelectedFilterId, setSelectedSegmentId,
           setSelectedStickerId, setSelectedTransitionId, setSourceAudioVolume, setVoiceTab,
           sourceAudioBlob, sourceAudioDuration, sourceAudioName, sourceAudioVolume, status, t,
+          separateSourceVocals, vocalSeparationJob,
           toggleCaptionSegmentHidden, toggleVisionOption, trOption, updateCaptionSegmentText,
           updateScript, userAssets, visionJob,
         }} />

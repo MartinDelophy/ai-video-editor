@@ -82,6 +82,8 @@ export function EditorSidebar({ model: d }) {
             generateCaptionsFromSourceAudio={d.generateCaptionsFromSourceAudio}
             isGeneratingCaptions={d.status === "captioning"}
             automaticCaptionProgress={d.status === "captioning" ? d.progress : 0}
+            separateSourceVocals={d.separateSourceVocals}
+            vocalSeparationJob={d.vocalSeparationJob}
             hasVisual={Boolean(d.previewVisualSrc)}
             visualType={d.previewVisualType}
             visionAnalysis={d.previewVisionAnalysis}

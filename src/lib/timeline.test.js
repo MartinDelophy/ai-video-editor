@@ -11,8 +11,25 @@ import {
   getVisualSegmentTimeline,
   reorderTimelineItems,
 } from "./timeline.js";
+import {
+  getTimelineAutoFitZoom,
+  getTimelineVisibleDuration,
+  getTimelineZoomForVisibleDuration,
+} from "./timelineScale.js";
 
 describe("timeline primitives", () => {
+  it("fits an uploaded video into most of the visible timeline", () => {
+    const zoom = getTimelineAutoFitZoom(15);
+    const visibleDuration = getTimelineVisibleDuration(zoom);
+    expect(visibleDuration).toBeCloseTo(15 / 0.82, 2);
+    expect(15 / visibleDuration).toBeCloseTo(0.82, 2);
+  });
+
+  it("clamps automatic timeline fitting to supported zoom limits", () => {
+    expect(getTimelineVisibleDuration(getTimelineZoomForVisibleDuration(10_000))).toBeCloseTo(1800, 2);
+    expect(getTimelineVisibleDuration(getTimelineAutoFitZoom(0.5))).toBeCloseTo(5, 2);
+  });
+
   it("reorders without mutating the source array", () => {
     const source = [{ id: "a" }, { id: "b" }, { id: "c" }];
     const result = reorderTimelineItems(source, 0, 2);

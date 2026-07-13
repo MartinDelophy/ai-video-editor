@@ -425,6 +425,9 @@ export function App() {
   const avatarTestAudioImportedRef = useRef(false);
   const activeLanguage = uiLanguage || "zh";
   const t = useMemo(() => createTranslator(activeLanguage), [activeLanguage]);
+  useEffect(() => {
+    document.documentElement.lang = activeLanguage === "zh" ? "zh-CN" : activeLanguage;
+  }, [activeLanguage]);
   useEffect(() => () => {
     avatarMotionWorkerRef.current?.terminate();
     avatarRenderWorkerRef.current?.terminate();

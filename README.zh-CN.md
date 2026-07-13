@@ -2,6 +2,11 @@
 
 语言：[English](README.md) | **中文**
 
+[![在线体验](https://img.shields.io/badge/在线体验-Timeline_Studio-35ead9?style=flat-square)](https://video-editor.ai-creator.top/)
+[![GitHub Stars](https://img.shields.io/github/stars/MartinDelophy/ai-video-editor?style=flat-square)](https://github.com/MartinDelophy/ai-video-editor/stargazers)
+[![GitHub Forks](https://img.shields.io/github/forks/MartinDelophy/ai-video-editor?style=flat-square)](https://github.com/MartinDelophy/ai-video-editor/forks)
+[![MIT License](https://img.shields.io/github/license/MartinDelophy/ai-video-editor?style=flat-square)](LICENSE)
+
 一个浏览器优先的 AI 视频编辑器，支持图片/视频时间线、AI 配音、字幕、视频原声、背景音乐以及 MP4/WebM 导出。当前原型参考了 CapCut/剪映一类深色时间线编辑器，但重点放在 Web 端 AI 配音和轻量视频编辑流程。
 
 ## 演示视频
@@ -202,4 +207,10 @@ npx netlify-cli deploy --prod --dir=dist
 
 ## License
 
-原型项目。公开生产使用前建议补充正式 License。
+本项目采用 [MIT License](LICENSE)。在保留版权声明的前提下，可以自由使用、修改和分发。
+
+## Star 趋势
+
+如果 Timeline Studio 对你有帮助，欢迎点一个 Star，这会帮助更多人发现这个项目。
+
+[![Star History Chart](https://api.star-history.com/svg?repos=MartinDelophy/ai-video-editor&type=Date)](https://star-history.com/#MartinDelophy/ai-video-editor&Date)

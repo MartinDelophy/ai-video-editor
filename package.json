@@ -2,6 +2,16 @@
   "name": "web-player",
   "version": "0.0.0",
   "private": true,
+  "description": "A local-first browser AI video editor for voiceovers, captions, talking avatars, and multi-track timeline export.",
+  "license": "MIT",
+  "homepage": "https://video-editor.ai-creator.top/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/MartinDelophy/ai-video-editor.git"
+  },
+  "bugs": {
+    "url": "https://github.com/MartinDelophy/ai-video-editor/issues"
+  },
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",

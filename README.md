@@ -2,6 +2,11 @@
 
 Language: **English** | [中文](README.zh-CN.md)
 
+[![Live Demo](https://img.shields.io/badge/Live_Demo-Timeline_Studio-35ead9?style=flat-square)](https://video-editor.ai-creator.top/)
+[![GitHub stars](https://img.shields.io/github/stars/MartinDelophy/ai-video-editor?style=flat-square)](https://github.com/MartinDelophy/ai-video-editor/stargazers)
+[![GitHub forks](https://img.shields.io/github/forks/MartinDelophy/ai-video-editor?style=flat-square)](https://github.com/MartinDelophy/ai-video-editor/forks)
+[![MIT License](https://img.shields.io/github/license/MartinDelophy/ai-video-editor?style=flat-square)](LICENSE)
+
 A browser-first AI video editor for image/video timelines, AI voiceover generation, captions, source audio, background music, and MP4/WebM export. The current prototype is inspired by modern dark timeline editors such as CapCut, but focuses on client-side AI voiceover and lightweight video editing workflows.
 
 ## Demo Video
@@ -217,4 +222,10 @@ The following are intentionally excluded from git:
 
 ## License
 
-Prototype project. Add a license before public production use.
+Released under the [MIT License](LICENSE). You may use, modify, and distribute this project with attribution.
+
+## Star History
+
+If Timeline Studio is useful to you, starring the repository helps more people discover it.
+
+[![Star History Chart](https://api.star-history.com/svg?repos=MartinDelophy/ai-video-editor&type=Date)](https://star-history.com/#MartinDelophy/ai-video-editor&Date)

@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://video-editor.ai-creator.top/sitemap.xml

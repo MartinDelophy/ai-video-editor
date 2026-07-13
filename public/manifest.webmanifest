@@ -2,7 +2,7 @@
   "id": "/",
   "name": "Timeline Studio",
   "short_name": "Timeline",
-  "description": "A local AI voiceover and automatic caption editor.",
+  "description": "A local-first browser AI video editor for voiceovers, automatic captions, talking avatars, multi-track editing, and MP4 or WebM export.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

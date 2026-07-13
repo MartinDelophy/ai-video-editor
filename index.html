@@ -1,20 +1,76 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Timeline Studio local AI voiceover and automatic caption editor." />
+    <title>Timeline Studio — Free Browser AI Video Editor & Voiceover Generator</title>
+    <meta name="description" content="Create AI voiceovers, automatic captions, talking avatars, and timeline-based videos directly in your browser with Timeline Studio. Local-first editing with MP4 and WebM export." />
+    <meta name="keywords" content="AI video editor, AI voiceover generator, automatic captions, talking avatar, browser video editor, text to speech, timeline editor, local AI, 视频编辑器, AI 配音, 自动字幕, 数字人" />
+    <meta name="application-name" content="Timeline Studio" />
+    <meta name="author" content="Timeline Studio" />
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+    <link rel="canonical" href="https://video-editor.ai-creator.top/" />
     <meta name="theme-color" content="#101720" />
+    <meta name="color-scheme" content="dark" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="Timeline Studio" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="icon" href="/icons/timeline-studio-icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/icons/timeline-studio-apple-touch.png" />
-    <title>Timeline Studio</title>
+    <link rel="preconnect" href="https://huggingface.co" crossorigin />
+    <link rel="dns-prefetch" href="https://cdn-lfs.huggingface.co" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Timeline Studio" />
+    <meta property="og:title" content="Timeline Studio — Browser AI Video Editor" />
+    <meta property="og:description" content="Generate AI voiceovers, captions, talking avatars, and export timeline videos directly in your browser." />
+    <meta property="og:url" content="https://video-editor.ai-creator.top/" />
+    <meta property="og:image" content="https://video-editor.ai-creator.top/icons/timeline-studio-icon-512.png" />
+    <meta property="og:image:width" content="512" />
+    <meta property="og:image:height" content="512" />
+    <meta property="og:image:alt" content="Timeline Studio AI video editor icon" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:locale:alternate" content="zh_CN" />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Timeline Studio — Browser AI Video Editor" />
+    <meta name="twitter:description" content="Local-first AI voiceover, automatic captions, talking avatars, and timeline video export." />
+    <meta name="twitter:image" content="https://video-editor.ai-creator.top/icons/timeline-studio-icon-512.png" />
+    <meta name="twitter:image:alt" content="Timeline Studio AI video editor icon" />
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "Timeline Studio",
+        "url": "https://video-editor.ai-creator.top/",
+        "applicationCategory": "MultimediaApplication",
+        "applicationSubCategory": "VideoEditor",
+        "operatingSystem": "Web browser",
+        "description": "A local-first browser AI video editor for voiceover generation, automatic captions, talking avatars, multi-track timeline editing, and MP4 or WebM export.",
+        "image": "https://video-editor.ai-creator.top/icons/timeline-studio-icon-512.png",
+        "softwareVersion": "1.0",
+        "inLanguage": ["en", "zh-CN", "ja", "ko", "es", "fr", "de", "pt", "th", "vi"],
+        "featureList": [
+          "AI voiceover generation",
+          "Automatic captions",
+          "Talking avatar generation",
+          "Multi-track timeline editing",
+          "Browser-side MP4 and WebM export",
+          "Local-first ONNX inference"
+        ],
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "USD"
+        }
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>
+    <noscript>Timeline Studio requires JavaScript to provide browser-based AI voiceover, caption, talking-avatar, and video editing tools.</noscript>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

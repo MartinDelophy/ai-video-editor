@@ -220,4 +220,4 @@ Released under the [MIT License](LICENSE). You may use, modify, and distribute t
 
 If Timeline Studio is useful to you, starring the repository helps more people discover it.
 
-[![Star History Chart](https://api.star-history.com/svg?repos=MartinDelophy/ai-video-editor&type=Date)](https://star-history.com/#MartinDelophy/ai-video-editor&Date)
+[![Timeline Studio GitHub Star History](docs/star-history.svg)](https://github.com/MartinDelophy/ai-video-editor/stargazers)

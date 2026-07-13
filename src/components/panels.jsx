@@ -1135,7 +1135,7 @@ export function MyVoicesPanel({
   recordingElapsed,
   startVoiceRecording,
   stopVoiceRecording,
-  useRecordedVoice,
+  useRecordedVoice: onUseRecordedVoice,
   downloadBlob,
 }) {
   const favorites = VOICES.filter((voice) => favoriteVoiceIds.includes(voice.id));
@@ -1170,7 +1170,7 @@ export function MyVoicesPanel({
                   {recording.createdAt} · {formatTime(recording.duration)}
                 </span>
               </div>
-              <button type="button" onClick={() => useRecordedVoice(recording)}>
+              <button type="button" onClick={() => onUseRecordedVoice(recording)}>
                 {t("use")}
               </button>
               <button
@@ -1215,7 +1215,7 @@ export function MyVoicesPanel({
   );
 }
 
-export function HistoryPanel({ historyItems, useHistoryItem, setHistoryItems, downloadBlob, t }) {
+export function HistoryPanel({ historyItems, useHistoryItem: onUseHistoryItem, setHistoryItems, downloadBlob, t }) {
   return (
     <div className="history-panel">
       {historyItems.length ? (
@@ -1227,7 +1227,7 @@ export function HistoryPanel({ historyItems, useHistoryItem, setHistoryItems, do
                 {item.createdAt} · {formatTime(item.duration)} · {item.script.slice(0, 18)}
               </span>
             </div>
-            <button type="button" onClick={() => useHistoryItem(item)}>
+            <button type="button" onClick={() => onUseHistoryItem(item)}>
               {t("use")}
             </button>
             <button type="button" onClick={() => downloadBlob(item.blob, `history-${item.voiceName}.wav`)}>

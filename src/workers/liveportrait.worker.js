@@ -3,6 +3,7 @@ import ortWasmMjsUrl from "onnxruntime-web/ort-wasm-simd-threaded.asyncify.mjs?u
 import ortWasmUrl from "onnxruntime-web/ort-wasm-simd-threaded.asyncify.wasm?url";
 
 import { LIVE_PORTRAIT_WEB_MODEL, getLivePortraitModelUrl } from "../config/livePortrait.js";
+import { evaluateLivePortraitFrameQuality } from "../lib/livePortraitQuality.ts";
 
 ort.env.wasm.numThreads = 1;
 ort.env.wasm.simd = true;
@@ -406,13 +407,18 @@ async function generateVideo({
       const reference = previousFramePixels || portraitPixels;
       const referenceDims = previousFrameDims || [1, 3, 256, 256];
       const distance = sampledFrameDistance(pixels, dims, reference, referenceDims);
-      const threshold = previousFramePixels ? 0.22 : 0.34;
       disposeOutputs(generated);
-      if (distance <= threshold) {
+      const frameQuality = evaluateLivePortraitFrameQuality(
+        pixels,
+        distance,
+        Boolean(previousFramePixels),
+      );
+      if (frameQuality.accepted) {
         acceptedPixels = pixels;
         acceptedDims = dims;
         break;
       }
+      console.warn("LivePortrait generated frame rejected", frameQuality);
       postProgress(68 + (outputFrame / frameCount) * 31, "avatarProgressRetryCorruptFrame", { current: outputFrame + 1, total: frameCount, attempt: attempt + 1 });
     }
     postProgress(68 + (outputFrame / frameCount) * 31, "avatarProgressKeyframe", { current: outputFrame + 1, total: frameCount, seconds: (inferenceMs / 1000).toFixed(1) });

@@ -13,8 +13,6 @@ import {
 export { MODEL_ID, AUTOMATIC_CAPTION_MODEL_ID, AUTOMATIC_CAPTION_MODEL_LABEL } from "./models.js";
 
 export const SAMPLE_IMAGE = "/assets/sample-portrait.png";
-export const FFMPEG_CLASS_WORKER_URL = "https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.15/dist/esm/worker.js";
-export const FFMPEG_CORE_BASE_URL = "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/esm";
 export const DEFAULT_TIMELINE_DURATION_SECONDS = 30 * 60;
 export const MAX_TIMELINE_DURATION_SECONDS = 24 * 60 * 60;
 export const IMAGE_SEGMENT_SECONDS = 2;

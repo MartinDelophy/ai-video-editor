@@ -216,8 +216,8 @@ npx netlify-cli deploy --prod --dir=dist
 
 Released under the [MIT License](LICENSE). You may use, modify, and distribute this project with attribution.
 
-## Star History
+## Community
 
-If Timeline Studio is useful to you, starring the repository helps more people discover it.
+The current star count is updated live in the GitHub Stars badge at the top of this README.
 
-[![Timeline Studio GitHub Star History](docs/star-history.svg)](https://github.com/MartinDelophy/ai-video-editor/stargazers)
+[View current stargazers](https://github.com/MartinDelophy/ai-video-editor/stargazers) · [Star Timeline Studio](https://github.com/MartinDelophy/ai-video-editor)

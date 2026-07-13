@@ -1,9 +1,8 @@
-import {
-  AUDIO_RECORDING_FORMATS,
-  EXPORT_RECORDING_FORMATS,
-  FFMPEG_CLASS_WORKER_URL,
-  FFMPEG_CORE_BASE_URL,
-} from "../config/editor.js";
+import ffmpegCoreURL from "@ffmpeg/core?url";
+import ffmpegCoreWasmURL from "@ffmpeg/core/wasm?url";
+import ffmpegClassWorkerURL from "@ffmpeg/ffmpeg/worker?url";
+
+import { AUDIO_RECORDING_FORMATS, EXPORT_RECORDING_FORMATS } from "../config/editor.js";
 import {
   createCaptionSegments,
   getSegmentIndexAtTime,
@@ -979,18 +978,12 @@ export async function exportBrowserVideo({
 async function getFfmpeg() {
   if (!ffmpegLoadPromise) {
     ffmpegLoadPromise = (async () => {
-      const [{ FFmpeg }, { toBlobURL }] = await Promise.all([
-        import("@ffmpeg/ffmpeg"),
-        import("@ffmpeg/util"),
-      ]);
+      const { FFmpeg } = await import("@ffmpeg/ffmpeg");
       const ffmpeg = new FFmpeg();
-      const classWorkerURL = URL.createObjectURL(
-        new Blob([`import "${FFMPEG_CLASS_WORKER_URL}";`], { type: "text/javascript" }),
-      );
       await ffmpeg.load({
-        classWorkerURL,
-        coreURL: await toBlobURL(`${FFMPEG_CORE_BASE_URL}/ffmpeg-core.js`, "text/javascript"),
-        wasmURL: await toBlobURL(`${FFMPEG_CORE_BASE_URL}/ffmpeg-core.wasm`, "application/wasm"),
+        classWorkerURL: ffmpegClassWorkerURL,
+        coreURL: ffmpegCoreURL,
+        wasmURL: ffmpegCoreWasmURL,
       });
       return ffmpeg;
     })();

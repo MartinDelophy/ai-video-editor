@@ -3,6 +3,7 @@ node_modules/
 
 # build output
 dist/
+coverage/
 
 # local QA captures and generated media
 qa/
@@ -11,6 +12,7 @@ AGENTS.md
 
 # local package/cache files
 .npm-cache/
+.cache/
 .npmrc
 .netlify/
 .vite/
@@ -30,7 +32,12 @@ pnpm-debug.log*
 
 # OS/editor noise
 .DS_Store
+**/.DS_Store
 Thumbs.db
+desktop.ini
+*.swp
+*.swo
+*~
 .idea/
 .vscode/
 

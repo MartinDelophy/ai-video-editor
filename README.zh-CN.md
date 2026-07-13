@@ -205,4 +205,4 @@ npx netlify-cli deploy --prod --dir=dist
 
 如果 Timeline Studio 对你有帮助，欢迎点一个 Star，这会帮助更多人发现这个项目。
 
-[![Star History Chart](https://api.star-history.com/svg?repos=MartinDelophy/ai-video-editor&type=Date)](https://star-history.com/#MartinDelophy/ai-video-editor&Date)
+[![Timeline Studio GitHub Star 趋势](docs/star-history.svg)](https://github.com/MartinDelophy/ai-video-editor/stargazers)

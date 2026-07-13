@@ -27,8 +27,6 @@ const HUGGING_FACE_HOSTS = new Set([
   "cdn-lfs-us-1.hf.co",
   "cdn-lfs-eu-1.hf.co",
 ]);
-const CDN_HOSTS = new Set(["cdn.jsdelivr.net"]);
-
 function hasCacheableExtension(pathname) {
   return CACHEABLE_EXTENSIONS.some((extension) => pathname.endsWith(extension));
 }
@@ -47,10 +45,7 @@ function isRuntimeAssetRequest(url) {
       || (url.pathname.startsWith("/assets/") && hasCacheableExtension(url.pathname));
   }
 
-  return CDN_HOSTS.has(url.hostname) && (
-    url.pathname.includes("/@ffmpeg/") ||
-    hasCacheableExtension(url.pathname)
-  );
+  return false;
 }
 
 function shouldCacheRequest(request) {

@@ -14,4 +14,10 @@ export default defineConfig({
     },
   },
   plugins: [react()],
+  test: {
+    coverage: {
+      include: ["src/**/*.{js,jsx,ts,tsx}"],
+      exclude: ["src/**/*.test.*", "src/**/__fixtures__/**"],
+    },
+  },
 });

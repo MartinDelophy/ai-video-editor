@@ -250,6 +250,8 @@ export function ToolPanel(props) {
     generateCaptionsFromSourceAudio,
     isGeneratingCaptions,
     automaticCaptionProgress,
+    separateSourceVocals,
+    vocalSeparationJob,
     hasVisual,
     visualType,
     visionAnalysis,
@@ -393,6 +395,19 @@ export function ToolPanel(props) {
             <strong>{t("aiVoiceEntryTitle")}</strong>
             <em>{t("aiVoiceEntryDesc")}</em>
           </span>
+        </button>
+        <button
+          className="audio-entry-card separation-entry-card"
+          type="button"
+          disabled={!sourceAudioBlob || vocalSeparationJob.running}
+          onClick={separateSourceVocals}
+        >
+          <Waveform size={24} weight="duotone" />
+          <span>
+            <strong>{vocalSeparationJob.running ? t("vocalSeparationRunning") : t("vocalSeparationTitle")}</strong>
+            <em>{sourceAudioBlob ? (vocalSeparationJob.phase || t("vocalSeparationDesc")) : t("vocalSeparationNeedsSource")}</em>
+          </span>
+          {vocalSeparationJob.running ? <span className="inline-progress" aria-hidden="true"><span style={{ width: `${vocalSeparationJob.progress}%` }} /></span> : null}
         </button>
         <button
           className="audio-entry-card caption-entry-card"

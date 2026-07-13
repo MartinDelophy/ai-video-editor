@@ -1,4 +1,4 @@
-const MODEL_CACHE_NAME = "timeline-studio-model-cache-v3";
+const MODEL_CACHE_NAME = "timeline-studio-model-cache-v4";
 const APP_CACHE_NAME = "timeline-studio-app-shell-v3";
 const APP_SHELL_URLS = [
   "/",

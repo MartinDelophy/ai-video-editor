@@ -29,6 +29,30 @@ export function getTimelineVisibleDuration(zoom) {
   );
 }
 
+export function getTimelineZoomForVisibleDuration(visibleDuration) {
+  const target = Math.max(
+    TIMELINE_MIN_VISIBLE_SECONDS,
+    Math.min(DEFAULT_TIMELINE_DURATION_SECONDS, Number(visibleDuration) || TIMELINE_DEFAULT_VISIBLE_SECONDS),
+  );
+  let low = TIMELINE_MIN_ZOOM;
+  let high = TIMELINE_MAX_ZOOM;
+
+  for (let index = 0; index < 32; index += 1) {
+    const middle = (low + high) / 2;
+    if (getTimelineVisibleDuration(middle) > target) low = middle;
+    else high = middle;
+  }
+
+  return clampTimelineZoom((low + high) / 2);
+}
+
+export function getTimelineAutoFitZoom(contentDuration, fillRatio = 0.82) {
+  const safeDuration = Math.max(0.5, Number(contentDuration) || 0.5);
+  const safeFillRatio = Math.max(0.5, Math.min(0.9, Number(fillRatio) || 0.82));
+  const paddedVisibleDuration = Math.max(5, safeDuration / safeFillRatio);
+  return getTimelineZoomForVisibleDuration(paddedVisibleDuration);
+}
+
 export function getTimelineTrackWidthPercent(timelineDuration, zoom) {
   if (timelineDuration <= 0) {
     return 100;

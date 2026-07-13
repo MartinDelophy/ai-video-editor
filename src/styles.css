@@ -2027,6 +2027,16 @@ button:disabled {
   background: #78a3ff;
 }
 
+.separation-entry-card {
+  border-color: rgba(196, 126, 255, 0.3);
+  background: linear-gradient(135deg, rgba(170, 91, 255, 0.14), rgba(103, 181, 255, 0.08)), rgba(255, 255, 255, 0.04);
+}
+
+.separation-entry-card svg {
+  color: #170a20;
+  background: #c47eff;
+}
+
 .inline-progress {
   position: absolute;
   left: 12px;
@@ -3141,6 +3151,15 @@ button:disabled {
   background: rgba(46, 234, 216, 0.07);
 }
 
+.track-labels div.is-track-disabled {
+  color: #75818c;
+  background: rgba(255, 255, 255, 0.018);
+}
+
+.track-labels div.is-track-disabled > button:not(:first-child) {
+  opacity: 0.5;
+}
+
 .track-labels button {
   display: grid;
   place-items: center;
@@ -3303,6 +3322,26 @@ button:disabled {
   text-align: left;
   background: transparent;
   cursor: pointer;
+}
+
+.image-track.is-track-disabled,
+.caption-track.is-track-disabled,
+.sticker-track.is-track-disabled,
+.audio-track.is-track-disabled {
+  background: rgba(8, 12, 16, 0.32);
+}
+
+.is-track-disabled > .image-clip,
+.is-track-disabled > .caption-segment,
+.is-track-disabled > .sticker-segment,
+.is-track-disabled > .audio-clip {
+  opacity: 0.32;
+  filter: grayscale(0.72) saturate(0.45);
+  pointer-events: none;
+}
+
+.is-track-disabled .image-resize-handle {
+  display: none;
 }
 
 .image-track {

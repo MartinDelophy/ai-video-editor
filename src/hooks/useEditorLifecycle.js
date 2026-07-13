@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import { RATIO_OPTIONS } from "../config/editor.js";
 import { decodeWaveform } from "../lib/media.js";
 import { disposeVisionWorker } from "../lib/vision.js";
+import { disposeVocalSeparationWorker } from "../lib/vocalSeparation.js";
 import {
   getNearestRatioIdForSize,
   revokeVisionObjectUrls,
@@ -158,6 +159,7 @@ export function useEditorLifecycle(d) {
     d.visionObjectUrlsRef.current.forEach((urls) => revokeVisionObjectUrls(urls));
     d.visionObjectUrlsRef.current.clear();
     disposeVisionWorker();
+    disposeVocalSeparationWorker();
     d.voiceRecorderStreamRef.current?.getTracks().forEach((track) => track.stop());
     window.clearInterval(d.voiceRecorderTimerRef.current);
   }, []);

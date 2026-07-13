@@ -6,6 +6,7 @@ Language: **English** | [中文](README.zh-CN.md)
 [![GitHub stars](https://img.shields.io/github/stars/MartinDelophy/ai-video-editor?style=flat-square)](https://github.com/MartinDelophy/ai-video-editor/stargazers)
 [![GitHub forks](https://img.shields.io/github/forks/MartinDelophy/ai-video-editor?style=flat-square)](https://github.com/MartinDelophy/ai-video-editor/forks)
 [![MIT License](https://img.shields.io/github/license/MartinDelophy/ai-video-editor?style=flat-square)](LICENSE)
+[![Discord](https://img.shields.io/discord/1526147673290313768?label=Discord&logo=discord&style=flat-square)](https://discord.gg/uq2uvUTBr)
 
 A local-first, browser-based AI video editor with ONNX voiceover generation, Whisper automatic captions, JoyVASA + LivePortrait talking avatars, multi-track timeline editing, and MP4/WebM export. Timeline Studio runs its core AI workflows directly in the browser and is inspired by modern editors such as CapCut.
 
@@ -217,6 +218,10 @@ npx netlify-cli deploy --prod --dir=dist
 Released under the [MIT License](LICENSE). You may use, modify, and distribute this project with attribution.
 
 ## Community
+
+Join the Discord community for questions, feedback, and project updates:
+
+[Join the Timeline Studio Discord](https://discord.gg/uq2uvUTBr)
 
 The current star count is updated live in the GitHub Stars badge at the top of this README.
 

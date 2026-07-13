@@ -1,4 +1,4 @@
-const MODEL_URL = "/models/vocal-remover/model.json";
+const MODEL_URL = "https://huggingface.co/haixin/timeline-studio-vocal-remover/resolve/main/model.json";
 const CHUNK_SIZE = 31744;
 const PADDING = 3072;
 const FFT_SIZE = 6144;

@@ -1,4 +1,4 @@
-# ai-video-editor
+# Timeline Studio — Browser AI Video Editor
 
 Language: **English** | [中文](README.zh-CN.md)
 
@@ -7,7 +7,7 @@ Language: **English** | [中文](README.zh-CN.md)
 [![GitHub forks](https://img.shields.io/github/forks/MartinDelophy/ai-video-editor?style=flat-square)](https://github.com/MartinDelophy/ai-video-editor/forks)
 [![MIT License](https://img.shields.io/github/license/MartinDelophy/ai-video-editor?style=flat-square)](LICENSE)
 
-A browser-first AI video editor for image/video timelines, AI voiceover generation, captions, source audio, background music, and MP4/WebM export. The current prototype is inspired by modern dark timeline editors such as CapCut, but focuses on client-side AI voiceover and lightweight video editing workflows.
+A local-first, browser-based AI video editor with ONNX voiceover generation, Whisper automatic captions, JoyVASA + LivePortrait talking avatars, multi-track timeline editing, and MP4/WebM export. Timeline Studio runs its core AI workflows directly in the browser and is inspired by modern editors such as CapCut.
 
 ## Demo Video
 
@@ -39,8 +39,12 @@ A browser-first AI video editor for image/video timelines, AI voiceover generati
 - Arrange, reorder, split, delete, and resize visual clips on the image/video track.
 - Preview a project even before generating voiceover audio.
 - Generate AI voiceover from typed scripts.
-- Align generated audio, captions, and visual clips on the timeline.
+- Insert every generated voiceover at the current playhead without replacing existing audio.
+- Automatically create additional voiceover and caption lanes when clips overlap, then compact them again when overlaps are removed.
+- Keep generated captions bound to their matching voiceover clip when moving, duplicating, or deleting it.
+- Edit voiceover clip position, volume, fade-in, and fade-out from a dedicated context panel.
 - Edit captions by dragging, hiding, deleting, and changing placement or size.
+- Navigate a dynamic 30-minute default timeline that expands for longer projects and supports frame-level zoom.
 - Upload video and separate its original audio onto a dedicated source-audio track.
 - Add background music on a dedicated music track.
 - Browse generated sticker packs in a 3x3 infinite-loading sticker panel.
@@ -64,6 +68,7 @@ A browser-first AI video editor for image/video timelines, AI voiceover generati
 - Added browser-side automatic caption groundwork using Whisper ONNX workers, plus timeline snapping/alignment improvements for captions, source audio, and generated voiceover.
 - Added lazy-loaded YOLOS tiny and MODNet vision workers with subject overlays, portrait matting, caption avoidance, and preview/export-consistent smart crop geometry.
 - Added an end-to-end browser talking-avatar pipeline: JoyVASA audio-to-motion ONNX, LivePortrait WebGPU rendering, adaptive 1–2fps neural keyframes, safe frame holding at the output frame rate, and automatic visual-track replacement.
+- Added playhead-based multi-voiceover insertion, automatic overlapping audio/caption lanes, linked caption movement, audio clip properties, and a dynamically expanding 30-minute timeline.
 - Moved the 906MB avatar model bundle to the revision-pinned [Timeline Studio ONNX model repository](https://huggingface.co/haixin/timeline-studio-onnx-models/tree/a201b681c8f96672b5c3f624e32d4dc932f150af), keeping large model binaries out of this Git repository.
 
 ## AI Features
@@ -73,7 +78,7 @@ Current AI capabilities are designed to run in the browser as much as possible:
 - Text-to-speech with ONNX/browser engines.
 - Chinese voiceover via Piper/VITS browser ONNX models.
 - English voice options via Kokoro 82M ONNX.
-- Automatic caption generation groundwork with Whisper small q8 ONNX running through a browser worker.
+- Automatic caption generation with Whisper small q8 ONNX running through a browser WASM worker, waveform-aware timestamp snapping, and conservative Chinese homophone cleanup.
 - Lightweight voice preview and generation history restore.
 - Script-to-caption timeline alignment based on generated audio duration.
 - Browser voice recording for manually captured narration.
@@ -206,19 +211,6 @@ npx netlify-cli deploy --prod --dir=dist
 - build command: `npm run build`
 - publish directory: `dist`
 - SPA fallback redirect to `index.html`
-
-## Repository Hygiene
-
-The following are intentionally excluded from git:
-
-- `node_modules/`
-- `dist/`
-- `qa/`
-- local downloads, screenshots, and generated QA media
-- `.netlify/`
-- local npm cache and machine-specific config
-- local Codex/agent notes
-- large avatar ONNX binaries, which are hosted in the revision-pinned Hugging Face model repository
 
 ## License
 

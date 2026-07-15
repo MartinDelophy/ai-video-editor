@@ -1023,6 +1023,8 @@ export function VoiceSynthesisPanel({
   setFavoriteVoiceIds,
   t,
 }) {
+  const voiceLanguages = useMemo(() => [...new Set(VOICES.map((voice) => voice.language))], []);
+
   return (
     <>
       <label className="field-label" htmlFor="script-input">
@@ -1048,13 +1050,17 @@ export function VoiceSynthesisPanel({
           {showVoiceFilter ? (
             <Popover onClose={() => setShowVoiceFilter(false)}>
               <div className="menu-list">
-                {["all", "中文", "English", "piper", "kokoro"].map((filter) => (
+                {["all", ...voiceLanguages].map((filter) => (
                   <button
                     type="button"
                     className={voiceFilter === filter ? "is-selected" : ""}
                     key={filter}
                     onClick={() => {
                       setVoiceFilter(filter);
+                      if (filter !== "all") {
+                        const firstVoiceForLanguage = VOICES.find((voice) => voice.language === filter);
+                        if (firstVoiceForLanguage) setSelectedVoiceId(firstVoiceForLanguage.id);
+                      }
                       setShowVoiceFilter(false);
                     }}
                   >

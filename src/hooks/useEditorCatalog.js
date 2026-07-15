@@ -4,9 +4,7 @@ import { SAMPLE_IMAGE, VOICES } from "../config/editor.js";
 export function useEditorCatalog(voiceFilter) {
   const filteredVoices = useMemo(() => VOICES.filter((voice) => {
     if (voiceFilter === "all") return true;
-    if (voiceFilter === "中文") return voice.language === "中文";
-    if (voiceFilter === "English") return voice.language === "English";
-    return voice.engine === voiceFilter;
+    return voice.language === voiceFilter;
   }), [voiceFilter]);
   const builtInAssets = useMemo(() => [
     { id: "sample", type: "image", src: SAMPLE_IMAGE, name: "sample-portrait.png", meta: "1920 x 1080", width: 1920, height: 1080 },

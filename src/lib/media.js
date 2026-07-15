@@ -642,8 +642,6 @@ function drawPreviewFrame(context, visual, canvas, options) {
     context.fillRect(0, 0, width, height);
   }
 
-  context.fillStyle = "#35f0dd";
-  context.fillRect(110, height - 24, (width - 220) * progress, 6);
 }
 
 export function getSupportedRecordingFormat() {

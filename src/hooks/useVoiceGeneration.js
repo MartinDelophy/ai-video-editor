@@ -20,7 +20,9 @@ export function useVoiceGeneration(d) {
       if (d.selectedVoice.engine === "piper") {
         const tts = await import("@diffusionstudio/vits-web");
         if (await clearPiperCacheIfStorageTight(tts)) d.notify(d.t("ttsNoticePiperCacheCleared"));
-        d.setStatusText(d.t("ttsStatusLoadingChineseModel"));
+        d.setStatusText(d.selectedVoice.language === "中文"
+          ? d.t("ttsStatusLoadingChineseModel")
+          : `Loading ${d.selectedVoice.language} Piper model…`);
         const progress = (event) => { if (event?.total) d.setProgress((current) => Math.max(current, Math.min(88, Math.max(12, Math.round((event.loaded / event.total) * 76))))); };
         const input = { text: prepared.text, voiceId: d.selectedVoice.id };
         try { blob = await predictPiperVoice(tts, input, progress); }

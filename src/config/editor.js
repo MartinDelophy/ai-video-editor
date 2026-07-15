@@ -69,22 +69,22 @@ export const AUDIO_RECORDING_FORMATS = [
 
 export const VOICES = [
   {
-    id: "zh_CN-huayan-medium",
-    name: "华言",
+    id: "zh_CN-xiao_ya-medium",
+    name: "小雅",
     language: "中文",
     detail: "Piper ONNX · 普通话",
-    gender: "温柔女声",
+    gender: "自然女声",
     engine: "piper",
     badge: "推荐",
   },
   {
-    id: "zh_CN-huayan-x_low",
-    name: "轻量华言",
+    id: "zh_CN-chaowen-medium",
+    name: "超文",
     language: "中文",
-    detail: "Piper ONNX · 小模型",
-    gender: "快速预览",
+    detail: "Piper ONNX · 普通话",
+    gender: "自然人声",
     engine: "piper",
-    badge: "轻量",
+    badge: "ONNX",
   },
   {
     id: "af_heart",

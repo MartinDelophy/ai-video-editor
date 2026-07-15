@@ -36,6 +36,7 @@
     "fflate": "^0.8.3",
     "kokoro-js": "^1.2.1",
     "onnxruntime-web": "^1.27.0",
+    "pinyin-pro": "^3.27.0",
     "react": "19.2.0",
     "react-dom": "19.2.0"
   },

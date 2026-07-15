@@ -22,7 +22,7 @@ export function useAudioTrackState() {
   const [sourceAudioPeaks, setSourceAudioPeaks] = useState([]);
   const [sourceAudioVolume, setSourceAudioVolume] = useState(1);
   const [sourceAudioStart, setSourceAudioStart] = useState(0);
-  const [favoriteVoiceIds, setFavoriteVoiceIds] = useState(["zh_CN-huayan-medium"]);
+  const [favoriteVoiceIds, setFavoriteVoiceIds] = useState(["zh_CN-xiao_ya-medium"]);
   const [historyItems, setHistoryItems] = useState([]);
   const [recordedVoices, setRecordedVoices] = useState([]);
   const [recordingState, setRecordingState] = useState("idle");

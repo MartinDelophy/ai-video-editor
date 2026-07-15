@@ -179,7 +179,7 @@ export async function clearPiperCacheIfStorageTight(tts) {
     const usage = estimate.usage ?? 0;
     const quota = estimate.quota ?? 0;
     const remaining = quota > usage ? quota - usage : 0;
-    if (quota > 0 && (usage / quota > 0.9 || remaining < 120 * 1024 * 1024)) {
+    if (quota > 0 && (usage / quota > 0.85 || remaining < 200 * 1024 * 1024)) {
       await tts.flush();
       return true;
     }

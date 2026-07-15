@@ -4,6 +4,10 @@ import react from "@vitejs/plugin-react";
 export default defineConfig({
   test: {
     include: ["src/**/*.test.{js,jsx}"],
+    coverage: {
+      include: ["src/**/*.{js,jsx,ts,tsx}"],
+      exclude: ["src/**/*.test.*", "src/**/__fixtures__/**"],
+    },
   },
   optimizeDeps: {
     include: ["react", "react-dom/client"],
@@ -17,10 +21,4 @@ export default defineConfig({
     },
   },
   plugins: [react()],
-  test: {
-    coverage: {
-      include: ["src/**/*.{js,jsx,ts,tsx}"],
-      exclude: ["src/**/*.test.*", "src/**/__fixtures__/**"],
-    },
-  },
 });

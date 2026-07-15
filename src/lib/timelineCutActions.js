@@ -16,9 +16,12 @@ export function createTimelineCutActions(d) {
     if (!source || !range) return void d.notify("请先选中要剪切的视觉片段");
     const firstDuration = time - range.start; const secondDuration = range.end - time;
     if (firstDuration < MIN_VISUAL_SEGMENT_SECONDS || secondDuration < MIN_VISUAL_SEGMENT_SECONDS) return void d.notify("切点离片段边缘太近，先把播放头移到片段中间");
-    const first = { ...source, id: makeId("visual"), duration: firstDuration };
+    const playbackRate = source.type === "video" ? Math.max(0.25, Math.min(4, Number(source.playbackRate) || 1)) : 1;
+    const first = { ...source, id: makeId("visual"), duration: firstDuration,
+      sourceDuration: source.type === "video" ? firstDuration * playbackRate : source.sourceDuration };
     const second = { ...source, id: makeId("visual"), duration: secondDuration,
-      sourceStart: source.type === "video" ? Math.max(0, Number(source.sourceStart) || 0) + firstDuration : Math.max(0, Number(source.sourceStart) || 0) };
+      sourceDuration: source.type === "video" ? secondDuration * playbackRate : source.sourceDuration,
+      sourceStart: source.type === "video" ? Math.max(0, Number(source.sourceStart) || 0) + firstDuration * playbackRate : Math.max(0, Number(source.sourceStart) || 0) };
     const next = [...segments]; next.splice(index, 1, first, second);
     d.commitVisualSegments(next, "已在播放头位置切开视觉片段", index + 1);
   };

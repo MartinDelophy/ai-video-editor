@@ -10,6 +10,8 @@ import {
   EyeSlash,
   LockKey,
   LockKeyOpen,
+  LinkBreak,
+  LinkSimple,
   MagnifyingGlassMinus,
   MagnifyingGlassPlus,
   MinusCircle,
@@ -23,6 +25,7 @@ import {
 
 import { IMAGE_SEGMENT_SECONDS } from "../config/editor.js";
 import { formatClock, formatTime, getImageThumbnailCount, getSegmentStartTime } from "../lib/timeline.js";
+import { sliceSourceAudioPeaks } from "../lib/sourceAudioSync.js";
 import {
   TIMELINE_MIN_ZOOM,
   clampTimelineZoom,
@@ -169,6 +172,9 @@ export function Timeline({
   selectedSegmentId,
   setSelectedSegmentId,
   captionTargetDuration,
+  sourceAudioLinked,
+  setSourceAudioLinked,
+  linkedSourceAudioSegments,
   sourceAudioBlob,
   sourceAudioPeaks,
   sourceAudioClipPercent,
@@ -544,6 +550,17 @@ export function Timeline({
           >
             <Crop size={17} />
           </IconButton>
+          <IconButton
+            label={t(sourceAudioLinked ? "unlinkSourceAudio" : "linkSourceAudio")}
+            active={sourceAudioLinked}
+            disabled={!sourceAudioBlob}
+            onClick={() => setSourceAudioLinked((linked) => !linked)}
+          >
+            {sourceAudioLinked ? <LinkSimple size={17} weight="bold" /> : <LinkBreak size={17} />}
+          </IconButton>
+          {sourceAudioBlob ? <span className={`timeline-sync-readout ${sourceAudioLinked ? "is-linked" : ""}`}>
+            {t(sourceAudioLinked ? "sourceAudioSynced" : "sourceAudioIndependent")}
+          </span> : null}
         </div>
         <div className="timeline-segment-tools">
           <button className="timeline-play-button" type="button" disabled={!canPreview} onClick={handlePlayToggle}>
@@ -748,14 +765,12 @@ export function Timeline({
                           }
                           setSelectedTrack("image");
                           setSelectedVisualSegmentId(segment.id);
-                          seekTo(segmentRange?.start ?? 0);
                         }}
                         onKeyDown={(event) => {
                           if (event.key === "Enter" || event.key === " ") {
                             event.preventDefault();
                             setSelectedTrack("image");
                             setSelectedVisualSegmentId(segment.id);
-                            seekTo(segmentRange?.start ?? 0);
                           }
                         }}
                       >
@@ -892,7 +907,19 @@ export function Timeline({
                   <div className="track-drop-hint">{t("dropSourceHere")}</div>
                 ) : null}
               {renderAssetDropSlot("source")}
-                {sourceAudioBlob ? (
+              {sourceAudioBlob && sourceAudioLinked && linkedSourceAudioSegments.length ? linkedSourceAudioSegments.map((segment) => (
+                <div
+                  className="audio-clip is-source is-linked"
+                  key={segment.id}
+                  style={{
+                    width: `${timelineDuration > 0 ? Math.max(0.01, Math.min(100, (segment.duration / timelineDuration) * 100)) : 0}%`,
+                    left: `${timelineDuration > 0 ? Math.max(0, Math.min(100, (segment.start / timelineDuration) * 100)) : 0}%`,
+                  }}
+                >
+                  <WaveformStrip peaks={sliceSourceAudioPeaks(sourceAudioPeaks, segment, sourceAudioDuration)} active />
+                  <span className="audio-clip-duration">{formatTime(segment.duration)}</span>
+                </div>
+              )) : sourceAudioBlob ? (
                 <div
                   className="audio-clip is-source"
                   style={{

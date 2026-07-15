@@ -24,10 +24,11 @@ export function useVideoExport(d) {
         }),
         audioBlob: null, voiceAudioSegments: d.trackVisibility.audio ? d.audioSegments : [], voiceVolume: d.volume,
         sourceAudioBlob: d.trackVisibility.source ? d.sourceAudioBlob : null, sourceAudioVolume: d.sourceAudioVolume,
+        sourceAudioSegments: d.sourceAudioLinked ? d.linkedSourceAudioSegments : [],
         sourceAudioStart: d.sourceAudioStart, musicBlob: d.trackVisibility.music ? d.musicBlob : null,
         musicVolume: d.musicVolume, text: d.script, captionSegments: d.captionSegments,
         duration: Math.max(d.trackVisibility.audio ? d.voiceTrackDuration : 0, d.captionDuration,
-          d.trackVisibility.source && d.sourceAudioBlob ? d.sourceAudioStart + d.sourceAudioDuration : 0,
+          d.trackVisibility.source && d.sourceAudioBlob ? d.sourceAudioTimelineEnd : 0,
           d.trackVisibility.music && d.musicBlob ? d.musicDuration : 0,
           d.trackVisibility.sticker ? d.stickerDuration : 0, d.imageDuration, estimateDuration(d.script)),
         ratio: d.ratio, fitMode: d.fitMode, filter: d.selectedFilter.css,
@@ -38,9 +39,15 @@ export function useVideoExport(d) {
           : { width: (360 * d.ratio.width) / d.ratio.height, height: 360 },
         sticker: d.stickerSegments.length ? null : d.selectedSticker,
         stickerSegments: d.trackVisibility.sticker ? d.stickerSegments : [],
-        transitionId: d.selectedTransitionId, onProgress: progress,
+        transitionId: d.selectedTransitionId, exportSettings: d.exportSettings, onProgress: progress,
       });
       const name = `ai-voiceover-${d.ratio.id.replace(":", "x")}`;
+      if (d.exportSettings.codec !== "h264") {
+        progress({ progress: 99, phase: `保存 ${video.label} 文件` });
+        downloadBlob(video.blob, `${name}.${video.extension}`);
+        d.setStatus("done"); d.setStatusText(`${video.label} 已导出`); await finish("导出完成");
+        d.notify(`${video.label} 视频已导出`); return;
+      }
       if (video.nativeMp4) {
         progress({ progress: 98, phase: "保存 MP4 文件" }); downloadBlob(video.blob, `${name}.mp4`);
         d.setStatus("done"); d.setStatusText("MP4 已导出"); await finish("导出完成"); d.notify("已用浏览器原生 MP4 快速导出"); return;

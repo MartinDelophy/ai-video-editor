@@ -34,6 +34,10 @@ export function Topbar({
   imageSrc,
   exporting,
   handleExportVideo,
+  showExportMenu,
+  setShowExportMenu,
+  exportSettings,
+  setExportSettings,
   showSettings,
   setShowSettings,
   activeLanguage,
@@ -146,10 +150,33 @@ export function Topbar({
           {isPlaying ? <Pause size={16} weight="fill" /> : <Play size={16} weight="fill" />}
           {t("preview")}
         </button>
-        <button className="export-button" type="button" disabled={!imageSrc || exporting} onClick={handleExportVideo}>
-          <FileArrowDown size={17} weight="bold" />
-          {exporting ? t("exporting") : t("exportMp4")}
-        </button>
+        <div className="menu-anchor">
+          <button className="export-button" type="button" disabled={exporting} onClick={() => setShowExportMenu((open) => !open)}>
+            <FileArrowDown size={17} weight="bold" />
+            {exporting ? t("exporting") : t("exportVideo")}
+            {!exporting ? <CaretDown size={13} weight="bold" /> : null}
+          </button>
+          {showExportMenu ? (
+            <Popover className="export-settings-popover" onClose={() => setShowExportMenu(false)}>
+              <div className="export-settings-card">
+                <div className="export-settings-heading"><div><strong>{t("videoExport")}</strong><small>{t("videoExportHint")}</small></div><span>{exportSettings.codec === "h264" ? "MP4" : "WebM"}</span></div>
+                <div className="export-setting-field">
+                  <span>{t("exportResolution")}</span>
+                  <select value={exportSettings.resolution} onChange={(event) => setExportSettings((value) => ({ ...value, resolution: event.target.value }))}>
+                    <option value="720">720p · {t("resolutionHd")}</option><option value="1080">1080p · {t("resolutionFullHd")}</option><option value="1440">2K · {t("resolutionQhd")}</option><option value="2160">4K · {t("resolutionUhd")}</option>
+                  </select>
+                </div>
+                <div className="export-setting-grid">
+                  <label className="export-setting-field"><span>{t("exportFrameRate")}</span><select value={exportSettings.frameRate} onChange={(event) => setExportSettings((value) => ({ ...value, frameRate: Number(event.target.value) }))}><option value="24">24 fps</option><option value="30">30 fps</option><option value="60">60 fps</option></select></label>
+                  <label className="export-setting-field"><span>{t("exportCodec")}</span><select value={exportSettings.codec} onChange={(event) => setExportSettings((value) => ({ ...value, codec: event.target.value }))}><option value="h264">H.264 · MP4</option><option value="vp9">VP9 · WebM</option><option value="vp8">VP8 · WebM</option></select></label>
+                </div>
+                <div className="export-setting-field"><span>{t("exportQuality")}</span><div className="export-quality-options">{[["standard", "exportQualityStandard"], ["high", "exportQualityHigh"], ["ultra", "exportQualityUltra"]].map(([id, labelKey]) => <button className={exportSettings.quality === id ? "is-selected" : ""} type="button" key={id} onClick={() => setExportSettings((value) => ({ ...value, quality: id }))}>{t(labelKey)}</button>)}</div></div>
+                <div className="export-settings-note">{t("exportQualityHint")}</div>
+                <button className="export-confirm-button" type="button" disabled={!imageSrc} onClick={() => { setShowExportMenu(false); handleExportVideo(); }}><FileArrowDown size={17} weight="bold" />{imageSrc ? t("startExport") : t("addVisualBeforeExport")}</button>
+              </div>
+            </Popover>
+          ) : null}
+        </div>
         <div className="menu-anchor">
           <IconButton label={t("settings")} active={showSettings} onClick={() => setShowSettings((open) => !open)}>
             <GearSix size={19} />

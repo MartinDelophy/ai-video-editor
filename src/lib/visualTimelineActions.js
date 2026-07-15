@@ -41,6 +41,8 @@ export function createVisualTimelineActions(d) {
       width: d.previewVisualSegment?.width || 0,
       height: d.previewVisualSegment?.height || 0,
       sourceStart: Math.max(0, Number(d.previewVisualSegment?.sourceStart) || 0),
+      sourceDuration: Math.max(0, Number(d.previewVisualSegment?.sourceDuration) || 0),
+      playbackRate: Math.max(0.25, Math.min(4, Number(d.previewVisualSegment?.playbackRate) || 1)),
       trackFrames: d.previewVisualSegment?.trackFrames || [],
     };
   }
@@ -132,10 +134,13 @@ export function createVisualTimelineActions(d) {
           ? {
               ...segment,
               ...updates,
+              sourceDuration: updates.duration && segment.type === "video"
+                ? Math.max(0, Number(updates.duration) || 0)
+                : segment.sourceDuration,
               duration: updates.duration
                 ? Math.max(
                     MIN_VISUAL_SEGMENT_SECONDS,
-                    Math.min(MAX_TIMELINE_DURATION_SECONDS, updates.duration),
+                    Math.min(MAX_TIMELINE_DURATION_SECONDS, updates.duration / Math.max(0.25, Math.min(4, Number(segment.playbackRate) || 1))),
                   )
                 : segment.duration,
             }

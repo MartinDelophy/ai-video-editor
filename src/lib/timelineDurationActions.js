@@ -23,7 +23,11 @@ export function createTimelineDurationActions(d) {
       const max = Math.max(MIN_VISUAL_SEGMENT_SECONDS, MAX_TIMELINE_DURATION_SECONDS - without);
       const duration = Math.min(max, Math.max(MIN_VISUAL_SEGMENT_SECONDS, target.duration + (delta > 0 ? 1 : -1)));
       if (duration === target.duration) return void d.notify(delta > 0 ? "视觉轨道已经达到 30 分钟上限" : "当前视觉片段已到最短时长");
-      const next = source.map((segment, position) => position === index ? { ...segment, duration } : segment);
+      const next = source.map((segment, position) => position === index ? {
+        ...segment,
+        duration,
+        ...(segment.type === "video" ? { sourceDuration: duration * Math.max(0.25, Math.min(4, Number(segment.playbackRate) || 1)) } : {}),
+      } : segment);
       return void d.commitVisualSegments(next, delta > 0 ? "当前视觉片段已加长" : "当前视觉片段已缩短", index);
     }
     if (d.selectedTrack === "music") return void d.notify("背景音乐长度由素材决定，下一版会支持裁剪和淡入淡出");

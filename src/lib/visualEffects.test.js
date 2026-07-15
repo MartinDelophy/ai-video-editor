@@ -1,7 +1,32 @@
 import { describe, expect, it } from "vitest";
-import { getCircleMaskCss, getVisualMaskFeatherPixels, getVisualMaskInsets, getVisualMaskSvgDataUrl, hasVisualPropertyKeyframe, normalizeVisualKeyframes, removeVisualPropertyKeyframe, resolveVisualTransform, upsertVisualKeyframe, upsertVisualPropertyKeyframe } from "./visualEffects.js";
+import { getCircleMaskCss, getVisualMaskFeatherPixels, getVisualMaskInsets, getVisualMaskSvgDataUrl, getVisualSourceTime, hasVisualPropertyKeyframe, normalizeVisualKeyframes, removeVisualPropertyKeyframe, resolveVisualTransform, updateVisualSegmentPlaybackRate, upsertVisualKeyframe, upsertVisualPropertyKeyframe } from "./visualEffects.js";
 
 describe("visual effects", () => {
+  it("maps timeline time to source time using the clip playback rate", () => {
+    expect(getVisualSourceTime({ sourceStart: 1.5, playbackRate: 2 }, 2)).toBe(5.5);
+  });
+
+  it("retimes a video clip and its keyframes when playback speed changes", () => {
+    const segment = updateVisualSegmentPlaybackRate({
+      id: "video-1",
+      type: "video",
+      duration: 10,
+      sourceDuration: 10,
+      playbackRate: 1,
+      keyframes: [{ time: 2, x: 10 }, { time: 8, x: 80 }],
+    }, 2);
+    expect(segment).toMatchObject({ duration: 5, sourceDuration: 10, playbackRate: 2 });
+    expect(segment.keyframes.map((frame) => frame.time)).toEqual([1, 4]);
+  });
+
+  it("preserves the selected source span across repeated speed changes", () => {
+    const faster = updateVisualSegmentPlaybackRate({ type: "video", duration: 10 }, 2);
+    const slower = updateVisualSegmentPlaybackRate(faster, 0.5);
+    expect(faster.sourceDuration).toBe(10);
+    expect(slower.sourceDuration).toBe(10);
+    expect(slower.duration).toBe(20);
+  });
+
   it("interpolates visual keyframes", () => {
     expect(resolveVisualTransform([{ time: 0, x: 0, scale: 1 }, { time: 2, x: 40, scale: 2 }], 1))
       .toMatchObject({ x: 20, scale: 1.5 });

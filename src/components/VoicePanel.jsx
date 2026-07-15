@@ -301,6 +301,7 @@ export function VoicePanel({
   deleteCaptionSegment,
   seekTo,
   sourceAudioBlob,
+  sourceAudioLinked,
   generateCaptionsFromSourceAudio,
   isGeneratingCaptions,
   automaticCaptionProgress,
@@ -382,6 +383,7 @@ export function VoicePanel({
             selectedFilterId={selectedFilterId}
             trOption={trOption}
             onSelectFilter={(id) => { setSelectedFilterId(id); notify(t("effectApplied")); }}
+            sourceAudioLinked={sourceAudioLinked}
           />
         ) : null}
         {isCaptionContext ? (
@@ -477,6 +479,7 @@ export function VoicePanel({
       ))}
       {sourceAudioUrl ? (
         <audio
+          data-track="source-audio"
           ref={sourceAudioRef}
           src={sourceAudioUrl}
         />

@@ -50,6 +50,8 @@ function createSnapshot(d) {
     sourceAudioPeaks: d.sourceAudioPeaks,
     sourceAudioVolume: d.sourceAudioVolume,
     sourceAudioStart: d.sourceAudioStart,
+    sourceAudioAssetId: d.sourceAudioAssetId,
+    sourceAudioLinked: d.sourceAudioLinked,
     trackVisibility: { ...d.trackVisibility },
     trackLocks: { ...d.trackLocks },
     userAssets: cloneItems(d.userAssets),
@@ -109,6 +111,8 @@ export function createEditorSnapshotSignature(snapshot) {
       duration: snapshot.sourceAudioDuration,
       volume: snapshot.sourceAudioVolume,
       start: snapshot.sourceAudioStart,
+      assetId: snapshot.sourceAudioAssetId,
+      linked: snapshot.sourceAudioLinked,
     },
     trackVisibility: snapshot.trackVisibility,
     trackLocks: snapshot.trackLocks,
@@ -180,6 +184,8 @@ function restoreSnapshot(snapshot, d) {
   d.setSourceAudioPeaks(snapshot.sourceAudioPeaks);
   d.setSourceAudioVolume(snapshot.sourceAudioVolume);
   d.setSourceAudioStart(snapshot.sourceAudioStart);
+  d.setSourceAudioAssetId(snapshot.sourceAudioAssetId || "");
+  d.setSourceAudioLinked(snapshot.sourceAudioLinked !== false);
   d.setTrackVisibility({ ...snapshot.trackVisibility });
   d.setTrackLocks({ ...snapshot.trackLocks });
   d.setUserAssets(userAssets);

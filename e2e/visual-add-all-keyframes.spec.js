@@ -20,9 +20,14 @@ test("Add all keyframes animates a real uploaded visual clip", async ({ page }) 
   await expect(page.locator("video.preview-video")).toBeVisible();
   await expect(page.getByText("/ 00:10.02", { exact: false })).toBeVisible();
   await expect(page.locator(".audio-clip.is-source")).toBeVisible({ timeout: 30_000 });
+  const sourceAudio = page.locator('audio[data-track="source-audio"]');
+  const unlinkSourceAudio = page.getByRole("button", { name: "解除画面与视频原声同步", exact: true });
+  await expect(unlinkSourceAudio).toBeEnabled();
+  const scrubber = page.locator(".preview-stage .scrubber");
+  await scrubber.fill("2.5");
   await page.locator(".image-clip").click();
   await expect(page.getByRole("heading", { name: "画面", exact: true })).toBeVisible();
-  const scrubber = page.locator(".preview-stage .scrubber");
+  await expect(scrubber).toHaveValue("2.5");
   await scrubber.fill("1");
 
   const fields = {
@@ -74,4 +79,34 @@ test("Add all keyframes animates a real uploaded visual clip", async ({ page }) 
   expect(mediaStyle).toContain("translate(");
   expect(mediaStyle).toContain("scale(");
   expect(mediaStyle).toContain("rotate(");
+
+  await page.getByRole("tab", { name: "变速", exact: true }).click();
+  await page.getByRole("button", { name: "2×", exact: true }).click();
+  await expect(page.getByText("素材时长").locator("..")).toContainText("10.02s");
+  await expect(page.getByText("时间轴时长").locator("..")).toContainText("5.01s");
+  await expect(page.locator(".image-clip")).toContainText("00:05");
+  await expect(page.locator(".audio-clip.is-source.is-linked")).toBeVisible();
+  await expect(page.locator(".audio-clip.is-source.is-linked")).toContainText("00:04");
+
+  await scrubber.fill("2");
+  await expect.poll(async () => page.locator("video.preview-video").evaluate((video) => video.currentTime))
+    .toBeGreaterThan(3.8);
+  await expect.poll(async () => page.locator("video.preview-video").evaluate((video) => video.currentTime))
+    .toBeLessThan(4.2);
+  await expect(page.locator("video.preview-video")).toHaveJSProperty("playbackRate", 2);
+  await expect.poll(async () => sourceAudio.evaluate((audio) => audio.currentTime)).toBeGreaterThan(3.8);
+  await expect.poll(async () => sourceAudio.evaluate((audio) => audio.currentTime)).toBeLessThan(4.2);
+  await expect(sourceAudio).toHaveJSProperty("playbackRate", 2);
+
+  await unlinkSourceAudio.click();
+  await expect(page.getByRole("button", { name: "同步画面与视频原声", exact: true })).toBeVisible();
+  await expect(page.locator(".audio-clip.is-source:not(.is-linked)")).toContainText("00:09.98");
+  await scrubber.fill("2.5");
+  await expect.poll(async () => sourceAudio.evaluate((audio) => audio.currentTime)).toBeGreaterThan(2.3);
+  await expect.poll(async () => sourceAudio.evaluate((audio) => audio.currentTime)).toBeLessThan(2.7);
+  await expect(sourceAudio).toHaveJSProperty("playbackRate", 1);
+  await expect.poll(async () => page.locator("video.preview-video").evaluate((video) => video.currentTime))
+    .toBeGreaterThan(4.8);
+  await expect.poll(async () => page.locator("video.preview-video").evaluate((video) => video.currentTime))
+    .toBeLessThan(5.2);
 });

@@ -77,6 +77,7 @@ export function EditorSidebar({ model: d }) {
             sourceAudioName={d.sourceAudioName}
             sourceAudioDuration={d.sourceAudioDuration}
             sourceAudioVolume={d.sourceAudioVolume}
+            sourceAudioLinked={d.sourceAudioLinked}
             setSourceAudioVolume={d.setSourceAudioVolume}
             clearSourceAudioTrack={d.clearSourceAudioTrack}
             generateCaptionsFromSourceAudio={d.generateCaptionsFromSourceAudio}

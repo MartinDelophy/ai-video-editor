@@ -20,6 +20,7 @@ import {
   getVisualSegmentTimeline,
 } from "../lib/timeline.js";
 import { getVisionKey } from "../lib/vision.js";
+import { getVisualSourceTime } from "../lib/visualEffects.js";
 
 export function useTimelineModel(d) {
   const selectedVoice = useMemo(
@@ -79,7 +80,7 @@ export function useTimelineModel(d) {
   const estimatedDuration = useMemo(() => Math.max(
     voiceTrackDuration,
     captionDuration,
-    d.sourceAudioBlob ? d.sourceAudioStart + d.sourceAudioDuration : 0,
+    d.sourceAudioBlob ? (d.sourceAudioTimelineEnd ?? d.sourceAudioStart + d.sourceAudioDuration) : 0,
     d.musicBlob ? d.musicDuration : 0,
     stickerDuration,
     estimateDuration(d.script),
@@ -87,7 +88,7 @@ export function useTimelineModel(d) {
   ), [
     voiceTrackDuration, captionDuration, d.imageDuration, d.imageSrc, d.musicBlob,
     d.musicDuration, d.script, d.sourceAudioBlob, d.sourceAudioDuration,
-    d.sourceAudioStart, stickerDuration,
+    d.sourceAudioStart, d.sourceAudioTimelineEnd, stickerDuration,
   ]);
   const timelineDuration = useMemo(() => Math.min(
     MAX_TIMELINE_DURATION_SECONDS,
@@ -163,7 +164,7 @@ export function useTimelineModel(d) {
     ? Math.max(0, d.currentTime - previewVisualRange.start)
     : d.currentTime;
   const previewVisualSourceTime = previewVisualType === "video"
-    ? Math.max(0, Number(previewVisualSegment?.sourceStart) || 0) + previewVisualLocalTime
+    ? getVisualSourceTime(previewVisualSegment, previewVisualLocalTime)
     : previewVisualLocalTime;
   const previewVisionKey = getVisionKey(previewVisualSegment ?? (previewVisualSrc ? {
     id: "visual-fallback",

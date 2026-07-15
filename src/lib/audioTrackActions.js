@@ -70,6 +70,7 @@ export function createAudioTrackActions(d) {
     nextName,
     message = "视频原声已分离到时间线",
     timelineStart = 0,
+    assetId = d.sourceAudioAssetId,
   ) {
     if (d.sourceAudioUrlRef.current) URL.revokeObjectURL(d.sourceAudioUrlRef.current);
     const nextUrl = URL.createObjectURL(blob);
@@ -82,6 +83,8 @@ export function createAudioTrackActions(d) {
     d.setSourceAudioPeaks(nextPeaks);
     d.setSourceAudioVolume(1);
     d.setSourceAudioStart(nextStart);
+    d.setSourceAudioAssetId(assetId || "");
+    d.setSourceAudioLinked(true);
     d.setSelectedTrack("source");
     d.setActiveTool("audio");
     d.setStatus("done");
@@ -102,6 +105,8 @@ export function createAudioTrackActions(d) {
     d.setSourceAudioDuration(0);
     d.setSourceAudioPeaks([]);
     d.setSourceAudioStart(0);
+    d.setSourceAudioAssetId("");
+    d.setSourceAudioLinked(true);
     d.setCurrentTime((time) => Math.min(time, Math.max(
       d.audioBlob ? d.audioDuration : 0,
       d.captionDuration,

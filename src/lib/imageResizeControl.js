@@ -40,7 +40,11 @@ export function createImageResizeControl(d) {
       const target = snap?.time ?? clamped;
       const maxDuration = Math.max(MIN_VISUAL_SEGMENT_SECONDS, MAX_TIMELINE_DURATION_SECONDS - before - after);
       const resized = Math.min(maxDuration, Math.max(MIN_VISUAL_SEGMENT_SECONDS, target - before));
-      const next = segments.map((segment, position) => position === index ? { ...segment, duration: resized } : segment);
+      const next = segments.map((segment, position) => position === index ? {
+        ...segment,
+        duration: resized,
+        ...(segment.type === "video" ? { sourceDuration: resized * Math.max(0.25, Math.min(4, Number(segment.playbackRate) || 1)) } : {}),
+      } : segment);
       const visualDuration = getVisualSegmentsTotal(next);
       const projectDuration = Math.max(d.audioBlob ? d.audioDuration : 0, d.captionDuration,
         d.sourceAudioBlob ? d.sourceAudioStart + d.sourceAudioDuration : 0,

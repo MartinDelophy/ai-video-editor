@@ -18,6 +18,7 @@ export function useProjectFiles(deps) {
       musicName: deps.musicName, musicDuration: deps.musicDuration, musicVolume: deps.musicVolume,
       sourceAudioName: deps.sourceAudioName, sourceAudioDuration: deps.sourceAudioDuration,
       sourceAudioStart: deps.sourceAudioStart, sourceAudioVolume: deps.sourceAudioVolume,
+      sourceAudioAssetId: deps.sourceAudioAssetId, sourceAudioLinked: deps.sourceAudioLinked,
     };
   }, [deps]);
 
@@ -76,9 +77,10 @@ export function useProjectFiles(deps) {
       deps.setVisualSegments(visuals); deps.setImageDuration(getVisualSegmentsTotal(visuals));
       deps.setImageClipCount(getImageThumbnailCount(getVisualSegmentsTotal(visuals))); deps.setCurrentVisualAsset(visuals[0] || null);
       if (audio) { const decoded = await decodeWaveform(audio); deps.replaceAudio(audio, Number(data.audioDuration) || decoded.duration, decoded.peaks, "已恢复工程配音"); } else deps.clearAudioTrack("");
-      if (sourceAudio) { const decoded = await decodeWaveform(sourceAudio); deps.replaceSourceAudio(sourceAudio, Number(data.sourceAudioDuration) || decoded.duration, decoded.peaks, data.sourceAudioName || "source-audio", "", Number(data.sourceAudioStart) || 0); } else deps.clearSourceAudioTrack("");
+      if (sourceAudio) { const decoded = await decodeWaveform(sourceAudio); deps.replaceSourceAudio(sourceAudio, Number(data.sourceAudioDuration) || decoded.duration, decoded.peaks, data.sourceAudioName || "source-audio", "", Number(data.sourceAudioStart) || 0, data.sourceAudioAssetId || ""); } else deps.clearSourceAudioTrack("");
       if (music) { const decoded = await decodeWaveform(music); deps.replaceMusic(music, Number(data.musicDuration) || decoded.duration, decoded.peaks, data.musicName || "background-music", ""); } else deps.clearMusicTrack("");
       deps.setMusicVolume(Number(data.musicVolume) || 0.35); deps.setSourceAudioVolume(Number(data.sourceAudioVolume) || 1);
+      deps.setSourceAudioAssetId(data.sourceAudioAssetId || ""); deps.setSourceAudioLinked(data.sourceAudioLinked !== false);
       deps.setCurrentTime(0); deps.clearAllVisionState(); deps.setShowFileMenu(false);
       deps.notify(archive.legacy ? "旧版工程已导入；请重新添加未嵌入的本地媒体，然后导出为 .timeline 工程包" : "工程包已导入，媒体素材已恢复");
     } catch (error) { deps.notify(`无法读取工程文件${error instanceof Error && error.message ? `：${error.message}` : ""}`); }

@@ -1,5 +1,6 @@
 import { useCallback } from "react";
 import { MODEL_ID } from "../config/editor.js";
+import { predictPiperVoice } from "../lib/piperVoiceRuntime.js";
 import { clearPiperCacheIfStorageTight, isPiperSymbolError, isStorageQuotaError, prepareTextForVoice, TtsInputError } from "../lib/ttsText.js";
 
 export function useVoiceGeneration(d) {
@@ -22,10 +23,10 @@ export function useVoiceGeneration(d) {
         d.setStatusText(d.t("ttsStatusLoadingChineseModel"));
         const progress = (event) => { if (event?.total) d.setProgress((current) => Math.max(current, Math.min(88, Math.max(12, Math.round((event.loaded / event.total) * 76))))); };
         const input = { text: prepared.text, voiceId: d.selectedVoice.id };
-        try { blob = await tts.predict(input, progress); }
+        try { blob = await predictPiperVoice(tts, input, progress); }
         catch (error) {
           if (!isStorageQuotaError(error)) throw error;
-          d.setStatusText(d.t("ttsStatusClearingCache")); await tts.flush?.(); blob = await tts.predict(input, progress);
+          d.setStatusText(d.t("ttsStatusClearingCache")); await tts.flush?.(); blob = await predictPiperVoice(tts, input, progress);
         }
       } else {
         const { KokoroTTS } = await import("kokoro-js"); d.setStatusText(d.t("ttsStatusLoadingKokoro"));

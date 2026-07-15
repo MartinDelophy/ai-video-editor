@@ -22,6 +22,8 @@ export function useAudioTrackState() {
   const [sourceAudioPeaks, setSourceAudioPeaks] = useState([]);
   const [sourceAudioVolume, setSourceAudioVolume] = useState(1);
   const [sourceAudioStart, setSourceAudioStart] = useState(0);
+  const [sourceAudioAssetId, setSourceAudioAssetId] = useState("");
+  const [sourceAudioLinked, setSourceAudioLinked] = useState(true);
   const [favoriteVoiceIds, setFavoriteVoiceIds] = useState(["zh_CN-xiao_ya-medium"]);
   const [historyItems, setHistoryItems] = useState([]);
   const [recordedVoices, setRecordedVoices] = useState([]);
@@ -35,9 +37,9 @@ export function useAudioTrackState() {
     setHistoryItems, setMusicBlob, setMusicDuration, setMusicName, setMusicPeaks,
     setMusicUrl, setMusicVolume, setRecordedVoices, setRecordingElapsed,
     setRecordingState, setSelectedAudioSegmentId, setSelectedVoiceId, setSourceAudioBlob,
-    setSourceAudioDuration, setSourceAudioName, setSourceAudioPeaks, setSourceAudioStart,
+    setSourceAudioAssetId, setSourceAudioDuration, setSourceAudioLinked, setSourceAudioName, setSourceAudioPeaks, setSourceAudioStart,
     setSourceAudioUrl, setSourceAudioVolume, setSpeed, setTimelineHorizon, setVolume,
-    sourceAudioBlob, sourceAudioDuration, sourceAudioName, sourceAudioPeaks,
+    sourceAudioAssetId, sourceAudioBlob, sourceAudioDuration, sourceAudioLinked, sourceAudioName, sourceAudioPeaks,
     sourceAudioStart, sourceAudioUrl, sourceAudioVolume, speed, timelineHorizon, volume,
   };
 }

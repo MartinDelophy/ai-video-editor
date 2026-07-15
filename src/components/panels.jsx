@@ -247,6 +247,7 @@ export function ToolPanel(props) {
     sourceAudioName,
     sourceAudioDuration,
     sourceAudioVolume,
+    sourceAudioLinked,
     setSourceAudioVolume,
     clearSourceAudioTrack,
     generateCaptionsFromSourceAudio,
@@ -532,6 +533,7 @@ export function ToolPanel(props) {
         options={TRANSITIONS}
         selectedId={selectedTransitionId}
         trOption={trOption}
+        sourceAudioLinked={sourceAudioLinked}
         onSelect={(id) => {
           setSelectedTransitionId(id);
           notify(t("transitionApplied"));
@@ -587,17 +589,29 @@ export function ToolPanel(props) {
   );
 }
 
-export function VisualEffectsPanel({ t, segment, localTime, onChange, onSeek, selectedFilterId, trOption, onSelectFilter, contextMode = false }) {
+export function VisualEffectsPanel({ t, segment, localTime, onChange, onSeek, selectedFilterId, trOption, onSelectFilter, contextMode = false, sourceAudioLinked = false }) {
+  const [activeTab, setActiveTab] = useState("transform");
   const keyframes = normalizeVisualKeyframes(segment?.keyframes ?? []);
   const transform = resolveVisualTransform(keyframes, localTime);
   const mask = segment?.mask ?? { type: "none", feather: 0, inverted: false };
   const hasMask = mask.type && mask.type !== "none";
   const isCircleMask = mask.type === "circle";
+  const isVideo = segment?.type === "video";
+  const playbackRate = Math.max(0.25, Math.min(4, Number(segment?.playbackRate) || 1));
+  const sourceDuration = Math.max(0, Number(segment?.sourceDuration) || (Number(segment?.duration) || 0) * playbackRate);
   const updateTransform = (key, value) => onChange?.({ propertyKeyframe: { time: localTime, key, value } });
+  const tabs = [
+    ["transform", t("visualTabTransform")],
+    ["mask", t("visualTabMask")],
+    ["speed", t("visualTabSpeed")],
+    ["effects", t("visualTabEffects")],
+  ];
   return (
     <div className={`tool-panel visual-effects-panel ${contextMode ? "is-context-mode" : ""}`}>
       {!contextMode ? <h2>{t("imageTrack")}</h2> : null}
       {!segment ? <div className="empty-state">{t("visualSelectClip")}</div> : <>
+        <div className="visual-context-tabs" role="tablist" aria-label={t("imageTrack")}>{tabs.map(([id, label]) => <button type="button" role="tab" aria-selected={activeTab === id} className={activeTab === id ? "is-active" : ""} key={id} onClick={() => setActiveTab(id)}>{label}</button>)}</div>
+        {activeTab === "transform" ?
         <section className="visual-editor-card">
           <div className="visual-editor-heading"><span><Diamond size={16} weight="fill" />{t("visualKeyframes")}</span><em>{localTime.toFixed(2)}s · {keyframes.length} {t("visualFrames")}</em></div>
           <button className="panel-secondary visual-add-all-keyframes" type="button" onClick={() => onChange?.({ keyframe: { time: localTime, ...transform } })}><Diamond size={14} weight="fill" />{t("visualAddAllKeyframes")}</button>
@@ -608,7 +622,8 @@ export function VisualEffectsPanel({ t, segment, localTime, onChange, onSeek, se
             return <div className="slider-field compact-slider visual-keyframe-property" key={key}><div><label>{label}</label><span className="visual-property-value"><label className="visual-number-field"><input aria-label={`${label} · ${t("visualKeyframes")}`} type="number" min={min * displayScale} max={max * displayScale} step={step * displayScale} value={displayValue} onChange={(event) => updateTransform(key, Number(event.target.value) / displayScale)} /><i>{key === 'rotation' ? '°' : '%'}</i></label><button className={keyed ? "is-active" : ""} type="button" aria-label={`${keyed ? t("visualRemovePropertyKeyframe") : t("visualAddPropertyKeyframe")} · ${label}`} onClick={() => keyed ? onChange?.({ removePropertyKeyframe: { time: localTime, key } }) : onChange?.({ propertyKeyframe: { time: localTime, key, value: transform[key] } })}><Diamond size={13} weight={keyed ? "fill" : "regular"} /></button></span></div><input aria-label={`${label} · slider`} type="range" min={min} max={max} step={step} value={transform[key]} onChange={(event) => updateTransform(key, Number(event.target.value))} /></div>;
           })}
           <button className="panel-secondary" type="button" onClick={() => onChange?.({ removeKeyframeAt: localTime })}>{t("visualDeleteKeyframe")}</button>
-        </section>
+        </section> : null}
+        {activeTab === "mask" ?
         <section className="visual-editor-card">
           <div className="visual-editor-heading"><strong>{t("visualMask")}</strong><em>{t("visualClipScoped")}</em></div>
           <div className="mask-choice-grid">{[['none',t('visualMaskNone')],['rectangle',t('visualMaskRectangle')],['rounded',t('visualMaskRounded')],['circle',t('visualMaskCircle')]].map(([id,label]) => <button type="button" key={id} className={mask.type === id ? 'is-active' : ''} onClick={() => onChange?.({ mask: { ...mask, type: id, ...(id === 'circle' && !Number.isFinite(mask.size) ? { size: 72 } : {}), ...(id === 'rounded' && !Number.isFinite(mask.cornerRadius) ? { cornerRadius: 12 } : {}) } })}>{label}</button>)}</div>
@@ -619,9 +634,18 @@ export function VisualEffectsPanel({ t, segment, localTime, onChange, onSeek, se
             {mask.type === "rounded" ? <div className="slider-field compact-slider"><div><label>{t("visualCornerRadius")}</label><span>{Number.isFinite(mask.cornerRadius) ? Math.round(mask.cornerRadius) : 12}%</span></div><input type="range" min="0" max="50" value={Number.isFinite(mask.cornerRadius) ? mask.cornerRadius : 12} onChange={(event) => onChange?.({ mask: { ...mask, cornerRadius: Number(event.target.value) } })} /></div> : null}
             <label className="switch-row"><input type="checkbox" checked={Boolean(mask.inverted)} onChange={(event) => onChange?.({ mask: { ...mask, inverted: event.target.checked } })} />{t("visualInvertMask")}</label>
           </> : <p className="mask-empty-hint">{t("visualMaskNoneHint")}</p>}
-        </section>
+        </section> : null}
+        {activeTab === "speed" ? <section className="visual-editor-card visual-speed-card">
+          <div className="visual-editor-heading"><strong>{t("visualSpeed")}</strong><em>{t("visualClipScoped")}</em></div>
+          {isVideo ? <>
+            <div className="visual-speed-presets" aria-label={t("visualSpeed")}>{[0.25, 0.5, 1, 1.5, 2, 3, 4].map((rate) => <button type="button" className={Math.abs(playbackRate - rate) < 0.001 ? "is-active" : ""} key={rate} onClick={() => onChange?.({ playbackRate: rate })}>{rate}×</button>)}</div>
+            <div className="slider-field compact-slider"><div><label>{t("visualSpeed")}</label><strong>{playbackRate.toFixed(playbackRate % 1 ? 2 : 0)}×</strong></div><input aria-label={t("visualSpeed")} type="range" min="0.25" max="4" step="0.05" value={playbackRate} onChange={(event) => onChange?.({ playbackRate: Number(event.target.value) })} /></div>
+            <div className="visual-speed-summary"><span><em>{t("visualSourceDuration")}</em><strong>{sourceDuration.toFixed(2)}s</strong></span><span><em>{t("visualTimelineDuration")}</em><strong>{Number(segment.duration).toFixed(2)}s</strong></span></div>
+            <p className="visual-speed-hint">{sourceAudioLinked ? t("sourceAudioSynced") : t("visualSpeedVisualOnlyHint")}</p>
+          </> : <div className="empty-state visual-speed-empty">{t("visualSpeedImageHint")}</div>}
+        </section> : null}
+        {activeTab === "effects" ? <VisualChoicePanel title={t("visualEffects")} kind="effect" options={EFFECT_OPTIONS} selectedId={selectedFilterId} trOption={trOption} onSelect={onSelectFilter} /> : null}
       </>}
-      <VisualChoicePanel title={t("visualEffects")} kind="effect" options={EFFECT_OPTIONS} selectedId={selectedFilterId} trOption={trOption} onSelect={onSelectFilter} />
     </div>
   );
 }

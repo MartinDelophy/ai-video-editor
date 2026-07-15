@@ -17,7 +17,13 @@ import {
 } from "./captionLayout.js";
 import { resolveVisionAnalysisAtTime } from "./vision.js";
 import { getCaptionAvoidancePlacement, getSmartCropRect } from "./visualGeometry.js";
-import { getVisualMaskFeatherPixels, getVisualMaskGeometry, resolveVisualTransform } from "./visualEffects.js";
+import {
+  getVisualMaskFeatherPixels,
+  getVisualMaskGeometry,
+  getVisualSourceTime,
+  normalizeVisualPlaybackRate,
+  resolveVisualTransform,
+} from "./visualEffects.js";
 
 export function getAudioRecordingFormat() {
   if (typeof MediaRecorder === "undefined") {
@@ -660,15 +666,26 @@ export function getSupportedRecordingFormat() {
   };
 }
 
-function createVideoRecorder(outputStream) {
-  for (const format of EXPORT_RECORDING_FORMATS) {
+function createVideoRecorder(outputStream, { codec = "h264", videoBitsPerSecond = 12_000_000 } = {}) {
+  const codecMatch = (format) => {
+    const mime = format.mimeType.toLowerCase();
+    if (codec === "vp9") return mime.includes("vp9");
+    if (codec === "vp8") return mime.includes("vp8");
+    return format.extension === "mp4";
+  };
+  const orderedFormats = [
+    ...EXPORT_RECORDING_FORMATS.filter(codecMatch),
+    ...EXPORT_RECORDING_FORMATS.filter((format) => !codecMatch(format)),
+  ];
+
+  for (const format of orderedFormats) {
     if (!MediaRecorder.isTypeSupported(format.mimeType)) {
       continue;
     }
 
     try {
       return {
-        recorder: new MediaRecorder(outputStream, { mimeType: format.mimeType }),
+        recorder: new MediaRecorder(outputStream, { mimeType: format.mimeType, videoBitsPerSecond }),
         format,
       };
     } catch (error) {
@@ -677,7 +694,7 @@ function createVideoRecorder(outputStream) {
   }
 
   return {
-    recorder: new MediaRecorder(outputStream),
+    recorder: new MediaRecorder(outputStream, { videoBitsPerSecond }),
     format: {
       mimeType: "",
       extension: "webm",
@@ -696,6 +713,7 @@ export async function exportBrowserVideo({
   sourceAudioBlob,
   sourceAudioVolume = 1,
   sourceAudioStart = 0,
+  sourceAudioSegments = [],
   musicBlob,
   musicVolume = 0.35,
   text,
@@ -713,6 +731,7 @@ export async function exportBrowserVideo({
   sticker,
   stickerSegments = [],
   transitionId,
+  exportSettings = {},
   onProgress,
 }) {
   if (!window.MediaRecorder) {
@@ -785,10 +804,11 @@ export async function exportBrowserVideo({
   const stickerImageMap = new Map(stickerImageEntries.filter(([, image]) => image));
   onProgress?.({ progress: 8, phase: "准备画布与轨道" });
   const canvas = document.createElement("canvas");
-  canvas.width = ratio.width;
-  canvas.height = ratio.height;
+  canvas.width = Math.max(2, Math.round(Number(exportSettings.width) || ratio.width));
+  canvas.height = Math.max(2, Math.round(Number(exportSettings.height) || ratio.height));
   const context = canvas.getContext("2d");
-  const canvasStream = canvas.captureStream(30);
+  const exportFrameRate = Math.max(24, Math.min(60, Number(exportSettings.frameRate) || 30));
+  const canvasStream = canvas.captureStream(exportFrameRate);
 
   const AudioContextClass = window.AudioContext || window.webkitAudioContext;
   let audioContext = null;
@@ -807,9 +827,20 @@ export async function exportBrowserVideo({
     audioBlob && !voiceAudioSegments.length
       ? { blob: audioBlob, volume: voiceVolume, role: "voice", start: 0, fadeIn: 0, fadeOut: 0 }
       : null,
-    sourceAudioBlob
-      ? { blob: sourceAudioBlob, volume: sourceAudioVolume, role: "source", start: Math.max(0, sourceAudioStart || 0) }
-      : null,
+    ...(sourceAudioBlob && sourceAudioSegments.length
+      ? sourceAudioSegments.map((segment) => ({
+          blob: sourceAudioBlob,
+          volume: sourceAudioVolume,
+          role: "source",
+          start: Math.max(0, segment.start || 0),
+          sourceOffset: Math.max(0, segment.sourceStart || 0),
+          sourceDuration: Math.max(0, segment.sourceDuration || 0),
+          playbackRate: normalizeVisualPlaybackRate(segment.playbackRate),
+          outputDuration: Math.max(0, segment.duration || 0),
+        }))
+      : sourceAudioBlob
+        ? [{ blob: sourceAudioBlob, volume: sourceAudioVolume, role: "source", start: Math.max(0, sourceAudioStart || 0) }]
+        : []),
     musicBlob ? { blob: musicBlob, volume: musicVolume, role: "music", start: 0 } : null,
   ].filter(Boolean);
 
@@ -821,11 +852,28 @@ export async function exportBrowserVideo({
     onProgress?.({ progress: 12, phase: "解码并混合音频轨" });
     audioContext = new AudioContextClass();
     destination = audioContext.createMediaStreamDestination();
+    const decodedByBlob = new Map();
     const decodedInputs = await Promise.all(
       audioInputs.map(async (input) => {
-        const audioBuffer = await input.blob.arrayBuffer();
-        const decoded = await audioContext.decodeAudioData(audioBuffer.slice(0));
-        return { ...input, decoded };
+        if (!decodedByBlob.has(input.blob)) {
+          decodedByBlob.set(input.blob, input.blob.arrayBuffer()
+            .then((audioBuffer) => audioContext.decodeAudioData(audioBuffer.slice(0))));
+        }
+        const decoded = await decodedByBlob.get(input.blob);
+        const playbackRate = normalizeVisualPlaybackRate(input.playbackRate);
+        const sourceOffset = Math.min(decoded.duration, Math.max(0, Number(input.sourceOffset) || 0));
+        const sourceDuration = Math.max(0, Math.min(
+          Number(input.sourceDuration) || decoded.duration - sourceOffset,
+          decoded.duration - sourceOffset,
+        ));
+        return {
+          ...input,
+          decoded,
+          playbackRate,
+          sourceOffset,
+          sourceDuration,
+          outputDuration: Number(input.outputDuration) || sourceDuration / playbackRate,
+        };
       }),
     );
 
@@ -835,21 +883,25 @@ export async function exportBrowserVideo({
       const source = audioContext.createBufferSource();
       const gain = audioContext.createGain();
       source.buffer = input.decoded;
+      source.playbackRate.value = input.playbackRate;
       gain.gain.value = input.volume;
       if (input.fadeIn > 0) {
         gain.gain.setValueAtTime(0, audioContext.currentTime + input.start);
         gain.gain.linearRampToValueAtTime(input.volume, audioContext.currentTime + input.start + input.fadeIn);
       }
       if (input.fadeOut > 0) {
-        const fadeStart = audioContext.currentTime + input.start + Math.max(0, input.decoded.duration - input.fadeOut);
+        const fadeStart = audioContext.currentTime + input.start + Math.max(0, input.outputDuration - input.fadeOut);
         gain.gain.setValueAtTime(input.volume, fadeStart);
-        gain.gain.linearRampToValueAtTime(0, audioContext.currentTime + input.start + input.decoded.duration);
+        gain.gain.linearRampToValueAtTime(0, audioContext.currentTime + input.start + input.outputDuration);
       }
       source.connect(gain);
       gain.connect(destination);
       sources.push({
         node: source,
         start: input.start,
+        sourceOffset: input.sourceOffset,
+        sourceDuration: input.sourceDuration,
+        outputDuration: input.outputDuration,
       });
     });
   }
@@ -858,14 +910,17 @@ export async function exportBrowserVideo({
     ...canvasStream.getVideoTracks(),
     ...(destination ? destination.stream.getAudioTracks() : []),
   ]);
-  const { recorder, format: recordingFormat } = createVideoRecorder(outputStream);
+  const { recorder, format: recordingFormat } = createVideoRecorder(outputStream, {
+    codec: exportSettings.codec,
+    videoBitsPerSecond: Math.max(2_000_000, Number(exportSettings.videoBitsPerSecond) || 12_000_000),
+  });
   const chunks = [];
   const exportSegments = captionSegments?.length ? captionSegments : createCaptionSegments(text);
   const segments = exportSegments.map((segment) => segment.text);
   const totalDuration = Math.max(
     duration,
     decodedDuration,
-    ...sources.map(({ node, start }) => start + (node.buffer?.duration ?? 0)),
+    ...sources.map(({ start, outputDuration }) => start + outputDuration),
     1,
   );
   const captionTargetDuration = decodedDuration || 0;
@@ -905,10 +960,12 @@ export async function exportBrowserVideo({
     }
 
     const video = visualItem.visual;
+    const playbackRate = normalizeVisualPlaybackRate(visualItem.segment.playbackRate);
+    video.playbackRate = playbackRate;
     const maximumTime = Math.max(0, (Number(video.duration) || 0) - 0.001);
     const expectedTime = Math.min(
       maximumTime,
-      Math.max(0, Number(visualItem.segment.sourceStart) || 0) + localTime,
+      getVisualSourceTime(visualItem.segment, localTime),
     );
     if (activeVideoItem !== visualItem) {
       activeVideoItem?.visual.pause();
@@ -995,7 +1052,7 @@ export async function exportBrowserVideo({
   };
 
   draw();
-  sources.forEach(({ node, start }) => node.start(start));
+  sources.forEach(({ node, start, sourceOffset, sourceDuration }) => node.start(start, sourceOffset, sourceDuration));
   await new Promise((resolve) => {
     window.setTimeout(resolve, totalDuration * 1000);
   });

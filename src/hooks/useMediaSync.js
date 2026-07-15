@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { PLAYBACK_UI_FRAME_MS, getAudioSegmentPreviewVolume, getTimelineTrackLocalTime, isTimelineTimeInsideTrack } from "../lib/editorRuntime.js";
+import { getLinkedSourceAudioState } from "../lib/sourceAudioSync.js";
 
 export function useMediaSync(d) {
   useEffect(() => { d.audioSegments.forEach((s) => { const a = d.audioSegmentRefs.current.get(s.id); if (a) a.volume = getAudioSegmentPreviewVolume(s, d.currentTime); }); }, [d.audioSegments, d.currentTime]);
@@ -15,21 +16,25 @@ export function useMediaSync(d) {
   useEffect(() => { if (d.sourceAudioRef.current) d.sourceAudioRef.current.volume = d.sourceAudioVolume; }, [d.sourceAudioVolume, d.sourceAudioUrl]);
   useEffect(() => {
     const a = d.sourceAudioRef.current; if (!a || !d.sourceAudioUrl) return;
-    const local = getTimelineTrackLocalTime(d.currentTime, d.sourceAudioStart, d.sourceAudioDuration);
-    if (Math.abs(a.currentTime - local) > 0.22) a.currentTime = local;
-    const play = d.isPlaying && d.trackVisibility.source && isTimelineTimeInsideTrack(d.currentTime, d.sourceAudioStart, d.sourceAudioDuration);
+    const state = d.sourceAudioLinked && d.linkedSourceAudioSegments?.length
+      ? getLinkedSourceAudioState(d.linkedSourceAudioSegments, d.currentTime)
+      : { active: isTimelineTimeInsideTrack(d.currentTime, d.sourceAudioStart, d.sourceAudioDuration), sourceTime: getTimelineTrackLocalTime(d.currentTime, d.sourceAudioStart, d.sourceAudioDuration), playbackRate: 1 };
+    a.playbackRate = state.playbackRate;
+    if (Math.abs(a.currentTime - state.sourceTime) > 0.22) a.currentTime = state.sourceTime;
+    const play = d.isPlaying && d.trackVisibility.source && state.active;
     if (play && a.paused) a.play().catch(() => {}); else if (!play && !a.paused) a.pause();
-  }, [d.currentTime, d.isPlaying, d.sourceAudioDuration, d.sourceAudioStart, d.sourceAudioUrl, d.trackVisibility.source]);
+  }, [d.currentTime, d.isPlaying, d.linkedSourceAudioSegments, d.sourceAudioDuration, d.sourceAudioLinked, d.sourceAudioStart, d.sourceAudioUrl, d.trackVisibility.source]);
   useEffect(() => { if (d.musicRef.current) d.musicRef.current.volume = d.musicVolume; }, [d.musicVolume, d.musicUrl]);
   useEffect(() => { d.currentTimeRef.current = d.currentTime; }, [d.currentTime]);
   useEffect(() => { d.setPreviewVideoMediaTime(d.previewVisualType === "video" ? Math.max(0, Number(d.previewVisualSegment?.sourceStart) || 0) : 0); }, [d.previewVisualSegment?.id, d.previewVisualSrc, d.previewVisualType]);
   useEffect(() => {
     const v = d.previewVideoRef.current; if (!v || d.previewVisualType !== "video") return;
+    v.playbackRate = Math.max(0.25, Math.min(4, Number(d.previewVisualSegment?.playbackRate) || 1));
     const max = Math.max(0, (Number(v.duration) || d.previewVisualSourceTime) - 0.001);
     const time = Math.min(Math.max(0, d.previewVisualSourceTime), max);
     if (Number.isFinite(time) && Math.abs(v.currentTime - time) > 0.2) { v.currentTime = time; d.setPreviewVideoMediaTime(time); }
     if (d.isPlaying && d.trackVisibility.image && v.paused) v.play().catch(() => {});
-  }, [d.isPlaying, d.previewVisualSourceTime, d.previewVisualSrc, d.previewVisualType, d.trackVisibility.image]);
+  }, [d.isPlaying, d.previewVisualSegment?.playbackRate, d.previewVisualSourceTime, d.previewVisualSrc, d.previewVisualType, d.trackVisibility.image]);
   useEffect(() => {
     const v = d.previewVideoRef.current; if (!v || d.previewVisualType !== "video") return;
     if (!d.isPlaying || !d.trackVisibility.image) v.pause(); else v.play().catch(() => {});
@@ -52,8 +57,10 @@ export function useMediaSync(d) {
   useEffect(() => { d.setCurrentTime((time) => {
     const clamped = Math.min(time, d.timelineDuration);
     if (d.audioRef.current && clamped !== time) d.audioRef.current.currentTime = clamped;
-    if (d.sourceAudioRef.current && clamped !== time) d.sourceAudioRef.current.currentTime = getTimelineTrackLocalTime(clamped, d.sourceAudioStart, d.sourceAudioDuration);
+    if (d.sourceAudioRef.current && clamped !== time) d.sourceAudioRef.current.currentTime = d.sourceAudioLinked && d.linkedSourceAudioSegments?.length
+      ? getLinkedSourceAudioState(d.linkedSourceAudioSegments, clamped).sourceTime
+      : getTimelineTrackLocalTime(clamped, d.sourceAudioStart, d.sourceAudioDuration);
     if (d.musicRef.current && clamped !== time) d.musicRef.current.currentTime = clamped;
     return clamped;
-  }); }, [d.timelineDuration, d.sourceAudioDuration, d.sourceAudioStart]);
+  }); }, [d.linkedSourceAudioSegments, d.sourceAudioDuration, d.sourceAudioLinked, d.sourceAudioStart, d.timelineDuration]);
 }

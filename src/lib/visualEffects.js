@@ -1,6 +1,43 @@
+import { MAX_TIMELINE_DURATION_SECONDS, MIN_VISUAL_SEGMENT_SECONDS } from "../config/editor.js";
+
 const DEFAULT_TRANSFORM = Object.freeze({ x: 0, y: 0, scale: 1, rotation: 0, opacity: 1 });
 export const VISUAL_TRANSFORM_KEYS = Object.freeze(["scale", "x", "y", "rotation", "opacity"]);
 const KEYFRAME_TIME_TOLERANCE = 0.04;
+export const MIN_VISUAL_PLAYBACK_RATE = 0.25;
+export const MAX_VISUAL_PLAYBACK_RATE = 4;
+
+export function normalizeVisualPlaybackRate(value) {
+  const rate = Number(value);
+  if (!Number.isFinite(rate)) return 1;
+  return Math.max(MIN_VISUAL_PLAYBACK_RATE, Math.min(MAX_VISUAL_PLAYBACK_RATE, rate));
+}
+
+export function getVisualSourceTime(segment, localTime = 0) {
+  return Math.max(0, Number(segment?.sourceStart) || 0)
+    + Math.max(0, Number(localTime) || 0) * normalizeVisualPlaybackRate(segment?.playbackRate);
+}
+
+export function updateVisualSegmentPlaybackRate(segment, value) {
+  const previousRate = normalizeVisualPlaybackRate(segment?.playbackRate);
+  const playbackRate = normalizeVisualPlaybackRate(value);
+  const previousDuration = Math.max(MIN_VISUAL_SEGMENT_SECONDS, Number(segment?.duration) || MIN_VISUAL_SEGMENT_SECONDS);
+  const sourceDuration = Math.max(
+    MIN_VISUAL_SEGMENT_SECONDS,
+    Number(segment?.sourceDuration) || previousDuration * previousRate,
+  );
+  const duration = Math.max(MIN_VISUAL_SEGMENT_SECONDS, Math.min(MAX_TIMELINE_DURATION_SECONDS, sourceDuration / playbackRate));
+  const timeScale = duration / previousDuration;
+  return {
+    ...segment,
+    playbackRate,
+    sourceDuration,
+    duration,
+    keyframes: normalizeVisualKeyframes(segment?.keyframes).map((frame) => ({
+      ...frame,
+      time: Math.min(duration, frame.time * timeScale),
+    })),
+  };
+}
 
 function normalizeVisualProperty(key, value) {
   if (key === "scale") return Math.max(0.1, Number(value) || 1);

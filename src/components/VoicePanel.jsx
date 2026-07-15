@@ -13,7 +13,8 @@ import { useState } from "react";
 import { formatTime, getSegmentStartTime } from "../lib/timeline.js";
 import { LIVE_PORTRAIT_WEB_MODEL } from "../config/livePortrait.js";
 import { probeLivePortraitWebEnvironment } from "../lib/livePortraitWeb.js";
-import { HistoryPanel, MyVoicesPanel, VoiceSynthesisPanel } from "./panels.jsx";
+import { normalizeVisualKeyframes } from "../lib/visualEffects.js";
+import { HistoryPanel, MyVoicesPanel, VisualEffectsPanel, VoiceSynthesisPanel } from "./panels.jsx";
 
 function CaptionContextPanel({
   t,
@@ -314,15 +315,25 @@ export function VoicePanel({
   updateAudioSegment,
   toggleAudioSegmentReverse,
   deleteAudioSegment,
+  selectedVisualSegment,
+  visualLocalTime,
+  visualTimelineStart = 0,
+  updateSelectedVisualEffects,
+  selectedFilterId,
+  setSelectedFilterId,
+  trOption,
 }) {
   const isCaptionContext = activeTool === "caption";
   const isAvatarContext = activeTool === "smart" && avatarPanelOpen;
   const isAudioClipContext = selectedTrack === "audio" && Boolean(selectedAudioSegment);
-  const title = isAvatarContext ? t("avatarTitle") : isCaptionContext ? t("caption") : isAudioClipContext ? t("audioClipProperties") : t("aiVoice");
+  const isVisualContext = selectedTrack === "image" && Boolean(selectedVisualSegment);
+  const title = isVisualContext ? t("imageTrack") : isAvatarContext ? t("avatarTitle") : isCaptionContext ? t("caption") : isAudioClipContext ? t("audioClipProperties") : t("aiVoice");
   const panelStatusText = isCaptionContext
     ? captionSegments.length
       ? `${captionSegments.length} ${t("captionSegmentsUnit", "条字幕")}`
       : t("noCaptionSegments")
+    : isVisualContext
+      ? `${visualLocalTime.toFixed(2)}s · ${normalizeVisualKeyframes(selectedVisualSegment.keyframes).length} ${t("visualFrames")}`
     : isAvatarContext
       ? t("avatarPortingStatus")
     : isAudioClipContext
@@ -332,7 +343,7 @@ export function VoicePanel({
       : statusText;
 
   return (
-    <aside className={`voice-panel ${isCaptionContext ? "is-caption-context" : ""} ${isAvatarContext ? "is-avatar-context" : ""} ${isAudioClipContext ? "is-audio-clip-context" : ""}`}>
+    <aside className={`voice-panel ${isCaptionContext ? "is-caption-context" : ""} ${isAvatarContext ? "is-avatar-context" : ""} ${isAudioClipContext ? "is-audio-clip-context" : ""} ${isVisualContext ? "is-visual-context" : ""}`}>
       <div className="panel-title-row">
         <h1>{title}</h1>
         <span className={`status-pill ${isCaptionContext ? "done" : status}`}>
@@ -340,7 +351,7 @@ export function VoicePanel({
         </span>
       </div>
 
-      {!isCaptionContext && !isAvatarContext && !isAudioClipContext ? (
+      {!isCaptionContext && !isAvatarContext && !isAudioClipContext && !isVisualContext ? (
         <div className="tabs compact">
           {[
             ["synthesis", t("voiceSynthesis")],
@@ -360,6 +371,19 @@ export function VoicePanel({
       ) : null}
 
       <div className="voice-tab-body">
+        {isVisualContext ? (
+          <VisualEffectsPanel
+            contextMode
+            t={t}
+            segment={selectedVisualSegment}
+            localTime={visualLocalTime}
+            onChange={updateSelectedVisualEffects}
+            onSeek={(time) => seekTo(visualTimelineStart + time)}
+            selectedFilterId={selectedFilterId}
+            trOption={trOption}
+            onSelectFilter={(id) => { setSelectedFilterId(id); notify(t("effectApplied")); }}
+          />
+        ) : null}
         {isCaptionContext ? (
           <CaptionContextPanel
             t={t}
@@ -384,7 +408,7 @@ export function VoicePanel({
 
         {isAudioClipContext ? <AudioClipContextPanel t={t} segment={selectedAudioSegment} updateAudioSegment={updateAudioSegment} toggleAudioSegmentReverse={toggleAudioSegmentReverse} deleteAudioSegment={deleteAudioSegment} downloadBlob={downloadBlob} /> : null}
 
-        {!isCaptionContext && !isAvatarContext && !isAudioClipContext && voiceTab === "synthesis" ? (
+        {!isCaptionContext && !isAvatarContext && !isAudioClipContext && !isVisualContext && voiceTab === "synthesis" ? (
           <VoiceSynthesisPanel
             script={script}
             updateScript={updateScript}
@@ -411,7 +435,7 @@ export function VoicePanel({
           />
         ) : null}
 
-        {!isCaptionContext && !isAvatarContext && !isAudioClipContext && voiceTab === "mine" ? (
+        {!isCaptionContext && !isAvatarContext && !isAudioClipContext && !isVisualContext && voiceTab === "mine" ? (
           <MyVoicesPanel
             favoriteVoiceIds={favoriteVoiceIds}
             setFavoriteVoiceIds={setFavoriteVoiceIds}
@@ -429,7 +453,7 @@ export function VoicePanel({
           />
         ) : null}
 
-        {!isCaptionContext && !isAvatarContext && !isAudioClipContext && voiceTab === "history" ? (
+        {!isCaptionContext && !isAvatarContext && !isAudioClipContext && !isVisualContext && voiceTab === "history" ? (
           <HistoryPanel
             historyItems={historyItems}
             useHistoryItem={useHistoryItem}

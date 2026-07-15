@@ -53,6 +53,7 @@ import { createEditorCommandActions } from "./lib/editorCommandActions.js";
 import { createTimelineViewModel } from "./lib/timelineViewModel.js";
 import { createTranslator, getStoredLanguage, translateOptionName } from "./i18n.js";
 import { downloadBlob } from "./lib/media.js";
+import { removeVisualPropertyKeyframe, upsertVisualKeyframe, upsertVisualPropertyKeyframe } from "./lib/visualEffects.js";
 
 export function App() {
   const [uiLanguage, setUiLanguage] = useState(() => getStoredLanguage());
@@ -184,6 +185,24 @@ export function App() {
     trackVisibility, visionRecords, visualSegments, visualType,
   });
   const previewFrameSize = usePreviewFrameSize(previewShellRef, ratio, compactRail);
+  const selectedVisualSegment = visualSegments[selectedVisualSegmentIndex] ?? previewVisualSegment ?? null;
+  const selectedVisualRange = visualTimeline[selectedVisualSegmentIndex] ?? previewVisualRange;
+  const visualLocalTime = Math.max(0, Math.min(
+    selectedVisualSegment?.duration ?? 0,
+    currentTime - (selectedVisualRange?.start ?? 0),
+  ));
+  const updateSelectedVisualEffects = (change) => {
+    if (!selectedVisualSegment?.id || trackLocks.image) return notify("请先选择未锁定的 Visuals 片段");
+    setVisualSegments((items) => items.map((item) => {
+      if (item.id !== selectedVisualSegment.id) return item;
+      if (change.keyframe) return { ...item, keyframes: upsertVisualKeyframe(item.keyframes, change.keyframe.time, change.keyframe) };
+      if (change.propertyKeyframe) return { ...item, keyframes: upsertVisualPropertyKeyframe(item.keyframes, change.propertyKeyframe.time, change.propertyKeyframe.key, change.propertyKeyframe.value) };
+      if (change.removePropertyKeyframe) return { ...item, keyframes: removeVisualPropertyKeyframe(item.keyframes, change.removePropertyKeyframe.time, change.removePropertyKeyframe.key) };
+      if (Number.isFinite(change.removeKeyframeAt)) return { ...item, keyframes: (item.keyframes ?? []).filter((frame) => Math.abs(frame.time - change.removeKeyframeAt) > 0.04) };
+      if (change.mask) return { ...item, mask: change.mask };
+      return item;
+    }));
+  };
   const exportElapsedSeconds = useExportElapsed(exporting, exportStartRef);
   const {
     effectiveCaptionPlacement, previewSmartCropRect, previewVisionAnalysis,
@@ -546,6 +565,7 @@ export function App() {
           separateSourceVocals, vocalSeparationJob,
           toggleCaptionSegmentHidden, toggleVisionOption, trOption, updateCaptionSegmentText,
           updateScript, userAssets, visionJob,
+          selectedVisualSegment, visualLocalTime, updateSelectedVisualEffects,
         }} />
 
         <PreviewStage
@@ -558,6 +578,10 @@ export function App() {
           previewVisualRenderSrc={previewVisualRenderSrc}
           previewVisionMaskUrl={previewVisionMaskUrl}
           previewVisualType={previewVisualType}
+          visualEffects={previewVisualSegment}
+          visualLocalTime={previewVisualLocalTime}
+          visualMaskEditable={selectedTrack === "image" && Boolean(selectedVisualSegment)}
+          onUpdateVisualMask={(mask) => updateSelectedVisualEffects({ mask })}
           previewRatio={previewRatio}
           previewFrameStyle={previewFrameStyle}
           previewFrameSize={previewFrameSize}
@@ -665,6 +689,13 @@ export function App() {
           updateAudioSegment={updateAudioSegment}
           toggleAudioSegmentReverse={toggleAudioSegmentReverse}
           deleteAudioSegment={deleteAudioSegment}
+          selectedVisualSegment={selectedVisualSegment}
+          visualLocalTime={visualLocalTime}
+          visualTimelineStart={selectedVisualRange?.start ?? 0}
+          updateSelectedVisualEffects={updateSelectedVisualEffects}
+          selectedFilterId={selectedFilterId}
+          setSelectedFilterId={setSelectedFilterId}
+          trOption={trOption}
         />
       </section>
 

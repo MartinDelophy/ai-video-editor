@@ -17,6 +17,7 @@ import {
 } from "./captionLayout.js";
 import { resolveVisionAnalysisAtTime } from "./vision.js";
 import { getCaptionAvoidancePlacement, getSmartCropRect } from "./visualGeometry.js";
+import { getVisualMaskFeatherPixels, getVisualMaskGeometry, resolveVisualTransform } from "./visualEffects.js";
 
 export function getAudioRecordingFormat() {
   if (typeof MediaRecorder === "undefined") {
@@ -348,6 +349,50 @@ function getVisualDimensions(visual) {
 }
 
 const maskedVisualLayerCache = new WeakMap();
+const visualEffectsLayerCache = new WeakMap();
+
+function getVisualEffectsLayers(canvas) {
+  let layers = visualEffectsLayerCache.get(canvas);
+  if (!layers) {
+    layers = { visual: document.createElement("canvas"), mask: document.createElement("canvas") };
+    visualEffectsLayerCache.set(canvas, layers);
+  }
+  for (const layer of Object.values(layers)) {
+    if (layer.width !== canvas.width || layer.height !== canvas.height) {
+      layer.width = canvas.width;
+      layer.height = canvas.height;
+    }
+  }
+  return layers;
+}
+
+function drawVisualEffectsMask(context, mask, canvas) {
+  const geometry = getVisualMaskGeometry(mask, canvas);
+  const feather = getVisualMaskFeatherPixels(mask, canvas);
+  context.clearRect(0, 0, canvas.width, canvas.height);
+  context.save();
+  if (mask.inverted) {
+    context.fillStyle = "#fff";
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.globalCompositeOperation = "destination-out";
+  }
+  context.fillStyle = "#fff";
+  context.filter = feather ? `blur(${feather}px)` : "none";
+  context.beginPath();
+  if (mask.type === "circle") {
+    context.arc(geometry.centerX, geometry.centerY, geometry.radius, 0, Math.PI * 2);
+  } else {
+    context.roundRect(
+      geometry.centerX - geometry.width / 2,
+      geometry.centerY - geometry.height / 2,
+      geometry.width,
+      geometry.height,
+      geometry.cornerRadius,
+    );
+  }
+  context.fill();
+  context.restore();
+}
 
 function getMaskedVisualLayer(canvas) {
   let layer = maskedVisualLayerCache.get(canvas);
@@ -472,13 +517,59 @@ function drawPreviewFrame(context, visual, canvas, options) {
     stickerImage = null,
     transitionId = "none",
     vision = null,
+    visualEffects = null,
+    visualTime = 0,
   } = options;
 
   const { width, height } = canvas;
   context.clearRect(0, 0, width, height);
   context.fillStyle = "#090b0f";
   context.fillRect(0, 0, width, height);
-  const visualLayout = drawFittedVisual(context, visual, canvas, fitMode, filter, vision);
+  const transform = resolveVisualTransform(visualEffects?.keyframes, visualTime);
+  const mask = visualEffects?.mask ?? {};
+  const maskCenterX = (Number.isFinite(mask.centerX) ? mask.centerX : 50) / 100 * width;
+  const maskCenterY = (Number.isFinite(mask.centerY) ? mask.centerY : 50) / 100 * height;
+  const circleSize = (Number.isFinite(mask.size) ? mask.size : 72) / 100 * Math.min(width, height);
+  const maskWidth = mask.type === "circle" ? circleSize : (Number.isFinite(mask.width) ? mask.width : 80) / 100 * width;
+  const maskHeight = mask.type === "circle" ? circleSize : (Number.isFinite(mask.height) ? mask.height : 80) / 100 * height;
+  const usesAlphaMask = mask.type && mask.type !== "none" && (mask.inverted || Number(mask.feather) > 0);
+  let visualLayout;
+  if (usesAlphaMask) {
+    const layers = getVisualEffectsLayers(canvas);
+    const layerContext = layers.visual.getContext("2d");
+    const maskContext = layers.mask.getContext("2d");
+    layerContext.clearRect(0, 0, width, height);
+    layerContext.save();
+    layerContext.globalAlpha = transform.opacity;
+    layerContext.translate(width / 2 + (transform.x / 100) * width, height / 2 + (transform.y / 100) * height);
+    layerContext.rotate((transform.rotation * Math.PI) / 180);
+    layerContext.scale(transform.scale, transform.scale);
+    layerContext.translate(-width / 2, -height / 2);
+    visualLayout = drawFittedVisual(layerContext, visual, layers.visual, fitMode, filter, vision);
+    layerContext.restore();
+    drawVisualEffectsMask(maskContext, mask, layers.mask);
+    layerContext.save();
+    layerContext.globalCompositeOperation = "destination-in";
+    layerContext.drawImage(layers.mask, 0, 0);
+    layerContext.restore();
+    context.drawImage(layers.visual, 0, 0);
+  } else {
+    context.save();
+    if (mask.type === "circle") {
+      context.beginPath();
+      context.ellipse(maskCenterX, maskCenterY, maskWidth / 2, maskHeight / 2, 0, 0, Math.PI * 2);
+      context.clip();
+    } else if (["rectangle", "rounded"].includes(mask.type)) {
+      context.beginPath(); context.roundRect(maskCenterX - maskWidth / 2, maskCenterY - maskHeight / 2, maskWidth, maskHeight, mask.type === "rounded" ? Math.min(maskWidth, maskHeight) * (Number.isFinite(mask.cornerRadius) ? mask.cornerRadius : 12) / 100 : 0); context.clip();
+    }
+    context.globalAlpha = transform.opacity;
+    context.translate(width / 2 + (transform.x / 100) * width, height / 2 + (transform.y / 100) * height);
+    context.rotate((transform.rotation * Math.PI) / 180);
+    context.scale(transform.scale, transform.scale);
+    context.translate(-width / 2, -height / 2);
+    visualLayout = drawFittedVisual(context, visual, canvas, fitMode, filter, vision);
+    context.restore();
+  }
 
   if (captionsEnabled && subtitle) {
     const captionLayout = getCaptionTextLayout({
@@ -886,6 +977,8 @@ export async function exportBrowserVideo({
       stickerImage: exportSticker?.src ? stickerImageMap.get(exportSticker.src) : null,
       transitionId,
       vision: frameVision,
+      visualEffects: visualItem.segment,
+      visualTime: localTime,
     });
 
     if (elapsed === totalDuration || performance.now() - lastProgressUpdate > 180) {

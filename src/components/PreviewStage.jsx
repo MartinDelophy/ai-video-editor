@@ -10,6 +10,7 @@ import {
 } from "@phosphor-icons/react";
 
 import { formatTime } from "../lib/timeline.js";
+import { getVisualMaskInsets, getVisualMaskSvgDataUrl, resolveVisualTransform } from "../lib/visualEffects.js";
 import { CaptionOverlay } from "./CaptionOverlay.jsx";
 import { IconButton } from "./ui.jsx";
 
@@ -53,12 +54,67 @@ export function PreviewStage({
   currentTime,
   seekTo,
   notify,
+  visualEffects,
+  visualLocalTime = 0,
+  visualMaskEditable = false,
+  onUpdateVisualMask,
 }) {
   const hasStickerOverlay = Boolean(selectedSticker?.src || selectedSticker?.text);
   const hasPreviewContent = Boolean(previewVisualSrc || hasStickerOverlay);
   const renderedVisualSrc = previewVisualRenderSrc || previewVisualSrc;
   const activeObjectFit = visualObjectFit || fitMode;
   const activeObjectPosition = visualObjectPosition || "50% 50%";
+  const visualTransform = resolveVisualTransform(visualEffects?.keyframes, visualLocalTime);
+  const visualMask = visualEffects?.mask ?? {};
+  const maskCenterX = Number.isFinite(visualMask.centerX) ? visualMask.centerX : 50;
+  const maskCenterY = Number.isFinite(visualMask.centerY) ? visualMask.centerY : 50;
+  const frameWidth = Math.max(1, previewFrameSize.width || 1);
+  const frameHeight = Math.max(1, previewFrameSize.height || 1);
+  const frameMinDimension = Math.min(frameWidth, frameHeight);
+  const circleSize = Number.isFinite(visualMask.size) ? visualMask.size : 72;
+  const maskWidth = visualMask.type === "circle" ? (circleSize * frameMinDimension) / frameWidth : Number.isFinite(visualMask.width) ? visualMask.width : 80;
+  const maskHeight = visualMask.type === "circle" ? (circleSize * frameMinDimension) / frameHeight : Number.isFinite(visualMask.height) ? visualMask.height : 80;
+  const shapeMaskUrl = getVisualMaskSvgDataUrl(visualMask, { width: frameWidth, height: frameHeight });
+  const usesAlphaMask = Boolean(shapeMaskUrl);
+  const maskInsets = getVisualMaskInsets(visualMask);
+  const roundedRadius = Math.min(maskWidth / 100 * frameWidth, maskHeight / 100 * frameHeight) * (Number.isFinite(visualMask.cornerRadius) ? visualMask.cornerRadius : 12) / 100;
+  const visualTransformStyle = {
+    transform: `translate(${visualTransform.x}%, ${visualTransform.y}%) scale(${visualTransform.scale}) rotate(${visualTransform.rotation}deg)`,
+    opacity: visualTransform.opacity,
+  };
+  const visualMaskStyle = {
+    clipPath: ["rectangle", "rounded"].includes(visualMask.type) && !usesAlphaMask
+      ? `inset(${maskInsets.top}% ${maskInsets.right}% ${maskInsets.bottom}% ${maskInsets.left}%${visualMask.type === "rounded" ? ` round ${roundedRadius}px` : ""})`
+      : visualMask.type === "circle" && !usesAlphaMask
+        ? `ellipse(${maskWidth / 2}% ${maskHeight / 2}% at ${maskCenterX}% ${maskCenterY}%)`
+        : undefined,
+    WebkitMaskImage: shapeMaskUrl ? `url("${shapeMaskUrl}")` : undefined,
+    maskImage: shapeMaskUrl ? `url("${shapeMaskUrl}")` : undefined,
+    WebkitMaskSize: shapeMaskUrl ? "100% 100%" : undefined,
+    maskSize: shapeMaskUrl ? "100% 100%" : undefined,
+    WebkitMaskRepeat: shapeMaskUrl ? "no-repeat" : undefined,
+    maskRepeat: shapeMaskUrl ? "no-repeat" : undefined,
+  };
+  const startMaskEdit = (event, mode) => {
+    const frame = previewCanvasRef.current;
+    if (!frame || !onUpdateVisualMask) return;
+    event.preventDefault(); event.stopPropagation();
+    const rect = frame.getBoundingClientRect();
+    const startX = event.clientX; const startY = event.clientY;
+    const initial = { centerX: maskCenterX, centerY: maskCenterY, width: maskWidth, height: maskHeight, size: circleSize };
+    const move = (moveEvent) => {
+      const dx = ((moveEvent.clientX - startX) / Math.max(1, rect.width)) * 100;
+      const dy = ((moveEvent.clientY - startY) / Math.max(1, rect.height)) * 100;
+      if (mode === "move") onUpdateVisualMask({ ...visualMask, centerX: Math.max(initial.width / 2, Math.min(100 - initial.width / 2, initial.centerX + dx)), centerY: Math.max(initial.height / 2, Math.min(100 - initial.height / 2, initial.centerY + dy)) });
+      else if (visualMask.type === "circle") {
+        const deltaPixels = Math.max(moveEvent.clientX - startX, moveEvent.clientY - startY);
+        const maxSizePixels = 2 * Math.min(initial.centerX / 100 * frameWidth, (100 - initial.centerX) / 100 * frameWidth, initial.centerY / 100 * frameHeight, (100 - initial.centerY) / 100 * frameHeight);
+        onUpdateVisualMask({ ...visualMask, size: Math.max(8, Math.min(maxSizePixels / frameMinDimension * 100, initial.size + deltaPixels / frameMinDimension * 100)) });
+      } else onUpdateVisualMask({ ...visualMask, width: Math.max(8, Math.min(2 * Math.min(initial.centerX, 100 - initial.centerX), initial.width + dx * 2)), height: Math.max(8, Math.min(2 * Math.min(initial.centerY, 100 - initial.centerY), initial.height + dy * 2)) });
+    };
+    const end = () => { window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", end); };
+    window.addEventListener("pointermove", move); window.addEventListener("pointerup", end, { once: true });
+  };
 
   useEffect(() => {
     const video = previewVideoRef.current;
@@ -110,50 +166,36 @@ export function PreviewStage({
             data-hidden-label={t("imageHidden")}
             style={previewFrameStyle}
           >
-            {renderedVisualSrc && trackVisibility.image && previewVisualType === "image" ? (
-              <img
-                src={renderedVisualSrc}
-                alt={t("currentMediaAlt")}
-                style={{
-                  filter: selectedFilter.css,
-                  objectFit: activeObjectFit,
-                  objectPosition: activeObjectPosition,
-                }}
-              />
-            ) : null}
-            {previewVisualSrc && trackVisibility.image && previewVisualType === "video" ? (
-              <video
-                key={previewVisualSrc}
-                ref={previewVideoRef}
-                className="preview-video"
-                src={previewVisualSrc}
-                muted
-                playsInline
-                preload="metadata"
-                onTimeUpdate={(event) =>
-                  onPreviewVideoTimeUpdate?.(event.currentTarget.currentTime)
-                }
-                onSeeked={(event) =>
-                  onPreviewVideoTimeUpdate?.(event.currentTarget.currentTime)
-                }
-                style={{
-                  filter: selectedFilter.css,
-                  objectFit: activeObjectFit,
-                  objectPosition: activeObjectPosition,
-                  WebkitMaskImage: previewVisionMaskUrl
-                    ? `url("${previewVisionMaskUrl}")`
-                    : undefined,
-                  maskImage: previewVisionMaskUrl
-                    ? `url("${previewVisionMaskUrl}")`
-                    : undefined,
-                  WebkitMaskSize: previewVisionMaskUrl ? activeObjectFit : undefined,
-                  maskSize: previewVisionMaskUrl ? activeObjectFit : undefined,
-                  WebkitMaskPosition: previewVisionMaskUrl ? activeObjectPosition : undefined,
-                  maskPosition: previewVisionMaskUrl ? activeObjectPosition : undefined,
-                  WebkitMaskRepeat: previewVisionMaskUrl ? "no-repeat" : undefined,
-                  maskRepeat: previewVisionMaskUrl ? "no-repeat" : undefined,
-                }}
-              />
+            {renderedVisualSrc && trackVisibility.image ? (
+              <div className="visual-media-layer" style={visualMaskStyle}>
+                {previewVisualType === "image" ? <img
+                  src={renderedVisualSrc}
+                  alt={t("currentMediaAlt")}
+                  style={{ ...visualTransformStyle, filter: selectedFilter.css, objectFit: activeObjectFit, objectPosition: activeObjectPosition }}
+                /> : null}
+                {previewVisualType === "video" ? <video
+                  key={previewVisualSrc}
+                  ref={previewVideoRef}
+                  className="preview-video"
+                  src={previewVisualSrc}
+                  muted
+                  playsInline
+                  preload="metadata"
+                  onTimeUpdate={(event) => onPreviewVideoTimeUpdate?.(event.currentTarget.currentTime)}
+                  onSeeked={(event) => onPreviewVideoTimeUpdate?.(event.currentTarget.currentTime)}
+                  style={{
+                    ...visualTransformStyle, filter: selectedFilter.css, objectFit: activeObjectFit, objectPosition: activeObjectPosition,
+                    WebkitMaskImage: previewVisionMaskUrl ? `url("${previewVisionMaskUrl}")` : undefined,
+                    maskImage: previewVisionMaskUrl ? `url("${previewVisionMaskUrl}")` : undefined,
+                    WebkitMaskSize: previewVisionMaskUrl ? activeObjectFit : undefined,
+                    maskSize: previewVisionMaskUrl ? activeObjectFit : undefined,
+                    WebkitMaskPosition: previewVisionMaskUrl ? activeObjectPosition : undefined,
+                    maskPosition: previewVisionMaskUrl ? activeObjectPosition : undefined,
+                    WebkitMaskRepeat: previewVisionMaskUrl ? "no-repeat" : undefined,
+                    maskRepeat: previewVisionMaskUrl ? "no-repeat" : undefined,
+                  }}
+                /> : null}
+              </div>
             ) : null}
             {showVisionOverlays
               ? visionOverlayBoxes.map((detection, index) => (
@@ -179,6 +221,11 @@ export function PreviewStage({
                 {backgroundRemoved ? <span>MODNet</span> : null}
                 {smartCropActive ? <span>{t("smartVisionCrop")}</span> : null}
                 {captionAvoidanceActive ? <span>{t("smartVisionCaptionAvoidance")}</span> : null}
+              </div>
+            ) : null}
+            {visualMaskEditable && visualMask.type && visualMask.type !== "none" ? (
+              <div className={`visual-mask-editor is-${visualMask.type}`} style={{ left: `${maskCenterX - maskWidth / 2}%`, top: `${maskCenterY - maskHeight / 2}%`, width: `${maskWidth}%`, height: `${maskHeight}%`, borderRadius: visualMask.type === "rounded" ? `${roundedRadius}px` : undefined }} onPointerDown={(event) => startMaskEdit(event, "move")}>
+                <span>{t("visualMask")}</span><button type="button" aria-label={t("visualMaskResize")} onPointerDown={(event) => startMaskEdit(event, "resize")} />
               </div>
             ) : null}
             {captionsEnabled && trackVisibility.caption && currentCaption ? (

@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Timeline Studio is an open-source, local-first AI video editor that runs in your browser." />
+    <title>Timeline Studio — Local-first AI video editing</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main>
+      <nav class="nav" aria-label="Primary navigation">
+        <a class="brand" href="#top" aria-label="Timeline Studio home">
+          <span class="brand-mark">TS</span>
+          <span>Timeline Studio</span>
+        </a>
+        <div class="nav-links">
+          <a href="https://github.com/MartinDelophy/ai-video-editor" target="_blank" rel="noreferrer">GitHub</a>
+          <a href="https://huggingface.co/haixin/timeline-studio-onnx-models" target="_blank" rel="noreferrer">Models</a>
+        </div>
+      </nav>
+
+      <section class="hero" id="top">
+        <div class="hero-copy">
+          <div class="eyebrow"><span></span> MIT licensed · No account required</div>
+          <h1>AI video editing,<br /><em>on your device.</em></h1>
+          <p class="lede">A multi-track browser editor with local captions, multilingual voiceovers, vocal separation, background removal, and talking avatars.</p>
+          <div class="actions">
+            <a class="button primary" href="https://video-editor.ai-creator.top/" target="_blank" rel="noreferrer">Open the full editor <span>↗</span></a>
+            <a class="button secondary" href="https://github.com/MartinDelophy/ai-video-editor" target="_blank" rel="noreferrer">View source</a>
+          </div>
+          <p class="compatibility">Best experienced in a recent desktop version of Chrome or Edge.</p>
+        </div>
+        <div class="hero-visual">
+          <div class="window-bar"><i></i><i></i><i></i><span>Local editing workspace</span></div>
+          <img src="https://raw.githubusercontent.com/MartinDelophy/ai-video-editor/main/docs/screenshots/editor-timeline.png" alt="Timeline Studio multi-track editing workspace" />
+        </div>
+      </section>
+
+      <section class="principles" aria-label="Project principles">
+        <article><strong>01</strong><h2>Local first</h2><p>Core AI workflows process source media in the browser instead of sending it to an editing backend.</p></article>
+        <article><strong>02</strong><h2>Real timeline</h2><p>Arrange visuals, captions, voiceovers, source audio, music, and overlays on time-accurate tracks.</p></article>
+        <article><strong>03</strong><h2>Open stack</h2><p>Built with ONNX Runtime, WebGPU, WebAssembly, WebCodecs, and the Web Audio API.</p></article>
+      </section>
+
+      <section class="feature-section">
+        <div class="section-heading">
+          <span>Inside the editor</span>
+          <h2>One workspace, from source media to export.</h2>
+        </div>
+        <div class="feature-grid">
+          <article><span class="icon">CC</span><h3>Automatic captions</h3><p>Whisper small q8 transcription with waveform-aware timing and editable, WYSIWYG subtitle styling.</p></article>
+          <article><span class="icon">VO</span><h3>Browser voiceovers</h3><p>Multilingual Piper/VITS voices and Kokoro English generation, lazy-loaded when needed.</p></article>
+          <article><span class="icon">ST</span><h3>Source separation</h3><p>Isolate vocals from the current source-audio clip and place the instrumental stem on the music track.</p></article>
+          <article><span class="icon">AV</span><h3>Talking avatars</h3><p>JoyVASA audio-to-motion with LivePortrait neural rendering on compatible WebGPU hardware.</p></article>
+          <article><span class="icon">CV</span><h3>Vision-aware editing</h3><p>Timestamped subject detection, smart crop, background removal, and caption avoidance for images and video.</p></article>
+          <article><span class="icon">EX</span><h3>Browser-side export</h3><p>Preview the composed result and export MP4 or WebM without handing the project to a render server.</p></article>
+        </div>
+      </section>
+
+      <section class="honesty">
+        <div><span class="eyebrow"><span></span> Current limitations</span><h2>Experimental, and honest about it.</h2></div>
+        <ul>
+          <li>Initial AI model downloads can be large.</li>
+          <li>Browser memory and WebGPU support vary by device.</li>
+          <li>512 × 512 neural avatar rendering is still slow on current consumer GPUs.</li>
+          <li>This is not yet a replacement for a mature desktop NLE.</li>
+        </ul>
+      </section>
+
+      <section class="cta">
+        <p>Free, open source, and ready to try.</p>
+        <h2>Bring a short clip.<br />See what works locally.</h2>
+        <div class="actions centered">
+          <a class="button primary" href="https://video-editor.ai-creator.top/" target="_blank" rel="noreferrer">Launch Timeline Studio <span>↗</span></a>
+          <a class="button secondary" href="https://github.com/MartinDelophy/ai-video-editor/issues" target="_blank" rel="noreferrer">Report an issue</a>
+        </div>
+      </section>
+    </main>
+    <footer><span>Timeline Studio · MIT License</span><span>Built for a more private creative web.</span></footer>
+  </body>
+</html>

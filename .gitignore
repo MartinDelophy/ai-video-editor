@@ -4,6 +4,9 @@ node_modules/
 # build output
 dist/
 coverage/
+test-results/
+playwright-report/
+blob-report/
 
 # local QA captures and generated media
 qa/

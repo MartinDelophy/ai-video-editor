@@ -108,6 +108,9 @@ export function EditorSidebar({ model: d }) {
             notify={d.notify}
             t={d.t}
             trOption={d.trOption}
+            selectedVisualSegment={d.selectedVisualSegment}
+            visualLocalTime={d.visualLocalTime}
+            updateSelectedVisualEffects={d.updateSelectedVisualEffects}
           />
         )}
       </aside>

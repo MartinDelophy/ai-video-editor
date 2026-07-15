@@ -7,6 +7,7 @@ import {
   CloudArrowUp,
   ClosedCaptioning,
   Crop,
+  Diamond,
   DownloadSimple,
   MicrophoneStage,
   MusicNote,
@@ -31,6 +32,7 @@ import {
 } from "../config/editor.js";
 import { APP_LANGUAGES } from "../i18n.js";
 import { formatClock, formatTime, getSegmentStartTime } from "../lib/timeline.js";
+import { hasVisualPropertyKeyframe, normalizeVisualKeyframes, resolveVisualTransform } from "../lib/visualEffects.js";
 import { Popover } from "./ui.jsx";
 
 export function LanguageIntro({ t, closing, onChoose }) {
@@ -276,6 +278,9 @@ export function ToolPanel(props) {
     notify,
     t,
     trOption,
+    selectedVisualSegment,
+    visualLocalTime,
+    updateSelectedVisualEffects,
   } = props;
 
   if (activeTool === "text") {
@@ -537,16 +542,14 @@ export function ToolPanel(props) {
 
   if (activeTool === "effects") {
     return (
-      <VisualChoicePanel
-        title={t("effects")}
-        kind="effect"
-        options={EFFECT_OPTIONS}
-        selectedId={selectedFilterId}
+      <VisualEffectsPanel
+        t={t}
+        segment={selectedVisualSegment}
+        localTime={visualLocalTime}
+        onChange={updateSelectedVisualEffects}
+        selectedFilterId={selectedFilterId}
         trOption={trOption}
-        onSelect={(id) => {
-          setSelectedFilterId(id);
-          notify(t("effectApplied"));
-        }}
+        onSelectFilter={(id) => { setSelectedFilterId(id); notify(t("effectApplied")); }}
       />
     );
   }
@@ -581,6 +584,45 @@ export function ToolPanel(props) {
         notify(t("filterApplied"));
       }}
     />
+  );
+}
+
+export function VisualEffectsPanel({ t, segment, localTime, onChange, onSeek, selectedFilterId, trOption, onSelectFilter, contextMode = false }) {
+  const keyframes = normalizeVisualKeyframes(segment?.keyframes ?? []);
+  const transform = resolveVisualTransform(keyframes, localTime);
+  const mask = segment?.mask ?? { type: "none", feather: 0, inverted: false };
+  const hasMask = mask.type && mask.type !== "none";
+  const isCircleMask = mask.type === "circle";
+  const updateTransform = (key, value) => onChange?.({ propertyKeyframe: { time: localTime, key, value } });
+  return (
+    <div className={`tool-panel visual-effects-panel ${contextMode ? "is-context-mode" : ""}`}>
+      {!contextMode ? <h2>{t("imageTrack")}</h2> : null}
+      {!segment ? <div className="empty-state">{t("visualSelectClip")}</div> : <>
+        <section className="visual-editor-card">
+          <div className="visual-editor-heading"><span><Diamond size={16} weight="fill" />{t("visualKeyframes")}</span><em>{localTime.toFixed(2)}s · {keyframes.length} {t("visualFrames")}</em></div>
+          <button className="panel-secondary visual-add-all-keyframes" type="button" onClick={() => onChange?.({ keyframe: { time: localTime, ...transform } })}><Diamond size={14} weight="fill" />{t("visualAddAllKeyframes")}</button>
+          {keyframes.length ? <div className="visual-keyframe-times" aria-label={t("visualKeyframes")}>{keyframes.map((frame) => <button type="button" aria-label={`${frame.time.toFixed(2)}s · ${t("visualKeyframes")}`} className={Math.abs(frame.time - localTime) <= 0.04 ? "is-current" : ""} key={frame.time} onClick={() => onSeek?.(frame.time)}>{frame.time.toFixed(2)}s</button>)}</div> : null}
+          {[['scale', t('visualScale'), 0.2, 3, 0.01, 100], ['x', t('visualPositionX'), -100, 100, 1, 1], ['y', t('visualPositionY'), -100, 100, 1, 1], ['rotation', t('visualRotation'), -180, 180, 1, 1], ['opacity', t('visualOpacity'), 0, 1, 0.01, 100]].map(([key, label, min, max, step, displayScale]) => {
+            const keyed = hasVisualPropertyKeyframe(keyframes, localTime, key);
+            const displayValue = Math.round(transform[key] * displayScale * 100) / 100;
+            return <div className="slider-field compact-slider visual-keyframe-property" key={key}><div><label>{label}</label><span className="visual-property-value"><label className="visual-number-field"><input aria-label={`${label} · ${t("visualKeyframes")}`} type="number" min={min * displayScale} max={max * displayScale} step={step * displayScale} value={displayValue} onChange={(event) => updateTransform(key, Number(event.target.value) / displayScale)} /><i>{key === 'rotation' ? '°' : '%'}</i></label><button className={keyed ? "is-active" : ""} type="button" aria-label={`${keyed ? t("visualRemovePropertyKeyframe") : t("visualAddPropertyKeyframe")} · ${label}`} onClick={() => keyed ? onChange?.({ removePropertyKeyframe: { time: localTime, key } }) : onChange?.({ propertyKeyframe: { time: localTime, key, value: transform[key] } })}><Diamond size={13} weight={keyed ? "fill" : "regular"} /></button></span></div><input aria-label={`${label} · slider`} type="range" min={min} max={max} step={step} value={transform[key]} onChange={(event) => updateTransform(key, Number(event.target.value))} /></div>;
+          })}
+          <button className="panel-secondary" type="button" onClick={() => onChange?.({ removeKeyframeAt: localTime })}>{t("visualDeleteKeyframe")}</button>
+        </section>
+        <section className="visual-editor-card">
+          <div className="visual-editor-heading"><strong>{t("visualMask")}</strong><em>{t("visualClipScoped")}</em></div>
+          <div className="mask-choice-grid">{[['none',t('visualMaskNone')],['rectangle',t('visualMaskRectangle')],['rounded',t('visualMaskRounded')],['circle',t('visualMaskCircle')]].map(([id,label]) => <button type="button" key={id} className={mask.type === id ? 'is-active' : ''} onClick={() => onChange?.({ mask: { ...mask, type: id, ...(id === 'circle' && !Number.isFinite(mask.size) ? { size: 72 } : {}), ...(id === 'rounded' && !Number.isFinite(mask.cornerRadius) ? { cornerRadius: 12 } : {}) } })}>{label}</button>)}</div>
+          {hasMask ? <>
+            <div className="slider-field compact-slider"><div><label>{t("visualFeather")}</label><span>{mask.feather || 0}%</span></div><input type="range" min="0" max="40" value={mask.feather || 0} onChange={(event) => onChange?.({ mask: { ...mask, feather: Number(event.target.value) } })} /></div>
+            {[['centerX',t('visualHorizontal'),0,100,50],['centerY',t('visualVertical'),0,100,50]].map(([key,label,min,max,fallback]) => <div className="slider-field compact-slider" key={key}><div><label>{label}</label><span>{Number.isFinite(mask[key]) ? Math.round(mask[key]) : fallback}%</span></div><input type="range" min={min} max={max} value={Number.isFinite(mask[key]) ? mask[key] : fallback} onChange={(event) => onChange?.({ mask: { ...mask, [key]: Number(event.target.value) } })} /></div>)}
+            {isCircleMask ? <div className="slider-field compact-slider"><div><label>{t("visualDiameter")}</label><span>{Number.isFinite(mask.size) ? Math.round(mask.size) : 72}%</span></div><input type="range" min="8" max="100" value={Number.isFinite(mask.size) ? mask.size : 72} onChange={(event) => onChange?.({ mask: { ...mask, size: Number(event.target.value) } })} /></div> : [['width',t('visualWidth'),8,100,80],['height',t('visualHeight'),8,100,80]].map(([key,label,min,max,fallback]) => <div className="slider-field compact-slider" key={key}><div><label>{label}</label><span>{Number.isFinite(mask[key]) ? Math.round(mask[key]) : fallback}%</span></div><input type="range" min={min} max={max} value={Number.isFinite(mask[key]) ? mask[key] : fallback} onChange={(event) => onChange?.({ mask: { ...mask, [key]: Number(event.target.value) } })} /></div>)}
+            {mask.type === "rounded" ? <div className="slider-field compact-slider"><div><label>{t("visualCornerRadius")}</label><span>{Number.isFinite(mask.cornerRadius) ? Math.round(mask.cornerRadius) : 12}%</span></div><input type="range" min="0" max="50" value={Number.isFinite(mask.cornerRadius) ? mask.cornerRadius : 12} onChange={(event) => onChange?.({ mask: { ...mask, cornerRadius: Number(event.target.value) } })} /></div> : null}
+            <label className="switch-row"><input type="checkbox" checked={Boolean(mask.inverted)} onChange={(event) => onChange?.({ mask: { ...mask, inverted: event.target.checked } })} />{t("visualInvertMask")}</label>
+          </> : <p className="mask-empty-hint">{t("visualMaskNoneHint")}</p>}
+        </section>
+      </>}
+      <VisualChoicePanel title={t("visualEffects")} kind="effect" options={EFFECT_OPTIONS} selectedId={selectedFilterId} trOption={trOption} onSelect={onSelectFilter} />
+    </div>
   );
 }
 

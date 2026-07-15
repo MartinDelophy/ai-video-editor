@@ -13,8 +13,50 @@ export const APP_LANGUAGES = [
   { id: "vi", name: "Vietnamese", nativeName: "Tiếng Việt", hint: "Vietnamese" },
 ];
 
+const VISUAL_EDITOR_COPY = {
+  zh: { visualSelectClip: "请先选择 Visuals 轨上的片段", visualKeyframes: "关键帧", visualFrames: "帧", visualScale: "缩放", visualPositionX: "水平位置", visualPositionY: "垂直位置", visualRotation: "旋转", visualOpacity: "不透明度", visualDeleteKeyframe: "删除当前位置关键帧", visualMask: "蒙版", visualMaskResize: "调整蒙版大小", visualClipScoped: "片段级", visualMaskNone: "无", visualMaskRectangle: "矩形", visualMaskRounded: "圆角", visualMaskCircle: "圆形", visualFeather: "羽化", visualHorizontal: "水平", visualVertical: "垂直", visualWidth: "宽度", visualHeight: "高度", visualDiameter: "直径", visualCornerRadius: "圆角半径", visualMaskNoneHint: "选择一种蒙版后显示对应参数", visualInvertMask: "反向蒙版", visualEffects: "画面效果" },
+  en: { visualSelectClip: "Select a clip on the Visuals track", visualKeyframes: "Keyframes", visualFrames: "frames", visualScale: "Scale", visualPositionX: "Horizontal position", visualPositionY: "Vertical position", visualRotation: "Rotation", visualOpacity: "Opacity", visualDeleteKeyframe: "Delete keyframe at playhead", visualMask: "Mask", visualMaskResize: "Resize mask", visualClipScoped: "Clip", visualMaskNone: "None", visualMaskRectangle: "Rectangle", visualMaskRounded: "Rounded", visualMaskCircle: "Circle", visualFeather: "Feather", visualHorizontal: "Horizontal", visualVertical: "Vertical", visualWidth: "Width", visualHeight: "Height", visualDiameter: "Diameter", visualCornerRadius: "Corner radius", visualMaskNoneHint: "Choose a mask to show its parameters", visualInvertMask: "Invert mask", visualEffects: "Visual effects" },
+  ja: { visualSelectClip: "Visualsトラックのクリップを選択してください", visualKeyframes: "キーフレーム", visualFrames: "フレーム", visualScale: "拡大率", visualPositionX: "水平位置", visualPositionY: "垂直位置", visualRotation: "回転", visualOpacity: "不透明度", visualDeleteKeyframe: "現在位置のキーフレームを削除", visualMask: "マスク", visualMaskResize: "マスクのサイズを変更", visualClipScoped: "クリップ", visualMaskNone: "なし", visualMaskRectangle: "長方形", visualMaskRounded: "角丸", visualMaskCircle: "円形", visualFeather: "ぼかし", visualHorizontal: "水平", visualVertical: "垂直", visualWidth: "幅", visualHeight: "高さ", visualInvertMask: "マスクを反転", visualEffects: "映像エフェクト" },
+  ko: { visualSelectClip: "Visuals 트랙에서 클립을 선택하세요", visualKeyframes: "키프레임", visualFrames: "프레임", visualScale: "크기", visualPositionX: "가로 위치", visualPositionY: "세로 위치", visualRotation: "회전", visualOpacity: "불투명도", visualDeleteKeyframe: "현재 위치 키프레임 삭제", visualMask: "마스크", visualMaskResize: "마스크 크기 조절", visualClipScoped: "클립", visualMaskNone: "없음", visualMaskRectangle: "사각형", visualMaskRounded: "둥근 모서리", visualMaskCircle: "원형", visualFeather: "페더", visualHorizontal: "가로", visualVertical: "세로", visualWidth: "너비", visualHeight: "높이", visualInvertMask: "마스크 반전", visualEffects: "화면 효과" },
+  es: { visualSelectClip: "Selecciona un clip en la pista Visuals", visualKeyframes: "Fotogramas clave", visualFrames: "fotogramas", visualScale: "Escala", visualPositionX: "Posición horizontal", visualPositionY: "Posición vertical", visualRotation: "Rotación", visualOpacity: "Opacidad", visualDeleteKeyframe: "Eliminar fotograma clave actual", visualMask: "Máscara", visualMaskResize: "Cambiar tamaño de máscara", visualClipScoped: "Clip", visualMaskNone: "Ninguna", visualMaskRectangle: "Rectángulo", visualMaskRounded: "Redondeada", visualMaskCircle: "Círculo", visualFeather: "Desvanecer", visualHorizontal: "Horizontal", visualVertical: "Vertical", visualWidth: "Ancho", visualHeight: "Alto", visualInvertMask: "Invertir máscara", visualEffects: "Efectos visuales" },
+  fr: { visualSelectClip: "Sélectionnez un clip sur la piste Visuals", visualKeyframes: "Images clés", visualFrames: "images", visualScale: "Échelle", visualPositionX: "Position horizontale", visualPositionY: "Position verticale", visualRotation: "Rotation", visualOpacity: "Opacité", visualDeleteKeyframe: "Supprimer l’image clé actuelle", visualMask: "Masque", visualMaskResize: "Redimensionner le masque", visualClipScoped: "Clip", visualMaskNone: "Aucun", visualMaskRectangle: "Rectangle", visualMaskRounded: "Arrondi", visualMaskCircle: "Cercle", visualFeather: "Contour progressif", visualHorizontal: "Horizontal", visualVertical: "Vertical", visualWidth: "Largeur", visualHeight: "Hauteur", visualInvertMask: "Inverser le masque", visualEffects: "Effets visuels" },
+  de: { visualSelectClip: "Clip in der Visuals-Spur auswählen", visualKeyframes: "Keyframes", visualFrames: "Frames", visualScale: "Skalierung", visualPositionX: "Horizontale Position", visualPositionY: "Vertikale Position", visualRotation: "Drehung", visualOpacity: "Deckkraft", visualDeleteKeyframe: "Keyframe an Abspielposition löschen", visualMask: "Maske", visualMaskResize: "Maskengröße ändern", visualClipScoped: "Clip", visualMaskNone: "Keine", visualMaskRectangle: "Rechteck", visualMaskRounded: "Abgerundet", visualMaskCircle: "Kreis", visualFeather: "Weiche Kante", visualHorizontal: "Horizontal", visualVertical: "Vertikal", visualWidth: "Breite", visualHeight: "Höhe", visualInvertMask: "Maske umkehren", visualEffects: "Bildeffekte" },
+  pt: { visualSelectClip: "Selecione um clipe na faixa Visuals", visualKeyframes: "Quadros-chave", visualFrames: "quadros", visualScale: "Escala", visualPositionX: "Posição horizontal", visualPositionY: "Posição vertical", visualRotation: "Rotação", visualOpacity: "Opacidade", visualDeleteKeyframe: "Excluir quadro-chave atual", visualMask: "Máscara", visualMaskResize: "Redimensionar máscara", visualClipScoped: "Clipe", visualMaskNone: "Nenhuma", visualMaskRectangle: "Retângulo", visualMaskRounded: "Arredondada", visualMaskCircle: "Círculo", visualFeather: "Suavização", visualHorizontal: "Horizontal", visualVertical: "Vertical", visualWidth: "Largura", visualHeight: "Altura", visualInvertMask: "Inverter máscara", visualEffects: "Efeitos visuais" },
+  th: { visualSelectClip: "เลือกคลิปในแทร็ก Visuals", visualKeyframes: "คีย์เฟรม", visualFrames: "เฟรม", visualScale: "ขนาด", visualPositionX: "ตำแหน่งแนวนอน", visualPositionY: "ตำแหน่งแนวตั้ง", visualRotation: "การหมุน", visualOpacity: "ความทึบ", visualDeleteKeyframe: "ลบคีย์เฟรมที่ตำแหน่งปัจจุบัน", visualMask: "มาสก์", visualMaskResize: "ปรับขนาดมาสก์", visualClipScoped: "คลิป", visualMaskNone: "ไม่มี", visualMaskRectangle: "สี่เหลี่ยม", visualMaskRounded: "มุมมน", visualMaskCircle: "วงกลม", visualFeather: "ขอบฟุ้ง", visualHorizontal: "แนวนอน", visualVertical: "แนวตั้ง", visualWidth: "ความกว้าง", visualHeight: "ความสูง", visualInvertMask: "กลับด้านมาสก์", visualEffects: "เอฟเฟกต์ภาพ" },
+  vi: { visualSelectClip: "Chọn một clip trên rãnh Visuals", visualKeyframes: "Khung hình chính", visualFrames: "khung", visualScale: "Tỷ lệ", visualPositionX: "Vị trí ngang", visualPositionY: "Vị trí dọc", visualRotation: "Xoay", visualOpacity: "Độ mờ", visualDeleteKeyframe: "Xóa khung hình chính hiện tại", visualMask: "Mặt nạ", visualMaskResize: "Đổi kích thước mặt nạ", visualClipScoped: "Clip", visualMaskNone: "Không", visualMaskRectangle: "Chữ nhật", visualMaskRounded: "Bo góc", visualMaskCircle: "Tròn", visualFeather: "Làm mềm", visualHorizontal: "Ngang", visualVertical: "Dọc", visualWidth: "Rộng", visualHeight: "Cao", visualInvertMask: "Đảo mặt nạ", visualEffects: "Hiệu ứng hình ảnh" },
+};
+
+const VISUAL_MASK_SHAPE_COPY = {
+  zh: { visualDiameter: "直径", visualCornerRadius: "圆角半径", visualMaskNoneHint: "选择一种蒙版后显示对应参数" },
+  en: { visualDiameter: "Diameter", visualCornerRadius: "Corner radius", visualMaskNoneHint: "Choose a mask to show its parameters" },
+  ja: { visualDiameter: "直径", visualCornerRadius: "角丸の半径", visualMaskNoneHint: "マスクを選ぶと対応する設定が表示されます" },
+  ko: { visualDiameter: "지름", visualCornerRadius: "모서리 반경", visualMaskNoneHint: "마스크를 선택하면 해당 매개변수가 표시됩니다" },
+  es: { visualDiameter: "Diámetro", visualCornerRadius: "Radio de esquina", visualMaskNoneHint: "Elige una máscara para ver sus parámetros" },
+  fr: { visualDiameter: "Diamètre", visualCornerRadius: "Rayon des coins", visualMaskNoneHint: "Choisissez un masque pour afficher ses paramètres" },
+  de: { visualDiameter: "Durchmesser", visualCornerRadius: "Eckenradius", visualMaskNoneHint: "Maske auswählen, um ihre Parameter anzuzeigen" },
+  pt: { visualDiameter: "Diâmetro", visualCornerRadius: "Raio do canto", visualMaskNoneHint: "Escolha uma máscara para exibir seus parâmetros" },
+  th: { visualDiameter: "เส้นผ่านศูนย์กลาง", visualCornerRadius: "รัศมีมุม", visualMaskNoneHint: "เลือกมาสก์เพื่อแสดงพารามิเตอร์" },
+  vi: { visualDiameter: "Đường kính", visualCornerRadius: "Bán kính góc", visualMaskNoneHint: "Chọn mặt nạ để hiển thị các tham số" },
+};
+
+const VISUAL_KEYFRAME_ACTION_COPY = {
+  zh: { visualAddAllKeyframes: "添加全部关键帧", visualAddPropertyKeyframe: "添加属性关键帧", visualRemovePropertyKeyframe: "移除属性关键帧" },
+  en: { visualAddAllKeyframes: "Add all keyframes", visualAddPropertyKeyframe: "Add property keyframe", visualRemovePropertyKeyframe: "Remove property keyframe" },
+  ja: { visualAddAllKeyframes: "すべてのキーフレームを追加", visualAddPropertyKeyframe: "プロパティのキーフレームを追加", visualRemovePropertyKeyframe: "プロパティのキーフレームを削除" },
+  ko: { visualAddAllKeyframes: "모든 키프레임 추가", visualAddPropertyKeyframe: "속성 키프레임 추가", visualRemovePropertyKeyframe: "속성 키프레임 제거" },
+  es: { visualAddAllKeyframes: "Añadir todos los fotogramas clave", visualAddPropertyKeyframe: "Añadir fotograma clave de propiedad", visualRemovePropertyKeyframe: "Quitar fotograma clave de propiedad" },
+  fr: { visualAddAllKeyframes: "Ajouter toutes les images clés", visualAddPropertyKeyframe: "Ajouter l’image clé de la propriété", visualRemovePropertyKeyframe: "Supprimer l’image clé de la propriété" },
+  de: { visualAddAllKeyframes: "Alle Keyframes hinzufügen", visualAddPropertyKeyframe: "Eigenschafts-Keyframe hinzufügen", visualRemovePropertyKeyframe: "Eigenschafts-Keyframe entfernen" },
+  pt: { visualAddAllKeyframes: "Adicionar todos os quadros-chave", visualAddPropertyKeyframe: "Adicionar quadro-chave da propriedade", visualRemovePropertyKeyframe: "Remover quadro-chave da propriedade" },
+  th: { visualAddAllKeyframes: "เพิ่มคีย์เฟรมทั้งหมด", visualAddPropertyKeyframe: "เพิ่มคีย์เฟรมคุณสมบัติ", visualRemovePropertyKeyframe: "ลบคีย์เฟรมคุณสมบัติ" },
+  vi: { visualAddAllKeyframes: "Thêm tất cả khung hình chính", visualAddPropertyKeyframe: "Thêm khung hình chính thuộc tính", visualRemovePropertyKeyframe: "Xóa khung hình chính thuộc tính" },
+};
+
 export const UI_COPY = {
   zh: {
+    ...VISUAL_EDITOR_COPY.zh,
+    ...VISUAL_MASK_SHAPE_COPY.zh,
+    ...VISUAL_KEYFRAME_ACTION_COPY.zh,
     languageKicker: "AI Voice Studio",
     languageTitle: "选择界面语言",
     languageSubtitle: "设置一次后会自动保存，下次进入直接使用该语言。",
@@ -351,6 +393,9 @@ export const UI_COPY = {
     dropMusicHere: "释放到背景音乐轨",
   },
   en: {
+    ...VISUAL_EDITOR_COPY.en,
+    ...VISUAL_MASK_SHAPE_COPY.en,
+    ...VISUAL_KEYFRAME_ACTION_COPY.en,
     languageKicker: "AI Voice Studio",
     languageTitle: "Choose Interface Language",
     languageSubtitle: "Saved once, then this editor opens in your language next time.",
@@ -687,6 +732,9 @@ export const UI_COPY = {
     dropMusicHere: "Drop on music track",
   },
   ja: {
+    ...VISUAL_EDITOR_COPY.ja,
+    ...VISUAL_MASK_SHAPE_COPY.ja,
+    ...VISUAL_KEYFRAME_ACTION_COPY.ja,
     languageTitle: "表示言語を選択",
     languageSubtitle: "一度保存すると、次回からこの言語で開きます。",
     languageSaved: "あとで設定から変更できます",
@@ -749,6 +797,9 @@ export const UI_COPY = {
 
 Object.assign(UI_COPY, {
   ko: {
+    ...VISUAL_EDITOR_COPY.ko,
+    ...VISUAL_MASK_SHAPE_COPY.ko,
+    ...VISUAL_KEYFRAME_ACTION_COPY.ko,
     ...UI_COPY.en,
     languageTitle: "인터페이스 언어 선택",
     languageSubtitle: "한 번 저장하면 다음부터 이 언어로 열립니다.",
@@ -791,6 +842,9 @@ Object.assign(UI_COPY, {
   },
   es: {
     ...UI_COPY.en,
+    ...VISUAL_EDITOR_COPY.es,
+    ...VISUAL_MASK_SHAPE_COPY.es,
+    ...VISUAL_KEYFRAME_ACTION_COPY.es,
     languageTitle: "Elige el idioma",
     languageSubtitle: "Se guarda una vez y se abrirá así la próxima vez.",
     languageSaved: "Puedes cambiarlo luego en Ajustes",
@@ -832,6 +886,9 @@ Object.assign(UI_COPY, {
   },
   fr: {
     ...UI_COPY.en,
+    ...VISUAL_EDITOR_COPY.fr,
+    ...VISUAL_MASK_SHAPE_COPY.fr,
+    ...VISUAL_KEYFRAME_ACTION_COPY.fr,
     languageTitle: "Choisir la langue",
     languageSubtitle: "Enregistrée une fois, elle sera utilisée à la prochaine ouverture.",
     languageSaved: "Modifiable plus tard dans les réglages",
@@ -873,6 +930,9 @@ Object.assign(UI_COPY, {
   },
   de: {
     ...UI_COPY.en,
+    ...VISUAL_EDITOR_COPY.de,
+    ...VISUAL_MASK_SHAPE_COPY.de,
+    ...VISUAL_KEYFRAME_ACTION_COPY.de,
     languageTitle: "Sprache wählen",
     languageSubtitle: "Einmal gespeichert, startet der Editor künftig in dieser Sprache.",
     languageSaved: "Später in den Einstellungen änderbar",
@@ -914,6 +974,9 @@ Object.assign(UI_COPY, {
   },
   pt: {
     ...UI_COPY.en,
+    ...VISUAL_EDITOR_COPY.pt,
+    ...VISUAL_MASK_SHAPE_COPY.pt,
+    ...VISUAL_KEYFRAME_ACTION_COPY.pt,
     languageTitle: "Escolha o idioma",
     languageSubtitle: "Salvo uma vez, o editor abrirá nesse idioma depois.",
     languageSaved: "Você pode alterar em Configurações",
@@ -955,6 +1018,9 @@ Object.assign(UI_COPY, {
   },
   th: {
     ...UI_COPY.en,
+    ...VISUAL_EDITOR_COPY.th,
+    ...VISUAL_MASK_SHAPE_COPY.th,
+    ...VISUAL_KEYFRAME_ACTION_COPY.th,
     languageTitle: "เลือกภาษาอินเทอร์เฟซ",
     languageSubtitle: "บันทึกครั้งเดียว ครั้งถัดไปจะเปิดด้วยภาษานี้",
     languageSaved: "เปลี่ยนได้ภายหลังใน Settings",
@@ -996,6 +1062,9 @@ Object.assign(UI_COPY, {
   },
   vi: {
     ...UI_COPY.en,
+    ...VISUAL_EDITOR_COPY.vi,
+    ...VISUAL_MASK_SHAPE_COPY.vi,
+    ...VISUAL_KEYFRAME_ACTION_COPY.vi,
     languageTitle: "Chọn ngôn ngữ giao diện",
     languageSubtitle: "Lưu một lần, lần sau sẽ mở bằng ngôn ngữ này.",
     languageSaved: "Có thể đổi lại trong Cài đặt",

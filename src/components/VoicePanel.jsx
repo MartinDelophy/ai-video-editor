@@ -320,6 +320,12 @@ export function VoicePanel({
   visualLocalTime,
   visualTimelineStart = 0,
   updateSelectedVisualEffects,
+  remasterJob,
+  remasterQuality,
+  setRemasterQuality,
+  enhanceSelectedVisualFrame,
+  enhanceSelectedVisualClip,
+  clearSelectedVisualEnhancement,
   selectedFilterId,
   setSelectedFilterId,
   trOption,
@@ -384,6 +390,12 @@ export function VoicePanel({
             trOption={trOption}
             onSelectFilter={(id) => { setSelectedFilterId(id); notify(t("effectApplied")); }}
             sourceAudioLinked={sourceAudioLinked}
+            enhancementJob={remasterJob}
+            enhancementQuality={remasterQuality}
+            onEnhancementQualityChange={setRemasterQuality}
+            onEnhance={enhanceSelectedVisualFrame}
+            onEnhanceClip={enhanceSelectedVisualClip}
+            onClearEnhancement={clearSelectedVisualEnhancement}
           />
         ) : null}
         {isCaptionContext ? (

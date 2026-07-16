@@ -5,7 +5,7 @@ import { PreviewStage } from "./components/PreviewStage.jsx";
 import { VoicePanel } from "./components/VoicePanel.jsx";
 import { Timeline } from "./components/Timeline.jsx";
 import { Topbar } from "./components/Topbar.jsx";
-import { AssetDragPreview, ExportProgressOverlay } from "./components/EditorOverlays.jsx";
+import { AssetDragPreview, ExportProgressOverlay, RemasterProgressOverlay } from "./components/EditorOverlays.jsx";
 import { EditorSidebar } from "./components/EditorSidebar.jsx";
 import { useExportElapsed } from "./hooks/useExportElapsed.js";
 import { usePreviewFrameSize } from "./hooks/usePreviewFrameSize.js";
@@ -56,6 +56,8 @@ import { downloadBlob } from "./lib/media.js";
 import { getImageThumbnailCount, getVisualSegmentsTotal } from "./lib/timeline.js";
 import { removeVisualPropertyKeyframe, updateVisualSegmentPlaybackRate, upsertVisualKeyframe, upsertVisualPropertyKeyframe } from "./lib/visualEffects.js";
 import { getLinkedSourceAudioEnd, getLinkedSourceAudioSegments } from "./lib/sourceAudioSync.js";
+import { captureRemasterSource, enhanceRemasterFrame } from "./lib/remasterEnhancement.js";
+import { enhanceRemasterClip } from "./lib/remasterClipEnhancement.js";
 
 function getExportDimensions(ratio, longEdge) {
   const sourceLongEdge = Math.max(ratio.width, ratio.height);
@@ -74,7 +76,9 @@ export function App() {
   const [uiLanguage, setUiLanguage] = useState(() => getStoredLanguage());
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [exportSettings, setExportSettings] = useState({ resolution: "1080", frameRate: 30, codec: "h264", quality: "high" });
+  const [remasterQuality, setRemasterQuality] = useState("fast");
   const [introClosing, setIntroClosing] = useState(false);
+  const [remasterJob, setRemasterJob] = useState({ running: false, mode: "", segmentId: "", progress: 0, phase: "", frameIndex: 0, totalFrames: 0, startedAt: 0, backend: "" });
   const {
     captionPlacement, captionPosition, captionSegments, captionSize, captionStyle,
     captionsEnabled, script, selectedSegmentId, setCaptionPlacement,
@@ -141,7 +145,7 @@ export function App() {
     avatarMotionCacheRef, avatarMotionWorkerRef, avatarRenderWorkerRef,
     avatarTestAudioImportedRef, avatarTestImportedRef, currentTimeRef, draggedAssetIdRef,
     exportStartRef, fileInputRef, imageUrlRefs, musicRef, musicUrlRef, pointerAssetDragRef,
-    previewCanvasRef, previewShellRef, previewVideoRef, projectFileInputRef, sourceAudioRef,
+    previewCanvasRef, previewShellRef, previewVideoRef, projectFileInputRef, remasterAbortControllerRef, sourceAudioRef,
     sourceAudioUrlRef, suppressAssetClickRef, suppressTimelineClipClickRef,
     timelineClipDragRef, timelineDurationRef, trackScrollRef, visionAbortControllerRef,
     visionJobGenerationRef, visionObjectUrlsRef, visualPlaybackFrameRef,
@@ -230,6 +234,24 @@ export function App() {
       if (change.removePropertyKeyframe) return { ...item, keyframes: removeVisualPropertyKeyframe(item.keyframes, change.removePropertyKeyframe.time, change.removePropertyKeyframe.key) };
       if (Number.isFinite(change.removeKeyframeAt)) return { ...item, keyframes: (item.keyframes ?? []).filter((frame) => Math.abs(frame.time - change.removeKeyframeAt) > 0.04) };
       if (change.mask) return { ...item, mask: change.mask };
+      if (typeof change.enhancementEnabled === "boolean" && item.enhancement) {
+        if (item.enhancement.mode === "remaster-drunet-full") {
+          const source = change.enhancementEnabled ? item.enhancement.processed : item.enhancement.original;
+          if (!source?.src) return item;
+          return {
+            ...item,
+            src: source.src,
+            blob: source.blob,
+            width: source.width,
+            height: source.height,
+            sourceStart: source.sourceStart,
+            sourceDuration: source.sourceDuration,
+            trackFrames: source.trackFrames ?? [],
+            enhancement: { ...item.enhancement, enabled: change.enhancementEnabled },
+          };
+        }
+        if (item.enhancement.previewUrl) return { ...item, enhancement: { ...item.enhancement, enabled: change.enhancementEnabled } };
+      }
       return item;
       });
       if (Number.isFinite(change.playbackRate)) {
@@ -249,6 +271,155 @@ export function App() {
       }
       return nextItems;
     });
+  };
+  const clearSelectedVisualEnhancement = () => {
+    if (!selectedVisualSegment?.id) return;
+    remasterAbortControllerRef.current?.abort();
+    setVisualSegments((items) => items.map((item) => {
+      if (item.id !== selectedVisualSegment.id) return item;
+      if (item.enhancement?.mode !== "remaster-drunet-full" || !item.enhancement.original?.src) return { ...item, enhancement: null };
+      const original = item.enhancement.original;
+      return {
+        ...item,
+        src: original.src,
+        blob: original.blob,
+        width: original.width,
+        height: original.height,
+        sourceStart: original.sourceStart,
+        sourceDuration: original.sourceDuration,
+        trackFrames: original.trackFrames ?? [],
+        enhancement: null,
+      };
+    }));
+    setRemasterJob({ running: false, mode: "", segmentId: "", progress: 0, phase: "", frameIndex: 0, totalFrames: 0, startedAt: 0 });
+  };
+  const enhanceSelectedVisualFrame = async () => {
+    if (!selectedVisualSegment?.id || !selectedVisualSegment.src) return notify(t("remasterSelectClip"));
+    if (remasterJob.running) return;
+    const controller = new AbortController();
+    remasterAbortControllerRef.current = controller;
+    setIsPlaying(false);
+    previewVideoRef.current?.pause();
+    setRemasterJob({ running: true, mode: "frame", segmentId: selectedVisualSegment.id, progress: 1, phaseKey: "remasterPreparing", frameIndex: 0, totalFrames: 1, startedAt: Date.now() });
+    try {
+      const bitmap = await captureRemasterSource({
+        type: selectedVisualSegment.type,
+        src: selectedVisualSegment.src,
+        video: previewVideoRef.current,
+      });
+      const result = await enhanceRemasterFrame({
+        bitmap,
+        maxLongEdge: remasterQuality === "quality" ? 960 : 640,
+        signal: controller.signal,
+        onProgress: ({ progress, phaseKey, phaseParams }) => setRemasterJob((job) => ({ ...job, running: true, progress, phaseKey, phaseParams })),
+      });
+      if (controller.signal.aborted) return;
+      const previewUrl = URL.createObjectURL(result.blob);
+      imageUrlRefs.current.add(previewUrl);
+      setVisualSegments((items) => items.map((item) => {
+        if (item.id !== selectedVisualSegment.id) return item;
+        return { ...item, enhancement: {
+          enabled: true,
+          mode: "remaster-drunet-frame-preview",
+          previewUrl,
+          previewBlob: result.blob,
+          localTime: visualLocalTime,
+          sourceTime: previewVisualSourceTime,
+          width: result.width,
+          height: result.height,
+          inferenceMs: result.inferenceMs,
+        } };
+      }));
+      setRemasterJob({ running: false, mode: "frame", segmentId: selectedVisualSegment.id, progress: 100, phase: t("remasterReady"), frameIndex: 1, totalFrames: 1, startedAt: 0 });
+      notify(t("remasterReady"));
+    } catch (error) {
+      if (error?.name !== "AbortError") notify(error instanceof Error ? error.message : t("remasterFailed"));
+      setRemasterJob({ running: false, mode: "frame", segmentId: selectedVisualSegment.id, progress: 0, phase: "", frameIndex: 0, totalFrames: 1, startedAt: 0 });
+    } finally {
+      if (remasterAbortControllerRef.current === controller) remasterAbortControllerRef.current = null;
+    }
+  };
+  const cancelRemasterEnhancement = () => {
+    if (!remasterJob.running) return;
+    setRemasterJob((job) => ({ ...job, phase: "", phaseKey: "remasterCanceling", phaseParams: {} }));
+    remasterAbortControllerRef.current?.abort();
+  };
+  const enhanceSelectedVisualClip = async () => {
+    if (!selectedVisualSegment?.id || !selectedVisualSegment.src) return notify(t("remasterSelectClip"));
+    if (selectedVisualSegment.type !== "video") return notify(t("remasterClipOnlyVideo"));
+    if (remasterJob.running) return;
+    const existingOriginal = selectedVisualSegment.enhancement?.mode === "remaster-drunet-full"
+      ? selectedVisualSegment.enhancement.original
+      : null;
+    const original = existingOriginal ?? {
+      src: selectedVisualSegment.src,
+      blob: selectedVisualSegment.blob,
+      width: selectedVisualSegment.width,
+      height: selectedVisualSegment.height,
+      sourceStart: selectedVisualSegment.sourceStart ?? 0,
+      sourceDuration: selectedVisualSegment.sourceDuration,
+      trackFrames: selectedVisualSegment.trackFrames ?? [],
+    };
+    const inputSegment = { ...selectedVisualSegment, ...original, type: "video" };
+    const controller = new AbortController();
+    remasterAbortControllerRef.current = controller;
+    setIsPlaying(false);
+    previewVideoRef.current?.pause();
+    setRemasterJob({ running: true, mode: "clip", segmentId: selectedVisualSegment.id, progress: 1, phaseKey: "remasterClipPreparing", frameIndex: 0, totalFrames: 0, startedAt: Date.now() });
+    try {
+      const result = await enhanceRemasterClip({
+        segment: inputSegment,
+        videoElement: previewVideoRef.current,
+        frameRate: exportSettings.frameRate,
+        maxLongEdge: 960,
+        signal: controller.signal,
+        onProgress: ({ progress, phaseKey, phaseParams, frameIndex = 0, totalFrames = 0, backend = "" }) => setRemasterJob((job) => ({
+          ...job,
+          running: true,
+          progress,
+          phase: "",
+          phaseKey,
+          phaseParams,
+          frameIndex,
+          totalFrames,
+          backend: backend || job.backend,
+        })),
+      });
+      if (controller.signal.aborted) return;
+      const processedUrl = URL.createObjectURL(result.blob);
+      imageUrlRefs.current.add(processedUrl);
+      const processed = {
+        src: processedUrl,
+        blob: result.blob,
+        width: result.width,
+        height: result.height,
+        sourceStart: 0,
+        sourceDuration: result.sourceDuration,
+        trackFrames: [],
+      };
+      setVisualSegments((items) => items.map((item) => item.id === selectedVisualSegment.id ? {
+        ...item,
+        ...processed,
+        enhancement: {
+          enabled: true,
+          mode: "remaster-drunet-full",
+          original,
+          processed,
+          frameRate: result.frameRate,
+          totalFrames: result.totalFrames,
+          backend: result.backend,
+          quality: remasterQuality,
+        },
+      } : item));
+      setRemasterJob({ running: false, mode: "clip", segmentId: selectedVisualSegment.id, progress: 100, phase: t("remasterClipReady"), frameIndex: result.totalFrames, totalFrames: result.totalFrames, startedAt: 0 });
+      notify(t("remasterClipReady"));
+    } catch (error) {
+      if (error?.name === "AbortError") notify(t("remasterCanceled"));
+      else notify(error instanceof Error ? error.message : t("remasterFailed"));
+      setRemasterJob({ running: false, mode: "clip", segmentId: selectedVisualSegment.id, progress: 0, phase: "", frameIndex: 0, totalFrames: 0, startedAt: 0 });
+    } finally {
+      if (remasterAbortControllerRef.current === controller) remasterAbortControllerRef.current = null;
+    }
   };
   const exportElapsedSeconds = useExportElapsed(exporting, exportStartRef);
   const {
@@ -426,7 +597,7 @@ export function App() {
     selectedStickerSegmentId, selectedTrack, selectedVisualSegmentId, setCurrentVisualAsset,
     setFitMode, setRatioId, setSelectedSegmentId, setSelectedVisualSegmentId,
     setUserAssets, sourceAudioBlob, sourceAudioUrlRef, stickerSegments,
-    visionAbortControllerRef, visionObjectUrlsRef, visualSegments,
+    remasterAbortControllerRef, visionAbortControllerRef, visionObjectUrlsRef, visualSegments,
     voiceRecorderStreamRef, voiceRecorderTimerRef,
   });
 
@@ -446,6 +617,11 @@ export function App() {
     sourceAudioRef, sourceAudioStart, sourceAudioUrl, timelineDuration,
     timelineDurationRef, trackScrollRef, trackVisibility, visualSegments, visualTimeline,
   });
+  const pauseForTimelineEdit = () => {
+    if (!isPlaying) return;
+    pauseTimelineMedia();
+    setIsPlaying(false);
+  };
 
   useMediaSync({
     audioRef, audioSegmentRefs, audioSegments, currentTime, currentTimeRef, estimatedDuration,
@@ -464,7 +640,7 @@ export function App() {
     setSelectedStickerSegmentId, setSelectedTrack, setStickerSegments, setTimelineHorizon,
     setMusicStart, setSourceAudioLinked, setSourceAudioStart, musicDuration, musicStart,
     sourceAudioDuration, sourceAudioStart, stickerSegments, suppressTimelineClipClickRef, t, timelineDurationRef,
-    trackLocks, trackScrollRef,
+    trackLocks, trackScrollRef, pauseForTimelineEdit,
   });
 
   const startImageResize = createImageResizeControl({
@@ -473,7 +649,7 @@ export function App() {
     setCurrentTime, setImageClipCount, setImageDuration, setSelectedTrack,
     setSelectedVisualSegmentId, setSnapGuide, setVisualSegments, sourceAudioBlob,
     sourceAudioDuration, sourceAudioStart, timelineDuration, timelineDurationRef,
-    trackLocks, trackScrollRef, visualSegments,
+    trackLocks, trackScrollRef, visualSegments, pauseForTimelineEdit,
   });
 
   const extractVideoSourceAudio = useSourceAudioExtraction({
@@ -559,7 +735,7 @@ export function App() {
     captionSegments, captionTargetDuration, commitCaptionSegments, commitVisualSegments,
     notify, renderedVisualSegments, seekTo, setSelectedSegmentId, setSelectedTrack,
     setSelectedVisualSegmentId, setTimelineClipDrag, suppressTimelineClipClickRef,
-    timelineClipDragRef, timelineDuration, trackLocks, visualSegments,
+    timelineClipDragRef, timelineDuration, trackLocks, visualSegments, pauseForTimelineEdit,
   });
 
   return (
@@ -752,6 +928,12 @@ export function App() {
           visualLocalTime={visualLocalTime}
           visualTimelineStart={selectedVisualRange?.start ?? 0}
           updateSelectedVisualEffects={updateSelectedVisualEffects}
+          remasterJob={remasterJob}
+          remasterQuality={remasterQuality}
+          setRemasterQuality={setRemasterQuality}
+          enhanceSelectedVisualFrame={enhanceSelectedVisualFrame}
+          enhanceSelectedVisualClip={enhanceSelectedVisualClip}
+          clearSelectedVisualEnhancement={clearSelectedVisualEnhancement}
           selectedFilterId={selectedFilterId}
           setSelectedFilterId={setSelectedFilterId}
           trOption={trOption}
@@ -848,6 +1030,7 @@ export function App() {
 
       <AssetDragPreview preview={assetDragPreview} t={t} />
       <ExportProgressOverlay exporting={exporting} percent={exportPercent} phase={exportPhase} elapsedSeconds={exportElapsedSeconds} t={t} />
+      <RemasterProgressOverlay job={remasterJob} onCancel={cancelRemasterEnhancement} t={t} />
       {shouldShowLanguageIntro ? (
         <LanguageIntro t={t} closing={introClosing} onChoose={chooseInterfaceLanguage} />
       ) : null}

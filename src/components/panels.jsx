@@ -31,6 +31,7 @@ import {
   VOICES,
 } from "../config/editor.js";
 import { APP_LANGUAGES } from "../i18n.js";
+import { translateRemasterPhase } from "../lib/remasterProgress.js";
 import { formatClock, formatTime, getSegmentStartTime } from "../lib/timeline.js";
 import { hasVisualPropertyKeyframe, normalizeVisualKeyframes, resolveVisualTransform } from "../lib/visualEffects.js";
 import { Popover } from "./ui.jsx";
@@ -589,7 +590,7 @@ export function ToolPanel(props) {
   );
 }
 
-export function VisualEffectsPanel({ t, segment, localTime, onChange, onSeek, selectedFilterId, trOption, onSelectFilter, contextMode = false, sourceAudioLinked = false }) {
+export function VisualEffectsPanel({ t, segment, localTime, onChange, onSeek, selectedFilterId, trOption, onSelectFilter, contextMode = false, sourceAudioLinked = false, enhancementJob = null, enhancementQuality = "fast", onEnhancementQualityChange, onEnhance, onEnhanceClip, onClearEnhancement }) {
   const [activeTab, setActiveTab] = useState("transform");
   const keyframes = normalizeVisualKeyframes(segment?.keyframes ?? []);
   const transform = resolveVisualTransform(keyframes, localTime);
@@ -599,12 +600,18 @@ export function VisualEffectsPanel({ t, segment, localTime, onChange, onSeek, se
   const isVideo = segment?.type === "video";
   const playbackRate = Math.max(0.25, Math.min(4, Number(segment?.playbackRate) || 1));
   const sourceDuration = Math.max(0, Number(segment?.sourceDuration) || (Number(segment?.duration) || 0) * playbackRate);
+  const enhancement = segment?.enhancement ?? null;
+  const fullClipEnhanced = enhancement?.mode === "remaster-drunet-full";
+  const hasEnhancement = Boolean(fullClipEnhanced || enhancement?.previewUrl);
+  const enhancementRunning = Boolean(enhancementJob?.running && enhancementJob.segmentId === segment?.id);
+  const enhancementBackend = enhancementRunning ? enhancementJob?.backend : enhancement?.backend;
   const updateTransform = (key, value) => onChange?.({ propertyKeyframe: { time: localTime, key, value } });
   const tabs = [
     ["transform", t("visualTabTransform")],
     ["mask", t("visualTabMask")],
     ["speed", t("visualTabSpeed")],
     ["effects", t("visualTabEffects")],
+    ["ai", t("visualTabAi")],
   ];
   return (
     <div className={`tool-panel visual-effects-panel ${contextMode ? "is-context-mode" : ""}`}>
@@ -645,6 +652,19 @@ export function VisualEffectsPanel({ t, segment, localTime, onChange, onSeek, se
           </> : <div className="empty-state visual-speed-empty">{t("visualSpeedImageHint")}</div>}
         </section> : null}
         {activeTab === "effects" ? <VisualChoicePanel title={t("visualEffects")} kind="effect" options={EFFECT_OPTIONS} selectedId={selectedFilterId} trOption={trOption} onSelect={onSelectFilter} /> : null}
+        {activeTab === "ai" ?
+          <section className="visual-editor-card remaster-card">
+            <div className="visual-editor-heading"><strong>{t("remasterTitle")}</strong><em>{t("remasterExperimental")}</em></div>
+            <div className="remaster-model-row"><span><strong>Remaster DRUNet</strong><em>{t("remasterModelMeta")}</em></span><i className={hasEnhancement ? "is-ready" : ""}>{fullClipEnhanced ? t("remasterFullReadyBadge") : enhancement?.previewUrl ? t("remasterReadyBadge") : t("remasterNotRun")}</i></div>
+            {isVideo ? <div className="remaster-performance-row"><div className="visual-speed-presets" aria-label={t("remasterPerformanceMode")}><button type="button" className={enhancementQuality === "fast" ? "is-active" : ""} disabled={enhancementRunning} onClick={() => onEnhancementQualityChange?.("fast")}>{t("remasterFastMode")}</button><button type="button" className={enhancementQuality === "quality" ? "is-active" : ""} disabled={enhancementRunning} onClick={() => onEnhancementQualityChange?.("quality")}>{t("remasterQualityMode")}</button></div><span className={`remaster-backend ${enhancementBackend === "webgpu" ? "is-gpu" : enhancementBackend ? "is-cpu" : ""}`}>{enhancementBackend === "webgpu" ? t("remasterGpuActive") : enhancementBackend === "wasm" ? t("remasterCpuFallback") : t("remasterGpuAuto")}</span></div> : null}
+            {hasEnhancement ? <label className="switch-row remaster-preview-toggle"><input type="checkbox" checked={enhancement.enabled !== false} onChange={(event) => onChange?.({ enhancementEnabled: event.target.checked })} />{fullClipEnhanced ? t("remasterUseEnhanced") : t("remasterShowResult")}</label> : null}
+            {enhancementRunning ? <div className="remaster-progress" role="status" aria-live="polite"><span><i style={{ width: `${Math.max(2, enhancementJob.progress || 0)}%` }} /></span><small>{translateRemasterPhase(enhancementJob, t)} · {Math.round(enhancementJob.progress || 0)}%</small></div> : null}
+            {isVideo ? <button className="panel-primary" type="button" disabled={enhancementRunning || !onEnhanceClip} onClick={onEnhanceClip}>{enhancementRunning && enhancementJob?.mode === "clip" ? t("remasterProcessing") : fullClipEnhanced ? t("remasterRerunClip") : t("remasterEnhanceClip")}</button> : null}
+            <button className={isVideo ? "panel-secondary" : "panel-primary"} type="button" disabled={enhancementRunning || !onEnhance || fullClipEnhanced} onClick={onEnhance}>{enhancementRunning && enhancementJob?.mode === "frame" ? t("remasterProcessing") : t("remasterFramePreview")}</button>
+            {hasEnhancement ? <div className="remaster-result-meta"><span>{fullClipEnhanced ? `${enhancement.totalFrames} ${t("remasterFramesShort")}` : `${enhancement.width}×${enhancement.height}`}</span><span>{fullClipEnhanced ? `${enhancement.frameRate} fps` : `${Math.max(0, enhancement.inferenceMs || 0)} ms`}</span><button type="button" onClick={onClearEnhancement}>{t("remasterClear")}</button></div> : null}
+            <p className="visual-speed-hint">{segment?.type === "video" ? t("remasterVideoHint") : t("remasterImageHint")}</p>
+          </section>
+        : null}
       </>}
     </div>
   );

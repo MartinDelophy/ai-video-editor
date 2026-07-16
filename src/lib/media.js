@@ -1147,6 +1147,97 @@ function runFfmpegTask(task) {
   return nextTask;
 }
 
+function createAbortError(message = "任务已取消") {
+  const error = new Error(message);
+  error.name = "AbortError";
+  return error;
+}
+
+function getAbortableFfmpeg(signal) {
+  const loading = getFfmpeg();
+  if (!signal) return loading;
+  if (signal.aborted) return Promise.reject(createAbortError("整段增强已取消"));
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const abort = () => {
+      if (settled) return;
+      settled = true;
+      reject(createAbortError("整段增强已取消"));
+    };
+    signal.addEventListener("abort", abort, { once: true });
+    loading.then((ffmpeg) => {
+      signal.removeEventListener("abort", abort);
+      if (settled || signal.aborted) {
+        try { ffmpeg.terminate(); } catch { /* The loader may already be closed. */ }
+        ffmpegLoadPromise = null;
+        return;
+      }
+      settled = true;
+      resolve(ffmpeg);
+    }, (error) => {
+      signal.removeEventListener("abort", abort);
+      if (settled) return;
+      settled = true;
+      reject(error);
+    });
+  });
+}
+
+export async function encodePngFrameSequence({ totalFrames, frameRate, produceFrame, signal, onProgress }) {
+  return runFfmpegTask(async () => {
+    if (signal?.aborted) throw createAbortError("整段增强已取消");
+    let ffmpeg = null;
+    const id = makeId("remaster");
+    const prefix = `${id}-frame`;
+    const outputName = `${id}.mp4`;
+    const frameNames = [];
+    const frameBlobs = [];
+    let terminated = false;
+    const abort = () => {
+      terminated = true;
+      try { ffmpeg.terminate(); } catch { /* FFmpeg may already be stopped. */ }
+      ffmpegLoadPromise = null;
+    };
+    signal?.addEventListener("abort", abort, { once: true });
+    try {
+      for (let index = 0; index < totalFrames; index += 1) {
+        if (signal?.aborted) throw createAbortError("整段增强已取消");
+        const blob = await produceFrame(index);
+        if (signal?.aborted) throw createAbortError("整段增强已取消");
+        frameBlobs.push(blob);
+      }
+      if (signal?.aborted) throw createAbortError("整段增强已取消");
+      onProgress?.({ progress: 91, phaseKey: "remasterPhaseLoadEncoder" });
+      ffmpeg = await getAbortableFfmpeg(signal);
+      if (signal?.aborted) throw createAbortError("整段增强已取消");
+      for (let index = 0; index < frameBlobs.length; index += 1) {
+        const name = `${prefix}-${String(index).padStart(6, "0")}.png`;
+        frameNames.push(name);
+        await ffmpeg.writeFile(name, new Uint8Array(await frameBlobs[index].arrayBuffer()));
+      }
+      if (signal?.aborted) throw createAbortError("整段增强已取消");
+      onProgress?.({ progress: 92, phaseKey: "remasterPhaseEncodeVideo" });
+      await ffmpeg.exec([
+        "-framerate", String(frameRate),
+        "-i", `${prefix}-%06d.png`,
+        "-an", "-c:v", "libx264", "-preset", "veryfast",
+        "-crf", "18", "-pix_fmt", "yuv420p", "-movflags", "faststart",
+        outputName,
+      ]);
+      if (signal?.aborted) throw createAbortError("整段增强已取消");
+      const data = await ffmpeg.readFile(outputName);
+      onProgress?.({ progress: 99, phaseKey: "remasterPhaseCreateAsset" });
+      return new Blob([data], { type: "video/mp4" });
+    } finally {
+      signal?.removeEventListener("abort", abort);
+      if (!terminated && ffmpeg) {
+        await Promise.all(frameNames.map((name) => ffmpeg.deleteFile(name).catch(() => {})));
+        await ffmpeg.deleteFile(outputName).catch(() => {});
+      }
+    }
+  });
+}
+
 export async function transcodeWebmToMp4(webmBlob) {
   return runFfmpegTask(async () => {
     const [{ fetchFile }, ffmpeg] = await Promise.all([import("@ffmpeg/util"), getFfmpeg()]);

@@ -441,6 +441,7 @@ export function VoicePanel({
             status={status}
             progressPercent={progressPercent}
             audioBlob={audioBlob}
+            audioUrl={audioUrl}
             generateVoiceover={generateVoiceover}
             downloadBlob={downloadBlob}
             favoriteVoiceIds={favoriteVoiceIds}

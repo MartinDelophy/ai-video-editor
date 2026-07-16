@@ -285,34 +285,11 @@ export function ToolPanel(props) {
     updateSelectedVisualEffects,
   } = props;
 
-  if (activeTool === "text") {
-    return (
-      <div className="tool-panel">
-        <h2>{t("text")}</h2>
-        <textarea className="side-textarea" value={script} onChange={(event) => updateScript(event.target.value)} />
-        <div className="quick-grid">
-          {[
-            ["openingHook", t("openingHook")],
-            ["productPoint", t("productPoint")],
-            ["actionGuide", t("actionGuide")],
-          ].map(([id, item]) => (
-            <button
-              type="button"
-              key={id}
-              onClick={() => updateScript(`${script.trim()}\n${item}: ${t("templateSuffix")}`.trim())}
-            >
-              {item}
-            </button>
-          ))}
-        </div>
-      </div>
-    );
-  }
-
   if (activeTool === "caption") {
     return (
       <div className="tool-panel caption-tool-panel">
         <h2>{t("caption")}</h2>
+        <p className="tool-helper-copy">{t("captionCanvasHint")}</p>
         <label className="switch-row">
           <input type="checkbox" checked={captionsEnabled} onChange={(event) => setCaptionsEnabled(event.target.checked)} />
           {t("showCaptions")}
@@ -347,6 +324,7 @@ export function ToolPanel(props) {
         <div className="caption-style-panel">
           <div className="caption-style-heading"><strong>{t("captionStyle")}</strong><span>{t("captionStyleHint")}</span></div>
           <div className="caption-style-presets">
+            <button type="button" className={captionStyle.backgroundOpacity === 0 && captionStyle.borderWidth === 0 ? "is-active" : ""} onClick={() => setCaptionStyle((style) => ({ ...style, effect: "normal", backgroundOpacity: 0, borderWidth: 0, shadowOpacity: 0 }))}>{t("captionPresetNone")}</button>
             {[['normal', t('captionPresetClassic')], ['neon', t('captionPresetNeon')], ['bubble', t('captionPresetBubble')]].map(([effect, label]) => (
               <button key={effect} type="button" className={captionStyle.effect === effect ? "is-active" : ""} onClick={() => setCaptionStyle((style) => ({ ...style, effect, ...(effect === 'neon' ? { backgroundOpacity: 0.18, borderWidth: 1, borderColor: '#35f0dd' } : effect === 'bubble' ? { backgroundOpacity: 0.88, borderWidth: 0, radius: 18 } : {}) }))}>{label}</button>
             ))}
@@ -387,7 +365,7 @@ export function ToolPanel(props) {
 
   if (activeTool === "audio") {
     return (
-      <div className="tool-panel">
+      <div className="tool-panel audio-tool-panel">
         <h2>{t("audioPanel")}</h2>
         <button
           className="audio-entry-card"
@@ -1103,6 +1081,7 @@ export function VoiceSynthesisPanel({
   status,
   progressPercent,
   audioBlob,
+  audioUrl,
   generateVoiceover,
   downloadBlob,
   favoriteVoiceIds,
@@ -1226,6 +1205,12 @@ export function VoiceSynthesisPanel({
           <DownloadSimple size={17} />
         </button>
       </div>
+      {audioBlob && audioUrl ? (
+        <div className="generated-voice-result" aria-live="polite">
+          <div><Check size={18} weight="bold" /><span><strong>{t("voiceAddedToTimeline", "已加入配音时间线")}</strong><em>{t("voicePreviewHint", "可立即试听，时间线片段可继续调整")}</em></span></div>
+          <audio controls preload="metadata" src={audioUrl} />
+        </div>
+      ) : null}
     </>
   );
 }

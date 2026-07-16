@@ -20,6 +20,20 @@ test("Add all keyframes animates a real uploaded visual clip", async ({ page }) 
   await expect(page.locator("video.preview-video")).toBeVisible();
   await expect(page.getByText("/ 00:10.02", { exact: false })).toBeVisible();
   await expect(page.locator(".audio-clip.is-source")).toBeVisible({ timeout: 30_000 });
+  const visualClip = page.locator(".image-clip");
+  const zoomReadout = page.getByTestId("timeline-zoom-readout");
+  const initialZoomReadout = await zoomReadout.innerText();
+  await visualClip.hover();
+  await page.mouse.wheel(0, -480);
+  await expect.poll(() => zoomReadout.innerText()).not.toBe(initialZoomReadout);
+  const zoomedInReadout = await zoomReadout.innerText();
+  await page.mouse.wheel(0, 480);
+  await expect.poll(() => zoomReadout.innerText()).not.toBe(zoomedInReadout);
+
+  const zoomBeforeEmptyTrackWheel = await zoomReadout.innerText();
+  await page.locator(".caption-track").hover();
+  await page.mouse.wheel(0, -480);
+  await expect.poll(() => zoomReadout.innerText()).toBe(zoomBeforeEmptyTrackWheel);
   const sourceAudio = page.locator('audio[data-track="source-audio"]');
   const unlinkSourceAudio = page.getByRole("button", { name: "解除画面与视频原声同步", exact: true });
   await expect(unlinkSourceAudio).toBeEnabled();

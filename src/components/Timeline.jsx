@@ -39,6 +39,12 @@ const TIMELINE_WHEEL_ZOOM_SENSITIVITY = 0.00034;
 const TIMELINE_WHEEL_ZOOM_COMMIT_DELAY = 180;
 const TIMELINE_BUTTON_ZOOM_RATIO = 1.25;
 const VIDEO_FRAME_MIN_COUNT = 1;
+const TIMELINE_WHEEL_ZOOM_CONTENT_SELECTOR = [
+  ".image-clip",
+  ".caption-segment",
+  ".sticker-segment",
+  ".audio-clip",
+].join(", ");
 
 function packAudioSegmentsIntoLanes(segments) {
   const lanes = [];
@@ -229,6 +235,9 @@ export function Timeline({
   const wheelZoomFrameRef = useRef(0);
   const commitZoomTimerRef = useRef(0);
   const rulerViewportFrameRef = useRef(0);
+  const wheelZoomActiveRef = useRef(false);
+  const rulerViewportSyncRef = useRef(null);
+  const zoomReadoutRef = useRef(null);
   const pendingWheelDeltaRef = useRef(0);
   const pendingWheelAnchorRef = useRef(null);
   const timelineWheelHandlerRef = useRef(null);
@@ -255,11 +264,15 @@ export function Timeline({
       );
     };
     const scheduleRulerViewportUpdate = () => {
+      if (wheelZoomActiveRef.current) {
+        return;
+      }
       if (rulerViewportFrameRef.current) {
         return;
       }
       rulerViewportFrameRef.current = window.requestAnimationFrame(applyRulerViewportUpdate);
     };
+    rulerViewportSyncRef.current = scheduleRulerViewportUpdate;
     const resizeObserver =
       typeof ResizeObserver === "undefined" ? null : new ResizeObserver(scheduleRulerViewportUpdate);
 
@@ -275,6 +288,9 @@ export function Timeline({
         rulerViewportFrameRef.current = 0;
       }
       resizeObserver?.disconnect();
+      if (rulerViewportSyncRef.current === scheduleRulerViewportUpdate) {
+        rulerViewportSyncRef.current = null;
+      }
     };
   }, [trackScrollRef]);
   useEffect(() => {
@@ -290,6 +306,7 @@ export function Timeline({
       if (wheelZoomFrameRef.current) {
         window.cancelAnimationFrame(wheelZoomFrameRef.current);
       }
+      wheelZoomActiveRef.current = false;
       window.clearTimeout(commitZoomTimerRef.current);
     },
     [],
@@ -311,6 +328,9 @@ export function Timeline({
   const localTrackWidth = `${getTimelineTrackWidthPercent(timelineDuration, localTimelineZoom)}%`;
   const commitTimelineZoom = (nextZoom, delay = 0) => {
     window.clearTimeout(commitZoomTimerRef.current);
+    if (delay <= 0) {
+      wheelZoomActiveRef.current = false;
+    }
     if (delay <= 0) {
       setTimelineZoom(nextZoom);
       return;
@@ -361,15 +381,31 @@ export function Timeline({
       anchor.trackContentStart +
       anchor.pointerTrackRatio * nextTrackWidth -
       anchor.pointerViewportX;
-    const syncScrollAnchor = () => {
-      anchor.scrollElement.scrollLeft = Math.max(0, nextScrollLeft);
-    };
 
-    adjustTimelineZoom(nextZoom, { commitDelay: TIMELINE_WHEEL_ZOOM_COMMIT_DELAY });
-    window.requestAnimationFrame(syncScrollAnchor);
+    wheelZoomActiveRef.current = true;
+    timelineZoomRef.current = nextZoom;
+    anchor.trackElement.style.width = `${nextTrackWidthPercent}%`;
+    anchor.trackElement.style.setProperty("--timeline-zoom", String(nextZoom));
+    anchor.scrollElement.scrollLeft = Math.max(0, nextScrollLeft);
+    if (zoomReadoutRef.current) {
+      zoomReadoutRef.current.textContent = getTimelineZoomLabel(nextZoom);
+    }
+
+    window.clearTimeout(commitZoomTimerRef.current);
+    commitZoomTimerRef.current = window.setTimeout(() => {
+      wheelZoomActiveRef.current = false;
+      setLocalTimelineZoom(nextZoom);
+      setTimelineZoom(nextZoom);
+      window.requestAnimationFrame(() => rulerViewportSyncRef.current?.());
+    }, TIMELINE_WHEEL_ZOOM_COMMIT_DELAY);
   };
   const handleTimelineWheel = (event) => {
-    if (!event.ctrlKey && !event.metaKey) {
+    const isOverTimelineContent = Boolean(
+      event.target instanceof Element && event.target.closest(TIMELINE_WHEEL_ZOOM_CONTENT_SELECTOR),
+    );
+    const hasZoomModifier = event.ctrlKey || event.metaKey;
+
+    if (!hasZoomModifier && !isOverTimelineContent) {
       if (!event.shiftKey && Math.abs(event.deltaY) >= Math.abs(event.deltaX)) {
         const board = event.currentTarget?.closest?.(".timeline")?.querySelector?.(".timeline-board");
         if (board && board.scrollHeight > board.clientHeight) {
@@ -413,6 +449,7 @@ export function Timeline({
       pointerTrackRatio,
       pointerViewportX: event.clientX - scrollRect.left,
       scrollElement,
+      trackElement,
       trackContentStart,
       trackWidth: trackRect.width,
     };
@@ -586,7 +623,7 @@ export function Timeline({
           <IconButton label={t("zoomOut")} onClick={() => adjustTimelineZoom((zoom) => zoom / TIMELINE_BUTTON_ZOOM_RATIO)}>
             <MagnifyingGlassMinus size={17} />
           </IconButton>
-          <span className="zoom-readout">{zoomReadout}</span>
+          <span ref={zoomReadoutRef} className="zoom-readout" data-testid="timeline-zoom-readout">{zoomReadout}</span>
           <IconButton
             label={t("fitTimeline")}
             active={Math.abs(localTimelineZoom - TIMELINE_MIN_ZOOM) < 0.001}

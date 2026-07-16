@@ -192,6 +192,9 @@ button:disabled {
   font-size: 10px;
 }
 .file-menu-divider { height: 1px; margin: 3px 5px; background: rgba(255,255,255,.08); }
+.file-menu-resources { display: flex; flex-wrap: wrap; gap: 6px 13px; padding: 7px 8px 2px; }
+.file-menu-resources a { color: #8fa0aa; font-size: 11px; text-decoration: none; }
+.file-menu-resources a:hover { color: #57e8d8; }
 .file-menu-new { min-height: 46px; }
 .file-menu-new .file-menu-copy small { display: none; }
 .file-menu-action.is-primary { background: rgba(38, 221, 202, .09); }

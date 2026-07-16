@@ -10,6 +10,9 @@
     <meta name="author" content="Timeline Studio" />
     <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
     <link rel="canonical" href="https://video-editor.ai-creator.top/" />
+    <link rel="help" href="https://video-editor.ai-creator.top/how-it-works/" />
+    <link rel="privacy-policy" href="https://video-editor.ai-creator.top/privacy/" />
+    <link rel="alternate" type="text/plain" href="https://video-editor.ai-creator.top/llms.txt" title="LLM product summary" />
     <meta name="theme-color" content="#101720" />
     <meta name="color-scheme" content="dark" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -40,34 +43,14 @@
     <meta name="twitter:image" content="https://video-editor.ai-creator.top/icons/timeline-studio-icon-512.png" />
     <meta name="twitter:image:alt" content="Timeline Studio AI video editor icon" />
 
-    <script type="application/ld+json">
-      {
-        "@context": "https://schema.org",
-        "@type": "SoftwareApplication",
-        "name": "Timeline Studio",
-        "url": "https://video-editor.ai-creator.top/",
-        "applicationCategory": "MultimediaApplication",
-        "applicationSubCategory": "VideoEditor",
-        "operatingSystem": "Web browser",
-        "description": "A local-first browser AI video editor for voiceover generation, automatic captions, talking avatars, multi-track timeline editing, and MP4 or WebM export.",
-        "image": "https://video-editor.ai-creator.top/icons/timeline-studio-icon-512.png",
-        "softwareVersion": "1.0",
-        "inLanguage": ["en", "zh-CN", "ja", "ko", "es", "fr", "de", "pt", "th", "vi"],
-        "featureList": [
-          "AI voiceover generation",
-          "Automatic captions",
-          "Talking avatar generation",
-          "Multi-track timeline editing",
-          "Browser-side MP4 and WebM export",
-          "Local-first ONNX inference"
-        ],
-        "offers": {
-          "@type": "Offer",
-          "price": "0",
-          "priceCurrency": "USD"
-        }
-      }
-    </script>
+    <script type="application/ld+json">{
+      "@context":"https://schema.org",
+      "@graph":[
+        {"@type":"Organization","@id":"https://video-editor.ai-creator.top/#organization","name":"Timeline Studio","url":"https://video-editor.ai-creator.top/","logo":"https://video-editor.ai-creator.top/icons/timeline-studio-icon-512.png","sameAs":["https://github.com/MartinDelophy/ai-video-editor","https://huggingface.co/spaces/haixin/timeline-studio","https://youtu.be/mUXduGpBmwE"]},
+        {"@type":"WebSite","@id":"https://video-editor.ai-creator.top/#website","url":"https://video-editor.ai-creator.top/","name":"Timeline Studio","description":"Free local-first browser AI video editor and voiceover generator.","publisher":{"@id":"https://video-editor.ai-creator.top/#organization"},"inLanguage":["en","zh-CN","ja","ko","es","fr","de","pt-BR","th","vi"]},
+        {"@type":["SoftwareApplication","WebApplication"],"@id":"https://video-editor.ai-creator.top/#app","name":"Timeline Studio","url":"https://video-editor.ai-creator.top/","applicationCategory":"MultimediaApplication","applicationSubCategory":"VideoEditor","browserRequirements":"Requires a modern browser with WebAssembly and MediaRecorder; WebGPU is required for the current talking-avatar renderer.","operatingSystem":"Web browser","description":"A free, open-source, local-first browser AI video editor for multilingual voiceovers, Whisper automatic captions, talking portraits, browser vision, multi-track timeline editing, visual keyframes and MP4 or WebM export.","image":"https://video-editor.ai-creator.top/icons/timeline-studio-icon-512.png","screenshot":"https://raw.githubusercontent.com/MartinDelophy/ai-video-editor/main/docs/screenshots/editor-timeline.png","softwareVersion":"0.3.1","dateModified":"2026-07-16","inLanguage":["en","zh-CN","ja","ko","es","fr","de","pt-BR","th","vi"],"license":"https://opensource.org/license/mit","isAccessibleForFree":true,"featureList":["Multilingual browser AI voiceover generation","Whisper small q8 automatic captions","JoyVASA and LivePortrait talking portraits","YOLOS tiny subject detection and MODNet portrait matting","Multi-track timeline editing","Transform keyframes and shape masks","Browser-side MP4 and WebM export","Installable progressive web app"],"offers":{"@type":"Offer","price":"0","priceCurrency":"USD","availability":"https://schema.org/InStock"},"publisher":{"@id":"https://video-editor.ai-creator.top/#organization"},"softwareHelp":"https://video-editor.ai-creator.top/how-it-works/","privacyPolicy":"https://video-editor.ai-creator.top/privacy/","sameAs":"https://github.com/MartinDelophy/ai-video-editor"}
+      ]
+    }</script>
   </head>
   <body>
     <div id="root"></div>

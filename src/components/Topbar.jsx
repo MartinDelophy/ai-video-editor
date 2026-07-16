@@ -88,6 +88,13 @@ export function Topbar({
                       <span className="file-menu-copy"><strong>{t("exportProject")}</strong><small>{t("exportProjectHint")}</small></span>
                       <span className="file-menu-format">.timeline</span>
                     </button>
+                    <div className="file-menu-divider" />
+                    <nav className="file-menu-resources" aria-label="Timeline Studio resources">
+                      <a href="/features/">Features</a>
+                      <a href="/how-it-works/">Guide</a>
+                      <a href="/faq/">FAQ</a>
+                      <a href="/privacy/">Privacy</a>
+                    </nav>
                   </div>
                 </Popover>
               ) : null}

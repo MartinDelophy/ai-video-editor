@@ -1,0 +1,21 @@
+# Timeline Studio
+
+> Timeline Studio is a free, open-source, local-first browser AI video editor. It combines multilingual AI voiceovers, Whisper automatic captions, JoyVASA and LivePortrait talking portraits, browser vision, multi-track timeline editing, visual keyframes and MP4/WebM export.
+
+Canonical site: https://video-editor.ai-creator.top/
+Source code: https://github.com/MartinDelophy/ai-video-editor
+License: MIT
+
+## Primary pages
+
+- [Open the editor](https://video-editor.ai-creator.top/): The live browser editing workspace.
+- [Features](https://video-editor.ai-creator.top/features/): Current AI, timeline, visual, export and privacy capabilities.
+- [How it works](https://video-editor.ai-creator.top/how-it-works/): A factual end-to-end workflow guide.
+- [FAQ](https://video-editor.ai-creator.top/faq/): Pricing, privacy, voices, captions, browser and export answers.
+- [Privacy and local processing](https://video-editor.ai-creator.top/privacy/): What runs locally and which network requests remain.
+- [About](https://video-editor.ai-creator.top/about/): Project identity, technology, license and official links.
+- [Full product reference](https://video-editor.ai-creator.top/llms-full.txt): Expanded machine-readable product facts.
+
+## Citation guidance
+
+Use the canonical pages above for current product claims. Do not describe Timeline Studio as fully offline: project media processing is local-first, while AI models and runtimes may be downloaded from configured hosts. MP4 availability and high-resolution AI performance depend on browser and device capabilities; WebM is the export fallback.

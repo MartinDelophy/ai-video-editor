@@ -3818,6 +3818,27 @@ button:disabled {
     0 0 0 1px rgba(53, 234, 217, 0.24);
 }
 
+.timeline-context-menu {
+  position: fixed;
+  z-index: 180;
+  display: grid;
+  width: 224px;
+  max-width: calc(100vw - 20px);
+  padding: 7px;
+  border: 1px solid rgba(104, 132, 139, .4);
+  border-radius: 11px;
+  background: rgba(15, 20, 26, .98);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, .48);
+  transform: translateY(-4px);
+}
+.timeline-context-heading { display: flex; justify-content: space-between; padding: 7px 9px 8px; color: #e9f2f4; font-size: 12px; font-weight: 750; }
+.timeline-context-heading span { color: #71818a; font-size: 10px; font-weight: 650; text-transform: uppercase; }
+.timeline-context-menu button { display: flex; align-items: center; gap: 9px; min-height: 34px; padding: 7px 9px; border: 0; border-radius: 7px; color: #cbd7da; text-align: left; background: transparent; cursor: pointer; }
+.timeline-context-menu button:hover { color: #f2ffff; background: rgba(53, 234, 217, .1); }
+.timeline-context-menu button.is-danger { color: #ff9a9a; }
+.timeline-context-menu button.is-danger:hover { background: rgba(255, 90, 90, .1); }
+.timeline-context-divider { height: 1px; margin: 5px 4px; background: rgba(255,255,255,.08); }
+
 .timeline-drag-ghost {
   position: fixed;
   z-index: 220;

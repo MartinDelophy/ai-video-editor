@@ -9,6 +9,9 @@ import {
   getTimedSegmentsEnd,
   getVisualSegmentIndexAtTime,
   getVisualSegmentTimeline,
+  moveTimedCaptionSegment,
+  materializeCaptionTimings,
+  packTimedSegmentsIntoLanes,
   reorderTimelineItems,
 } from "./timeline.js";
 import {
@@ -79,6 +82,40 @@ describe("timeline primitives", () => {
       { start: 2, end: 3, duration: 1 },
       { start: 5, end: 7, duration: 2 },
     ]);
+  });
+
+  it("moves one timed caption without changing its duration or neighboring captions", () => {
+    const source = [
+      { id: "a", text: "first", start: 1, end: 2.5 },
+      { id: "b", text: "second", start: 4, end: 5 },
+    ];
+    const moved = moveTimedCaptionSegment(source, "a", 6, 7.5);
+    expect(moved[0]).toMatchObject({ id: "a", start: 6, end: 7.5 });
+    expect(moved[0].end - moved[0].start).toBe(1.5);
+    expect(moved[1]).toEqual(source[1]);
+    expect(source[0]).toMatchObject({ start: 1, end: 2.5 });
+  });
+
+  it("materializes contiguous untimed captions before free-position dragging", () => {
+    const source = createCaptionSegments("第一条。第二条。");
+    const materialized = materializeCaptionTimings(source, 8);
+    expect(materialized).toHaveLength(2);
+    expect(materialized[0].start).toBe(0);
+    expect(materialized[0].end).toBeCloseTo(materialized[1].start, 8);
+    const moved = moveTimedCaptionSegment(materialized, materialized[1].id, 6, 8);
+    expect(moved[1]).toMatchObject({ start: 6, end: 8 });
+    expect(moved[1].start - moved[0].end).toBeGreaterThan(0);
+  });
+
+  it("packs overlapping free-position clips into additional lanes", () => {
+    const lanes = packTimedSegmentsIntoLanes([
+      { id: "a", start: 0, duration: 4 },
+      { id: "b", start: 2, duration: 3 },
+      { id: "c", start: 5, duration: 1 },
+    ]);
+    expect(lanes).toHaveLength(2);
+    expect(lanes[0].map((item) => item.id)).toEqual(["a", "c"]);
+    expect(lanes[1].map((item) => item.id)).toEqual(["b"]);
   });
 
   it("clamps sticker start and duration to timeline limits", () => {

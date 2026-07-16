@@ -25,6 +25,14 @@ export function useMediaSync(d) {
     if (play && a.paused) a.play().catch(() => {}); else if (!play && !a.paused) a.pause();
   }, [d.currentTime, d.isPlaying, d.linkedSourceAudioSegments, d.sourceAudioDuration, d.sourceAudioLinked, d.sourceAudioStart, d.sourceAudioUrl, d.trackVisibility.source]);
   useEffect(() => { if (d.musicRef.current) d.musicRef.current.volume = d.musicVolume; }, [d.musicVolume, d.musicUrl]);
+  useEffect(() => {
+    const music = d.musicRef.current; if (!music || !d.musicUrl) return;
+    const active = isTimelineTimeInsideTrack(d.currentTime, d.musicStart, d.musicDuration);
+    const expected = getTimelineTrackLocalTime(d.currentTime, d.musicStart, d.musicDuration);
+    if (Math.abs(music.currentTime - expected) > 0.22) music.currentTime = expected;
+    const play = d.isPlaying && d.trackVisibility.music && active;
+    if (play && music.paused) music.play().catch(() => {}); else if (!play && !music.paused) music.pause();
+  }, [d.currentTime, d.isPlaying, d.musicDuration, d.musicStart, d.musicUrl, d.trackVisibility.music]);
   useEffect(() => { d.currentTimeRef.current = d.currentTime; }, [d.currentTime]);
   useEffect(() => { d.setPreviewVideoMediaTime(d.previewVisualType === "video" ? Math.max(0, Number(d.previewVisualSegment?.sourceStart) || 0) : 0); }, [d.previewVisualSegment?.id, d.previewVisualSrc, d.previewVisualType]);
   useEffect(() => {
@@ -60,7 +68,7 @@ export function useMediaSync(d) {
     if (d.sourceAudioRef.current && clamped !== time) d.sourceAudioRef.current.currentTime = d.sourceAudioLinked && d.linkedSourceAudioSegments?.length
       ? getLinkedSourceAudioState(d.linkedSourceAudioSegments, clamped).sourceTime
       : getTimelineTrackLocalTime(clamped, d.sourceAudioStart, d.sourceAudioDuration);
-    if (d.musicRef.current && clamped !== time) d.musicRef.current.currentTime = clamped;
+    if (d.musicRef.current && clamped !== time) d.musicRef.current.currentTime = getTimelineTrackLocalTime(clamped, d.musicStart, d.musicDuration);
     return clamped;
-  }); }, [d.linkedSourceAudioSegments, d.sourceAudioDuration, d.sourceAudioLinked, d.sourceAudioStart, d.timelineDuration]);
+  }); }, [d.linkedSourceAudioSegments, d.musicDuration, d.musicStart, d.sourceAudioDuration, d.sourceAudioLinked, d.sourceAudioStart, d.timelineDuration]);
 }

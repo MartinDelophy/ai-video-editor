@@ -81,13 +81,13 @@ export function useTimelineModel(d) {
     voiceTrackDuration,
     captionDuration,
     d.sourceAudioBlob ? (d.sourceAudioTimelineEnd ?? d.sourceAudioStart + d.sourceAudioDuration) : 0,
-    d.musicBlob ? d.musicDuration : 0,
+    d.musicBlob ? d.musicStart + d.musicDuration : 0,
     stickerDuration,
     estimateDuration(d.script),
     d.imageSrc ? d.imageDuration : 0,
   ), [
     voiceTrackDuration, captionDuration, d.imageDuration, d.imageSrc, d.musicBlob,
-    d.musicDuration, d.script, d.sourceAudioBlob, d.sourceAudioDuration,
+    d.musicDuration, d.musicStart, d.script, d.sourceAudioBlob, d.sourceAudioDuration,
     d.sourceAudioStart, d.sourceAudioTimelineEnd, stickerDuration,
   ]);
   const timelineDuration = useMemo(() => Math.min(

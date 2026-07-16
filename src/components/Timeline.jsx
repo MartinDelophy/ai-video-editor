@@ -20,11 +20,12 @@ import {
   Play,
   PlusCircle,
   Scissors,
+  SlidersHorizontal,
   Trash,
 } from "@phosphor-icons/react";
 
 import { IMAGE_SEGMENT_SECONDS } from "../config/editor.js";
-import { formatClock, formatTime, getImageThumbnailCount, getSegmentStartTime } from "../lib/timeline.js";
+import { formatClock, formatTime, getImageThumbnailCount, getSegmentStartTime, packTimedSegmentsIntoLanes } from "../lib/timeline.js";
 import { sliceSourceAudioPeaks } from "../lib/sourceAudioSync.js";
 import {
   TIMELINE_MIN_ZOOM,
@@ -45,19 +46,6 @@ const TIMELINE_WHEEL_ZOOM_CONTENT_SELECTOR = [
   ".sticker-segment",
   ".audio-clip",
 ].join(", ");
-
-function packAudioSegmentsIntoLanes(segments) {
-  const lanes = [];
-  [...segments].sort((a, b) => a.start - b.start || a.id.localeCompare(b.id)).forEach((segment) => {
-    const laneIndex = lanes.findIndex((lane) => {
-      const last = lane.at(-1);
-      return !last || last.start + last.duration <= segment.start + 0.001;
-    });
-    if (laneIndex >= 0) lanes[laneIndex].push(segment);
-    else lanes.push([segment]);
-  });
-  return lanes.length ? lanes : [[]];
-}
 
 function packCaptionSegmentsIntoLanes(segments, timeline) {
   const lanes = [];
@@ -194,10 +182,13 @@ export function Timeline({
   selectedAudioSegmentId,
   setSelectedAudioSegmentId,
   startAudioSegmentMove,
+  startSourceAudioMove,
   musicBlob,
   musicPeaks,
   musicClipPercent,
+  musicStartPercent,
   musicDuration,
+  startMusicMove,
 }) {
   const draggingVisualSegment =
     activeTimelineClipDrag?.track === "image"
@@ -207,17 +198,18 @@ export function Timeline({
     activeTimelineClipDrag?.track === "caption"
       ? displayedCaptionSegments.find((segment) => segment.id === activeTimelineClipDrag.segmentId)
       : null;
-  const audioLanes = useMemo(() => packAudioSegmentsIntoLanes(audioSegments), [audioSegments]);
+  const audioLanes = useMemo(() => packTimedSegmentsIntoLanes(audioSegments), [audioSegments]);
+  const stickerLanes = useMemo(() => packTimedSegmentsIntoLanes(stickerSegments), [stickerSegments]);
   const captionLanes = useMemo(
     () => packCaptionSegmentsIntoLanes(displayedCaptionSegments, displayedCaptionTimeline),
     [displayedCaptionSegments, displayedCaptionTimeline],
   );
-  const contentRows = ["46px", ...(showStickerTrack ? ["46px"] : []), ...captionLanes.map(() => "46px"), "58px", ...audioLanes.map(() => "58px"), "58px"];
+  const contentRows = ["46px", ...(showStickerTrack ? stickerLanes.map(() => "46px") : []), ...captionLanes.map(() => "46px"), "58px", ...audioLanes.map(() => "58px"), "58px"];
   const timelineTrackRows = ["28px", ...contentRows].join(" ");
   const timelineLabelRows = contentRows.join(" ");
   const timelineTrackLabels = [
     ["image", t("imageTrack")],
-    ...(showStickerTrack ? [["sticker", t("stickerTrack")]] : []),
+    ...(showStickerTrack ? stickerLanes.map((_, index) => ["sticker", `${t("stickerTrack")} ${index + 1}`, `sticker-${index}`]) : []),
     ...captionLanes.map((_, index) => ["caption", `${t("caption")} ${index + 1}`, `caption-${index}`]),
     ["source", t("sourceTrack")],
     ...audioLanes.map((_, index) => ["audio", `${t("voiceTrack")} ${index + 1}`, `audio-${index}`]),
@@ -230,6 +222,45 @@ export function Timeline({
     viewportWidth: 0,
     contentWidth: 0,
   });
+  const [contextMenu, setContextMenu] = useState(null);
+  const trackTool = (track) => ({ image: "media", sticker: "stickers", caption: "caption", source: "audio", audio: "audio", music: "audio" })[track] || "media";
+  const openTrackPanel = (track) => {
+    setSelectedTrack(track);
+    setActiveTool(trackTool(track));
+  };
+  const selectContextTarget = (track, segmentId = "") => {
+    openTrackPanel(track);
+    if (track === "image" && segmentId) setSelectedVisualSegmentId(segmentId);
+    if (track === "sticker" && segmentId) setSelectedStickerSegmentId(segmentId);
+    if (track === "caption" && segmentId) setSelectedSegmentId(segmentId);
+    if (track === "audio" && segmentId) setSelectedAudioSegmentId(segmentId);
+  };
+  const showTrackContextMenu = (event, track, segmentId = "") => {
+    event.preventDefault(); event.stopPropagation();
+    selectContextTarget(track, segmentId);
+    setContextMenu({
+      x: Math.max(10, Math.min(window.innerWidth - 234, event.clientX)),
+      y: Math.max(10, Math.min(window.innerHeight - 258, event.clientY)),
+      track, segmentId, kind: segmentId ? "clip" : "track",
+    });
+  };
+  const runContextAction = (action) => {
+    setContextMenu(null);
+    window.requestAnimationFrame(action);
+  };
+  useEffect(() => {
+    if (!contextMenu) return undefined;
+    const close = () => setContextMenu(null);
+    const closeOnKey = (event) => event.key === "Escape" && close();
+    window.addEventListener("pointerdown", close);
+    window.addEventListener("keydown", closeOnKey);
+    window.addEventListener("blur", close);
+    return () => {
+      window.removeEventListener("pointerdown", close);
+      window.removeEventListener("keydown", closeOnKey);
+      window.removeEventListener("blur", close);
+    };
+  }, [contextMenu]);
   const [localTimelineZoom, setLocalTimelineZoom] = useState(() => clampTimelineZoom(timelineZoom));
   const timelineZoomRef = useRef(timelineZoom);
   const wheelZoomFrameRef = useRef(0);
@@ -500,11 +531,12 @@ export function Timeline({
         </strong>
       </div>
     ) : null;
-  const renderStickerTrack = () =>
+  const renderStickerTrack = (lane, laneIndex) =>
     showStickerTrack ? (
       <div
+        key={`sticker-lane-${laneIndex}`}
         className={`sticker-track ${selectedTrack === "sticker" ? "is-selected" : ""} ${
-          !trackVisibility.sticker ? "is-track-disabled" : ""
+          !isRowVisible("sticker", `sticker-${laneIndex}`) ? "is-track-disabled" : ""
         } ${
           assetDropTargetTrack === "sticker" ? "is-drop-target" : ""
         } ${assetDropPulseTrack === "sticker" ? "is-drop-landing" : ""}`}
@@ -516,11 +548,12 @@ export function Timeline({
         onDragLeave={(event) => handleTrackAssetDragLeave(event, "sticker")}
         onDrop={(event) => handleTrackAssetDrop(event, "sticker")}
         data-asset-drop-track="sticker"
+        onContextMenu={(event) => showTrackContextMenu(event, "sticker")}
       >
         {assetDropTargetTrack === "sticker" ? (
           <div className="track-drop-hint">{t("dropStickerHere")}</div>
         ) : null}
-        {stickerSegments.map((segment) => {
+        {lane.map((segment) => {
               const segmentLeft =
                 timelineDuration > 0
                   ? Math.max(0, Math.min(100, ((segment.start || 0) / timelineDuration) * 100))
@@ -541,6 +574,7 @@ export function Timeline({
                     "--sticker-width": `${segmentWidth}%`,
                   }}
                   onPointerDown={(event) => startStickerSegmentMove(event, segment.id)}
+                  onContextMenu={(event) => showTrackContextMenu(event, "sticker", segment.id)}
                   onClick={(event) => {
                     event.stopPropagation();
                     if (suppressTimelineClipClickRef.current === segment.id) {
@@ -645,6 +679,7 @@ export function Timeline({
                 !isRowVisible(track, rowId) ? "is-track-disabled" : ""
               }`}
               key={rowId}
+              onContextMenu={(event) => showTrackContextMenu(event, track)}
             >
               <button
                 type="button"
@@ -737,6 +772,7 @@ export function Timeline({
               onDrop={(event) => handleVisualStyleDrop(event)}
               data-asset-drop-track="image"
               data-timeline-reorder-track="image"
+              onContextMenu={(event) => showTrackContextMenu(event, "image")}
             >
               {assetDropTargetTrack === "image" ? (
                 <div className="track-drop-hint">{t("dropVisualHere")}</div>
@@ -795,6 +831,7 @@ export function Timeline({
                           isDraggingVisualSegment ? "is-reorder-dragging" : ""
                         } ${isReorderTarget ? "is-reorder-target" : ""}`}
                         onPointerDown={(event) => startTimelineClipDrag(event, "image", segment.id, index)}
+                        onContextMenu={(event) => showTrackContextMenu(event, "image", segment.id)}
                         onClick={(event) => {
                           event.stopPropagation();
                           if (suppressTimelineClipClickRef.current === segment.id) {
@@ -858,7 +895,7 @@ export function Timeline({
                 : null}
               {renderAssetDropSlot("image")}
             </div>
-            {renderStickerTrack()}
+            {showStickerTrack ? stickerLanes.map((lane, laneIndex) => renderStickerTrack(lane, laneIndex)) : null}
             {captionLanes.map((lane, laneIndex) => (
               <div
                 className={`caption-track ${selectedTrack === "caption" ? "is-selected" : ""} ${
@@ -872,6 +909,7 @@ export function Timeline({
                   setActiveTool("caption");
                 }}
                 data-timeline-reorder-track="caption"
+                onContextMenu={(event) => showTrackContextMenu(event, "caption")}
               >
                 {lane.map(({ segment, index, range: segmentRange }) => {
                     const segmentDuration = segmentRange?.duration ?? 0;
@@ -910,6 +948,7 @@ export function Timeline({
                           "--caption-width": `${segmentWidth}%`,
                         }}
                         onPointerDown={(event) => startTimelineClipDrag(event, "caption", segment.id, index)}
+                        onContextMenu={(event) => showTrackContextMenu(event, "caption", segment.id)}
                         onClick={(event) => {
                           event.stopPropagation();
                           if (suppressTimelineClipClickRef.current === segment.id) {
@@ -939,6 +978,7 @@ export function Timeline({
               onDragLeave={(event) => handleTrackAssetDragLeave(event, "source")}
               onDrop={(event) => handleTrackAssetDrop(event, "source")}
               data-asset-drop-track="source"
+              onContextMenu={(event) => showTrackContextMenu(event, "source")}
             >
                 {assetDropTargetTrack === "source" ? (
                   <div className="track-drop-hint">{t("dropSourceHere")}</div>
@@ -952,6 +992,8 @@ export function Timeline({
                     width: `${timelineDuration > 0 ? Math.max(0.01, Math.min(100, (segment.duration / timelineDuration) * 100)) : 0}%`,
                     left: `${timelineDuration > 0 ? Math.max(0, Math.min(100, (segment.start / timelineDuration) * 100)) : 0}%`,
                   }}
+                  onContextMenu={(event) => showTrackContextMenu(event, "source", segment.id)}
+                  onPointerDown={startSourceAudioMove}
                 >
                   <WaveformStrip peaks={sliceSourceAudioPeaks(sourceAudioPeaks, segment, sourceAudioDuration)} active />
                   <span className="audio-clip-duration">{formatTime(segment.duration)}</span>
@@ -963,6 +1005,8 @@ export function Timeline({
                     width: `${sourceAudioClipPercent}%`,
                     marginLeft: `${sourceAudioStartPercent}%`,
                   }}
+                  onContextMenu={(event) => showTrackContextMenu(event, "source", "source-audio")}
+                  onPointerDown={startSourceAudioMove}
                 >
                   <WaveformStrip peaks={sourceAudioPeaks} active />
                   <span className="audio-clip-duration">{formatTime(sourceAudioDuration)}</span>
@@ -983,6 +1027,7 @@ export function Timeline({
                 onDragLeave={(event) => laneIndex === 0 && handleTrackAssetDragLeave(event, "audio")}
                 onDrop={(event) => laneIndex === 0 && handleTrackAssetDrop(event, "audio")}
                 data-asset-drop-track={laneIndex === 0 ? "audio" : undefined}
+                onContextMenu={(event) => showTrackContextMenu(event, "audio")}
               >
                 {laneIndex === 0 && assetDropTargetTrack === "audio" ? (
                     <div className="track-drop-hint">{t("dropVoiceHere")}</div>
@@ -997,6 +1042,7 @@ export function Timeline({
                         key={segment.id}
                         style={{ left: `${left}%`, width: `${width}%` }}
                         onPointerDown={(event) => startAudioSegmentMove(event, segment.id)}
+                        onContextMenu={(event) => showTrackContextMenu(event, "audio", segment.id)}
                         onClick={(event) => {
                           event.stopPropagation();
                           setSelectedTrack("audio");
@@ -1023,13 +1069,14 @@ export function Timeline({
               onDragLeave={(event) => handleTrackAssetDragLeave(event, "music")}
               onDrop={(event) => handleTrackAssetDrop(event, "music")}
               data-asset-drop-track="music"
+              onContextMenu={(event) => showTrackContextMenu(event, "music")}
             >
                 {assetDropTargetTrack === "music" ? (
                   <div className="track-drop-hint">{t("dropMusicHere")}</div>
                 ) : null}
               {renderAssetDropSlot("music")}
                 {musicBlob ? (
-                <div className="audio-clip is-music" style={{ width: `${musicClipPercent}%` }}>
+                <div className="audio-clip is-music" style={{ width: `${musicClipPercent}%`, left: `${musicStartPercent}%` }} onPointerDown={startMusicMove} onContextMenu={(event) => showTrackContextMenu(event, "music", "music-audio")}>
                   <WaveformStrip peaks={musicPeaks} active />
                   <span className="audio-clip-duration">{formatTime(musicDuration)}</span>
                 </div>
@@ -1054,12 +1101,32 @@ export function Timeline({
           <span>{formatClock(draggingVisualSegment.duration)}</span>
         </div>
       ) : null}
-      {draggingCaptionSegment ? (
+      {draggingCaptionSegment && activeTimelineClipDrag.mode !== "move" ? (
         <div
           className="timeline-drag-ghost type-caption"
           style={{ left: activeTimelineClipDrag.x, top: activeTimelineClipDrag.y }}
         >
           <strong>{draggingCaptionSegment.text}</strong>
+        </div>
+      ) : null}
+      {contextMenu ? (
+        <div className="timeline-context-menu" role="menu" aria-label="时间线右键菜单" style={{ left: contextMenu.x, top: contextMenu.y }} onPointerDown={(event) => event.stopPropagation()}>
+          <div className="timeline-context-heading">{contextMenu.kind === "clip" ? "片段操作" : "轨道操作"}<span>{contextMenu.track}</span></div>
+          <button type="button" role="menuitem" onClick={() => runContextAction(() => openTrackPanel(contextMenu.track))}><SlidersHorizontal size={16} />打开对应面板</button>
+          {contextMenu.kind === "clip" ? (
+            <>
+              <button type="button" role="menuitem" onClick={() => runContextAction(handleCutTrack)}><Scissors size={16} />在播放头处分割</button>
+              <button type="button" role="menuitem" onClick={() => runContextAction(handleDuplicateTrack)}><CopySimple size={16} />复制片段</button>
+              <div className="timeline-context-divider" />
+              <button className="is-danger" type="button" role="menuitem" onClick={() => runContextAction(handleDeleteTrack)}><Trash size={16} />删除片段</button>
+            </>
+          ) : (
+            <>
+              {["image", "caption"].includes(contextMenu.track) ? <button type="button" role="menuitem" onClick={() => runContextAction(handleAddSegment)}><PlusCircle size={16} />新增片段</button> : null}
+              <button type="button" role="menuitem" onClick={() => runContextAction(() => toggleTrackVisibility(contextMenu.track))}>{trackVisibility[contextMenu.track] ? <EyeSlash size={16} /> : <Eye size={16} />}{trackVisibility[contextMenu.track] ? "隐藏轨道" : "显示轨道"}</button>
+              <button type="button" role="menuitem" onClick={() => runContextAction(() => toggleTrackLock(contextMenu.track))}>{trackLocks[contextMenu.track] ? <LockKeyOpen size={16} /> : <LockKey size={16} />}{trackLocks[contextMenu.track] ? "解锁轨道" : "锁定轨道"}</button>
+            </>
+          )}
         </div>
       ) : null}
     </section>

@@ -38,11 +38,13 @@ export function createTimelineViewModel(d) {
     : renderedVisualSegments;
   const renderedVisualTimeline = getVisualSegmentTimeline(displayedVisualSegments);
   const displayedCaptionSegments = activeTimelineClipDrag?.track === "caption"
-    ? reorderTimelineItems(
-        d.captionSegments,
-        activeTimelineClipDrag.fromIndex,
-        activeTimelineClipDrag.overIndex,
-      )
+    ? activeTimelineClipDrag.mode === "move"
+      ? activeTimelineClipDrag.previewSegments
+      : reorderTimelineItems(
+          d.captionSegments,
+          activeTimelineClipDrag.fromIndex,
+          activeTimelineClipDrag.overIndex,
+        )
     : d.captionSegments;
   const displayedCaptionTimeline = activeTimelineClipDrag?.track === "caption"
     ? getCaptionTimeline(displayedCaptionSegments, d.captionTargetDuration)
@@ -65,6 +67,9 @@ export function createTimelineViewModel(d) {
   const musicClipPercent = d.musicBlob && d.timelineDuration > 0
     ? Math.max(0.01, Math.min(100, (d.musicDuration / d.timelineDuration) * 100))
     : 0;
+  const musicStartPercent = d.musicBlob && d.timelineDuration > 0
+    ? Math.max(0, Math.min(100, (d.musicStart / d.timelineDuration) * 100))
+    : 0;
   const exportPercent = Math.max(0, Math.min(100, Math.round(d.exportProgress)));
   const previewFrameStyle = d.previewFrameSize.width > 0 && d.previewFrameSize.height > 0
     ? {
@@ -77,7 +82,7 @@ export function createTimelineViewModel(d) {
   return {
     activeTimelineClipDrag, audioClipPercent, displayedCaptionSegments,
     displayedCaptionTimeline, displayedVisualSegments, exportPercent, musicClipPercent,
-    playheadPercent, previewFrameStyle, previewRatio, progressPercent,
+    musicStartPercent, playheadPercent, previewFrameStyle, previewRatio, progressPercent,
     renderedVisualSegments, renderedVisualTimeline, showStickerTrack,
     sourceAudioClipPercent, sourceAudioStartPercent,
   };

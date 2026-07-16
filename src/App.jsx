@@ -82,10 +82,10 @@ export function App() {
     setCaptionsEnabled, setScript, setSelectedSegmentId,
   } = useCaptionState();
   const {
-    audioSegments, favoriteVoiceIds, historyItems, musicBlob, musicDuration, musicName,
+    audioSegments, favoriteVoiceIds, historyItems, musicBlob, musicDuration, musicName, musicStart,
     musicPeaks, musicUrl, musicVolume, recordedVoices, recordingElapsed, recordingState,
     selectedAudioSegmentId, selectedVoiceId, setAudioSegments, setFavoriteVoiceIds,
-    setHistoryItems, setMusicBlob, setMusicDuration, setMusicName, setMusicPeaks,
+    setHistoryItems, setMusicBlob, setMusicDuration, setMusicName, setMusicPeaks, setMusicStart,
     setMusicUrl, setMusicVolume, setRecordedVoices, setRecordingElapsed,
     setRecordingState, setSelectedAudioSegmentId, setSelectedVoiceId, setSourceAudioBlob,
     setSourceAudioAssetId, setSourceAudioDuration, setSourceAudioLinked, setSourceAudioName, setSourceAudioPeaks, setSourceAudioStart,
@@ -131,7 +131,7 @@ export function App() {
   const [avatarJob, setAvatarJob] = useState({ running: false, progress: 0, phase: "" });
   const lastSaved = useAutosaveTimestamp([
     script, imageSrc, visualType, imageDuration, captionPlacement, selectedVoiceId, speed,
-    volume, musicName, musicDuration, musicVolume, sourceAudioName, sourceAudioDuration,
+    volume, musicName, musicDuration, musicStart, musicVolume, sourceAudioName, sourceAudioDuration,
     sourceAudioStart, sourceAudioVolume, ratioId, fitMode, selectedFilterId, selectedStickerId,
     captionSegments, visualSegments, visionRecords, timelineZoom,
   ]);
@@ -152,14 +152,14 @@ export function App() {
   const { redo, undo } = useEditorHistory({
     audioSegments, captionPlacement, captionPosition, captionSegments, captionSize,
     captionStyle, captionsEnabled, currentTime, fitMode, imageClipCount, imageDuration,
-    imageMeta, imageName, imageSrc, imageUrlRefs, musicBlob, musicDuration, musicName,
+    imageMeta, imageName, imageSrc, imageUrlRefs, musicBlob, musicDuration, musicName, musicStart,
     musicPeaks, musicUrl, musicUrlRef, musicVolume, notify, selectedAudioSegmentId,
     selectedFilterId, selectedSegmentId, selectedStickerId, selectedStickerSegmentId,
     selectedTrack, selectedTransitionId, selectedVisualSegmentId, script, setAudioSegments,
     setCaptionPlacement, setCaptionPosition, setCaptionSegments, setCaptionSize,
     setCaptionStyle, setCaptionsEnabled, setCurrentTime, setFitMode, setImageClipCount,
     setImageDuration, setImageMeta, setImageName, setImageSrc, setIsPlaying, setMusicBlob,
-    setMusicDuration, setMusicName, setMusicPeaks, setMusicUrl, setMusicVolume, setScript,
+    setMusicDuration, setMusicName, setMusicPeaks, setMusicStart, setMusicUrl, setMusicVolume, setScript,
     setSelectedAudioSegmentId, setSelectedFilterId, setSelectedSegmentId,
     setSelectedStickerId, setSelectedStickerSegmentId, setSelectedTrack,
     setSelectedTransitionId, setSelectedVisualSegmentId, setSourceAudioBlob,
@@ -315,7 +315,7 @@ export function App() {
     musicUrlRef, notify, script, selectedVoice, selectedVoiceId, setActiveTool,
     setAudioSegments, setCaptionSegments, setCurrentTime, setHistoryItems,
     setIsPlaying, setMusicBlob, setMusicDuration, setMusicName, setMusicPeaks,
-    setMusicUrl, setProgress, setSelectedAudioSegmentId, setSelectedSegmentId,
+    setMusicStart, setMusicUrl, setProgress, setSelectedAudioSegmentId, setSelectedSegmentId,
     setSelectedTrack, setSourceAudioAssetId, setSourceAudioBlob, setSourceAudioDuration, setSourceAudioLinked, setSourceAudioName,
     setSourceAudioPeaks, setSourceAudioStart, setSourceAudioUrl, setSourceAudioVolume,
     setStatus, setStatusText, setTimelineHorizon, sourceAudioBlob, sourceAudioDuration,
@@ -440,7 +440,7 @@ export function App() {
 
   const { getTimelineTimeFromClientX, handlePlayToggle, pauseTimelineMedia, seekTo, startTimelineSeek } = createPlaybackControls({
     audioSegmentRefs, audioSegments, canPreview, currentTimeRef, currentVisualRange,
-    estimatedDuration, isPlaying, musicDuration, musicRef, musicUrl, notify,
+    estimatedDuration, isPlaying, musicDuration, musicRef, musicStart, musicUrl, notify,
     linkedSourceAudioSegments, previewVideoRef, previewVisualType, setCurrentTime, setIsPlaying, sourceAudioDuration,
     sourceAudioLinked,
     sourceAudioRef, sourceAudioStart, sourceAudioUrl, timelineDuration,
@@ -449,7 +449,7 @@ export function App() {
 
   useMediaSync({
     audioRef, audioSegmentRefs, audioSegments, currentTime, currentTimeRef, estimatedDuration,
-    isPlaying, musicRef, musicUrl, musicVolume, pauseTimelineMedia, previewVideoRef,
+    isPlaying, musicDuration, musicRef, musicStart, musicUrl, musicVolume, pauseTimelineMedia, previewVideoRef,
     previewVisualSegment, previewVisualSourceTime, previewVisualSrc, previewVisualType,
     linkedSourceAudioSegments, setCurrentTime, setIsPlaying, setPreviewVideoMediaTime, sourceAudioDuration,
     sourceAudioLinked,
@@ -458,11 +458,12 @@ export function App() {
     visualPlaybackStartedAtRef, visualPlaybackStartTimeRef,
   });
 
-  const { startAudioSegmentMove, startStickerSegmentMove } = createTimelineMoveControls({
+  const { startAudioSegmentMove, startMusicMove, startSourceAudioMove, startStickerSegmentMove } = createTimelineMoveControls({
     audioSegments, captionSegments, estimatedDuration, notify, seekTo, setActiveTool,
     setAudioSegments, setCaptionSegments, setSelectedAudioSegmentId, setSelectedStickerId,
     setSelectedStickerSegmentId, setSelectedTrack, setStickerSegments, setTimelineHorizon,
-    stickerSegments, suppressTimelineClipClickRef, t, timelineDurationRef,
+    setMusicStart, setSourceAudioLinked, setSourceAudioStart, musicDuration, musicStart,
+    sourceAudioDuration, sourceAudioStart, stickerSegments, suppressTimelineClipClickRef, t, timelineDurationRef,
     trackLocks, trackScrollRef,
   });
 
@@ -513,11 +514,11 @@ export function App() {
     audioBlob, audioDuration, captionPlacement, captionPosition, captionSegments, captionSize,
     captionStyle, captionsEnabled, captionStyleFallback: captionStyle, clearAllVisionState,
     clearAudioTrack, clearImageTrack, clearMusicTrack, clearSourceAudioTrack, fitMode,
-    imageUrlRefs, musicBlob, musicDuration, musicName, musicVolume, notify, projectFileInputRef,
+    imageUrlRefs, musicBlob, musicDuration, musicName, musicStart, musicVolume, notify, projectFileInputRef,
     ratioId, replaceAudio, replaceMusic, replaceSourceAudio, script, selectedFilterId,
     selectedStickerId, selectedTransitionId, selectedVoiceId, setCaptionPlacement,
     setCaptionPosition, setCaptionSegments, setCaptionSize, setCaptionStyle, setCaptionsEnabled,
-    setCurrentTime, setFitMode, setImageClipCount, setImageDuration, setMusicVolume,
+    setCurrentTime, setFitMode, setImageClipCount, setImageDuration, setMusicStart, setMusicVolume,
     setRatioId, setScript, setSelectedFilterId, setSelectedSegmentId, setSelectedStickerId,
     setSelectedStickerSegmentId, setSelectedTransitionId, setSelectedVoiceId, setShowFileMenu,
     setSourceAudioAssetId, setSourceAudioLinked, setSourceAudioVolume, setSpeed, setStickerSegments, setTimelineZoom, setTrackVisibility,
@@ -528,7 +529,7 @@ export function App() {
 
   const {
     activeTimelineClipDrag, audioClipPercent, displayedCaptionSegments,
-    displayedCaptionTimeline, displayedVisualSegments, exportPercent, musicClipPercent,
+    displayedCaptionTimeline, displayedVisualSegments, exportPercent, musicClipPercent, musicStartPercent,
     playheadPercent, previewFrameStyle, previewRatio, progressPercent,
     renderedVisualSegments, renderedVisualTimeline, showStickerTrack,
     sourceAudioClipPercent, sourceAudioStartPercent,
@@ -536,14 +537,14 @@ export function App() {
     assetDragPreview, assetDropTargetTrack, audioBlob, audioDuration, captionSegments,
     captionTargetDuration, captionTimeline, currentTime, draggedAssetId, exportProgress,
     findAssetById, getCurrentVisualAssetSnapshot, imageDuration, imageSrc, musicBlob,
-    musicDuration, previewFrameSize, progress, ratio, selectedTrack, sourceAudioBlob,
+    musicDuration, musicStart, previewFrameSize, progress, ratio, selectedTrack, sourceAudioBlob,
     linkedSourceAudioSegments, sourceAudioDuration, sourceAudioLinked, sourceAudioStart, stickerSegments, timelineClipDrag,
     timelineDuration, visualSegments,
   });
   const handleExportVideo = useVideoExport({
     audioSegments, captionDuration, captionPlacement, captionPosition, captionSegments,
     captionSize, captionStyle, captionsEnabled, exporting, exportStartRef, fitMode,
-    imageDuration, imageSrc, musicBlob, musicDuration, musicVolume, notify,
+    imageDuration, imageSrc, musicBlob, musicDuration, musicStart, musicVolume, notify,
     previewFrameSize, ratio, renderedVisualSegments, script, selectedFilter,
     selectedSticker, selectedTransitionId, setExporting, setExportPhase,
     setExportProgress, setStatus, setStatusText, sourceAudioBlob, sourceAudioDuration,
@@ -558,7 +559,7 @@ export function App() {
     captionSegments, captionTargetDuration, commitCaptionSegments, commitVisualSegments,
     notify, renderedVisualSegments, seekTo, setSelectedSegmentId, setSelectedTrack,
     setSelectedVisualSegmentId, setTimelineClipDrag, suppressTimelineClipClickRef,
-    timelineClipDragRef, trackLocks, visualSegments,
+    timelineClipDragRef, timelineDuration, trackLocks, visualSegments,
   });
 
   return (
@@ -836,10 +837,13 @@ export function App() {
         selectedAudioSegmentId={selectedAudioSegmentId}
         setSelectedAudioSegmentId={setSelectedAudioSegmentId}
         startAudioSegmentMove={startAudioSegmentMove}
+        startSourceAudioMove={startSourceAudioMove}
         musicBlob={musicBlob}
         musicPeaks={musicPeaks}
         musicClipPercent={musicClipPercent}
+        musicStartPercent={musicStartPercent}
         musicDuration={musicDuration}
+        startMusicMove={startMusicMove}
       />
 
       <AssetDragPreview preview={assetDragPreview} t={t} />

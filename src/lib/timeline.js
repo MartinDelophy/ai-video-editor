@@ -75,6 +75,19 @@ export function getTimedSegmentsEnd(segments) {
   );
 }
 
+export function packTimedSegmentsIntoLanes(segments) {
+  const lanes = [];
+  [...segments].sort((a, b) => (a.start || 0) - (b.start || 0) || String(a.id).localeCompare(String(b.id))).forEach((segment) => {
+    const laneIndex = lanes.findIndex((lane) => {
+      const last = lane.at(-1);
+      return !last || (last.start || 0) + (last.duration || 0) <= (segment.start || 0) + 0.001;
+    });
+    if (laneIndex >= 0) lanes[laneIndex].push(segment);
+    else lanes.push([segment]);
+  });
+  return lanes.length ? lanes : [[]];
+}
+
 export function getTimedSegmentIndexAtTime(segments, time) {
   const safeTime = Math.max(0, Number.isFinite(time) ? time : 0);
   for (let index = segments.length - 1; index >= 0; index -= 1) {
@@ -108,6 +121,23 @@ export function reorderTimelineItems(items, fromIndex, toIndex) {
   const [movedItem] = nextItems.splice(fromIndex, 1);
   nextItems.splice(toIndex, 0, movedItem);
   return nextItems;
+}
+
+export function moveTimedCaptionSegment(segments, segmentId, start, end) {
+  const safeStart = Math.max(0, Number(start) || 0);
+  const safeEnd = Math.max(safeStart + MIN_TIMED_CAPTION_SECONDS, Number(end) || safeStart);
+  return segments.map((segment) =>
+    segment.id === segmentId ? { ...segment, start: safeStart, end: safeEnd } : segment,
+  );
+}
+
+export function materializeCaptionTimings(segments, targetDuration) {
+  const timeline = getCaptionTimeline(segments, targetDuration);
+  return segments.map((segment, index) => ({
+    ...segment,
+    start: timeline[index]?.start ?? 0,
+    end: timeline[index]?.end ?? Math.max(MIN_TIMED_CAPTION_SECONDS, timeline[index]?.start ?? 0),
+  }));
 }
 
 export function getVisualSegmentTimeline(segments) {

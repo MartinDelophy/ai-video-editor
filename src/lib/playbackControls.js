@@ -24,7 +24,7 @@ export function createPlaybackControls(deps) {
       if (audio) audio.currentTime = getTimelineTrackLocalTime(clamped, segment.start, segment.duration);
     });
     if (deps.sourceAudioRef.current) deps.sourceAudioRef.current.currentTime = getSourceState(clamped).sourceTime;
-    if (deps.musicRef.current) deps.musicRef.current.currentTime = clamped;
+    if (deps.musicRef.current) deps.musicRef.current.currentTime = getTimelineTrackLocalTime(clamped, deps.musicStart, deps.musicDuration);
   };
   const getTimelineTimeFromClientX = (clientX) => {
     const rect = deps.trackScrollRef.current?.getBoundingClientRect(); const duration = deps.timelineDurationRef.current;
@@ -59,7 +59,7 @@ export function createPlaybackControls(deps) {
       source.playbackRate = sourceState.playbackRate;
       playIf(source, sourceState.active);
     }
-    if (music && deps.musicUrl) { music.currentTime = Math.max(0, Math.min(deps.musicDuration || timelineTime, timelineTime)); playIf(music, timelineTime <= (deps.musicDuration || timelineTime)); }
+    if (music && deps.musicUrl) { const active = isTimelineTimeInsideTrack(timelineTime, deps.musicStart, deps.musicDuration); music.currentTime = getTimelineTrackLocalTime(timelineTime, deps.musicStart, deps.musicDuration); playIf(music, active); }
     if (video && deps.previewVisualType === "video") {
       const index = getVisualSegmentIndexAtTime(deps.visualSegments, timelineTime);
       const range = deps.visualTimeline[Math.max(0, index)] ?? deps.currentVisualRange;

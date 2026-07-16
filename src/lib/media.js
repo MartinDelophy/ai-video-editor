@@ -714,6 +714,7 @@ export async function exportBrowserVideo({
   sourceAudioSegments = [],
   musicBlob,
   musicVolume = 0.35,
+  musicStart = 0,
   text,
   captionSegments,
   duration,
@@ -839,7 +840,7 @@ export async function exportBrowserVideo({
       : sourceAudioBlob
         ? [{ blob: sourceAudioBlob, volume: sourceAudioVolume, role: "source", start: Math.max(0, sourceAudioStart || 0) }]
         : []),
-    musicBlob ? { blob: musicBlob, volume: musicVolume, role: "music", start: 0 } : null,
+    musicBlob ? { blob: musicBlob, volume: musicVolume, role: "music", start: Math.max(0, musicStart || 0) } : null,
   ].filter(Boolean);
 
   if (audioInputs.length) {

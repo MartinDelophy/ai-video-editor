@@ -57,6 +57,7 @@ export function createAudioTrackActions(d) {
     d.setMusicUrl(nextUrl);
     d.setMusicName(nextName);
     d.setMusicDuration(duration || 0);
+    d.setMusicStart(0);
     d.setMusicPeaks(nextPeaks);
     d.setSelectedTrack("music");
     d.setActiveTool("audio");
@@ -129,6 +130,7 @@ export function createAudioTrackActions(d) {
     d.setMusicUrl("");
     d.setMusicName("");
     d.setMusicDuration(0);
+    d.setMusicStart(0);
     d.setMusicPeaks([]);
     d.setCurrentTime((time) => Math.min(time, Math.max(
       d.audioBlob ? d.audioDuration : 0,

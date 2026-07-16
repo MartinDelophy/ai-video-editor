@@ -1,6 +1,28 @@
 import { DEFAULT_STICKER_SEGMENT_SECONDS, MAX_TIMELINE_DURATION_SECONDS, MIN_VISUAL_SEGMENT_SECONDS } from "../config/editor.js";
 
 export function createTimelineMoveControls(d) {
+  const startSingleTrackMove = (event, track) => {
+    if (event.button !== 0) return;
+    const isSource = track === "source";
+    const clipDuration = isSource ? d.sourceAudioDuration : d.musicDuration;
+    const start = isSource ? d.sourceAudioStart : d.musicStart;
+    if (!(clipDuration > 0) || d.trackLocks[track]) return void d.notify(`${isSource ? "视频原声" : "音乐"}轨已锁定，无法移动`);
+    const rect = d.trackScrollRef.current?.getBoundingClientRect(); const duration = d.timelineDurationRef.current || 10;
+    if (!rect) return;
+    event.preventDefault(); event.stopPropagation(); d.setSelectedTrack(track); d.setActiveTool("audio");
+    const startX = event.clientX; let moved = false; let latest = start;
+    const move = (e) => {
+      if (!moved && Math.abs(e.clientX - startX) < 4) return;
+      moved = true; e.preventDefault();
+      latest = Math.max(0, Math.min(MAX_TIMELINE_DURATION_SECONDS - clipDuration, start + ((e.clientX - startX) / Math.max(rect.width, 1)) * duration));
+      if (isSource) { d.setSourceAudioLinked(false); d.setSourceAudioStart(latest); }
+      else d.setMusicStart(latest);
+      d.setTimelineHorizon((value) => Math.max(value, Math.ceil((latest + clipDuration + 5) / 10) * 10));
+    };
+    const cleanup = () => { removeEventListener("pointermove", move); removeEventListener("pointerup", up); removeEventListener("pointercancel", cleanup); };
+    const up = () => { cleanup(); if (moved) { d.seekTo(latest); d.notify(`${isSource ? "视频原声" : "音乐"}片段位置已调整`); } };
+    addEventListener("pointermove", move, { passive: false }); addEventListener("pointerup", up); addEventListener("pointercancel", cleanup);
+  };
   const startAudioSegmentMove = (event, id = "") => {
     if (event.button !== 0) return;
     const segment = d.audioSegments.find((item) => item.id === id); if (!segment) return;
@@ -54,5 +76,10 @@ export function createTimelineMoveControls(d) {
     };
     addEventListener("pointermove", move, { passive: false }); addEventListener("pointerup", up); addEventListener("pointercancel", cleanup);
   };
-  return { startAudioSegmentMove, startStickerSegmentMove };
+  return {
+    startAudioSegmentMove,
+    startMusicMove: (event) => startSingleTrackMove(event, "music"),
+    startSourceAudioMove: (event) => startSingleTrackMove(event, "source"),
+    startStickerSegmentMove,
+  };
 }

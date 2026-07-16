@@ -33,7 +33,12 @@ export function createPlaybackControls(deps) {
   };
   const startTimelineSeek = (event) => {
     if (event.button !== 0 || deps.timelineDuration <= 0) return;
-    event.preventDefault(); event.stopPropagation(); seekTo(getTimelineTimeFromClientX(event.clientX));
+    event.preventDefault(); event.stopPropagation();
+    if (deps.isPlaying) {
+      pauseTimelineMedia();
+      deps.setIsPlaying(false);
+    }
+    seekTo(getTimelineTimeFromClientX(event.clientX));
     const move = (e) => seekTo(getTimelineTimeFromClientX(e.clientX));
     const up = () => { removeEventListener("pointermove", move); removeEventListener("pointerup", up); };
     addEventListener("pointermove", move); addEventListener("pointerup", up, { once: true });

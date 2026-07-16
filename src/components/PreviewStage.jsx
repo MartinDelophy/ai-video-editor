@@ -66,6 +66,11 @@ export function PreviewStage({
   const activeObjectPosition = visualObjectPosition || "50% 50%";
   const visualTransform = resolveVisualTransform(visualEffects?.keyframes, visualLocalTime);
   const visualMask = visualEffects?.mask ?? {};
+  const enhancement = visualEffects?.enhancement ?? null;
+  const showRemasterPreview = Boolean(
+    enhancement?.enabled !== false && enhancement?.previewUrl &&
+    (previewVisualType === "image" || (!isPlaying && Math.abs((enhancement.localTime ?? 0) - visualLocalTime) <= 0.08)),
+  );
   const maskCenterX = Number.isFinite(visualMask.centerX) ? visualMask.centerX : 50;
   const maskCenterY = Number.isFinite(visualMask.centerY) ? visualMask.centerY : 50;
   const frameWidth = Math.max(1, previewFrameSize.width || 1);
@@ -194,6 +199,12 @@ export function PreviewStage({
                     WebkitMaskRepeat: previewVisionMaskUrl ? "no-repeat" : undefined,
                     maskRepeat: previewVisionMaskUrl ? "no-repeat" : undefined,
                   }}
+                /> : null}
+                {showRemasterPreview ? <img
+                  className="remaster-preview-frame"
+                  src={enhancement.previewUrl}
+                  alt={t("remasterPreviewAlt")}
+                  style={{ ...visualTransformStyle, filter: selectedFilter.css, objectFit: activeObjectFit, objectPosition: activeObjectPosition }}
                 /> : null}
               </div>
             ) : null}

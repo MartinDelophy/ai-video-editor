@@ -24,6 +24,7 @@ export function createTimelineReorderControls(d) {
   };
   const startTimelineClipDrag = (event, track, segmentId, index) => {
     if (event.button !== 0 || event.target.closest(".image-resize-handle")) return;
+    d.pauseForTimelineEdit?.();
     if (d.trackLocks[track]) return void d.notify(track === "image" ? "图片轨已锁定，无法拖动片段" : "字幕轨已锁定，无法拖动片段");
     if (track === "image") { d.setSelectedTrack("image"); d.setSelectedVisualSegmentId(segmentId); }
     else { d.setSelectedTrack("caption"); d.setSelectedSegmentId(segmentId); }

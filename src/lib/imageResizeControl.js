@@ -29,8 +29,13 @@ export function createImageResizeControl(d) {
       d.musicBlob && d.musicDuration > 0 ? { time: Math.min(MAX_TIMELINE_DURATION_SECONDS, d.musicDuration), label: "音乐结尾" } : null,
     ].filter(Boolean);
     let activeLabel = "";
+    let editingStarted = false;
     const apply = (clientX) => {
       if (!rect) return;
+      if (!editingStarted) {
+        editingStarted = true;
+        d.pauseForTimelineEdit?.();
+      }
       const pointerX = clientX - rect.left;
       const inTrackX = Math.max(0, Math.min(rect.width, pointerX));
       const raw = (inTrackX / Math.max(rect.width, 1)) * timelineDuration + Math.max(0, pointerX - rect.width) * overflowRate;

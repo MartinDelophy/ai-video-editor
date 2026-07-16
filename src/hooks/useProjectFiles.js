@@ -6,7 +6,7 @@ import { createCaptionSegments, getImageThumbnailCount, getVisualSegmentsTotal }
 
 export function useProjectFiles(deps) {
   const getProjectSnapshot = useCallback(() => {
-    const visualSegments = deps.visualSegments.map(({ blob, trackFrames, src, cutoutVisual, ...segment }) => segment);
+    const visualSegments = deps.visualSegments.map(({ blob, trackFrames, src, cutoutVisual, enhancement: _enhancement, ...segment }) => segment);
     return {
       script: deps.script, selectedVoiceId: deps.selectedVoiceId, speed: deps.speed, volume: deps.volume,
       ratioId: deps.ratioId, fitMode: deps.fitMode, captionPosition: deps.captionPosition,

@@ -3,6 +3,7 @@ import { DEFAULT_STICKER_SEGMENT_SECONDS, MAX_TIMELINE_DURATION_SECONDS, MIN_VIS
 export function createTimelineMoveControls(d) {
   const startSingleTrackMove = (event, track) => {
     if (event.button !== 0) return;
+    d.pauseForTimelineEdit?.();
     const isSource = track === "source";
     const clipDuration = isSource ? d.sourceAudioDuration : d.musicDuration;
     const start = isSource ? d.sourceAudioStart : d.musicStart;
@@ -25,6 +26,7 @@ export function createTimelineMoveControls(d) {
   };
   const startAudioSegmentMove = (event, id = "") => {
     if (event.button !== 0) return;
+    d.pauseForTimelineEdit?.();
     const segment = d.audioSegments.find((item) => item.id === id); if (!segment) return;
     if (d.trackLocks.audio) return void d.notify(d.t("audioTrackLockedMove"));
     const rect = d.trackScrollRef.current?.getBoundingClientRect(); const duration = d.timelineDurationRef.current || 10;
@@ -51,6 +53,7 @@ export function createTimelineMoveControls(d) {
   };
   const startStickerSegmentMove = (event, id = "") => {
     if (event.button !== 0) return;
+    d.pauseForTimelineEdit?.();
     const segment = d.stickerSegments.find((item) => item.id === id); if (!segment) return;
     if (d.trackLocks.sticker) return void d.notify("贴纸轨已锁定，无法移动贴纸");
     const rect = d.trackScrollRef.current?.getBoundingClientRect();

@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
   CaretDown,
   CloudArrowUp,
@@ -58,7 +58,17 @@ export function PreviewStage({
   visualLocalTime = 0,
   visualMaskEditable = false,
   onUpdateVisualMask,
+  activeTool,
+  getDraggedAsset,
+  applyAssetToTrack,
+  onCreateCaptionAt,
 }) {
+  const [captionDraft, setCaptionDraft] = useState(null);
+  const commitCaptionDraft = () => {
+    const text = captionDraft?.text.trim();
+    if (text) onCreateCaptionAt?.(text, captionDraft);
+    setCaptionDraft(null);
+  };
   const hasStickerOverlay = Boolean(selectedSticker?.src || selectedSticker?.text);
   const hasPreviewContent = Boolean(previewVisualSrc || hasStickerOverlay);
   const renderedVisualSrc = previewVisualRenderSrc || previewVisualSrc;
@@ -155,6 +165,17 @@ export function PreviewStage({
           previewVisualSrc && !trackVisibility.image ? "is-image-hidden" : ""
         }`}
         style={{ "--preview-ratio": previewRatio }}
+        data-asset-drop-track="image"
+        onDragOver={(event) => {
+          const asset = getDraggedAsset?.(event);
+          if (asset?.type === "image" || asset?.type === "video") event.preventDefault();
+        }}
+        onDrop={(event) => {
+          const asset = getDraggedAsset?.(event);
+          if (asset?.type !== "image" && asset?.type !== "video") return;
+          event.preventDefault(); event.stopPropagation();
+          void applyAssetToTrack?.(asset, "image");
+        }}
       >
         {!hasPreviewContent ? (
           <button className="preview-empty" type="button" style={previewFrameStyle} onClick={() => fileInputRef.current?.click()}>
@@ -170,6 +191,11 @@ export function PreviewStage({
             } ${smartCropActive ? "has-smart-crop" : ""}`}
             data-hidden-label={t("imageHidden")}
             style={previewFrameStyle}
+            onClick={(event) => {
+              if (activeTool !== "caption" || event.target.closest(".caption-overlay, .visual-mask-editor, .inline-caption-editor")) return;
+              const rect = event.currentTarget.getBoundingClientRect();
+              setCaptionDraft({ x: Math.max(8, Math.min(92, ((event.clientX - rect.left) / rect.width) * 100)), y: Math.max(8, Math.min(92, ((event.clientY - rect.top) / rect.height) * 100)), text: "" });
+            }}
           >
             {renderedVisualSrc && trackVisibility.image ? (
               <div className="visual-media-layer" style={visualMaskStyle}>
@@ -249,6 +275,11 @@ export function PreviewStage({
                 onPointerDown={startCaptionDrag}
                 onDoubleClick={() => setActiveTool("caption")}
               />
+            ) : null}
+            {captionDraft ? (
+              <form className="inline-caption-editor" style={{ left: `${captionDraft.x}%`, top: `${captionDraft.y}%` }} onSubmit={(event) => { event.preventDefault(); commitCaptionDraft(); }}>
+                <input autoFocus value={captionDraft.text} placeholder={t("typeCaptionHere", "在此输入字幕…")} onChange={(event) => setCaptionDraft((draft) => ({ ...draft, text: event.target.value }))} onKeyDown={(event) => { if (event.key === "Escape") setCaptionDraft(null); if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); commitCaptionDraft(); } }} onBlur={() => { if (!captionDraft.text.trim()) setCaptionDraft(null); }} />
+              </form>
             ) : null}
             {selectedSticker.src ? (
               <img className="sticker-overlay is-image" src={selectedSticker.src} alt="" draggable={false} />

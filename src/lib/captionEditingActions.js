@@ -1,13 +1,8 @@
-import { createCaptionSegments, getCaptionScript } from "./timeline.js";
+import { getCaptionScript } from "./timeline.js";
 
 export function createCaptionEditingActions(d) {
   function updateScript(nextScript) {
     d.setScript(nextScript);
-    if (!d.audioSegments.length) {
-      const nextSegments = createCaptionSegments(nextScript);
-      d.setCaptionSegments(nextSegments);
-      d.setSelectedSegmentId(nextSegments[0]?.id ?? "");
-    }
   }
 
   function updateCaptionSegmentText(segmentId, text) {

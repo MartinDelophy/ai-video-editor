@@ -1,6 +1,6 @@
 import ffmpegCoreURL from "@ffmpeg/core?url";
 import ffmpegCoreWasmURL from "@ffmpeg/core/wasm?url";
-import ffmpegClassWorkerURL from "@ffmpeg/ffmpeg/worker?url";
+import ffmpegClassWorkerURL from "@ffmpeg/ffmpeg/worker?worker&url";
 
 import { AUDIO_RECORDING_FORMATS, EXPORT_RECORDING_FORMATS } from "../config/editor.js";
 import {

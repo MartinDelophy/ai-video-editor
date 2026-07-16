@@ -6,7 +6,6 @@ import {
   MusicNote,
   Scan,
   Sticker,
-  TextT,
 } from "@phosphor-icons/react";
 
 export { MODEL_ID, AUTOMATIC_CAPTION_MODEL_ID, AUTOMATIC_CAPTION_MODEL_LABEL } from "./models.js";
@@ -152,7 +151,6 @@ export const VOICES = [
 
 export const TOOL_RAIL = [
   { id: "media", label: "媒体", icon: ImageSquare },
-  { id: "text", label: "文本", icon: TextT },
   { id: "caption", label: "字幕", icon: ClosedCaptioning },
   { id: "smart", label: "智能", icon: Scan },
   { id: "audio", label: "音频", icon: MusicNote },

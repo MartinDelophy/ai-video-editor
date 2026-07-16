@@ -52,7 +52,7 @@ import { createAssetDropActions } from "./lib/assetDropActions.js";
 import { createEditorCommandActions } from "./lib/editorCommandActions.js";
 import { createTimelineViewModel } from "./lib/timelineViewModel.js";
 import { createTranslator, getStoredLanguage, translateOptionName } from "./i18n.js";
-import { downloadBlob } from "./lib/media.js";
+import { decodeWaveform, downloadBlob } from "./lib/media.js";
 import { getImageThumbnailCount, getVisualSegmentsTotal } from "./lib/timeline.js";
 import { removeVisualPropertyKeyframe, updateVisualSegmentPlaybackRate, upsertVisualKeyframe, upsertVisualPropertyKeyframe } from "./lib/visualEffects.js";
 import { getLinkedSourceAudioEnd, getLinkedSourceAudioSegments } from "./lib/sourceAudioSync.js";
@@ -476,6 +476,14 @@ export function App() {
     setScript, setSelectedSegmentId, setSelectedTrack,
     setVisionRecords, trackLocks,
   });
+  const createCaptionFromPreview = (text, placement) => {
+    const start = Math.max(0, currentTime);
+    const segment = { id: crypto.randomUUID(), text, hidden: false, weight: 1, start, end: start + 2.5 };
+    commitCaptionSegments([...captionSegments, segment].sort((a, b) => (a.start ?? 0) - (b.start ?? 0)), "字幕已加入时间线", 0);
+    setSelectedSegmentId(segment.id);
+    setCaptionPlacement({ x: placement.x, y: placement.y });
+    setCaptionPosition("custom");
+  };
 
   const {
     clearAudioTrack, clearMusicTrack, clearSourceAudioTrack, commitAudio,
@@ -664,7 +672,7 @@ export function App() {
   });
 
   const handleFiles = useFileUpload({
-    imageUrlRefs, notify, setSelectedLibraryAssetId, setUserAssets,
+    appendVisualAssetToTimeline, imageUrlRefs, notify, setSelectedLibraryAssetId, setSelectedTrack, setUserAssets,
     updateVisualAssetInTimeline,
   });
 
@@ -739,7 +747,25 @@ export function App() {
   });
 
   return (
-    <main className="app-shell" lang={activeLanguage}>
+    <main className="app-shell" lang={activeLanguage} onDragOver={(event) => {
+      if (event.dataTransfer?.types?.includes("Files")) event.preventDefault();
+    }} onDrop={async (event) => {
+      const files = Array.from(event.dataTransfer?.files ?? []);
+      if (!files.length) return;
+      event.preventDefault();
+      const audioFile = files.find((file) => file.type.startsWith("audio/") || /\.(mp3|wav|m4a|aac|ogg)$/i.test(file.name));
+      const targetTrack = event.target.closest?.("[data-asset-drop-track]")?.dataset.assetDropTrack;
+      if (audioFile && targetTrack === "music") {
+        try {
+          const decoded = await decodeWaveform(audioFile, 96);
+          replaceMusic(audioFile, decoded.duration, decoded.peaks, audioFile.name, "音乐已安全加入时间线");
+        } catch (error) {
+          notify(error instanceof Error ? `无法读取该音频：${error.message}` : "无法读取该音频文件");
+        }
+        return;
+      }
+      handleFiles(files);
+    }}>
       <Topbar
         t={t}
         compactRail={compactRail}
@@ -851,6 +877,10 @@ export function App() {
           currentTime={currentTime}
           seekTo={seekTo}
           notify={notify}
+          activeTool={activeTool}
+          getDraggedAsset={getDraggedAsset}
+          applyAssetToTrack={applyAssetToTrack}
+          onCreateCaptionAt={createCaptionFromPreview}
         />
 
         <VoicePanel

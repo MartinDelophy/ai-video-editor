@@ -14,6 +14,11 @@ export function useFileUpload(deps) {
         duration: type === "video" ? 0 : 4, width: 0, height: 0, trackFrames: [] };
     });
     const primary = assets[0]; deps.setSelectedLibraryAssetId(primary.id); deps.setUserAssets((current) => [...assets, ...current]);
+    const primaryVisual = assets.find((asset) => asset.type === "image" || asset.type === "video");
+    if (primaryVisual) {
+      deps.appendVisualAssetToTimeline(primaryVisual);
+      deps.setSelectedTrack("image");
+    }
     const update = (id, patch) => deps.setUserAssets((current) => current.map((item) => item.id === id ? { ...item, ...patch } : item));
     assets.forEach((asset) => {
       if (asset.type === "audio") {
@@ -42,7 +47,7 @@ export function useFileUpload(deps) {
       };
       image.onerror = () => update(asset.id, { meta: "读取失败" }); image.src = asset.src;
     });
-    deps.notify(mediaFiles.length > 1 ? `已上传 ${mediaFiles.length} 个素材，拖到对应轨道后使用`
-      : `${primary.type === "audio" ? "音频" : primary.type === "video" ? "视频" : "图片"}已上传到素材库，请拖到轨道使用`);
+    deps.notify(mediaFiles.length > 1 ? `已上传 ${mediaFiles.length} 个素材${primaryVisual ? "，首个画面已加入时间线" : ""}`
+      : primaryVisual ? `${primary.type === "video" ? "视频" : "图片"}已加入画布和时间线` : "音频已上传到素材库，可拖到音乐或配音轨");
   }, [deps]);
 }

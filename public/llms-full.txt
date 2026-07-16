@@ -1,0 +1,94 @@
+# Timeline Studio — Full Product Reference
+
+Last verified: 2026-07-16
+Canonical URL: https://video-editor.ai-creator.top/
+GitHub: https://github.com/MartinDelophy/ai-video-editor
+License: MIT
+
+## Definition
+
+Timeline Studio is a free, open-source, local-first AI video editor that runs in a desktop web browser. It opens directly into a multi-track editing workspace for importing local media, generating narration and captions, editing visual clips, previewing a composition and exporting video.
+
+## AI voiceover
+
+- Chinese: Piper/VITS browser ONNX with zh_CN-xiao_ya-medium and zh_CN-chaowen-medium.
+- English: Kokoro 82M v1.0 ONNX q8 on WASM.
+- Additional browser Piper voices: German, Spanish, French, Italian and Brazilian Portuguese.
+- Generated speech is inserted at the current playhead as a voiceover clip.
+- Browser microphone recording is also available after user permission.
+
+## Automatic captions
+
+- Default recognition model: Whisper small q8 ONNX.
+- Execution: WASM worker for subtitle stability.
+- Timing: coarse recognition boundaries are adjusted toward nearby source-audio energy.
+- Chinese cleanup: conservative contextual correction for high-confidence homophone mistakes.
+- Caption text and segments are edited in the right-side caption context panel.
+- Global caption placement and styling remain in the caption tool.
+- Preview and export share scale-aware caption layout.
+
+## Visual editing
+
+- Visual clips support scale, horizontal position, vertical position, rotation and opacity keyframes.
+- Keyframes can capture all transform properties together or key individual properties independently.
+- Supported masks: rectangle, rounded rectangle and circle, with position, size, feathering and inversion controls where applicable.
+- Masks stay in canvas coordinates while the visual media transforms behind them.
+- Video speed is clip-scoped and uses the same source-time mapping for preview, timeline duration, keyframes and export.
+- Extracted source audio can stay linked to its video or use independent timing.
+
+## Timeline
+
+- Visual, sticker, caption, source-audio, voiceover and music tracks.
+- Clip operations include selection, moving, splitting, duplication, resizing and deletion.
+- Track operations include visibility and locking.
+- Multiple generated voiceover or caption lanes are created when clips overlap.
+- Timeline geometry remains time-accurate across zoom levels.
+
+## Browser vision
+
+- YOLOS tiny q8 ONNX detects subjects.
+- MODNet q8 ONNX provides portrait matting.
+- Subject geometry supports smart crop and caption avoidance.
+- Video analysis produces timestamped samples across the clip instead of reusing only the first frame.
+- Model inference is precomputed and bounded rather than performed inside the real-time export loop.
+
+## Talking portrait
+
+- JoyVASA ONNX converts audio into motion coefficients.
+- LivePortrait performs neural rendering on WebGPU.
+- 256px mixed-FP16 mode is intended for faster preview.
+- 512px mixed-FP16 mode is intended for quality output and can be slow on current browser GPUs.
+- Sparse neural keyframes are interpolated for encoded output.
+
+## Export
+
+- Export controls include resolution, frame rate, codec and quality.
+- Available resolution choices include 720p, 1080p, 1440p and 2160p.
+- Available frame-rate choices include 30fps and 60fps.
+- MP4 is produced when the browser supports the required native or browser-side conversion path.
+- WebM is used as a fallback when MP4 conversion is unavailable or fails.
+- Export renders the project canvas and mixes active audio tracks in the browser.
+
+## Privacy and networking
+
+- Images, video and audio selected for a project are processed in the browser.
+- Model and runtime files can be downloaded from configured third-party hosts.
+- A service worker caches supported application and model assets for repeat use.
+- Interface language and other preferences may be stored in browser local storage.
+- Timeline Studio should be described as local-first, not as making zero network requests or bundling every model offline.
+
+## Supported interface languages
+
+Chinese, English, Japanese, Korean, Spanish, French, German, Portuguese, Thai and Vietnamese.
+
+## Technology
+
+React 19, Vite 6, ONNX Runtime Web, WebAssembly, WebGPU, MediaRecorder, browser Canvas APIs and FFmpeg WASM support.
+
+## Official factual pages
+
+- https://video-editor.ai-creator.top/features/
+- https://video-editor.ai-creator.top/how-it-works/
+- https://video-editor.ai-creator.top/faq/
+- https://video-editor.ai-creator.top/privacy/
+- https://video-editor.ai-creator.top/about/

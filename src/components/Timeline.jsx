@@ -118,6 +118,7 @@ function getImageTimelineThumbnailCount({ duration, timelineDuration, contentWid
 
 export function Timeline({
   t,
+  trOption,
   undo,
   redo,
   handleDeleteTrack,
@@ -190,6 +191,8 @@ export function Timeline({
   sourceAudioClipPercent,
   sourceAudioStartPercent,
   sourceAudioDuration,
+  selectedSourceAudioSegmentId,
+  setSelectedSourceAudioSegmentId,
   audioBlob,
   peaks,
   audioClipPercent,
@@ -207,6 +210,16 @@ export function Timeline({
   startMusicMove,
 }) {
   const [transitionEditor, setTransitionEditor] = useState(null);
+  const [musicClipSelected, setMusicClipSelected] = useState(false);
+
+  const clearClipSelections = (except = "") => {
+    if (except !== "visual") setSelectedVisualSegmentId("");
+    if (except !== "sticker") setSelectedStickerSegmentId("");
+    if (except !== "caption") setSelectedSegmentId("");
+    if (except !== "voice") setSelectedAudioSegmentId("");
+    if (except !== "source") setSelectedSourceAudioSegmentId("");
+    if (except !== "music") setMusicClipSelected(false);
+  };
 
   const updateJunctionTransition = (index, patch) => {
     setVisualSegments((items) => items.map((item, itemIndex) => itemIndex === index
@@ -260,10 +273,14 @@ export function Timeline({
   };
   const selectContextTarget = (track, segmentId = "") => {
     openTrackPanel(track);
+    const selectionType = { image: "visual", sticker: "sticker", caption: "caption", audio: "voice", source: "source", music: "music" }[track];
+    clearClipSelections(selectionType);
     if (track === "image" && segmentId) setSelectedVisualSegmentId(segmentId);
     if (track === "sticker" && segmentId) setSelectedStickerSegmentId(segmentId);
     if (track === "caption" && segmentId) setSelectedSegmentId(segmentId);
     if (track === "audio" && segmentId) setSelectedAudioSegmentId(segmentId);
+    if (track === "source" && segmentId) setSelectedSourceAudioSegmentId(segmentId);
+    if (track === "music" && segmentId) setMusicClipSelected(true);
   };
   const showTrackContextMenu = (event, track, segmentId = "") => {
     event.preventDefault(); event.stopPropagation();
@@ -626,6 +643,7 @@ export function Timeline({
                     }
                     setSelectedTrack("sticker");
                     setActiveTool("stickers");
+                    clearClipSelections("sticker");
                     setSelectedStickerSegmentId(segment.id);
                     seekTo(segment.start || 0);
                   }}
@@ -882,12 +900,14 @@ export function Timeline({
                             return;
                           }
                           setSelectedTrack("image");
+                          clearClipSelections("visual");
                           setSelectedVisualSegmentId(segment.id);
                         }}
                         onKeyDown={(event) => {
                           if (event.key === "Enter" || event.key === " ") {
                             event.preventDefault();
                             setSelectedTrack("image");
+                            clearClipSelections("visual");
                             setSelectedVisualSegmentId(segment.id);
                           }
                         }}
@@ -953,7 +973,7 @@ export function Timeline({
                     className={`visual-junction ${transition.id !== "none" ? "has-transition" : ""}`}
                     key={`junction-${segment.id}`}
                     type="button"
-                    aria-label={`转场：${TRANSITIONS.find((item) => item.id === transition.id)?.name || "无转场"}`}
+                    aria-label={`${t("transition")}: ${trOption(TRANSITIONS.find((item) => item.id === transition.id)?.name || "无转场")}`}
                     title="设置转场"
                     style={{ left: `${((range?.end || 0) / Math.max(0.01, timelineDuration)) * 100}%` }}
                     onPointerDown={(event) => event.stopPropagation()}
@@ -1028,6 +1048,7 @@ export function Timeline({
                           }
                           setSelectedTrack("caption");
                           setActiveTool("caption");
+                          clearClipSelections("caption");
                           setSelectedSegmentId(segment.id);
                           seekTo(segmentRange?.start ?? getSegmentStartTime(displayedCaptionSegments, index, captionTargetDuration));
                         }}
@@ -1055,7 +1076,10 @@ export function Timeline({
                 assetDropTargetTrack === "source" ? "is-drop-target" : ""
               } ${assetDropPulseTrack === "source" ? "is-drop-landing" : ""}`}
               type="button"
-              onClick={() => setSelectedTrack("source")}
+              onClick={() => {
+                setSelectedTrack("source");
+                setSelectedSourceAudioSegmentId("");
+              }}
               onDragOver={(event) => handleTrackAssetDragOver(event, "source")}
               onDragLeave={(event) => handleTrackAssetDragLeave(event, "source")}
               onDrop={(event) => handleTrackAssetDrop(event, "source")}
@@ -1068,7 +1092,7 @@ export function Timeline({
               {renderAssetDropSlot("source")}
               {sourceAudioBlob && sourceAudioLinked && linkedSourceAudioSegments.length ? linkedSourceAudioSegments.map((segment) => (
                 <div
-                  className="audio-clip is-source is-linked"
+                  className={`audio-clip is-source is-linked ${selectedSourceAudioSegmentId === segment.id ? "is-selected" : ""}`}
                   key={segment.id}
                   style={{
                     width: `${timelineDuration > 0 ? Math.max(0.01, Math.min(100, (segment.duration / timelineDuration) * 100)) : 0}%`,
@@ -1076,19 +1100,31 @@ export function Timeline({
                   }}
                   onContextMenu={(event) => showTrackContextMenu(event, "source", segment.id)}
                   onPointerDown={startSourceAudioMove}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setSelectedTrack("source");
+                    clearClipSelections("source");
+                    setSelectedSourceAudioSegmentId(segment.id);
+                  }}
                 >
                   <WaveformStrip peaks={sliceSourceAudioPeaks(sourceAudioPeaks, segment, sourceAudioDuration)} active />
                   <span className="audio-clip-duration">{formatTime(segment.duration)}</span>
                 </div>
               )) : sourceAudioBlob ? (
                 <div
-                  className="audio-clip is-source"
+                  className={`audio-clip is-source ${selectedSourceAudioSegmentId === "source-audio" ? "is-selected" : ""}`}
                   style={{
                     width: `${sourceAudioClipPercent}%`,
                     marginLeft: `${sourceAudioStartPercent}%`,
                   }}
                   onContextMenu={(event) => showTrackContextMenu(event, "source", "source-audio")}
                   onPointerDown={startSourceAudioMove}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setSelectedTrack("source");
+                    clearClipSelections("source");
+                    setSelectedSourceAudioSegmentId("source-audio");
+                  }}
                 >
                   <WaveformStrip peaks={sourceAudioPeaks} active />
                   <span className="audio-clip-duration">{formatTime(sourceAudioDuration)}</span>
@@ -1128,6 +1164,7 @@ export function Timeline({
                         onClick={(event) => {
                           event.stopPropagation();
                           setSelectedTrack("audio");
+                          clearClipSelections("voice");
                           setSelectedAudioSegmentId(segment.id);
                           seekTo(segment.start);
                         }}
@@ -1146,7 +1183,10 @@ export function Timeline({
                 assetDropTargetTrack === "music" ? "is-drop-target" : ""
               } ${assetDropPulseTrack === "music" ? "is-drop-landing" : ""}`}
               type="button"
-              onClick={() => setSelectedTrack("music")}
+              onClick={() => {
+                setSelectedTrack("music");
+                setMusicClipSelected(false);
+              }}
               onDragOver={(event) => handleTrackAssetDragOver(event, "music")}
               onDragLeave={(event) => handleTrackAssetDragLeave(event, "music")}
               onDrop={(event) => handleTrackAssetDrop(event, "music")}
@@ -1158,7 +1198,7 @@ export function Timeline({
                 ) : null}
               {renderAssetDropSlot("music")}
                 {musicBlob ? (
-                <div className="audio-clip is-music" style={{ width: `${musicClipPercent}%`, left: `${musicStartPercent}%` }} onPointerDown={startMusicMove} onContextMenu={(event) => showTrackContextMenu(event, "music", "music-audio")}>
+                <div className={`audio-clip is-music ${musicClipSelected ? "is-selected" : ""}`} style={{ width: `${musicClipPercent}%`, left: `${musicStartPercent}%` }} onPointerDown={startMusicMove} onContextMenu={(event) => showTrackContextMenu(event, "music", "music-audio")} onClick={(event) => { event.stopPropagation(); setSelectedTrack("music"); clearClipSelections("music"); setMusicClipSelected(true); }}>
                   <WaveformStrip peaks={musicPeaks} active />
                   <span className="audio-clip-duration">{formatTime(musicDuration)}</span>
                 </div>
@@ -1222,17 +1262,17 @@ export function Timeline({
         const transition = segment?.transition || { id: "none", duration: 0.5 };
         const maxDuration = Math.max(0.1, Math.min(2, (segment?.duration || 0.5) / 2, (displayedVisualSegments[transitionEditor.index + 1]?.duration || 0.5) / 2));
         return (
-          <div className="transition-popover" role="dialog" aria-label="转场设置" style={{ left: transitionEditor.x, top: transitionEditor.y }} onPointerDown={(event) => event.stopPropagation()}>
-            <div className="transition-popover-head"><strong>转场</strong><button type="button" onClick={() => setTransitionEditor(null)} aria-label="关闭">×</button></div>
+          <div className="transition-popover" role="dialog" aria-label={t("transitionSettings")} style={{ left: transitionEditor.x, top: transitionEditor.y }} onPointerDown={(event) => event.stopPropagation()}>
+            <div className="transition-popover-head"><strong>{t("transition")}</strong><button type="button" onClick={() => setTransitionEditor(null)} aria-label={t("close")}>×</button></div>
             <div className="transition-presets">
               {TRANSITIONS.map((option) => (
                 <button type="button" className={transition.id === option.id ? "is-selected" : ""} key={option.id} onClick={() => updateJunctionTransition(transitionEditor.index, { id: option.id })}>
-                  <i className={`transition-preview preview-${option.id}`} /><span>{option.name}</span>
+                  <i className={`transition-preview preview-${option.id}`} /><span>{trOption(option.name, option)}</span>
                 </button>
               ))}
             </div>
             <label className="transition-duration-control">
-              <span><b>时长</b><em>{Math.min(maxDuration, transition.duration || 0.5).toFixed(1)}s</em></span>
+              <span><b>{t("duration")}</b><em>{Math.min(maxDuration, transition.duration || 0.5).toFixed(1)}{t("secondsShort")}</em></span>
               <input type="range" min="0.1" max={maxDuration} step="0.1" value={Math.min(maxDuration, transition.duration || 0.5)} disabled={transition.id === "none"} onChange={(event) => updateJunctionTransition(transitionEditor.index, { duration: Number(event.target.value) })} />
             </label>
           </div>

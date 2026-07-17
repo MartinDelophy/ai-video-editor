@@ -35,7 +35,7 @@ export function useEditorUiState() {
   const [showFileMenu, setShowFileMenu] = useState(false);
   const [compactRail, setCompactRail] = useState(false);
   const [selectedTrack, setSelectedTrack] = useState("image");
-  const [timelineZoom, setTimelineZoom] = useState(0.25);
+  const [timelineZoom, setTimelineZoom] = useState(1);
   const [trackVisibility, setTrackVisibility] = useState(DEFAULT_TRACK_VISIBILITY);
   const [trackLocks, setTrackLocks] = useState(DEFAULT_TRACK_LOCKS);
   const [timelineClipDrag, setTimelineClipDrag] = useState(null);

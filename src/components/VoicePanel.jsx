@@ -3,16 +3,18 @@ import {
   ClosedCaptioning,
   Eye,
   EyeSlash,
+  ImageSquare,
   ListBullets,
   PersonSimpleRun,
   Trash,
   Waveform,
 } from "@phosphor-icons/react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { formatTime, getSegmentStartTime } from "../lib/timeline.js";
 import { LIVE_PORTRAIT_WEB_MODEL } from "../config/livePortrait.js";
 import { probeLivePortraitWebEnvironment } from "../lib/livePortraitWeb.js";
+import { getCaptionVoiceSegment } from "../lib/captionVoice.js";
 import { normalizeVisualKeyframes } from "../lib/visualEffects.js";
 import { HistoryPanel, MyVoicesPanel, VisualEffectsPanel, VoiceSynthesisPanel } from "./panels.jsx";
 
@@ -65,7 +67,7 @@ function CaptionContextPanel({
         <div className="caption-context-empty">
           <ClosedCaptioning size={28} weight="duotone" />
           <strong>{t("noCaptionSegments")}</strong>
-          <span>{t("captionEmptyHint", "选择时间线字幕片段后，这里会同步编辑。")}</span>
+          <span>{t("captionEmptyHint", "字幕片段可拖动到字幕轨道，并在这里同步编辑。")}</span>
         </div>
       )}
 
@@ -248,6 +250,7 @@ function AvatarContextPanel({ t, hasVisual, visualType, audioBlob, audioDuration
 export function VoicePanel({
   t,
   activeTool,
+  captionVoiceFocusRequest = 0,
   status,
   statusText,
   voiceTab,
@@ -320,37 +323,47 @@ export function VoicePanel({
   visualLocalTime,
   visualTimelineStart = 0,
   updateSelectedVisualEffects,
-  remasterJob,
-  remasterQuality,
-  setRemasterQuality,
-  enhanceSelectedVisualFrame,
-  enhanceSelectedVisualClip,
-  clearSelectedVisualEnhancement,
   selectedFilterId,
   setSelectedFilterId,
   trOption,
 }) {
+  const [captionPanelTab, setCaptionPanelTab] = useState("caption");
+  const panelRef = useRef(null);
   const isCaptionContext = activeTool === "caption";
   const isAvatarContext = activeTool === "smart" && avatarPanelOpen;
   const isAudioClipContext = selectedTrack === "audio" && Boolean(selectedAudioSegment);
-  const isVisualContext = selectedTrack === "image" && Boolean(selectedVisualSegment);
-  const title = isVisualContext ? t("imageTrack") : isAvatarContext ? t("avatarTitle") : isCaptionContext ? t("caption") : isAudioClipContext ? t("audioClipProperties") : t("aiVoice");
+  const isVisualContext = selectedTrack === "image";
+  const selectedCaptionAudioSegment = getCaptionVoiceSegment(audioSegments, selectedCaptionSegment);
+  const title = isVisualContext ? t("visualPanelTitle") : isAvatarContext ? t("avatarTitle") : isCaptionContext ? t("caption") : isAudioClipContext ? t("audioClipProperties") : t("aiVoice");
   const panelStatusText = isCaptionContext
     ? captionSegments.length
       ? `${captionSegments.length} ${t("captionSegmentsUnit", "条字幕")}`
       : t("noCaptionSegments")
     : isVisualContext
-      ? `${visualLocalTime.toFixed(2)}s · ${normalizeVisualKeyframes(selectedVisualSegment.keyframes).length} ${t("visualFrames")}`
+      ? selectedVisualSegment
+        ? `${visualLocalTime.toFixed(2)}s · ${normalizeVisualKeyframes(selectedVisualSegment.keyframes).length} ${t("visualFrames")}`
+        : t("visualSelectClip")
     : isAvatarContext
       ? t("avatarPortingStatus")
     : isAudioClipContext
       ? `${formatTime(selectedAudioSegment.duration)} · ${selectedAudioSegment.start.toFixed(1)}s`
     : statusText === "模型待命"
       ? t("modelReady")
-      : statusText;
+    : statusText;
+
+  useEffect(() => {
+    if (!captionVoiceFocusRequest || !isCaptionContext) return;
+    setCaptionPanelTab("voice");
+    const frame = requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        panelRef.current?.querySelector(".voice-header")?.scrollIntoView({ block: "start", behavior: "smooth" });
+      });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [captionVoiceFocusRequest, isCaptionContext]);
 
   return (
-    <aside className={`voice-panel ${isCaptionContext ? "is-caption-context" : ""} ${isAvatarContext ? "is-avatar-context" : ""} ${isAudioClipContext ? "is-audio-clip-context" : ""} ${isVisualContext ? "is-visual-context" : ""}`}>
+    <aside ref={panelRef} className={`voice-panel ${isCaptionContext ? "is-caption-context" : ""} ${isAvatarContext ? "is-avatar-context" : ""} ${isAudioClipContext ? "is-audio-clip-context" : ""} ${isVisualContext ? "is-visual-context" : ""}`}>
       <div className="panel-title-row">
         <h1>{title}</h1>
         <span className={`status-pill ${isCaptionContext ? "done" : status}`}>
@@ -377,8 +390,31 @@ export function VoicePanel({
         </div>
       ) : null}
 
+      {isCaptionContext ? (
+        <div className="tabs compact caption-context-tabs" role="tablist" aria-label={t("captionTools", "字幕工具")}>
+          <button
+            className={captionPanelTab === "caption" ? "is-active" : ""}
+            type="button"
+            role="tab"
+            aria-selected={captionPanelTab === "caption"}
+            onClick={() => setCaptionPanelTab("caption")}
+          >
+            {t("caption", "字幕")}
+          </button>
+          <button
+            className={captionPanelTab === "voice" ? "is-active" : ""}
+            type="button"
+            role="tab"
+            aria-selected={captionPanelTab === "voice"}
+            onClick={() => setCaptionPanelTab("voice")}
+          >
+            {t("aiVoice", "AI 配音")}
+          </button>
+        </div>
+      ) : null}
+
       <div className="voice-tab-body">
-        {isVisualContext ? (
+        {isVisualContext && selectedVisualSegment ? (
           <VisualEffectsPanel
             contextMode
             t={t}
@@ -390,15 +426,16 @@ export function VoicePanel({
             trOption={trOption}
             onSelectFilter={(id) => { setSelectedFilterId(id); notify(t("effectApplied")); }}
             sourceAudioLinked={sourceAudioLinked}
-            enhancementJob={remasterJob}
-            enhancementQuality={remasterQuality}
-            onEnhancementQualityChange={setRemasterQuality}
-            onEnhance={enhanceSelectedVisualFrame}
-            onEnhanceClip={enhanceSelectedVisualClip}
-            onClearEnhancement={clearSelectedVisualEnhancement}
           />
         ) : null}
-        {isCaptionContext ? (
+        {isVisualContext && !selectedVisualSegment ? (
+          <div className="visual-context-empty">
+            <ImageSquare size={30} weight="duotone" />
+            <strong>{t("visualSelectClip")}</strong>
+            <span>{t("previewEmptyTitle")}</span>
+          </div>
+        ) : null}
+        {isCaptionContext && captionPanelTab === "caption" ? (
           <CaptionContextPanel
             t={t}
             captionSegments={captionSegments}
@@ -416,6 +453,41 @@ export function VoicePanel({
             isGeneratingCaptions={isGeneratingCaptions}
             automaticCaptionProgress={automaticCaptionProgress}
           />
+        ) : null}
+
+        {isCaptionContext && captionPanelTab === "voice" ? (
+          <div className="caption-voice-panel">
+            <p className="caption-voice-hint">
+              {selectedCaptionSegment
+                ? t("captionVoiceHint", "仅为当前选中的字幕片段生成配音，并自动对齐到片段起点。")
+                : t("captionVoiceEmptyHint", "请先在时间线中选择一个字幕片段。")}
+            </p>
+            <VoiceSynthesisPanel
+              script={selectedCaptionSegment?.text ?? ""}
+              updateScript={(text) => selectedCaptionSegment && updateCaptionSegmentText(selectedCaptionSegment.id, text)}
+              selectedVoiceId={selectedVoiceId}
+              setSelectedVoiceId={setSelectedVoiceId}
+              selectedVoice={selectedVoice}
+              filteredVoices={filteredVoices}
+              voiceFilter={voiceFilter}
+              setVoiceFilter={setVoiceFilter}
+              showVoiceFilter={showVoiceFilter}
+              setShowVoiceFilter={setShowVoiceFilter}
+              speed={speed}
+              setSpeed={setSpeed}
+              volume={volume}
+              setVolume={setVolume}
+              status={status}
+              progressPercent={progressPercent}
+              audioBlob={selectedCaptionAudioSegment?.blob ?? null}
+              audioUrl={selectedCaptionAudioSegment?.url ?? ""}
+              generateVoiceover={() => selectedCaptionSegment && generateVoiceover(selectedCaptionSegment)}
+              downloadBlob={downloadBlob}
+              favoriteVoiceIds={favoriteVoiceIds}
+              setFavoriteVoiceIds={setFavoriteVoiceIds}
+              t={t}
+            />
+          </div>
         ) : null}
 
         {isAvatarContext ? <AvatarContextPanel t={t} hasVisual={hasVisual} visualType={visualType} audioBlob={audioBlob} audioDuration={audioDuration} captionSegments={captionSegments} selectedVoice={selectedVoice} avatarJob={avatarJob} generateAvatarAcceptanceFrame={generateAvatarAcceptanceFrame} /> : null}

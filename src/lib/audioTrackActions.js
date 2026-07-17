@@ -8,10 +8,10 @@ import {
 } from "./timeline.js";
 
 export function createAudioTrackActions(d) {
-  function replaceAudio(blob, duration, nextPeaks, nextStatusText) {
+  function replaceAudio(blob, duration, nextPeaks, nextStatusText, options = {}) {
     const nextUrl = URL.createObjectURL(blob);
-    const nextDuration = duration || estimateDuration(d.script);
-    const start = Math.max(0, d.currentTimeRef.current || 0);
+    const nextDuration = duration || estimateDuration(options.script ?? d.script);
+    const start = Math.max(0, options.start ?? d.currentTimeRef.current ?? 0);
     const id = crypto.randomUUID();
     const segment = {
       id,
@@ -24,9 +24,17 @@ export function createAudioTrackActions(d) {
       fadeIn: 0,
       fadeOut: 0,
       reversed: false,
-      name: d.selectedVoice?.name || d.t("voiceTrack"),
+      name: options.name || d.selectedVoice?.name || d.t("voiceTrack"),
     };
-    d.setAudioSegments((segments) => [...segments, segment]);
+    if (options.replaceSegmentId) {
+      const replaced = d.audioSegments.find((item) => item.id === options.replaceSegmentId);
+      d.audioSegmentRefs.current.get?.(options.replaceSegmentId)?.pause?.();
+      if (replaced?.url) URL.revokeObjectURL(replaced.url);
+    }
+    d.setAudioSegments((segments) => [
+      ...segments.filter((item) => item.id !== options.replaceSegmentId),
+      segment,
+    ]);
     d.setSelectedAudioSegmentId(id);
     d.setSelectedTrack("audio");
     d.setTimelineHorizon((value) => Math.max(value, Math.ceil((start + nextDuration + 5) / 10) * 10));
@@ -72,6 +80,7 @@ export function createAudioTrackActions(d) {
     message = "视频原声已分离到时间线",
     timelineStart = 0,
     assetId = d.sourceAudioAssetId,
+    options = {},
   ) {
     if (d.sourceAudioUrlRef.current) URL.revokeObjectURL(d.sourceAudioUrlRef.current);
     const nextUrl = URL.createObjectURL(blob);
@@ -86,8 +95,10 @@ export function createAudioTrackActions(d) {
     d.setSourceAudioStart(nextStart);
     d.setSourceAudioAssetId(assetId || "");
     d.setSourceAudioLinked(true);
-    d.setSelectedTrack("source");
-    d.setActiveTool("audio");
+    if (options.focusAudio !== false) {
+      d.setSelectedTrack("source");
+      d.setActiveTool("audio");
+    }
     d.setStatus("done");
     d.setStatusText("视频原声已分离");
     d.setProgress(100);
@@ -144,9 +155,36 @@ export function createAudioTrackActions(d) {
     d.notify(message);
   }
 
-  async function commitAudio(blob, nextStatusText) {
+  async function commitAudio(blob, nextStatusText, options = {}) {
     const decoded = await decodeWaveform(blob);
-    const audioSegment = replaceAudio(blob, decoded.duration, decoded.peaks, nextStatusText);
+    const captionSegment = options.captionSegment;
+    const audioSegment = replaceAudio(blob, decoded.duration, decoded.peaks, nextStatusText, captionSegment ? {
+      start: captionSegment.start || 0,
+      script: options.script || captionSegment.text,
+      replaceSegmentId: captionSegment.audioSegmentId || "",
+    } : options);
+
+    if (captionSegment) {
+      d.setCaptionSegments((segments) => segments.map((segment) => segment.id === captionSegment.id ? {
+        ...segment,
+        audioSegmentId: audioSegment.id,
+        start: audioSegment.start,
+        end: audioSegment.start + audioSegment.duration,
+      } : segment).sort((a, b) => (a.start || 0) - (b.start || 0)));
+      d.setSelectedSegmentId(captionSegment.id);
+      d.setHistoryItems((items) => [{
+        id: crypto.randomUUID(),
+        blob,
+        voiceId: d.selectedVoiceId,
+        voiceName: d.selectedVoice.name,
+        script: options.script || captionSegment.text,
+        duration: decoded.duration || estimateDuration(options.script || captionSegment.text),
+        peaks: decoded.peaks,
+        createdAt: formatSavedTime(),
+      }, ...items.slice(0, 8)]);
+      return;
+    }
+
     const generatedCaptions = createCaptionSegments(d.script);
     const generatedTimeline = getCaptionTimeline(generatedCaptions, audioSegment.duration);
     const boundCaptions = generatedCaptions.map((segment, index) => ({

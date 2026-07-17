@@ -11,7 +11,6 @@ import {
   VOICES,
 } from "../config/editor.js";
 import {
-  estimateDuration,
   getCaptionTimeline,
   getSegmentIndexAtTime,
   getTimedSegmentIndexAtTime,
@@ -21,6 +20,7 @@ import {
 } from "../lib/timeline.js";
 import { getVisionKey } from "../lib/vision.js";
 import { getVisualSourceTime } from "../lib/visualEffects.js";
+import { getTimelineProjectDuration } from "../lib/timelineScale.js";
 
 export function useTimelineModel(d) {
   const selectedVoice = useMemo(
@@ -83,21 +83,18 @@ export function useTimelineModel(d) {
     d.sourceAudioBlob ? (d.sourceAudioTimelineEnd ?? d.sourceAudioStart + d.sourceAudioDuration) : 0,
     d.musicBlob ? d.musicStart + d.musicDuration : 0,
     stickerDuration,
-    estimateDuration(d.script),
     d.imageSrc ? d.imageDuration : 0,
   ), [
     voiceTrackDuration, captionDuration, d.imageDuration, d.imageSrc, d.musicBlob,
-    d.musicDuration, d.musicStart, d.script, d.sourceAudioBlob, d.sourceAudioDuration,
+    d.musicDuration, d.musicStart, d.sourceAudioBlob, d.sourceAudioDuration,
     d.sourceAudioStart, d.sourceAudioTimelineEnd, stickerDuration,
   ]);
-  const timelineDuration = useMemo(() => Math.min(
-    MAX_TIMELINE_DURATION_SECONDS,
-    Math.max(
-      d.timelineHorizon,
-      DEFAULT_TIMELINE_DURATION_SECONDS,
-      Math.ceil((estimatedDuration + 1) / 10) * 10,
-    ),
-  ), [estimatedDuration, d.timelineHorizon]);
+  const timelineDuration = useMemo(() => estimatedDuration <= 0
+    ? DEFAULT_TIMELINE_DURATION_SECONDS
+    : Math.min(
+        MAX_TIMELINE_DURATION_SECONDS,
+        Math.max(d.timelineHorizon, getTimelineProjectDuration(estimatedDuration)),
+      ), [estimatedDuration, d.timelineHorizon]);
   d.timelineDurationRef.current = timelineDuration;
 
   const currentSegmentIndex = getSegmentIndexAtTime(

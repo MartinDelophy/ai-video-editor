@@ -23,7 +23,6 @@ export function useEditorRefs() {
     previewCanvasRef: useRef(null),
     previewShellRef: useRef(null),
     previewVideoRef: useRef(null),
-    remasterAbortControllerRef: useRef(null),
     projectFileInputRef: useRef(null),
     sourceAudioRef: useRef(null),
     sourceAudioUrlRef: useRef(""),

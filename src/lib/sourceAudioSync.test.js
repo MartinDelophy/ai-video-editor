@@ -37,4 +37,13 @@ describe("linked source audio", () => {
     expect(getLinkedSourceAudioState(segments, 2)).toMatchObject({ active: true, sourceTime: 2 });
     expect(getLinkedSourceAudioState(segments, 5)).toMatchObject({ active: true, sourceTime: 5 });
   });
+
+  it("omits only the linked audio piece disabled on its visual clip", () => {
+    const segments = getLinkedSourceAudioSegments(
+      visualSegments.map((segment) => segment.id === "a" ? { ...segment, sourceAudioDisabled: true } : segment),
+      "video-1",
+      6,
+    );
+    expect(segments.map((segment) => segment.id)).toEqual(["c"]);
+  });
 });

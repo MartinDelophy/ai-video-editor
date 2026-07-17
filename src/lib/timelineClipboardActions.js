@@ -30,7 +30,21 @@ export function createTimelineClipboardActions(d) {
       const id = d.selectedAudioSegmentId || d.selectedAudioSegment?.id;
       return id ? void d.deleteAudioSegment(id) : void d.notify("当前没有选中的配音片段");
     }
-    if (d.selectedTrack === "source") return void d.clearSourceAudioTrack();
+    if (d.selectedTrack === "source") {
+      if (d.sourceAudioLinked && d.selectedSourceAudioSegmentId && d.selectedSourceAudioSegmentId !== "source-audio") {
+        const index = d.visualSegments.findIndex((segment) => segment.id === d.selectedSourceAudioSegmentId);
+        if (index < 0) return void d.notify("当前没有选中的原声音频片段");
+        const next = d.visualSegments.map((segment, position) => position === index
+          ? { ...segment, sourceAudioDisabled: true }
+          : segment);
+        d.commitVisualSegments(next, "已删除当前原声音频片段", Math.max(0, index));
+        d.setSelectedSourceAudioSegmentId("");
+        return;
+      }
+      if (!d.selectedSourceAudioSegmentId) return void d.notify("当前没有选中的原声音频片段");
+      d.setSelectedSourceAudioSegmentId("");
+      return void d.clearSourceAudioTrack("已删除当前原声音频片段");
+    }
     if (d.selectedTrack === "music") return void d.clearMusicTrack();
     d.clearImageTrack();
   };

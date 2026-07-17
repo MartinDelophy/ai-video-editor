@@ -67,4 +67,38 @@ describe("timeline drag playback behavior", () => {
     expect(pauseForTimelineEdit).toHaveBeenCalledTimes(1);
     expect(timelineClipDragRef.current.dragging).toBe(true);
   });
+
+  it("resizes either edge of a timed caption without moving the opposite edge", () => {
+    const listeners = installPointerListeners();
+    vi.stubGlobal("document", {
+      querySelector: vi.fn(() => ({ getBoundingClientRect: () => ({ width: 200 }) })),
+    });
+    const commitCaptionSegments = vi.fn();
+    const timelineClipDragRef = { current: null };
+    const controls = createTimelineReorderControls({
+      captionSegments: [{ id: "caption-1", text: "test", start: 2, end: 5 }],
+      captionTargetDuration: 10, timelineDuration: 10, trackLocks: { caption: false },
+      timelineClipDragRef, setTimelineClipDrag: vi.fn(), setSelectedTrack: vi.fn(),
+      setSelectedSegmentId: vi.fn(), commitCaptionSegments, notify: vi.fn(),
+      suppressTimelineClipClickRef: { current: "" }, pauseForTimelineEdit: vi.fn(),
+    });
+
+    controls.startCaptionResize(
+      { button: 0, clientX: 40, clientY: 10, preventDefault: vi.fn(), stopPropagation: vi.fn() },
+      "caption-1", 0, "start",
+    );
+    listeners.get("pointermove")({ clientX: 60, clientY: 10 });
+    expect(timelineClipDragRef.current.previewStart).toBe(3);
+    expect(timelineClipDragRef.current.previewEnd).toBe(5);
+    listeners.get("pointerup")();
+    expect(commitCaptionSegments.mock.calls[0][0][0]).toMatchObject({ start: 3, end: 5 });
+
+    controls.startCaptionResize(
+      { button: 0, clientX: 100, clientY: 10, preventDefault: vi.fn(), stopPropagation: vi.fn() },
+      "caption-1", 0, "end",
+    );
+    listeners.get("pointermove")({ clientX: 120, clientY: 10 });
+    expect(timelineClipDragRef.current.previewStart).toBe(2);
+    expect(timelineClipDragRef.current.previewEnd).toBe(6);
+  });
 });

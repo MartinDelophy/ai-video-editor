@@ -24,6 +24,7 @@ import {
   normalizeVisualPlaybackRate,
   resolveVisualTransform,
 } from "./visualEffects.js";
+import { resolveVisualClipAnimation } from "./visualClipAnimations.js";
 
 export function getAudioRecordingFormat() {
   if (typeof MediaRecorder === "undefined") {
@@ -41,10 +42,10 @@ export function getAudioRecordingFormat() {
 let ffmpegLoadPromise = null;
 let ffmpegTaskQueue = Promise.resolve();
 
-const VIDEO_TRACK_FRAME_MAX = 72;
+const VIDEO_TRACK_FRAME_MAX = 120;
 const VIDEO_TRACK_FRAME_HEIGHT = 90;
 
-function getVideoTrackSampleCount(duration, maxFrames = VIDEO_TRACK_FRAME_MAX) {
+export function getVideoTrackSampleCount(duration, maxFrames = VIDEO_TRACK_FRAME_MAX) {
   const safeDuration = Math.max(0, Number.isFinite(duration) ? duration : 0);
   if (!safeDuration) {
     return 0;
@@ -52,7 +53,7 @@ function getVideoTrackSampleCount(duration, maxFrames = VIDEO_TRACK_FRAME_MAX) {
 
   const targetStep =
     safeDuration <= 20
-      ? 0.5
+      ? 0.2
       : safeDuration <= 120
         ? 1.25
         : safeDuration <= 600
@@ -205,6 +206,34 @@ function encodeAudioBufferAsWav(buffer) {
     }
   }
   return new Blob([output], { type: "audio/wav" });
+}
+
+export async function concatenateAudioBlobs(blobs = []) {
+  const sources = blobs.filter((blob) => blob instanceof Blob && blob.size > 0);
+  if (!sources.length) throw new Error("没有可合并的音频");
+  if (sources.length === 1) return sources[0];
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+  const OfflineAudioContextClass = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+  if (!AudioContextClass || !OfflineAudioContextClass) throw new Error("当前浏览器不支持音频合并");
+  const decoder = new AudioContextClass();
+  try {
+    const decoded = await Promise.all(sources.map(async (blob) => decoder.decodeAudioData((await blob.arrayBuffer()).slice(0))));
+    const sampleRate = Math.max(...decoded.map((buffer) => buffer.sampleRate));
+    const channels = Math.max(...decoded.map((buffer) => buffer.numberOfChannels));
+    const totalFrames = decoded.reduce((total, buffer) => total + Math.ceil(buffer.duration * sampleRate), 0);
+    const offline = new OfflineAudioContextClass(channels, totalFrames, sampleRate);
+    let cursor = 0;
+    for (const buffer of decoded) {
+      const source = offline.createBufferSource();
+      source.buffer = buffer;
+      source.connect(offline.destination);
+      source.start(cursor);
+      cursor += buffer.duration;
+    }
+    return encodeAudioBufferAsWav(await offline.startRendering());
+  } finally {
+    await decoder.close().catch(() => {});
+  }
 }
 
 export async function reverseAudioBlob(blob) {
@@ -521,6 +550,8 @@ function drawPreviewFrame(context, visual, canvas, options) {
     captionReferenceSize = null,
     sticker = null,
     stickerImage = null,
+    stickers = [],
+    stickerImages = [],
     transitionId = "none",
     vision = null,
     visualEffects = null,
@@ -532,6 +563,14 @@ function drawPreviewFrame(context, visual, canvas, options) {
   context.fillStyle = "#090b0f";
   context.fillRect(0, 0, width, height);
   const transform = resolveVisualTransform(visualEffects?.keyframes, visualTime);
+  const animation = resolveVisualClipAnimation(visualEffects?.animation, visualTime, visualEffects?.duration);
+  const animatedTransform = {
+    ...transform,
+    x: transform.x + animation.x,
+    y: transform.y + animation.y,
+    scale: transform.scale * animation.scale,
+    opacity: transform.opacity * animation.opacity,
+  };
   const mask = visualEffects?.mask ?? {};
   const maskCenterX = (Number.isFinite(mask.centerX) ? mask.centerX : 50) / 100 * width;
   const maskCenterY = (Number.isFinite(mask.centerY) ? mask.centerY : 50) / 100 * height;
@@ -546,10 +585,10 @@ function drawPreviewFrame(context, visual, canvas, options) {
     const maskContext = layers.mask.getContext("2d");
     layerContext.clearRect(0, 0, width, height);
     layerContext.save();
-    layerContext.globalAlpha = transform.opacity;
-    layerContext.translate(width / 2 + (transform.x / 100) * width, height / 2 + (transform.y / 100) * height);
-    layerContext.rotate((transform.rotation * Math.PI) / 180);
-    layerContext.scale(transform.scale, transform.scale);
+    layerContext.globalAlpha = animatedTransform.opacity;
+    layerContext.translate(width / 2 + (animatedTransform.x / 100) * width, height / 2 + (animatedTransform.y / 100) * height);
+    layerContext.rotate((animatedTransform.rotation * Math.PI) / 180);
+    layerContext.scale(animatedTransform.scale, animatedTransform.scale);
     layerContext.translate(-width / 2, -height / 2);
     visualLayout = drawFittedVisual(layerContext, visual, layers.visual, fitMode, filter, vision);
     layerContext.restore();
@@ -568,10 +607,10 @@ function drawPreviewFrame(context, visual, canvas, options) {
     } else if (["rectangle", "rounded"].includes(mask.type)) {
       context.beginPath(); context.roundRect(maskCenterX - maskWidth / 2, maskCenterY - maskHeight / 2, maskWidth, maskHeight, mask.type === "rounded" ? Math.min(maskWidth, maskHeight) * (Number.isFinite(mask.cornerRadius) ? mask.cornerRadius : 12) / 100 : 0); context.clip();
     }
-    context.globalAlpha = transform.opacity;
-    context.translate(width / 2 + (transform.x / 100) * width, height / 2 + (transform.y / 100) * height);
-    context.rotate((transform.rotation * Math.PI) / 180);
-    context.scale(transform.scale, transform.scale);
+    context.globalAlpha = animatedTransform.opacity;
+    context.translate(width / 2 + (animatedTransform.x / 100) * width, height / 2 + (animatedTransform.y / 100) * height);
+    context.rotate((animatedTransform.rotation * Math.PI) / 180);
+    context.scale(animatedTransform.scale, animatedTransform.scale);
     context.translate(-width / 2, -height / 2);
     visualLayout = drawFittedVisual(context, visual, canvas, fitMode, filter, vision);
     context.restore();
@@ -611,22 +650,34 @@ function drawPreviewFrame(context, visual, canvas, options) {
     );
   }
 
-  if (sticker?.src && stickerImage) {
+  const visibleStickers = stickers.length ? stickers : sticker ? [sticker] : [];
+  visibleStickers.forEach((activeSticker, index) => {
+    const activeStickerImage = stickerImages[index] ?? (activeSticker === sticker ? stickerImage : null);
+    if (activeSticker?.src && activeStickerImage) {
     const stickerRatio =
-      (stickerImage.naturalWidth || stickerImage.width || 1) /
-      (stickerImage.naturalHeight || stickerImage.height || 1);
-    const maxStickerSize = Math.min(width, height) * 0.22;
+      (activeStickerImage.naturalWidth || activeStickerImage.width || 1) /
+      (activeStickerImage.naturalHeight || activeStickerImage.height || 1);
+    const stickerScale = Math.max(0.2, Math.min(3, Number(activeSticker.scale) || 1));
+    const maxStickerSize = Math.min(width, height) * 0.22 * stickerScale;
     const stickerWidth = stickerRatio >= 1 ? maxStickerSize : maxStickerSize * stickerRatio;
     const stickerHeight = stickerRatio >= 1 ? maxStickerSize / stickerRatio : maxStickerSize;
-    context.drawImage(stickerImage, width - stickerWidth - width * 0.1, height * 0.1, stickerWidth, stickerHeight);
-  } else if (sticker?.text) {
+    const centerX = (Number.isFinite(activeSticker.x) ? activeSticker.x : 82) / 100 * width;
+    const centerY = (Number.isFinite(activeSticker.y) ? activeSticker.y : 20) / 100 * height;
+    context.save();
+    context.globalAlpha = Math.max(0, Math.min(1, Number.isFinite(activeSticker.opacity) ? activeSticker.opacity : 1));
+    context.translate(centerX, centerY);
+    context.rotate(((Number(activeSticker.rotation) || 0) * Math.PI) / 180);
+    context.drawImage(activeStickerImage, -stickerWidth / 2, -stickerHeight / 2, stickerWidth, stickerHeight);
+    context.restore();
+    } else if (activeSticker?.text) {
     context.fillStyle = "rgba(53, 240, 221, 0.92)";
     context.fillRect(width - 246, 54, 172, 54);
     context.fillStyle = "#061515";
     context.font = "800 24px Inter, system-ui, sans-serif";
     context.textAlign = "center";
-    context.fillText(sticker.text, width - 160, 90);
-  }
+    context.fillText(activeSticker.text, width - 160, 90);
+    }
+  });
 
   if (transitionId === "fade") {
     const fadeAlpha =
@@ -979,21 +1030,16 @@ export async function exportBrowserVideo({
     }
     return Math.min(maximumTime, Math.max(0, Number(video.currentTime) || expectedTime));
   };
-  const getStickerAtTime = (elapsed) => {
+  const getStickersAtTime = (elapsed) => {
     if (!stickerSegments.length) {
-      return sticker;
+      return sticker ? [sticker] : [];
     }
 
-    for (let index = stickerSegments.length - 1; index >= 0; index -= 1) {
-      const segment = stickerSegments[index];
+    return stickerSegments.filter((segment) => {
       const start = Math.max(0, segment.start || 0);
       const end = start + Math.max(0, segment.duration || 0);
-      if (elapsed >= start && elapsed < end) {
-        return segment;
-      }
-    }
-
-    return null;
+      return elapsed >= start && elapsed < end;
+    });
   };
   const draw = () => {
     const elapsed = Math.min(totalDuration, (performance.now() - startTime) / 1000);
@@ -1003,7 +1049,7 @@ export async function exportBrowserVideo({
     const { item: visualItem, range: visualRange } = getVisualItemAtTime(elapsed);
     const localTime = Math.max(0, elapsed - (visualRange?.start ?? 0));
     const visualSourceTime = syncVideoItem(visualItem, localTime);
-    const exportSticker = getStickerAtTime(elapsed);
+    const exportStickers = getStickersAtTime(elapsed);
     const exportVisual = visualItem.cutoutVisual || visualItem.visual;
     const resolvedVision = resolveVisionAnalysisAtTime(
       visualItem.segment.vision ?? null,
@@ -1029,8 +1075,8 @@ export async function exportBrowserVideo({
       captionSize,
       captionStyle,
       captionReferenceSize,
-      sticker: exportSticker,
-      stickerImage: exportSticker?.src ? stickerImageMap.get(exportSticker.src) : null,
+      stickers: exportStickers,
+      stickerImages: exportStickers.map((item) => item?.src ? stickerImageMap.get(item.src) : null),
       transitionId,
       vision: frameVision,
       visualEffects: visualItem.segment,
@@ -1063,7 +1109,7 @@ export async function exportBrowserVideo({
   });
   const finalSegmentIndex = getSegmentIndexAtTime(exportSegments, totalDuration, captionTargetDuration);
   const { item: finalVisualItem, range: finalVisualRange } = getVisualItemAtTime(totalDuration);
-  const finalSticker = getStickerAtTime(totalDuration);
+  const finalStickers = getStickersAtTime(Math.max(0, totalDuration - 0.0001));
   const finalLocalTime = Math.max(0, totalDuration - (finalVisualRange?.start ?? 0));
   const finalVisualSourceTime = syncVideoItem(finalVisualItem, finalLocalTime);
   const finalResolvedVision = resolveVisionAnalysisAtTime(
@@ -1093,8 +1139,8 @@ export async function exportBrowserVideo({
     captionSize,
     captionStyle,
     captionReferenceSize,
-    sticker: finalSticker,
-    stickerImage: finalSticker?.src ? stickerImageMap.get(finalSticker.src) : null,
+    stickers: finalStickers,
+    stickerImages: finalStickers.map((item) => item?.src ? stickerImageMap.get(item.src) : null),
     transitionId,
     vision: finalFrameVision,
   });

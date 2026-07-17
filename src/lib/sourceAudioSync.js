@@ -12,15 +12,16 @@ function resolveLinkedAssetId(visualSegments, sourceAudioAssetId) {
 }
 
 export function getLinkedSourceAudioSegments(visualSegments = [], sourceAudioAssetId = "", sourceAudioDuration = 0) {
+  const hasMappedOffsets = visualSegments.some((segment) => segment.type === "video" && Number.isFinite(segment.sourceAudioOffset));
   const linkedAssetId = resolveLinkedAssetId(visualSegments, sourceAudioAssetId);
-  if (!linkedAssetId) return [];
+  if (!hasMappedOffsets && !linkedAssetId) return [];
   const timeline = getVisualSegmentTimeline(visualSegments);
   const maximumSourceTime = Math.max(0, Number(sourceAudioDuration) || 0);
   return visualSegments.flatMap((segment, index) => {
-    if (segment.type !== "video" || segment.assetId !== linkedAssetId) return [];
+    if (segment.type !== "video" || (!hasMappedOffsets && segment.assetId !== linkedAssetId)) return [];
     const range = timeline[index];
     const playbackRate = normalizeVisualPlaybackRate(segment.playbackRate);
-    const sourceStart = Math.max(0, Number(segment.sourceStart) || 0);
+    const sourceStart = Math.max(0, Number(segment.sourceAudioOffset) || 0) + Math.max(0, Number(segment.sourceStart) || 0);
     const requestedSourceDuration = Math.max(0, Number(segment.sourceDuration) || segment.duration * playbackRate);
     const sourceDuration = maximumSourceTime
       ? Math.max(0, Math.min(requestedSourceDuration, maximumSourceTime - sourceStart))
@@ -28,7 +29,7 @@ export function getLinkedSourceAudioSegments(visualSegments = [], sourceAudioAss
     if (!range || sourceDuration <= 0) return [];
     return [{
       id: segment.id,
-      assetId: linkedAssetId,
+      assetId: segment.assetId || linkedAssetId,
       start: range.start,
       duration: Math.min(range.duration, sourceDuration / playbackRate),
       sourceStart,

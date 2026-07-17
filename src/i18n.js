@@ -26,6 +26,19 @@ const VISUAL_EDITOR_COPY = {
   vi: { visualSelectClip: "Chọn một clip trên rãnh Visuals", visualKeyframes: "Khung hình chính", visualFrames: "khung", visualScale: "Tỷ lệ", visualPositionX: "Vị trí ngang", visualPositionY: "Vị trí dọc", visualRotation: "Xoay", visualOpacity: "Độ mờ", visualDeleteKeyframe: "Xóa khung hình chính hiện tại", visualMask: "Mặt nạ", visualMaskResize: "Đổi kích thước mặt nạ", visualClipScoped: "Clip", visualMaskNone: "Không", visualMaskRectangle: "Chữ nhật", visualMaskRounded: "Bo góc", visualMaskCircle: "Tròn", visualFeather: "Làm mềm", visualHorizontal: "Ngang", visualVertical: "Dọc", visualWidth: "Rộng", visualHeight: "Cao", visualInvertMask: "Đảo mặt nạ", visualEffects: "Hiệu ứng hình ảnh" },
 };
 
+const VISUAL_PANEL_TITLE_COPY = {
+  zh: { visualPanelTitle: "画面" },
+  en: { visualPanelTitle: "Visuals" },
+  ja: { visualPanelTitle: "映像" },
+  ko: { visualPanelTitle: "화면" },
+  es: { visualPanelTitle: "Visuales" },
+  fr: { visualPanelTitle: "Visuels" },
+  de: { visualPanelTitle: "Bildmaterial" },
+  pt: { visualPanelTitle: "Visuais" },
+  th: { visualPanelTitle: "ภาพ" },
+  vi: { visualPanelTitle: "Hình ảnh" },
+};
+
 const VISUAL_MASK_SHAPE_COPY = {
   zh: { visualDiameter: "直径", visualCornerRadius: "圆角半径", visualMaskNoneHint: "选择一种蒙版后显示对应参数" },
   en: { visualDiameter: "Diameter", visualCornerRadius: "Corner radius", visualMaskNoneHint: "Choose a mask to show its parameters" },
@@ -160,9 +173,36 @@ const REMASTER_PHASE_COPY = {
   vi: { remasterPhasePrepareFrame: "Đang chuẩn bị khung hiện tại", remasterPhaseReadClip: "Đang đọc clip video", remasterPhaseReuseVideo: "Đang đọc video từ trình phát", remasterPhaseDownloadModel: "Đang tải {model}", remasterPhaseInitModel: "Đang khởi tạo mô hình tăng cường", remasterPhaseGpuReady: "Đã bật WebGPU", remasterPhaseCpuFallback: "Không dùng được WebGPU; đang dùng CPU", remasterPhaseGpuFrame: "Đang tăng cường khung bằng GPU", remasterPhaseCpuFrame: "Đang tăng cường khung bằng CPU", remasterPhaseGeneratePreview: "Đang tạo khung đã tăng cường", remasterPhaseEnhancingFrame: "Đang tăng cường khung {current} / {total}", remasterPhaseFrameEnhanced: "Đã tăng cường {current} / {total} khung", remasterPhaseLoadEncoder: "Đang tải bộ mã hóa video", remasterPhaseEncodeVideo: "Đang mã hóa video tăng cường", remasterPhaseCreateAsset: "Đang tạo nội dung tăng cường" },
 };
 
+const CONTEXT_PANEL_COPY = {
+  zh: { timelineContextMenu: "时间线右键菜单", clipActions: "片段操作", trackActions: "轨道操作", openTrackPanel: "打开对应面板", splitAtPlayhead: "在播放头处分割", duplicateClip: "复制片段", deleteClip: "删除片段", addClip: "新增片段", hideTrack: "隐藏轨道", showTrack: "显示轨道", unlockTrack: "解锁轨道", lockTrack: "锁定轨道", voiceSampleTitle: "音色样音", voiceSampleHint: "切换音色后试听对应的预生成样音", voiceAddedToTimeline: "已加入配音时间线", voicePreviewHint: "试听本次已生成的时间线配音", captionTools: "字幕工具", captionVoiceHint: "仅为当前选中的字幕片段生成配音，并自动对齐到片段起点。", captionVoiceEmptyHint: "请先在时间线中选择一个字幕片段。" },
+  en: { timelineContextMenu: "Timeline context menu", clipActions: "Clip actions", trackActions: "Track actions", openTrackPanel: "Open panel", splitAtPlayhead: "Split at playhead", duplicateClip: "Duplicate clip", deleteClip: "Delete clip", addClip: "Add clip", hideTrack: "Hide track", showTrack: "Show track", unlockTrack: "Unlock track", lockTrack: "Lock track", voiceSampleTitle: "Voice sample", voiceSampleHint: "Switch voices to hear its pre-generated sample", voiceAddedToTimeline: "Added to voiceover timeline", voicePreviewHint: "Preview this generated timeline voiceover", captionTools: "Caption tools", captionVoiceHint: "Generate voice for the selected caption only and align it to the caption start.", captionVoiceEmptyHint: "Select a caption clip on the timeline first." },
+  ja: { timelineContextMenu: "タイムラインのコンテキストメニュー", clipActions: "クリップ操作", trackActions: "トラック操作", openTrackPanel: "パネルを開く", splitAtPlayhead: "再生ヘッドで分割", duplicateClip: "クリップを複製", deleteClip: "クリップを削除", addClip: "クリップを追加", hideTrack: "トラックを非表示", showTrack: "トラックを表示", unlockTrack: "トラックのロックを解除", lockTrack: "トラックをロック", voiceAddedToTimeline: "ボイスオーバーのタイムラインに追加しました", voicePreviewHint: "すぐに試聴でき、タイムライン上で引き続き調整できます", captionTools: "字幕ツール", captionVoiceHint: "選択中の字幕だけに音声を生成し、字幕の開始位置に合わせます。", captionVoiceEmptyHint: "先にタイムラインで字幕クリップを選択してください。" },
+  ko: { timelineContextMenu: "타임라인 컨텍스트 메뉴", clipActions: "클립 작업", trackActions: "트랙 작업", openTrackPanel: "패널 열기", splitAtPlayhead: "재생 헤드에서 분할", duplicateClip: "클립 복제", deleteClip: "클립 삭제", addClip: "클립 추가", hideTrack: "트랙 숨기기", showTrack: "트랙 표시", unlockTrack: "트랙 잠금 해제", lockTrack: "트랙 잠금", voiceAddedToTimeline: "보이스오버 타임라인에 추가됨", voicePreviewHint: "바로 미리 듣고 타임라인에서 계속 조정할 수 있습니다" },
+  es: { timelineContextMenu: "Menú contextual de la línea de tiempo", clipActions: "Acciones del clip", trackActions: "Acciones de la pista", openTrackPanel: "Abrir panel", splitAtPlayhead: "Dividir en el cabezal", duplicateClip: "Duplicar clip", deleteClip: "Eliminar clip", addClip: "Añadir clip", hideTrack: "Ocultar pista", showTrack: "Mostrar pista", unlockTrack: "Desbloquear pista", lockTrack: "Bloquear pista", voiceAddedToTimeline: "Añadido a la pista de voz", voicePreviewHint: "Listo para escuchar y seguir ajustando en la línea de tiempo" },
+  fr: { timelineContextMenu: "Menu contextuel de la timeline", clipActions: "Actions du clip", trackActions: "Actions de la piste", openTrackPanel: "Ouvrir le panneau", splitAtPlayhead: "Scinder à la tête de lecture", duplicateClip: "Dupliquer le clip", deleteClip: "Supprimer le clip", addClip: "Ajouter un clip", hideTrack: "Masquer la piste", showTrack: "Afficher la piste", unlockTrack: "Déverrouiller la piste", lockTrack: "Verrouiller la piste", voiceAddedToTimeline: "Ajouté à la piste voix off", voicePreviewHint: "Prêt à écouter et à ajuster dans la timeline" },
+  de: { timelineContextMenu: "Timeline-Kontextmenü", clipActions: "Clip-Aktionen", trackActions: "Spur-Aktionen", openTrackPanel: "Bereich öffnen", splitAtPlayhead: "Am Abspielkopf teilen", duplicateClip: "Clip duplizieren", deleteClip: "Clip löschen", addClip: "Clip hinzufügen", hideTrack: "Spur ausblenden", showTrack: "Spur einblenden", unlockTrack: "Spur entsperren", lockTrack: "Spur sperren", voiceAddedToTimeline: "Zur Voiceover-Spur hinzugefügt", voicePreviewHint: "Bereit zum Anhören und weiteren Bearbeiten in der Timeline" },
+  pt: { timelineContextMenu: "Menu de contexto da linha do tempo", clipActions: "Ações do clipe", trackActions: "Ações da faixa", openTrackPanel: "Abrir painel", splitAtPlayhead: "Dividir no cursor", duplicateClip: "Duplicar clipe", deleteClip: "Excluir clipe", addClip: "Adicionar clipe", hideTrack: "Ocultar faixa", showTrack: "Mostrar faixa", unlockTrack: "Desbloquear faixa", lockTrack: "Bloquear faixa", voiceAddedToTimeline: "Adicionado à faixa de narração", voicePreviewHint: "Pronto para ouvir e continuar ajustando na linha do tempo" },
+  th: { timelineContextMenu: "เมนูบริบทไทม์ไลน์", clipActions: "การทำงานกับคลิป", trackActions: "การทำงานกับแทร็ก", openTrackPanel: "เปิดแผง", splitAtPlayhead: "แยกที่หัวเล่น", duplicateClip: "ทำสำเนาคลิป", deleteClip: "ลบคลิป", addClip: "เพิ่มคลิป", hideTrack: "ซ่อนแทร็ก", showTrack: "แสดงแทร็ก", unlockTrack: "ปลดล็อกแทร็ก", lockTrack: "ล็อกแทร็ก", voiceAddedToTimeline: "เพิ่มลงในไทม์ไลน์เสียงพากย์แล้ว", voicePreviewHint: "พร้อมฟังตัวอย่างและปรับต่อบนไทม์ไลน์" },
+  vi: { timelineContextMenu: "Trình đơn ngữ cảnh dòng thời gian", clipActions: "Thao tác clip", trackActions: "Thao tác rãnh", openTrackPanel: "Mở bảng", splitAtPlayhead: "Tách tại đầu phát", duplicateClip: "Nhân đôi clip", deleteClip: "Xóa clip", addClip: "Thêm clip", hideTrack: "Ẩn rãnh", showTrack: "Hiện rãnh", unlockTrack: "Mở khóa rãnh", lockTrack: "Khóa rãnh", voiceAddedToTimeline: "Đã thêm vào rãnh lồng tiếng", voicePreviewHint: "Sẵn sàng nghe thử và tiếp tục chỉnh trên dòng thời gian" },
+};
+
+const TTS_BACKEND_COPY = {
+  zh: { ttsStatusLoadingWebGpu: "正在加载 WebGPU 配音模型", ttsStatusGeneratingWebGpu: "正在使用 WebGPU 生成配音", ttsStatusFallingBackWasm: "WebGPU 不可用，正在切换到 WASM", ttsStatusGeneratingWasm: "正在使用 WASM 生成配音" },
+  en: { ttsStatusLoadingWebGpu: "Loading WebGPU voice model", ttsStatusGeneratingWebGpu: "Generating voice with WebGPU", ttsStatusFallingBackWasm: "WebGPU unavailable; switching to WASM", ttsStatusGeneratingWasm: "Generating voice with WASM" },
+  ja: { ttsStatusLoadingWebGpu: "WebGPU音声モデルを読み込み中", ttsStatusGeneratingWebGpu: "WebGPUで音声を生成中", ttsStatusFallingBackWasm: "WebGPUを利用できないためWASMに切り替え中", ttsStatusGeneratingWasm: "WASMで音声を生成中" },
+  ko: { ttsStatusLoadingWebGpu: "WebGPU 음성 모델 로드 중", ttsStatusGeneratingWebGpu: "WebGPU로 음성 생성 중", ttsStatusFallingBackWasm: "WebGPU를 사용할 수 없어 WASM으로 전환 중", ttsStatusGeneratingWasm: "WASM으로 음성 생성 중" },
+  es: { ttsStatusLoadingWebGpu: "Cargando modelo de voz WebGPU", ttsStatusGeneratingWebGpu: "Generando voz con WebGPU", ttsStatusFallingBackWasm: "WebGPU no disponible; cambiando a WASM", ttsStatusGeneratingWasm: "Generando voz con WASM" },
+  fr: { ttsStatusLoadingWebGpu: "Chargement du modèle vocal WebGPU", ttsStatusGeneratingWebGpu: "Génération vocale avec WebGPU", ttsStatusFallingBackWasm: "WebGPU indisponible ; passage à WASM", ttsStatusGeneratingWasm: "Génération vocale avec WASM" },
+  de: { ttsStatusLoadingWebGpu: "WebGPU-Sprachmodell wird geladen", ttsStatusGeneratingWebGpu: "Stimme wird mit WebGPU erzeugt", ttsStatusFallingBackWasm: "WebGPU nicht verfügbar; Wechsel zu WASM", ttsStatusGeneratingWasm: "Stimme wird mit WASM erzeugt" },
+  pt: { ttsStatusLoadingWebGpu: "Carregando modelo de voz WebGPU", ttsStatusGeneratingWebGpu: "Gerando voz com WebGPU", ttsStatusFallingBackWasm: "WebGPU indisponível; mudando para WASM", ttsStatusGeneratingWasm: "Gerando voz com WASM" },
+  th: { ttsStatusLoadingWebGpu: "กำลังโหลดโมเดลเสียง WebGPU", ttsStatusGeneratingWebGpu: "กำลังสร้างเสียงด้วย WebGPU", ttsStatusFallingBackWasm: "ใช้ WebGPU ไม่ได้ กำลังเปลี่ยนเป็น WASM", ttsStatusGeneratingWasm: "กำลังสร้างเสียงด้วย WASM" },
+  vi: { ttsStatusLoadingWebGpu: "Đang tải mô hình giọng nói WebGPU", ttsStatusGeneratingWebGpu: "Đang tạo giọng nói bằng WebGPU", ttsStatusFallingBackWasm: "Không dùng được WebGPU; đang chuyển sang WASM", ttsStatusGeneratingWasm: "Đang tạo giọng nói bằng WASM" },
+};
+
 export const UI_COPY = {
   zh: {
     ...VISUAL_EDITOR_COPY.zh,
+    ...VISUAL_PANEL_TITLE_COPY.zh,
     ...VISUAL_MASK_SHAPE_COPY.zh,
     ...VISUAL_KEYFRAME_ACTION_COPY.zh,
     ...VISUAL_TAB_COPY.zh,
@@ -172,6 +212,8 @@ export const UI_COPY = {
     ...REMASTER_GPU_COPY.zh,
     ...REMASTER_PHASE_COPY.zh,
     ...SOURCE_AUDIO_SYNC_COPY.zh,
+    ...CONTEXT_PANEL_COPY.zh,
+    ...TTS_BACKEND_COPY.zh,
     ...CAPTION_WORKSPACE_COPY.zh,
     ...RESOURCE_LINK_COPY.zh,
     languageKicker: "AI Voice Studio",
@@ -452,7 +494,7 @@ export const UI_COPY = {
     captionScriptLabel: "字幕文案",
     captionList: "字幕列表",
     captionSegmentsUnit: "条字幕",
-    captionEmptyHint: "选择时间线字幕片段后，这里会同步编辑。",
+    captionEmptyHint: "字幕片段可拖动到字幕轨道，并在这里同步编辑。",
     showCurrentCaption: "显示当前字幕",
     hideCurrentCaption: "隐藏当前字幕",
     deleteCurrentCaption: "删除当前字幕",
@@ -528,6 +570,7 @@ export const UI_COPY = {
   },
   en: {
     ...VISUAL_EDITOR_COPY.en,
+    ...VISUAL_PANEL_TITLE_COPY.en,
     ...VISUAL_MASK_SHAPE_COPY.en,
     ...VISUAL_KEYFRAME_ACTION_COPY.en,
     ...VISUAL_TAB_COPY.en,
@@ -537,6 +580,8 @@ export const UI_COPY = {
     ...REMASTER_GPU_COPY.en,
     ...REMASTER_PHASE_COPY.en,
     ...SOURCE_AUDIO_SYNC_COPY.en,
+    ...CONTEXT_PANEL_COPY.en,
+    ...TTS_BACKEND_COPY.en,
     ...CAPTION_WORKSPACE_COPY.en,
     ...RESOURCE_LINK_COPY.en,
     languageKicker: "AI Voice Studio",
@@ -817,7 +862,7 @@ export const UI_COPY = {
     captionScriptLabel: "Caption text",
     captionList: "Caption list",
     captionSegmentsUnit: "caption segment(s)",
-    captionEmptyHint: "Select a caption segment on the timeline to edit it here.",
+    captionEmptyHint: "Drag caption clips onto the caption track and edit them here in sync.",
     showCurrentCaption: "Show caption",
     hideCurrentCaption: "Hide caption",
     deleteCurrentCaption: "Delete caption",
@@ -893,6 +938,7 @@ export const UI_COPY = {
   },
   ja: {
     ...VISUAL_EDITOR_COPY.ja,
+    ...VISUAL_PANEL_TITLE_COPY.ja,
     ...VISUAL_MASK_SHAPE_COPY.ja,
     ...VISUAL_KEYFRAME_ACTION_COPY.ja,
     ...VISUAL_TAB_COPY.ja,
@@ -902,6 +948,8 @@ export const UI_COPY = {
     ...REMASTER_GPU_COPY.ja,
     ...REMASTER_PHASE_COPY.ja,
     ...SOURCE_AUDIO_SYNC_COPY.ja,
+    ...CONTEXT_PANEL_COPY.ja,
+    ...TTS_BACKEND_COPY.ja,
     ...CAPTION_WORKSPACE_COPY.ja,
     ...RESOURCE_LINK_COPY.ja,
     languageTitle: "表示言語を選択",
@@ -967,6 +1015,7 @@ export const UI_COPY = {
 Object.assign(UI_COPY, {
   ko: {
     ...VISUAL_EDITOR_COPY.ko,
+    ...VISUAL_PANEL_TITLE_COPY.ko,
     ...VISUAL_MASK_SHAPE_COPY.ko,
     ...VISUAL_KEYFRAME_ACTION_COPY.ko,
     ...VISUAL_TAB_COPY.ko,
@@ -976,7 +1025,11 @@ Object.assign(UI_COPY, {
     ...REMASTER_GPU_COPY.ko,
     ...REMASTER_PHASE_COPY.ko,
     ...SOURCE_AUDIO_SYNC_COPY.ko,
+    ...CONTEXT_PANEL_COPY.ko,
+    ...TTS_BACKEND_COPY.ko,
     ...UI_COPY.en,
+    ...CONTEXT_PANEL_COPY.ko,
+    ...TTS_BACKEND_COPY.ko,
     ...CAPTION_WORKSPACE_COPY.ko,
     ...RESOURCE_LINK_COPY.ko,
     languageTitle: "인터페이스 언어 선택",
@@ -1021,6 +1074,7 @@ Object.assign(UI_COPY, {
   es: {
     ...UI_COPY.en,
     ...VISUAL_EDITOR_COPY.es,
+    ...VISUAL_PANEL_TITLE_COPY.es,
     ...VISUAL_MASK_SHAPE_COPY.es,
     ...VISUAL_KEYFRAME_ACTION_COPY.es,
     ...VISUAL_TAB_COPY.es,
@@ -1030,6 +1084,8 @@ Object.assign(UI_COPY, {
     ...REMASTER_GPU_COPY.es,
     ...REMASTER_PHASE_COPY.es,
     ...SOURCE_AUDIO_SYNC_COPY.es,
+    ...CONTEXT_PANEL_COPY.es,
+    ...TTS_BACKEND_COPY.es,
     ...CAPTION_WORKSPACE_COPY.es,
     ...RESOURCE_LINK_COPY.es,
     languageTitle: "Elige el idioma",
@@ -1074,6 +1130,7 @@ Object.assign(UI_COPY, {
   fr: {
     ...UI_COPY.en,
     ...VISUAL_EDITOR_COPY.fr,
+    ...VISUAL_PANEL_TITLE_COPY.fr,
     ...VISUAL_MASK_SHAPE_COPY.fr,
     ...VISUAL_KEYFRAME_ACTION_COPY.fr,
     ...VISUAL_TAB_COPY.fr,
@@ -1083,6 +1140,8 @@ Object.assign(UI_COPY, {
     ...REMASTER_GPU_COPY.fr,
     ...REMASTER_PHASE_COPY.fr,
     ...SOURCE_AUDIO_SYNC_COPY.fr,
+    ...CONTEXT_PANEL_COPY.fr,
+    ...TTS_BACKEND_COPY.fr,
     ...CAPTION_WORKSPACE_COPY.fr,
     ...RESOURCE_LINK_COPY.fr,
     languageTitle: "Choisir la langue",
@@ -1127,6 +1186,7 @@ Object.assign(UI_COPY, {
   de: {
     ...UI_COPY.en,
     ...VISUAL_EDITOR_COPY.de,
+    ...VISUAL_PANEL_TITLE_COPY.de,
     ...VISUAL_MASK_SHAPE_COPY.de,
     ...VISUAL_KEYFRAME_ACTION_COPY.de,
     ...VISUAL_TAB_COPY.de,
@@ -1136,6 +1196,8 @@ Object.assign(UI_COPY, {
     ...REMASTER_GPU_COPY.de,
     ...REMASTER_PHASE_COPY.de,
     ...SOURCE_AUDIO_SYNC_COPY.de,
+    ...CONTEXT_PANEL_COPY.de,
+    ...TTS_BACKEND_COPY.de,
     ...CAPTION_WORKSPACE_COPY.de,
     ...RESOURCE_LINK_COPY.de,
     languageTitle: "Sprache wählen",
@@ -1180,6 +1242,7 @@ Object.assign(UI_COPY, {
   pt: {
     ...UI_COPY.en,
     ...VISUAL_EDITOR_COPY.pt,
+    ...VISUAL_PANEL_TITLE_COPY.pt,
     ...VISUAL_MASK_SHAPE_COPY.pt,
     ...VISUAL_KEYFRAME_ACTION_COPY.pt,
     ...VISUAL_TAB_COPY.pt,
@@ -1189,6 +1252,8 @@ Object.assign(UI_COPY, {
     ...REMASTER_GPU_COPY.pt,
     ...REMASTER_PHASE_COPY.pt,
     ...SOURCE_AUDIO_SYNC_COPY.pt,
+    ...CONTEXT_PANEL_COPY.pt,
+    ...TTS_BACKEND_COPY.pt,
     ...CAPTION_WORKSPACE_COPY.pt,
     ...RESOURCE_LINK_COPY.pt,
     languageTitle: "Escolha o idioma",
@@ -1233,6 +1298,7 @@ Object.assign(UI_COPY, {
   th: {
     ...UI_COPY.en,
     ...VISUAL_EDITOR_COPY.th,
+    ...VISUAL_PANEL_TITLE_COPY.th,
     ...VISUAL_MASK_SHAPE_COPY.th,
     ...VISUAL_KEYFRAME_ACTION_COPY.th,
     ...VISUAL_TAB_COPY.th,
@@ -1242,6 +1308,8 @@ Object.assign(UI_COPY, {
     ...REMASTER_GPU_COPY.th,
     ...REMASTER_PHASE_COPY.th,
     ...SOURCE_AUDIO_SYNC_COPY.th,
+    ...CONTEXT_PANEL_COPY.th,
+    ...TTS_BACKEND_COPY.th,
     ...CAPTION_WORKSPACE_COPY.th,
     ...RESOURCE_LINK_COPY.th,
     languageTitle: "เลือกภาษาอินเทอร์เฟซ",
@@ -1286,6 +1354,7 @@ Object.assign(UI_COPY, {
   vi: {
     ...UI_COPY.en,
     ...VISUAL_EDITOR_COPY.vi,
+    ...VISUAL_PANEL_TITLE_COPY.vi,
     ...VISUAL_MASK_SHAPE_COPY.vi,
     ...VISUAL_KEYFRAME_ACTION_COPY.vi,
     ...VISUAL_TAB_COPY.vi,
@@ -1295,6 +1364,8 @@ Object.assign(UI_COPY, {
     ...REMASTER_GPU_COPY.vi,
     ...REMASTER_PHASE_COPY.vi,
     ...SOURCE_AUDIO_SYNC_COPY.vi,
+    ...CONTEXT_PANEL_COPY.vi,
+    ...TTS_BACKEND_COPY.vi,
     ...CAPTION_WORKSPACE_COPY.vi,
     ...RESOURCE_LINK_COPY.vi,
     languageTitle: "Chọn ngôn ngữ giao diện",

@@ -4,7 +4,6 @@ import { RATIO_OPTIONS } from "../config/editor.js";
 import { decodeWaveform } from "../lib/media.js";
 import { disposeVisionWorker } from "../lib/vision.js";
 import { disposeVocalSeparationWorker } from "../lib/vocalSeparation.js";
-import { disposeRemasterWorker } from "../lib/remasterEnhancement.js";
 import {
   getNearestRatioIdForSize,
   revokeVisionObjectUrls,
@@ -157,11 +156,9 @@ export function useEditorLifecycle(d) {
     d.imageUrlRefs.current.forEach((url) => URL.revokeObjectURL(url));
     d.imageUrlRefs.current.clear();
     d.visionAbortControllerRef.current?.abort();
-    d.remasterAbortControllerRef.current?.abort();
     d.visionObjectUrlsRef.current.forEach((urls) => revokeVisionObjectUrls(urls));
     d.visionObjectUrlsRef.current.clear();
     disposeVisionWorker();
-    disposeRemasterWorker();
     disposeVocalSeparationWorker();
     d.voiceRecorderStreamRef.current?.getTracks().forEach((track) => track.stop());
     window.clearInterval(d.voiceRecorderTimerRef.current);

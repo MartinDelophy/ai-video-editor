@@ -20,6 +20,7 @@ export function createEditorCommandActions(d) {
       d.setSelectedTrack("audio");
       d.setVoiceTab("synthesis");
     }
+    if (toolId === "media") d.setSelectedTrack("image");
     if (toolId === "caption") d.setSelectedTrack("caption");
   }
 

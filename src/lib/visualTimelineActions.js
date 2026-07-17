@@ -8,14 +8,8 @@ import {
   getImageThumbnailCount,
   getVisualSegmentsTotal,
 } from "./timeline.js";
-import { getTimelineAutoFitZoom } from "./timelineScale.js";
 
 export function createVisualTimelineActions(d) {
-  function fitTimelineToVideo(duration) {
-    if (typeof d.setTimelineZoom !== "function") return;
-    d.setTimelineZoom(getTimelineAutoFitZoom(duration));
-  }
-
   function getVisualDurationForAsset(asset, fallbackDuration = 4) {
     if (asset?.type === "video" && asset.duration) {
       return Math.min(
@@ -92,7 +86,6 @@ export function createVisualTimelineActions(d) {
     d.setSelectedVisualSegmentId(segment.id);
     d.setImageDuration(segment.duration);
     d.setImageClipCount(getImageThumbnailCount(segment.duration));
-    if (asset?.type === "video") fitTimelineToVideo(segment.duration);
   }
 
   function appendVisualAssetToTimeline(asset) {
@@ -120,7 +113,6 @@ export function createVisualTimelineActions(d) {
       `${asset.type === "video" ? "视频" : "图片"}素材已追加到图片轨`,
       sourceSegments.length,
     );
-    if (asset.type === "video") fitTimelineToVideo(totalDuration + segmentDuration);
     d.seekTo(totalDuration);
     if (asset.type === "video") d.extractVideoSourceAudio(asset, totalDuration);
   }
@@ -128,7 +120,6 @@ export function createVisualTimelineActions(d) {
   function updateVisualAssetInTimeline(assetId, updates) {
     if (!assetId) return;
     d.setVisualSegments((segments) => {
-      const matchingSegment = segments.find((segment) => segment.assetId === assetId);
       const nextSegments = segments.map((segment) =>
         segment.assetId === assetId
           ? {
@@ -149,9 +140,6 @@ export function createVisualTimelineActions(d) {
       const nextDuration = getVisualSegmentsTotal(nextSegments);
       d.setImageDuration(nextDuration);
       d.setImageClipCount(getImageThumbnailCount(nextDuration));
-      if (matchingSegment?.type === "video" && updates.duration) {
-        fitTimelineToVideo(nextDuration);
-      }
       return nextSegments;
     });
     if (d.previewVisualSegment?.assetId === assetId || d.previewVisualSegment?.src === updates.src) {

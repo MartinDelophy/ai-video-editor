@@ -11,7 +11,7 @@ import {
 export { MODEL_ID, AUTOMATIC_CAPTION_MODEL_ID, AUTOMATIC_CAPTION_MODEL_LABEL } from "./models.js";
 
 export const SAMPLE_IMAGE = "/assets/sample-portrait.png";
-export const DEFAULT_TIMELINE_DURATION_SECONDS = 30 * 60;
+export const DEFAULT_TIMELINE_DURATION_SECONDS = 10;
 export const MAX_TIMELINE_DURATION_SECONDS = 24 * 60 * 60;
 export const IMAGE_SEGMENT_SECONDS = 2;
 export const MIN_VISUAL_SEGMENT_SECONDS = 0.5;
@@ -74,6 +74,7 @@ export const VOICES = [
     gender: "自然女声",
     engine: "piper",
     badge: "推荐",
+    sampleUrl: "/assets/voice-samples/zh_CN-xiao_ya-medium.mp3",
   },
   {
     id: "zh_CN-chaowen-medium",
@@ -83,6 +84,7 @@ export const VOICES = [
     gender: "自然人声",
     engine: "piper",
     badge: "ONNX",
+    sampleUrl: "/assets/voice-samples/zh_CN-chaowen-medium.mp3",
   },
   {
     id: "af_heart",
@@ -92,6 +94,7 @@ export const VOICES = [
     gender: "Warm female",
     engine: "kokoro",
     badge: "ONNX",
+    sampleUrl: "/assets/voice-samples/af_heart.mp3",
   },
   {
     id: "am_fenrir",
@@ -101,6 +104,7 @@ export const VOICES = [
     gender: "Steady male",
     engine: "kokoro",
     badge: "ONNX",
+    sampleUrl: "/assets/voice-samples/am_fenrir.mp3",
   },
   {
     id: "de_DE-thorsten-medium",
@@ -110,6 +114,7 @@ export const VOICES = [
     gender: "Natural male",
     engine: "piper",
     badge: "ONNX",
+    sampleUrl: "/assets/voice-samples/de_DE-thorsten-medium.mp3",
   },
   {
     id: "es_ES-davefx-medium",
@@ -119,6 +124,7 @@ export const VOICES = [
     gender: "Natural male",
     engine: "piper",
     badge: "ONNX",
+    sampleUrl: "/assets/voice-samples/es_ES-davefx-medium.mp3",
   },
   {
     id: "fr_FR-siwis-medium",
@@ -128,6 +134,7 @@ export const VOICES = [
     gender: "Natural voice",
     engine: "piper",
     badge: "ONNX",
+    sampleUrl: "/assets/voice-samples/fr_FR-siwis-medium.mp3",
   },
   {
     id: "it_IT-riccardo-x_low",
@@ -137,6 +144,7 @@ export const VOICES = [
     gender: "Natural male",
     engine: "piper",
     badge: "ONNX",
+    sampleUrl: "/assets/voice-samples/it_IT-riccardo-x_low.mp3",
   },
   {
     id: "pt_BR-faber-medium",
@@ -146,6 +154,7 @@ export const VOICES = [
     gender: "Natural male",
     engine: "piper",
     badge: "ONNX",
+    sampleUrl: "/assets/voice-samples/pt_BR-faber-medium.mp3",
   },
 ];
 

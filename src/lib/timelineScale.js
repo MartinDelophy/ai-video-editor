@@ -1,4 +1,4 @@
-import { DEFAULT_TIMELINE_DURATION_SECONDS } from "../config/editor.js";
+import { DEFAULT_TIMELINE_DURATION_SECONDS, MAX_TIMELINE_DURATION_SECONDS } from "../config/editor.js";
 
 export const TIMELINE_MIN_ZOOM = 0.25;
 export const TIMELINE_MAX_ZOOM = 16;
@@ -18,7 +18,7 @@ export function getTimelineVisibleDuration(zoom) {
 
   if (clampedZoom <= 1) {
     const progress = (clampedZoom - TIMELINE_MIN_ZOOM) / (1 - TIMELINE_MIN_ZOOM);
-    const maxLog = Math.log(DEFAULT_TIMELINE_DURATION_SECONDS);
+    const maxLog = Math.log(MAX_TIMELINE_DURATION_SECONDS);
     const defaultLog = Math.log(TIMELINE_DEFAULT_VISIBLE_SECONDS);
     return Math.exp(maxLog + (defaultLog - maxLog) * progress);
   }
@@ -32,7 +32,7 @@ export function getTimelineVisibleDuration(zoom) {
 export function getTimelineZoomForVisibleDuration(visibleDuration) {
   const target = Math.max(
     TIMELINE_MIN_VISIBLE_SECONDS,
-    Math.min(DEFAULT_TIMELINE_DURATION_SECONDS, Number(visibleDuration) || TIMELINE_DEFAULT_VISIBLE_SECONDS),
+    Math.min(MAX_TIMELINE_DURATION_SECONDS, Number(visibleDuration) || TIMELINE_DEFAULT_VISIBLE_SECONDS),
   );
   let low = TIMELINE_MIN_ZOOM;
   let high = TIMELINE_MAX_ZOOM;
@@ -51,6 +51,30 @@ export function getTimelineAutoFitZoom(contentDuration, fillRatio = 0.82) {
   const safeFillRatio = Math.max(0.5, Math.min(0.9, Number(fillRatio) || 0.82));
   const paddedVisibleDuration = Math.max(5, safeDuration / safeFillRatio);
   return getTimelineZoomForVisibleDuration(paddedVisibleDuration);
+}
+
+export function getTimelineInitialContentZoom(contentDuration) {
+  const safeDuration = Math.max(0, Number(contentDuration) || 0);
+  if (safeDuration <= 0) return getTimelineZoomForVisibleDuration(TIMELINE_DEFAULT_VISIBLE_SECONDS);
+  if (safeDuration > 60) return getTimelineZoomForVisibleDuration(30);
+  return getTimelineAutoFitZoom(safeDuration);
+}
+
+export function getTimelineTailPadding(contentDuration) {
+  const safeDuration = Math.max(0, Number(contentDuration) || 0);
+  if (safeDuration <= 0) return 0;
+  if (safeDuration < 10) return 2;
+  if (safeDuration <= 60) return 5;
+  return Math.min(30, safeDuration * 0.05);
+}
+
+export function getTimelineProjectDuration(contentDuration) {
+  const safeDuration = Math.max(0, Number(contentDuration) || 0);
+  if (safeDuration <= 0) return DEFAULT_TIMELINE_DURATION_SECONDS;
+  return Math.min(
+    MAX_TIMELINE_DURATION_SECONDS,
+    Math.max(DEFAULT_TIMELINE_DURATION_SECONDS, Math.ceil((safeDuration + getTimelineTailPadding(safeDuration)) * 2) / 2),
+  );
 }
 
 export function getTimelineTrackWidthPercent(timelineDuration, zoom) {

@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import { DEFAULT_SCRIPT, RATIO_OPTIONS, VOICES } from "../config/editor.js";
+import { DEFAULT_SCRIPT, DEFAULT_TIMELINE_DURATION_SECONDS, RATIO_OPTIONS, VOICES } from "../config/editor.js";
 import { decodeWaveform, downloadBlob } from "../lib/media.js";
 import { createProjectArchive, readProjectArchive, readProjectFileAsText } from "../lib/projectArchive.js";
 import { createCaptionSegments, getImageThumbnailCount, getVisualSegmentsTotal } from "../lib/timeline.js";
@@ -44,6 +44,7 @@ export function useProjectFiles(deps) {
     deps.setSelectedSegmentId(""); deps.clearImageTrack(""); deps.clearAudioTrack("");
     deps.clearSourceAudioTrack(""); deps.clearMusicTrack(""); deps.setStickerSegments([]);
     deps.setSelectedStickerSegmentId(""); deps.clearAllVisionState(); deps.setCurrentTime(0);
+    deps.setTimelineHorizon(DEFAULT_TIMELINE_DURATION_SECONDS); deps.setTimelineZoom(1);
     deps.setShowFileMenu(false); deps.notify("已新建空白工程");
   }, [deps]);
 
@@ -59,8 +60,10 @@ export function useProjectFiles(deps) {
       }
       const { payload, visualMedia, audio, sourceAudio, music } = archive;
       const data = payload.project;
+      deps.setTimelineHorizon(DEFAULT_TIMELINE_DURATION_SECONDS);
       deps.setScript(typeof data.script === "string" ? data.script : DEFAULT_SCRIPT);
       const captions = Array.isArray(data.captionSegments) ? data.captionSegments : createCaptionSegments(data.script || DEFAULT_SCRIPT);
+      deps.markTimelineViewRestored?.(Boolean(captions.length || data.visualSegments?.length || audio || sourceAudio || music));
       deps.setCaptionSegments(captions); deps.setSelectedSegmentId(captions[0]?.id ?? "");
       deps.setSelectedVoiceId(data.selectedVoiceId || VOICES[0].id); deps.setSpeed(Number(data.speed) || 1);
       deps.setVolume(Number(data.volume) || 1); deps.setRatioId(RATIO_OPTIONS.some((option) => option.id === data.ratioId) ? data.ratioId : "16:9");
@@ -78,7 +81,7 @@ export function useProjectFiles(deps) {
       deps.setVisualSegments(visuals); deps.setImageDuration(getVisualSegmentsTotal(visuals));
       deps.setImageClipCount(getImageThumbnailCount(getVisualSegmentsTotal(visuals))); deps.setCurrentVisualAsset(visuals[0] || null);
       if (audio) { const decoded = await decodeWaveform(audio); deps.replaceAudio(audio, Number(data.audioDuration) || decoded.duration, decoded.peaks, "已恢复工程配音"); } else deps.clearAudioTrack("");
-      if (sourceAudio) { const decoded = await decodeWaveform(sourceAudio); deps.replaceSourceAudio(sourceAudio, Number(data.sourceAudioDuration) || decoded.duration, decoded.peaks, data.sourceAudioName || "source-audio", "", Number(data.sourceAudioStart) || 0, data.sourceAudioAssetId || ""); } else deps.clearSourceAudioTrack("");
+      if (sourceAudio) { const decoded = await decodeWaveform(sourceAudio); deps.replaceSourceAudio(sourceAudio, Number(data.sourceAudioDuration) || decoded.duration, decoded.peaks, data.sourceAudioName || "source-audio", "", Number(data.sourceAudioStart) || 0, data.sourceAudioAssetId || "", { focusAudio: false }); } else deps.clearSourceAudioTrack("");
       if (music) { const decoded = await decodeWaveform(music); deps.replaceMusic(music, Number(data.musicDuration) || decoded.duration, decoded.peaks, data.musicName || "background-music", ""); deps.setMusicStart(Math.max(0, Number(data.musicStart) || 0)); } else deps.clearMusicTrack("");
       deps.setMusicVolume(Number(data.musicVolume) || 0.35); deps.setSourceAudioVolume(Number(data.sourceAudioVolume) || 1);
       deps.setSourceAudioAssetId(data.sourceAudioAssetId || ""); deps.setSourceAudioLinked(data.sourceAudioLinked !== false);

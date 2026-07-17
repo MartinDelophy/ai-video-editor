@@ -23,4 +23,18 @@ describe("linked source audio", () => {
     expect(getLinkedSourceAudioState(segments, 2.5)).toMatchObject({ active: false, playbackRate: 1 });
     expect(getLinkedSourceAudioState(segments, 4)).toMatchObject({ active: true, sourceTime: 5, playbackRate: 1 });
   });
+
+  it("keeps source audio mappings for multiple imported video assets", () => {
+    const clips = [
+      { id: "first", assetId: "video-1", type: "video", duration: 4, sourceStart: 0, sourceDuration: 4, sourceAudioOffset: 0 },
+      { id: "second", assetId: "video-2", type: "video", duration: 3, sourceStart: 0, sourceDuration: 3, sourceAudioOffset: 4 },
+    ];
+    const segments = getLinkedSourceAudioSegments(clips, "", 7);
+    expect(segments).toMatchObject([
+      { id: "first", assetId: "video-1", start: 0, duration: 4, sourceStart: 0 },
+      { id: "second", assetId: "video-2", start: 4, duration: 3, sourceStart: 4 },
+    ]);
+    expect(getLinkedSourceAudioState(segments, 2)).toMatchObject({ active: true, sourceTime: 2 });
+    expect(getLinkedSourceAudioState(segments, 5)).toMatchObject({ active: true, sourceTime: 5 });
+  });
 });

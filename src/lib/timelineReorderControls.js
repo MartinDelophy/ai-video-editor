@@ -1,4 +1,5 @@
 import { getVisualSegmentTimeline, materializeCaptionTimings, moveTimedCaptionSegment, reorderTimelineItems } from "./timeline.js";
+import { collectTimelineSnapPoints, findClosestTimelineSnap, snapTimelineRange } from "./timelineSnap.js";
 
 export function createTimelineReorderControls(d) {
   const getTimelineReorderIndex = (track, x, y) => {
@@ -23,7 +24,7 @@ export function createTimelineReorderControls(d) {
     }
   };
   const startTimelineClipDrag = (event, track, segmentId, index) => {
-    if (event.button !== 0 || event.target.closest(".image-resize-handle")) return;
+    if (event.button !== 0 || event.target.closest(".image-resize-handle, .caption-resize-handle")) return;
     d.pauseForTimelineEdit?.();
     if (d.trackLocks[track]) return void d.notify(track === "image" ? "图片轨已锁定，无法拖动片段" : "字幕轨已锁定，无法拖动片段");
     if (track === "image") { d.setSelectedTrack("image"); d.setSelectedVisualSegmentId(segmentId); }
@@ -33,6 +34,7 @@ export function createTimelineReorderControls(d) {
     if (caption) {
       event.preventDefault(); event.stopPropagation();
       const duration = Math.max(0.2, caption.end - caption.start);
+      const snapPoints = collectTimelineSnapPoints(d, { track: "caption", id: segmentId });
       const initial = { track, mode: "move", segmentId, fromIndex: index, startX: event.clientX, startY: event.clientY,
         originalStart: caption.start, originalEnd: caption.end, previewStart: caption.start, previewEnd: caption.end,
         previewSegments: materializedCaptions, dragging: false };
@@ -43,15 +45,18 @@ export function createTimelineReorderControls(d) {
         const trackElement = document.querySelector('[data-timeline-reorder-track="caption"]');
         const width = Math.max(1, trackElement?.getBoundingClientRect().width || 1);
         const delta = ((e.clientX - state.startX) / width) * d.timelineDuration;
-        const previewStart = Math.max(0, Math.min(d.timelineDuration - duration, state.originalStart + delta));
+        const unsnappedStart = Math.max(0, Math.min(d.timelineDuration - duration, state.originalStart + delta));
+        const snapped = snapTimelineRange(unsnappedStart, duration, snapPoints, (10 / width) * d.timelineDuration);
+        const previewStart = Math.max(0, Math.min(d.timelineDuration - duration, snapped.start));
         const previewEnd = previewStart + duration;
         const previewSegments = moveTimedCaptionSegment(materializedCaptions, segmentId, previewStart, previewEnd);
         const next = { ...state, previewStart, previewEnd, previewSegments, dragging: true };
         d.timelineClipDragRef.current = next; d.setTimelineClipDrag(next);
+        d.setSnapGuide?.(snapped.guide);
       };
       const up = () => {
         removeEventListener("pointermove", move); removeEventListener("pointerup", up);
-        const state = d.timelineClipDragRef.current; d.timelineClipDragRef.current = null; d.setTimelineClipDrag(null);
+        const state = d.timelineClipDragRef.current; d.timelineClipDragRef.current = null; d.setTimelineClipDrag(null); d.setSnapGuide?.(null);
         if (!state?.dragging) return;
         d.suppressTimelineClipClickRef.current = segmentId;
         setTimeout(() => { if (d.suppressTimelineClipClickRef.current === segmentId) d.suppressTimelineClipClickRef.current = ""; }, 120);
@@ -82,5 +87,57 @@ export function createTimelineReorderControls(d) {
     };
     addEventListener("pointermove", move); addEventListener("pointerup", up, { once: true });
   };
-  return { commitTimelineClipReorder, getTimelineReorderIndex, startTimelineClipDrag };
+  const startCaptionResize = (event, segmentId, index, edge) => {
+    if (event.button !== 0) return;
+    event.preventDefault(); event.stopPropagation();
+    if (d.trackLocks.caption) return void d.notify("字幕轨已锁定，无法调整片段时长");
+    const materialized = materializeCaptionTimings(d.captionSegments, d.captionTargetDuration);
+    const caption = materialized[index];
+    if (!caption || caption.id !== segmentId) return;
+    d.setSelectedTrack("caption"); d.setSelectedSegmentId(segmentId);
+    const trackElement = document.querySelector('[data-timeline-reorder-track="caption"]');
+    const trackWidth = Math.max(1, trackElement?.getBoundingClientRect().width || 1);
+    const startX = event.clientX;
+    const snapPoints = collectTimelineSnapPoints(d, { track: "caption", id: segmentId });
+    const initial = {
+      track: "caption", mode: edge === "start" ? "resize-start" : "resize-end", segmentId,
+      fromIndex: index, startX, startY: event.clientY, originalStart: caption.start, originalEnd: caption.end,
+      previewStart: caption.start, previewEnd: caption.end, previewSegments: materialized, dragging: false,
+    };
+    d.timelineClipDragRef.current = initial; d.setTimelineClipDrag(initial);
+    const move = (moveEvent) => {
+      const state = d.timelineClipDragRef.current;
+      if (!state || state.segmentId !== segmentId) return;
+      if (!state.dragging && Math.abs(moveEvent.clientX - startX) < 3) return;
+      if (!state.dragging) d.pauseForTimelineEdit?.();
+      const delta = ((moveEvent.clientX - startX) / trackWidth) * d.timelineDuration;
+      const minimumDuration = 0.2;
+      let previewStart = edge === "start"
+        ? Math.max(0, Math.min(state.originalEnd - minimumDuration, state.originalStart + delta))
+        : state.originalStart;
+      let previewEnd = edge === "end"
+        ? Math.min(d.timelineDuration, Math.max(state.originalStart + minimumDuration, state.originalEnd + delta))
+        : state.originalEnd;
+      const movingValue = edge === "start" ? previewStart : previewEnd;
+      const snap = findClosestTimelineSnap(movingValue, snapPoints, (10 / trackWidth) * d.timelineDuration);
+      if (snap) {
+        if (edge === "start") previewStart = Math.min(state.originalEnd - minimumDuration, snap.time);
+        else previewEnd = Math.max(state.originalStart + minimumDuration, snap.time);
+      }
+      const previewSegments = moveTimedCaptionSegment(materialized, segmentId, previewStart, previewEnd);
+      const next = { ...state, previewStart, previewEnd, previewSegments, dragging: true };
+      d.timelineClipDragRef.current = next; d.setTimelineClipDrag(next);
+      d.setSnapGuide?.(snap ? { time: snap.time, label: `${snap.time.toFixed(2)}s` } : null);
+    };
+    const up = () => {
+      removeEventListener("pointermove", move); removeEventListener("pointerup", up);
+      const state = d.timelineClipDragRef.current; d.timelineClipDragRef.current = null; d.setTimelineClipDrag(null); d.setSnapGuide?.(null);
+      if (!state?.dragging) return;
+      d.suppressTimelineClipClickRef.current = segmentId;
+      setTimeout(() => { if (d.suppressTimelineClipClickRef.current === segmentId) d.suppressTimelineClipClickRef.current = ""; }, 120);
+      d.commitCaptionSegments(state.previewSegments, "已调整字幕片段时长", index);
+    };
+    addEventListener("pointermove", move); addEventListener("pointerup", up, { once: true });
+  };
+  return { commitTimelineClipReorder, getTimelineReorderIndex, startCaptionResize, startTimelineClipDrag };
 }

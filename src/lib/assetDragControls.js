@@ -79,7 +79,8 @@ export function createAssetDragControls(deps) {
   };
   const handleStickerClick = (event, sticker) => {
     if (deps.suppressAssetClickRef.current === sticker.id) { deps.suppressAssetClickRef.current = ""; event.preventDefault(); event.stopPropagation(); return; }
-    deps.setSelectedStickerId(sticker.id); deps.setSelectedStickerSegmentId(""); deps.notify(deps.t("stickerApplied"));
+    deps.setSelectedStickerId(sticker.id);
+    deps.addStickerAssetToTimeline(sticker, { startTime: deps.currentTime });
   };
   const handleTrackAssetDragOver = (event, track) => {
     const asset = getDraggedAsset(event); const target = asset?.type === "sticker" ? "sticker" : track;

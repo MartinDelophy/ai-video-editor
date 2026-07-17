@@ -25,7 +25,7 @@ import {
   Waveform,
 } from "@phosphor-icons/react";
 
-import { IMAGE_SEGMENT_SECONDS } from "../config/editor.js";
+import { IMAGE_SEGMENT_SECONDS, MAX_IMAGE_THUMBNAILS } from "../config/editor.js";
 import { formatClock, formatTime, getSegmentStartTime, packTimedSegmentsIntoLanes } from "../lib/timeline.js";
 import { sliceSourceAudioPeaks } from "../lib/sourceAudioSync.js";
 import {
@@ -72,8 +72,8 @@ function getSampledVideoFrames(frames, count) {
     return [];
   }
 
-  const safeCount = Math.max(VIDEO_FRAME_MIN_COUNT, Math.min(frames.length, count));
-  if (safeCount >= frames.length) {
+  const safeCount = Math.max(VIDEO_FRAME_MIN_COUNT, count);
+  if (safeCount === frames.length) {
     return frames;
   }
 
@@ -87,7 +87,7 @@ function getSampledVideoFrames(frames, count) {
   });
 }
 
-function getVideoTimelineFrameCount({ duration, timelineDuration, contentWidth, timelineZoom, availableFrames }) {
+function getTimelineThumbnailCount({ duration, timelineDuration, contentWidth, timelineZoom, availableFrames = MAX_IMAGE_THUMBNAILS }) {
   if (!availableFrames || timelineDuration <= 0 || contentWidth <= 0) {
     return VIDEO_FRAME_MIN_COUNT;
   }
@@ -95,12 +95,12 @@ function getVideoTimelineFrameCount({ duration, timelineDuration, contentWidth, 
   const clipPixelWidth = Math.max(68, (Math.max(0, duration || 0) / timelineDuration) * contentWidth);
   const targetCellWidth =
     timelineZoom >= 8
-      ? 34
+      ? 30
       : timelineZoom >= 3
-        ? 42
+        ? 38
         : timelineZoom >= 1
-          ? 54
-          : 82;
+          ? 48
+          : 68;
   return Math.max(
     VIDEO_FRAME_MIN_COUNT,
     Math.min(availableFrames, Math.ceil(clipPixelWidth / targetCellWidth)),
@@ -172,6 +172,7 @@ export function Timeline({
   seekTo,
   suppressTimelineClipClickRef,
   startTimelineClipDrag,
+  startCaptionResize,
   startImageResize,
   startStickerSegmentMove,
   displayedCaptionSegments,
@@ -839,12 +840,12 @@ export function Timeline({
                       segmentType === "video" && videoTrackFrames.length
                         ? getSampledVideoFrames(
                             videoTrackFrames,
-                            getVideoTimelineFrameCount({
+                            getTimelineThumbnailCount({
                               duration: segment.duration,
                               timelineDuration,
                               contentWidth: rulerViewport.contentWidth,
                               timelineZoom: localTimelineZoom,
-                              availableFrames: videoTrackFrames.length,
+                              availableFrames: MAX_IMAGE_THUMBNAILS,
                             }),
                           )
                         : [];
@@ -887,7 +888,10 @@ export function Timeline({
                           className={`image-thumbnails ${segmentType === "video" ? "is-video" : ""} ${
                             isPortraitVideo ? "is-portrait-video" : ""
                           }`}
-                          style={{ "--thumbnail-cell-width": `${IMAGE_THUMBNAIL_TARGET_WIDTH}px` }}
+                          style={{
+                            "--thumbnail-cell-width": `${IMAGE_THUMBNAIL_TARGET_WIDTH}px`,
+                            "--video-thumbnail-count": Math.max(1, visibleVideoFrames.length),
+                          }}
                         >
                           {segmentType === "video" ? (
                             visibleVideoFrames.length ? (
@@ -1000,7 +1004,17 @@ export function Timeline({
                           seekTo(segmentRange?.start ?? getSegmentStartTime(displayedCaptionSegments, index, captionTargetDuration));
                         }}
                       >
-                        {segment.text}
+                        <span
+                          className="caption-resize-handle is-start"
+                          aria-hidden="true"
+                          onPointerDown={(event) => startCaptionResize(event, segment.id, index, "start")}
+                        />
+                        <span className="caption-segment-label">{segment.text}</span>
+                        <span
+                          className="caption-resize-handle is-end"
+                          aria-hidden="true"
+                          onPointerDown={(event) => startCaptionResize(event, segment.id, index, "end")}
+                        />
                       </button>
                     );
                     })}
@@ -1141,7 +1155,7 @@ export function Timeline({
           <span>{formatClock(draggingVisualSegment.duration)}</span>
         </div>
       ) : null}
-      {draggingCaptionSegment && activeTimelineClipDrag.mode !== "move" ? (
+      {draggingCaptionSegment && !["move", "resize-start", "resize-end"].includes(activeTimelineClipDrag.mode) ? (
         <div
           className="timeline-drag-ghost type-caption"
           style={{ left: activeTimelineClipDrag.x, top: activeTimelineClipDrag.y }}

@@ -176,6 +176,35 @@ function AudioClipContextPanel({ t, segment, updateAudioSegment, toggleAudioSegm
   );
 }
 
+function StickerContextPanel({ t, segment, updateStickerSegment, deleteStickerSegment }) {
+  if (!segment) return null;
+  const round = (value) => Math.round(value * 100) / 100;
+  const updateNumber = (key, value, min, max) => updateStickerSegment({
+    [key]: round(Math.max(min, Math.min(max, Number(value) || 0))),
+  });
+  const fields = [
+    ["x", t("stickerHorizontalPosition"), 0, 100, "%"],
+    ["y", t("stickerVerticalPosition"), 0, 100, "%"],
+    ["scale", t("stickerScale"), 0.2, 3, "x"],
+    ["rotation", t("stickerRotation"), -180, 180, "°"],
+  ];
+  return (
+    <div className="sticker-properties-panel">
+      <div className="sticker-properties-preview"><img src={segment.src} alt="" /></div>
+      <div className="sticker-property-grid">
+        {fields.map(([key, label, min, max, unit]) => (
+          <label key={key}>{label}<input type="number" min={min} max={max} step="0.01" value={round(Number.isFinite(segment[key]) ? segment[key] : key === "scale" ? 1 : key === "x" ? 82 : key === "y" ? 20 : 0)} onChange={(event) => updateNumber(key, event.target.value, min, max)} />{unit ? null : null}</label>
+        ))}
+      </div>
+      <label className="sticker-property-field">
+        <div><span>{t("stickerOpacity")}</span><strong>{Math.round((Number.isFinite(segment.opacity) ? segment.opacity : 1) * 100)}%</strong></div>
+        <input type="range" min="0" max="1" step="0.01" value={Number.isFinite(segment.opacity) ? segment.opacity : 1} onChange={(event) => updateNumber("opacity", event.target.value, 0, 1)} />
+      </label>
+      <button className="sticker-delete-button" type="button" onClick={deleteStickerSegment}><Trash size={14} />{t("deleteSticker")}</button>
+    </div>
+  );
+}
+
 function AvatarContextPanel({ t, hasVisual, visualType, audioBlob, audioDuration, captionSegments, selectedVoice, avatarJob, generateAvatarAcceptanceFrame }) {
   const hasPortrait = hasVisual && visualType === "image";
   const [probeState, setProbeState] = useState("idle");
@@ -320,9 +349,13 @@ export function VoicePanel({
   toggleAudioSegmentReverse,
   deleteAudioSegment,
   selectedVisualSegment,
+  selectedStickerSegment,
+  updateStickerSegment,
+  deleteStickerSegment,
   visualLocalTime,
   visualTimelineStart = 0,
   updateSelectedVisualEffects,
+  onPreviewAnimation,
   selectedFilterId,
   setSelectedFilterId,
   trOption,
@@ -333,12 +366,15 @@ export function VoicePanel({
   const isAvatarContext = activeTool === "smart" && avatarPanelOpen;
   const isAudioClipContext = selectedTrack === "audio" && Boolean(selectedAudioSegment);
   const isVisualContext = selectedTrack === "image";
+  const isStickerContext = selectedTrack === "sticker" && Boolean(selectedStickerSegment);
   const selectedCaptionAudioSegment = getCaptionVoiceSegment(audioSegments, selectedCaptionSegment);
-  const title = isVisualContext ? t("visualPanelTitle") : isAvatarContext ? t("avatarTitle") : isCaptionContext ? t("caption") : isAudioClipContext ? t("audioClipProperties") : t("aiVoice");
+  const title = isStickerContext ? t("stickerProperties") : isVisualContext ? t("visualPanelTitle") : isAvatarContext ? t("avatarTitle") : isCaptionContext ? t("caption") : isAudioClipContext ? t("audioClipProperties") : t("aiVoice");
   const panelStatusText = isCaptionContext
     ? captionSegments.length
       ? `${captionSegments.length} ${t("captionSegmentsUnit", "条字幕")}`
       : t("noCaptionSegments")
+    : isStickerContext
+      ? `${selectedStickerSegment.start.toFixed(2)}s · ${selectedStickerSegment.duration.toFixed(2)}s`
     : isVisualContext
       ? selectedVisualSegment
         ? `${visualLocalTime.toFixed(2)}s · ${normalizeVisualKeyframes(selectedVisualSegment.keyframes).length} ${t("visualFrames")}`
@@ -371,7 +407,7 @@ export function VoicePanel({
         </span>
       </div>
 
-      {!isCaptionContext && !isAvatarContext && !isAudioClipContext && !isVisualContext ? (
+      {!isCaptionContext && !isAvatarContext && !isAudioClipContext && !isVisualContext && !isStickerContext ? (
         <div className="tabs compact">
           {[
             ["synthesis", t("voiceSynthesis")],
@@ -414,6 +450,7 @@ export function VoicePanel({
       ) : null}
 
       <div className="voice-tab-body">
+        {isStickerContext ? <StickerContextPanel t={t} segment={selectedStickerSegment} updateStickerSegment={updateStickerSegment} deleteStickerSegment={deleteStickerSegment} /> : null}
         {isVisualContext && selectedVisualSegment ? (
           <VisualEffectsPanel
             contextMode
@@ -421,6 +458,7 @@ export function VoicePanel({
             segment={selectedVisualSegment}
             localTime={visualLocalTime}
             onChange={updateSelectedVisualEffects}
+            onPreviewAnimation={onPreviewAnimation}
             onSeek={(time) => seekTo(visualTimelineStart + time)}
             selectedFilterId={selectedFilterId}
             trOption={trOption}
@@ -494,7 +532,7 @@ export function VoicePanel({
 
         {isAudioClipContext ? <AudioClipContextPanel t={t} segment={selectedAudioSegment} updateAudioSegment={updateAudioSegment} toggleAudioSegmentReverse={toggleAudioSegmentReverse} deleteAudioSegment={deleteAudioSegment} downloadBlob={downloadBlob} /> : null}
 
-        {!isCaptionContext && !isAvatarContext && !isAudioClipContext && !isVisualContext && voiceTab === "synthesis" ? (
+        {!isCaptionContext && !isAvatarContext && !isAudioClipContext && !isVisualContext && !isStickerContext && voiceTab === "synthesis" ? (
           <VoiceSynthesisPanel
             script={script}
             updateScript={updateScript}
@@ -522,7 +560,7 @@ export function VoicePanel({
           />
         ) : null}
 
-        {!isCaptionContext && !isAvatarContext && !isAudioClipContext && !isVisualContext && voiceTab === "mine" ? (
+        {!isCaptionContext && !isAvatarContext && !isAudioClipContext && !isVisualContext && !isStickerContext && voiceTab === "mine" ? (
           <MyVoicesPanel
             favoriteVoiceIds={favoriteVoiceIds}
             setFavoriteVoiceIds={setFavoriteVoiceIds}
@@ -540,7 +578,7 @@ export function VoicePanel({
           />
         ) : null}
 
-        {!isCaptionContext && !isAvatarContext && !isAudioClipContext && !isVisualContext && voiceTab === "history" ? (
+        {!isCaptionContext && !isAvatarContext && !isAudioClipContext && !isVisualContext && !isStickerContext && voiceTab === "history" ? (
           <HistoryPanel
             historyItems={historyItems}
             useHistoryItem={useHistoryItem}

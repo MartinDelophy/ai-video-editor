@@ -199,7 +199,7 @@ export function App() {
     captionTargetDuration, captionTimeline, currentCaption, currentCaptionSegment,
     currentSegmentIndex, currentStickerSegment, currentStickerSegmentIndex,
     currentVisualRange, currentVisualSegment, currentVisualSegmentIndex, estimatedDuration,
-    focusedSegmentIndex, getStickerDragAsset, peaks, previewSticker,
+    focusedSegmentIndex, getStickerDragAsset, peaks, previewSticker, previewStickers,
     previewVisionBaseAnalysis, previewVisionKey, previewVisionRecord, previewVisualLocalTime,
     previewVisualRange, previewVisualSegment, previewVisualSegmentIndex,
     previewVisualSourceTime, previewVisualSrc, previewVisualType, ratio, segments,
@@ -238,6 +238,7 @@ export function App() {
   const previewFrameSize = usePreviewFrameSize(previewShellRef, ratio, compactRail);
   const selectedVisualSegment = visualSegments[selectedVisualSegmentIndex] ?? previewVisualSegment ?? null;
   const selectedVisualRange = visualTimeline[selectedVisualSegmentIndex] ?? previewVisualRange;
+  const [visualAnimationPreview, setVisualAnimationPreview] = useState(null);
   const visualLocalTime = Math.max(0, Math.min(
     selectedVisualSegment?.duration ?? 0,
     currentTime - (selectedVisualRange?.start ?? 0),
@@ -253,6 +254,7 @@ export function App() {
       if (change.removePropertyKeyframe) return { ...item, keyframes: removeVisualPropertyKeyframe(item.keyframes, change.removePropertyKeyframe.time, change.removePropertyKeyframe.key) };
       if (Number.isFinite(change.removeKeyframeAt)) return { ...item, keyframes: (item.keyframes ?? []).filter((frame) => Math.abs(frame.time - change.removeKeyframeAt) > 0.04) };
       if (change.mask) return { ...item, mask: change.mask };
+      if (change.animation) return { ...item, animation: change.animation };
       if (typeof change.enhancementEnabled === "boolean" && item.enhancement) {
         if (item.enhancement.mode === "remaster-drunet-full") {
           const source = change.enhancementEnabled ? item.enhancement.processed : item.enhancement.original;
@@ -311,7 +313,7 @@ export function App() {
     handleAssetPointerDown, handleStickerClick, handleTrackAssetDragLeave,
     handleTrackAssetDragOver, triggerAssetDropPulse,
   } = createAssetDragControls({
-    applyAssetToTrack: (...args) => applyAssetToTrack(...args), assetDropPulseTimerRef, builtInAssets, draggedAssetId,
+    addStickerAssetToTimeline: (...args) => addStickerAssetToTimeline(...args), applyAssetToTrack: (...args) => applyAssetToTrack(...args), assetDropPulseTimerRef, builtInAssets, currentTime, draggedAssetId,
     draggedAssetIdRef, getStickerDragAsset, notify, pointerAssetDragRef,
     setAssetDragPreview, setAssetDropPosition, setAssetDropPulseTrack,
     setAssetDropTargetTrack, setDraggedAssetId, setSelectedLibraryAssetId,
@@ -396,8 +398,26 @@ export function App() {
   } = createStickerTimelineActions({
     estimatedDuration, notify, seekTo: (...args) => seekTo(...args), setActiveTool,
     setSelectedStickerId, setSelectedStickerSegmentId, setSelectedTrack,
-    setStickerSegments, stickerSegments, timelineDurationRef, trackLocks,
+    setStickerSegments, stickerSegments, t, timelineDurationRef, trackLocks,
   });
+  const selectedStickerSegment = stickerSegments.find((segment) => segment.id === selectedStickerSegmentId) ?? currentStickerSegment;
+  const updateSelectedStickerSegment = (change) => {
+    if (!selectedStickerSegment?.id) return;
+    setStickerSegments((segments) => segments.map((segment) => segment.id === selectedStickerSegment.id ? { ...segment, ...change } : segment));
+  };
+  const updateCanvasStickerSegment = (segmentId, change) => {
+    if (!segmentId) return;
+    setStickerSegments((segments) => segments.map((segment) => segment.id === segmentId ? { ...segment, ...change } : segment));
+  };
+  const selectCanvasStickerSegment = (segmentId) => {
+    if (!segmentId) return;
+    setSelectedStickerSegmentId(segmentId);
+    setSelectedTrack("sticker");
+  };
+  const deleteSelectedStickerSegment = () => {
+    if (!selectedStickerSegment?.id) return;
+    commitStickerSegments(stickerSegments.filter((segment) => segment.id !== selectedStickerSegment.id), "已删除贴纸片段");
+  };
 
   const { generateAvatarAcceptanceFrame, openAvatarPanel } = useAvatarGeneration({
     audioBlob, audioDuration, avatarJob, avatarMotionCacheRef, avatarMotionWorkerRef,
@@ -504,12 +524,12 @@ export function App() {
   });
 
   const { startAudioSegmentMove, startMusicMove, startSourceAudioMove, startStickerSegmentMove } = createTimelineMoveControls({
-    audioSegments, captionSegments, estimatedDuration, notify, seekTo, setActiveTool,
+    audioSegments, captionSegments, captionTargetDuration, estimatedDuration, notify, seekTo, setActiveTool,
     setAudioSegments, setCaptionSegments, setSelectedAudioSegmentId, setSelectedStickerId,
     setSelectedStickerSegmentId, setSelectedTrack, setStickerSegments, setTimelineHorizon,
     setMusicStart, setSourceAudioLinked, setSourceAudioStart, musicDuration, musicStart,
     sourceAudioDuration, sourceAudioStart, stickerSegments, suppressTimelineClipClickRef, t, timelineDurationRef,
-    trackLocks, trackScrollRef, pauseForTimelineEdit,
+    trackLocks, trackScrollRef, pauseForTimelineEdit, visualSegments, setSnapGuide,
   });
 
   const startImageResize = createImageResizeControl({
@@ -523,6 +543,7 @@ export function App() {
 
   const extractVideoSourceAudio = useSourceAudioExtraction({
     clearSourceAudioTrack, notify, replaceSourceAudio, setProgress, setStatus, setStatusText,
+    setVisualSegments, sourceAudioBlob, sourceAudioDuration,
   });
 
   const generateCaptionsFromSourceAudio = useAutoCaptions({
@@ -602,11 +623,12 @@ export function App() {
       videoBitsPerSecond: getExportBitrate(Number(exportSettings.resolution), exportSettings.quality, exportSettings.frameRate),
     },
   });
-  const { startTimelineClipDrag } = createTimelineReorderControls({
-    captionSegments, captionTargetDuration, commitCaptionSegments, commitVisualSegments,
+  const { startCaptionResize, startTimelineClipDrag } = createTimelineReorderControls({
+    audioSegments, captionSegments, captionTargetDuration, commitCaptionSegments, commitVisualSegments,
     notify, renderedVisualSegments, seekTo, setSelectedSegmentId, setSelectedTrack,
     setSelectedVisualSegmentId, setTimelineClipDrag, suppressTimelineClipClickRef,
     timelineClipDragRef, timelineDuration, trackLocks, visualSegments, pauseForTimelineEdit,
+    stickerSegments, sourceAudioDuration, sourceAudioStart, musicDuration, musicStart, setSnapGuide,
   });
 
   return (
@@ -701,8 +723,12 @@ export function App() {
           previewVisualRenderSrc={previewVisualRenderSrc}
           previewVisionMaskUrl={previewVisionMaskUrl}
           previewVisualType={previewVisualType}
-          visualEffects={previewVisualSegment}
-          visualLocalTime={previewVisualLocalTime}
+          visualEffects={visualAnimationPreview?.segmentId && visualAnimationPreview.segmentId === previewVisualSegment?.id
+            ? { ...previewVisualSegment, animation: visualAnimationPreview.animation }
+            : previewVisualSegment}
+          visualLocalTime={visualAnimationPreview?.segmentId && visualAnimationPreview.segmentId === previewVisualSegment?.id
+            ? visualAnimationPreview.localTime
+            : previewVisualLocalTime}
           visualMaskEditable={selectedTrack === "image" && Boolean(selectedVisualSegment)}
           onUpdateVisualMask={(mask) => updateSelectedVisualEffects({ mask })}
           previewRatio={previewRatio}
@@ -733,6 +759,11 @@ export function App() {
           startCaptionDrag={startCaptionDrag}
           setActiveTool={setActiveTool}
           selectedSticker={previewSticker}
+          stickers={previewStickers}
+          selectedStickerId={selectedStickerSegment?.id ?? ""}
+          stickerEditable
+          onSelectSticker={selectCanvasStickerSegment}
+          onUpdateSticker={updateCanvasStickerSegment}
           isPlaying={isPlaying}
           canPreview={canPreview}
           handlePlayToggle={handlePlayToggle}
@@ -817,9 +848,13 @@ export function App() {
           toggleAudioSegmentReverse={toggleAudioSegmentReverse}
           deleteAudioSegment={deleteAudioSegment}
           selectedVisualSegment={selectedVisualSegment}
+          selectedStickerSegment={selectedStickerSegment}
+          updateStickerSegment={updateSelectedStickerSegment}
+          deleteStickerSegment={deleteSelectedStickerSegment}
           visualLocalTime={visualLocalTime}
           visualTimelineStart={selectedVisualRange?.start ?? 0}
           updateSelectedVisualEffects={updateSelectedVisualEffects}
+          onPreviewAnimation={setVisualAnimationPreview}
           selectedFilterId={selectedFilterId}
           setSelectedFilterId={setSelectedFilterId}
           trOption={trOption}
@@ -882,6 +917,7 @@ export function App() {
         seekTo={seekTo}
         suppressTimelineClipClickRef={suppressTimelineClipClickRef}
         startTimelineClipDrag={startTimelineClipDrag}
+        startCaptionResize={startCaptionResize}
         startImageResize={startImageResize}
         startStickerSegmentMove={startStickerSegmentMove}
         displayedCaptionSegments={displayedCaptionSegments}

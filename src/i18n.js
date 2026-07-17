@@ -199,9 +199,37 @@ const TTS_BACKEND_COPY = {
   vi: { ttsStatusLoadingWebGpu: "Đang tải mô hình giọng nói WebGPU", ttsStatusGeneratingWebGpu: "Đang tạo giọng nói bằng WebGPU", ttsStatusFallingBackWasm: "Không dùng được WebGPU; đang chuyển sang WASM", ttsStatusGeneratingWasm: "Đang tạo giọng nói bằng WASM" },
 };
 
+const VISUAL_ANIMATION_COPY = {
+  zh: { visualTabAnimation: "动画", visualAnimation: "片段动画", visualAnimationIn: "入场", visualAnimationOut: "出场", visualAnimationNone: "无动画", visualAnimationFade: "淡入淡出", visualAnimationZoom: "缩放", visualAnimationSlideLeft: "左滑", visualAnimationSlideUp: "上滑", visualAnimationDuration: "动画时长", visualAnimationHoverHint: "悬停预览" },
+  en: { visualTabAnimation: "Animation", visualAnimation: "Clip animation", visualAnimationIn: "In", visualAnimationOut: "Out", visualAnimationNone: "None", visualAnimationFade: "Fade", visualAnimationZoom: "Zoom", visualAnimationSlideLeft: "Slide left", visualAnimationSlideUp: "Slide up", visualAnimationDuration: "Duration", visualAnimationHoverHint: "Hover to preview" },
+  ja: { visualTabAnimation: "アニメーション", visualAnimation: "クリップアニメーション", visualAnimationIn: "入る", visualAnimationOut: "出る", visualAnimationNone: "なし", visualAnimationFade: "フェード", visualAnimationZoom: "ズーム", visualAnimationSlideLeft: "左へスライド", visualAnimationSlideUp: "上へスライド", visualAnimationDuration: "再生時間", visualAnimationHoverHint: "ホバーでプレビュー" },
+  ko: { visualTabAnimation: "애니메이션", visualAnimation: "클립 애니메이션", visualAnimationIn: "등장", visualAnimationOut: "퇴장", visualAnimationNone: "없음", visualAnimationFade: "페이드", visualAnimationZoom: "확대", visualAnimationSlideLeft: "왼쪽 슬라이드", visualAnimationSlideUp: "위쪽 슬라이드", visualAnimationDuration: "지속 시간", visualAnimationHoverHint: "마우스를 올려 미리보기" },
+  es: { visualTabAnimation: "Animación", visualAnimation: "Animación del clip", visualAnimationIn: "Entrada", visualAnimationOut: "Salida", visualAnimationNone: "Ninguna", visualAnimationFade: "Fundido", visualAnimationZoom: "Zoom", visualAnimationSlideLeft: "Deslizar a la izquierda", visualAnimationSlideUp: "Deslizar arriba", visualAnimationDuration: "Duración", visualAnimationHoverHint: "Pasa el cursor para previsualizar" },
+  fr: { visualTabAnimation: "Animation", visualAnimation: "Animation du clip", visualAnimationIn: "Entrée", visualAnimationOut: "Sortie", visualAnimationNone: "Aucune", visualAnimationFade: "Fondu", visualAnimationZoom: "Zoom", visualAnimationSlideLeft: "Glisser à gauche", visualAnimationSlideUp: "Glisser vers le haut", visualAnimationDuration: "Durée", visualAnimationHoverHint: "Survolez pour prévisualiser" },
+  de: { visualTabAnimation: "Animation", visualAnimation: "Clip-Animation", visualAnimationIn: "Eingang", visualAnimationOut: "Ausgang", visualAnimationNone: "Keine", visualAnimationFade: "Überblenden", visualAnimationZoom: "Zoom", visualAnimationSlideLeft: "Nach links", visualAnimationSlideUp: "Nach oben", visualAnimationDuration: "Dauer", visualAnimationHoverHint: "Zum Vorschauen bewegen" },
+  pt: { visualTabAnimation: "Animação", visualAnimation: "Animação do clipe", visualAnimationIn: "Entrada", visualAnimationOut: "Saída", visualAnimationNone: "Nenhuma", visualAnimationFade: "Desvanecer", visualAnimationZoom: "Zoom", visualAnimationSlideLeft: "Deslizar à esquerda", visualAnimationSlideUp: "Deslizar para cima", visualAnimationDuration: "Duração", visualAnimationHoverHint: "Passe o cursor para visualizar" },
+  th: { visualTabAnimation: "แอนิเมชัน", visualAnimation: "แอนิเมชันคลิป", visualAnimationIn: "เข้า", visualAnimationOut: "ออก", visualAnimationNone: "ไม่มี", visualAnimationFade: "เฟด", visualAnimationZoom: "ซูม", visualAnimationSlideLeft: "เลื่อนไปซ้าย", visualAnimationSlideUp: "เลื่อนขึ้น", visualAnimationDuration: "ระยะเวลา", visualAnimationHoverHint: "วางเมาส์เพื่อดูตัวอย่าง" },
+  vi: { visualTabAnimation: "Hoạt ảnh", visualAnimation: "Hoạt ảnh clip", visualAnimationIn: "Vào", visualAnimationOut: "Ra", visualAnimationNone: "Không", visualAnimationFade: "Mờ dần", visualAnimationZoom: "Thu phóng", visualAnimationSlideLeft: "Trượt trái", visualAnimationSlideUp: "Trượt lên", visualAnimationDuration: "Thời lượng", visualAnimationHoverHint: "Di chuột để xem trước" },
+};
+
+const STICKER_EDITOR_COPY = {
+  zh: { stickerProperties: "贴纸属性", stickerHorizontalPosition: "水平位置", stickerVerticalPosition: "垂直位置", stickerScale: "缩放", stickerRotation: "旋转", stickerOpacity: "不透明度", deleteSticker: "删除贴纸", stickerAddedToTrack: "贴纸已添加到贴纸轨" },
+  en: { stickerProperties: "Sticker properties", stickerHorizontalPosition: "Horizontal position", stickerVerticalPosition: "Vertical position", stickerScale: "Scale", stickerRotation: "Rotation", stickerOpacity: "Opacity", deleteSticker: "Delete sticker", stickerAddedToTrack: "Sticker added to the sticker track" },
+  ja: { stickerProperties: "ステッカーのプロパティ", stickerHorizontalPosition: "水平位置", stickerVerticalPosition: "垂直位置", stickerScale: "拡大率", stickerRotation: "回転", stickerOpacity: "不透明度", deleteSticker: "ステッカーを削除", stickerAddedToTrack: "ステッカートラックに追加しました" },
+  ko: { stickerProperties: "스티커 속성", stickerHorizontalPosition: "가로 위치", stickerVerticalPosition: "세로 위치", stickerScale: "크기", stickerRotation: "회전", stickerOpacity: "불투명도", deleteSticker: "스티커 삭제", stickerAddedToTrack: "스티커 트랙에 추가됨" },
+  es: { stickerProperties: "Propiedades del sticker", stickerHorizontalPosition: "Posición horizontal", stickerVerticalPosition: "Posición vertical", stickerScale: "Escala", stickerRotation: "Rotación", stickerOpacity: "Opacidad", deleteSticker: "Eliminar sticker", stickerAddedToTrack: "Sticker añadido a la pista" },
+  fr: { stickerProperties: "Propriétés du sticker", stickerHorizontalPosition: "Position horizontale", stickerVerticalPosition: "Position verticale", stickerScale: "Échelle", stickerRotation: "Rotation", stickerOpacity: "Opacité", deleteSticker: "Supprimer le sticker", stickerAddedToTrack: "Sticker ajouté à la piste" },
+  de: { stickerProperties: "Sticker-Eigenschaften", stickerHorizontalPosition: "Horizontale Position", stickerVerticalPosition: "Vertikale Position", stickerScale: "Skalierung", stickerRotation: "Drehung", stickerOpacity: "Deckkraft", deleteSticker: "Sticker löschen", stickerAddedToTrack: "Sticker zur Spur hinzugefügt" },
+  pt: { stickerProperties: "Propriedades do sticker", stickerHorizontalPosition: "Posição horizontal", stickerVerticalPosition: "Posição vertical", stickerScale: "Escala", stickerRotation: "Rotação", stickerOpacity: "Opacidade", deleteSticker: "Excluir sticker", stickerAddedToTrack: "Sticker adicionado à faixa" },
+  th: { stickerProperties: "คุณสมบัติสติกเกอร์", stickerHorizontalPosition: "ตำแหน่งแนวนอน", stickerVerticalPosition: "ตำแหน่งแนวตั้ง", stickerScale: "ขนาด", stickerRotation: "การหมุน", stickerOpacity: "ความทึบ", deleteSticker: "ลบสติกเกอร์", stickerAddedToTrack: "เพิ่มสติกเกอร์ลงในแทร็กแล้ว" },
+  vi: { stickerProperties: "Thuộc tính nhãn dán", stickerHorizontalPosition: "Vị trí ngang", stickerVerticalPosition: "Vị trí dọc", stickerScale: "Tỷ lệ", stickerRotation: "Xoay", stickerOpacity: "Độ mờ", deleteSticker: "Xóa nhãn dán", stickerAddedToTrack: "Đã thêm nhãn dán vào rãnh" },
+};
+
 export const UI_COPY = {
   zh: {
     ...VISUAL_EDITOR_COPY.zh,
+    ...VISUAL_ANIMATION_COPY.zh,
+    ...STICKER_EDITOR_COPY.zh,
     ...VISUAL_PANEL_TITLE_COPY.zh,
     ...VISUAL_MASK_SHAPE_COPY.zh,
     ...VISUAL_KEYFRAME_ACTION_COPY.zh,
@@ -570,6 +598,8 @@ export const UI_COPY = {
   },
   en: {
     ...VISUAL_EDITOR_COPY.en,
+    ...VISUAL_ANIMATION_COPY.en,
+    ...STICKER_EDITOR_COPY.en,
     ...VISUAL_PANEL_TITLE_COPY.en,
     ...VISUAL_MASK_SHAPE_COPY.en,
     ...VISUAL_KEYFRAME_ACTION_COPY.en,
@@ -938,6 +968,8 @@ export const UI_COPY = {
   },
   ja: {
     ...VISUAL_EDITOR_COPY.ja,
+    ...VISUAL_ANIMATION_COPY.ja,
+    ...STICKER_EDITOR_COPY.ja,
     ...VISUAL_PANEL_TITLE_COPY.ja,
     ...VISUAL_MASK_SHAPE_COPY.ja,
     ...VISUAL_KEYFRAME_ACTION_COPY.ja,
@@ -1015,6 +1047,8 @@ export const UI_COPY = {
 Object.assign(UI_COPY, {
   ko: {
     ...VISUAL_EDITOR_COPY.ko,
+    ...VISUAL_ANIMATION_COPY.ko,
+    ...STICKER_EDITOR_COPY.ko,
     ...VISUAL_PANEL_TITLE_COPY.ko,
     ...VISUAL_MASK_SHAPE_COPY.ko,
     ...VISUAL_KEYFRAME_ACTION_COPY.ko,
@@ -1074,6 +1108,8 @@ Object.assign(UI_COPY, {
   es: {
     ...UI_COPY.en,
     ...VISUAL_EDITOR_COPY.es,
+    ...VISUAL_ANIMATION_COPY.es,
+    ...STICKER_EDITOR_COPY.es,
     ...VISUAL_PANEL_TITLE_COPY.es,
     ...VISUAL_MASK_SHAPE_COPY.es,
     ...VISUAL_KEYFRAME_ACTION_COPY.es,
@@ -1130,6 +1166,8 @@ Object.assign(UI_COPY, {
   fr: {
     ...UI_COPY.en,
     ...VISUAL_EDITOR_COPY.fr,
+    ...VISUAL_ANIMATION_COPY.fr,
+    ...STICKER_EDITOR_COPY.fr,
     ...VISUAL_PANEL_TITLE_COPY.fr,
     ...VISUAL_MASK_SHAPE_COPY.fr,
     ...VISUAL_KEYFRAME_ACTION_COPY.fr,
@@ -1186,6 +1224,8 @@ Object.assign(UI_COPY, {
   de: {
     ...UI_COPY.en,
     ...VISUAL_EDITOR_COPY.de,
+    ...VISUAL_ANIMATION_COPY.de,
+    ...STICKER_EDITOR_COPY.de,
     ...VISUAL_PANEL_TITLE_COPY.de,
     ...VISUAL_MASK_SHAPE_COPY.de,
     ...VISUAL_KEYFRAME_ACTION_COPY.de,
@@ -1242,6 +1282,8 @@ Object.assign(UI_COPY, {
   pt: {
     ...UI_COPY.en,
     ...VISUAL_EDITOR_COPY.pt,
+    ...VISUAL_ANIMATION_COPY.pt,
+    ...STICKER_EDITOR_COPY.pt,
     ...VISUAL_PANEL_TITLE_COPY.pt,
     ...VISUAL_MASK_SHAPE_COPY.pt,
     ...VISUAL_KEYFRAME_ACTION_COPY.pt,
@@ -1298,6 +1340,8 @@ Object.assign(UI_COPY, {
   th: {
     ...UI_COPY.en,
     ...VISUAL_EDITOR_COPY.th,
+    ...VISUAL_ANIMATION_COPY.th,
+    ...STICKER_EDITOR_COPY.th,
     ...VISUAL_PANEL_TITLE_COPY.th,
     ...VISUAL_MASK_SHAPE_COPY.th,
     ...VISUAL_KEYFRAME_ACTION_COPY.th,
@@ -1354,6 +1398,8 @@ Object.assign(UI_COPY, {
   vi: {
     ...UI_COPY.en,
     ...VISUAL_EDITOR_COPY.vi,
+    ...VISUAL_ANIMATION_COPY.vi,
+    ...STICKER_EDITOR_COPY.vi,
     ...VISUAL_PANEL_TITLE_COPY.vi,
     ...VISUAL_MASK_SHAPE_COPY.vi,
     ...VISUAL_KEYFRAME_ACTION_COPY.vi,

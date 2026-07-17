@@ -187,7 +187,7 @@ export function App() {
 
   const {
     activePreviewFilter, audioBlob, audioDuration, audioUrl, canPreview, captionDuration,
-    captionTargetDuration, captionTimeline, currentCaption, currentCaptionSegment,
+    captionTargetDuration, captionTimeline, currentCaption, currentCaptions, currentCaptionSegment,
     currentSegmentIndex, currentStickerSegment, currentStickerSegmentIndex,
     currentVisualRange, currentVisualSegment, currentVisualSegmentIndex, estimatedDuration,
     focusedSegmentIndex, getStickerDragAsset, peaks, previewSticker, previewStickers, previewTransition,
@@ -753,6 +753,7 @@ export function App() {
           setFitMode={setFitModeFromUser}
           captionsEnabled={captionsEnabled}
           currentCaption={currentCaption}
+          currentCaptions={currentCaptions}
           captionSize={captionSize}
           captionStyle={captionStyle}
           captionPlacement={effectiveCaptionPlacement}

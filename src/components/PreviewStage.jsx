@@ -45,6 +45,7 @@ export function PreviewStage({
   setFitMode,
   captionsEnabled,
   currentCaption,
+  currentCaptions = null,
   captionSize,
   captionStyle,
   captionPlacement,
@@ -320,17 +321,27 @@ export function PreviewStage({
                 <span>{t("visualMask")}</span><button type="button" aria-label={t("visualMaskResize")} onPointerDown={(event) => startMaskEdit(event, "resize")} />
               </div>
             ) : null}
-            {captionsEnabled && trackVisibility.caption && currentCaption ? (
-              <CaptionOverlay
-                text={currentCaption}
-                captionSize={captionSize}
-                captionStyle={captionStyle}
-                placement={captionPlacement}
-                frameSize={previewFrameSize}
-                onPointerDown={startCaptionDrag}
-                onDoubleClick={() => setActiveTool("caption")}
-              />
-            ) : null}
+            {captionsEnabled && trackVisibility.caption
+              ? (Array.isArray(currentCaptions) ? currentCaptions : currentCaption ? [{ id: "current", text: currentCaption }] : [])
+                .map((caption, index, visibleCaptions) => {
+                  const basePlacement = caption.placement || captionPlacement;
+                  return (
+                    <CaptionOverlay
+                      key={caption.id}
+                      text={caption.text}
+                      captionSize={captionSize}
+                      captionStyle={captionStyle}
+                      placement={{
+                        ...basePlacement,
+                        y: basePlacement.y + (caption.placement ? 0 : (index - (visibleCaptions.length - 1) / 2) * 12),
+                      }}
+                      frameSize={previewFrameSize}
+                      onPointerDown={(event) => startCaptionDrag(event, caption.id)}
+                      onDoubleClick={() => setActiveTool("caption")}
+                    />
+                  );
+                })
+              : null}
             {visibleStickers.map((sticker, index) => {
               const isEditable = stickerEditable && sticker.id === selectedStickerId;
               return sticker.src ? (

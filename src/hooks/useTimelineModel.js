@@ -17,6 +17,7 @@ import {
   getTimedSegmentsEnd,
   getVisualSegmentIndexAtTime,
   getVisualSegmentTimeline,
+  packCaptionSegmentsIntoLanes,
 } from "../lib/timeline.js";
 import { getVisionKey } from "../lib/vision.js";
 import { getVisualSourceTime } from "../lib/visualEffects.js";
@@ -118,6 +119,23 @@ export function useTimelineModel(d) {
   const currentCaption = currentCaptionSegment && !currentCaptionSegment.hidden
     ? currentCaptionSegment.text
     : "";
+  const currentCaptions = useMemo(() => {
+    if (!d.trackVisibility.caption) return [];
+    return packCaptionSegmentsIntoLanes(d.captionSegments, captionTimeline)
+      .map((lane, laneIndex) => {
+        if ((d.trackVisibility[`caption-${laneIndex}`] ?? true) === false) return null;
+        const item = lane.find(({ segment, range }) => (
+          !segment.hidden && range && d.currentTime >= range.start && d.currentTime < range.end
+        ));
+        return item ? {
+          id: item.segment.id,
+          text: item.segment.text,
+          placement: item.segment.placement,
+          laneIndex,
+        } : null;
+      })
+      .filter(Boolean);
+  }, [captionTimeline, d.captionSegments, d.currentTime, d.trackVisibility]);
   const currentStickerSegmentIndex = getTimedSegmentIndexAtTime(d.stickerSegments, d.currentTime);
   const currentStickerSegment = currentStickerSegmentIndex >= 0
     ? d.stickerSegments[currentStickerSegmentIndex] ?? null
@@ -203,7 +221,7 @@ export function useTimelineModel(d) {
   return {
     activePreviewFilter, audioBlob, audioDuration, audioUrl, canPreview:
       hasPlayableVisualTimeline || hasPlayableAudioTimeline,
-    captionDuration, captionTargetDuration, captionTimeline, currentCaption,
+    captionDuration, captionTargetDuration, captionTimeline, currentCaption, currentCaptions,
     currentCaptionSegment, currentSegmentIndex, currentStickerSegment,
     currentStickerSegmentIndex, currentVisualRange, currentVisualSegment,
     currentVisualSegmentIndex, estimatedDuration, focusedSegmentIndex, getStickerDragAsset,

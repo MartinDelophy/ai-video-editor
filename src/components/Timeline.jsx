@@ -6,6 +6,7 @@ import {
   ArrowsOutLineHorizontal,
   CopySimple,
   Crop,
+  CircleNotch,
   Eye,
   EyeSlash,
   LockKey,
@@ -27,7 +28,7 @@ import {
 } from "@phosphor-icons/react";
 
 import { IMAGE_SEGMENT_SECONDS, MAX_IMAGE_THUMBNAILS, TRANSITIONS } from "../config/editor.js";
-import { formatClock, formatTime, getSegmentStartTime, packTimedSegmentsIntoLanes } from "../lib/timeline.js";
+import { formatClock, formatTime, getSegmentStartTime, packCaptionSegmentsIntoLanes, packTimedSegmentsIntoLanes } from "../lib/timeline.js";
 import { sliceSourceAudioPeaks } from "../lib/sourceAudioSync.js";
 import {
   clampTimelineZoom,
@@ -51,22 +52,6 @@ const TIMELINE_WHEEL_ZOOM_CONTENT_SELECTOR = [
   ".sticker-segment",
   ".audio-clip",
 ].join(", ");
-
-function packCaptionSegmentsIntoLanes(segments, timeline) {
-  const lanes = [];
-  segments
-    .map((segment, index) => ({ segment, index, range: timeline[index] }))
-    .sort((a, b) => (a.range?.start || 0) - (b.range?.start || 0))
-    .forEach((item) => {
-      const laneIndex = lanes.findIndex((lane) => {
-        const last = lane.at(-1);
-        return !last || (last.range?.end || 0) <= (item.range?.start || 0) + 0.001;
-      });
-      if (laneIndex >= 0) lanes[laneIndex].push(item);
-      else lanes.push([item]);
-    });
-  return lanes.length ? lanes : [[]];
-}
 
 function getSampledVideoFrames(frames, count) {
   if (!Array.isArray(frames) || !frames.length) {
@@ -256,7 +241,7 @@ export function Timeline({
   const timelineTrackLabels = [
     ["image", t("imageTrack")],
     ...(showStickerTrack ? stickerLanes.map((_, index) => ["sticker", `${t("stickerTrack")} ${index + 1}`, `sticker-${index}`]) : []),
-    ...captionLanes.map((_, index) => ["caption", `${t("caption")} ${index + 1}`, `caption-${index}`]),
+    ...captionLanes.map((_, index) => ["caption", `${t("caption")} ${index + 1}`, `caption-${index}`, `caption-${index}`]),
     ["source", t("sourceTrack")],
     ...audioLanes.map((_, index) => ["audio", `${t("voiceTrack")} ${index + 1}`, `audio-${index}`]),
     ["music", t("musicTrack")],
@@ -270,6 +255,7 @@ export function Timeline({
     contentWidth: 0,
   });
   const [contextMenu, setContextMenu] = useState(null);
+  const [imageCaptionPendingId, setImageCaptionPendingId] = useState("");
   const contextImageSegment = contextMenu?.track === "image" && contextMenu.segmentId
     ? displayedVisualSegments.find((segment) => segment.id === contextMenu.segmentId)
     : null;
@@ -289,7 +275,7 @@ export function Timeline({
     if (track === "source" && segmentId) setSelectedSourceAudioSegmentId(segmentId);
     if (track === "music" && segmentId) setMusicClipSelected(true);
   };
-  const showTrackContextMenu = (event, track, segmentId = "") => {
+  const showTrackContextMenu = (event, track, segmentId = "", visibilityKey = track) => {
     event.preventDefault(); event.stopPropagation();
     selectContextTarget(track, segmentId);
     const trackRect = trackScrollRef.current?.getBoundingClientRect();
@@ -299,12 +285,22 @@ export function Timeline({
     setContextMenu({
       x: Math.max(10, Math.min(window.innerWidth - 234, event.clientX)),
       y: Math.max(10, Math.min(window.innerHeight - 258, event.clientY)),
-      track, segmentId, targetTime, kind: segmentId ? "clip" : "track",
+      track, visibilityKey, segmentId, targetTime, kind: segmentId ? "clip" : "track",
     });
   };
   const runContextAction = (action) => {
     setContextMenu(null);
     window.requestAnimationFrame(action);
+  };
+  const runImageCaptionAction = async (segment) => {
+    if (!segment || imageCaptionPendingId) return;
+    setImageCaptionPendingId(segment.id);
+    try {
+      await generateImageCaption?.(segment);
+      setContextMenu(null);
+    } finally {
+      setImageCaptionPendingId("");
+    }
   };
   useEffect(() => {
     if (!contextMenu) return undefined;
@@ -742,23 +738,23 @@ export function Timeline({
 
       <div className="timeline-board">
         <div className="track-labels" style={{ gridTemplateRows: timelineLabelRows }}>
-          {timelineTrackLabels.map(([track, label, rowId = track]) => (
+          {timelineTrackLabels.map(([track, label, rowId = track, visibilityKey = track]) => (
             <div
               className={`${selectedTrack === track ? "is-selected" : ""} ${
-                !isRowVisible(track) ? "is-track-disabled" : ""
+                !isRowVisible(visibilityKey) ? "is-track-disabled" : ""
               }`}
               key={rowId}
-              onContextMenu={(event) => showTrackContextMenu(event, track)}
+              onContextMenu={(event) => showTrackContextMenu(event, track, "", visibilityKey)}
             >
               <button
                 type="button"
                 aria-label={`${label} ${t("visible")}`}
                 onClick={(event) => {
                   event.stopPropagation();
-                  toggleTrackVisibility(track);
+                  toggleTrackVisibility(visibilityKey);
                 }}
               >
-                {isRowVisible(track) ? <Eye size={15} /> : <EyeSlash size={15} />}
+                {isRowVisible(visibilityKey) ? <Eye size={15} /> : <EyeSlash size={15} />}
               </button>
               <button
                 type="button"
@@ -998,7 +994,7 @@ export function Timeline({
             {captionLanes.map((lane, laneIndex) => (
               <div
                 className={`caption-track ${selectedTrack === "caption" ? "is-selected" : ""} ${
-                  !isRowVisible("caption") ? "is-track-disabled" : ""
+                  !isRowVisible(`caption-${laneIndex}`) ? "is-track-disabled" : ""
                 } ${
                   activeTimelineClipDrag?.track === "caption" ? "is-reordering" : ""
                 }`}
@@ -1008,7 +1004,7 @@ export function Timeline({
                   setActiveTool("caption");
                 }}
                 data-timeline-reorder-track="caption"
-                onContextMenu={(event) => showTrackContextMenu(event, "caption")}
+                onContextMenu={(event) => showTrackContextMenu(event, "caption", "", `caption-${laneIndex}`)}
               >
                 {lane.map(({ segment, index, range: segmentRange }) => {
                     const segmentDuration = segmentRange?.duration ?? 0;
@@ -1047,7 +1043,7 @@ export function Timeline({
                           "--caption-width": `${segmentWidth}%`,
                         }}
                         onPointerDown={(event) => startTimelineClipDrag(event, "caption", segment.id, index)}
-                        onContextMenu={(event) => showTrackContextMenu(event, "caption", segment.id)}
+                        onContextMenu={(event) => showTrackContextMenu(event, "caption", segment.id, `caption-${laneIndex}`)}
                         onClick={(event) => {
                           event.stopPropagation();
                           if (suppressTimelineClipClickRef.current === segment.id) {
@@ -1251,8 +1247,9 @@ export function Timeline({
                 })}><Waveform size={16} />{t("aiVoice")}</button>
               ) : null}
               {contextMenu.track === "image" && builtInImageCaptionAvailable && contextImageSegment && contextImageSegment.type !== "video" ? (
-                <button type="button" role="menuitem" onClick={() => runContextAction(() => generateImageCaption?.(contextImageSegment))}>
-                  <Sparkle size={16} />{t("generateImageAiCaption")}
+                <button className={imageCaptionPendingId === contextImageSegment.id ? "is-loading" : ""} type="button" role="menuitem" disabled={Boolean(imageCaptionPendingId)} onClick={() => runImageCaptionAction(contextImageSegment)}>
+                  {imageCaptionPendingId === contextImageSegment.id ? <CircleNotch size={14} /> : <Sparkle size={14} />}
+                  {t(imageCaptionPendingId === contextImageSegment.id ? "generatingImageAiCaption" : "generateImageAiCaption")}
                 </button>
               ) : null}
               <button type="button" role="menuitem" onClick={() => runContextAction(handleCutTrack)}><Scissors size={16} />{t("splitAtPlayhead")}</button>
@@ -1263,7 +1260,7 @@ export function Timeline({
           ) : (
             <>
               {["image", "caption"].includes(contextMenu.track) ? <button type="button" role="menuitem" onClick={() => runContextAction(() => handleAddSegment(contextMenu.targetTime))}><PlusCircle size={16} />{t("addClip")}</button> : null}
-              <button type="button" role="menuitem" onClick={() => runContextAction(() => toggleTrackVisibility(contextMenu.track))}>{trackVisibility[contextMenu.track] ? <EyeSlash size={16} /> : <Eye size={16} />}{t(trackVisibility[contextMenu.track] ? "hideTrack" : "showTrack")}</button>
+              <button type="button" role="menuitem" onClick={() => runContextAction(() => toggleTrackVisibility(contextMenu.visibilityKey || contextMenu.track))}>{isRowVisible(contextMenu.visibilityKey || contextMenu.track) ? <EyeSlash size={16} /> : <Eye size={16} />}{t(isRowVisible(contextMenu.visibilityKey || contextMenu.track) ? "hideTrack" : "showTrack")}</button>
               <button type="button" role="menuitem" onClick={() => runContextAction(() => toggleTrackLock(contextMenu.track))}>{trackLocks[contextMenu.track] ? <LockKeyOpen size={16} /> : <LockKey size={16} />}{t(trackLocks[contextMenu.track] ? "unlockTrack" : "lockTrack")}</button>
             </>
           )}

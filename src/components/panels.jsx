@@ -28,7 +28,6 @@ import {
   STICKERS,
   STICKER_CATEGORIES,
   STICKER_PAGE_SIZE,
-  TRANSITIONS,
   VOICES,
 } from "../config/editor.js";
 import { APP_LANGUAGES } from "../i18n.js";
@@ -506,23 +505,6 @@ export function ToolPanel(props) {
           </button>
         </div>
       </div>
-    );
-  }
-
-  if (activeTool === "transition") {
-    return (
-      <VisualChoicePanel
-        title={t("transition")}
-        kind="transition"
-        options={TRANSITIONS}
-        selectedId={selectedTransitionId}
-        trOption={trOption}
-        sourceAudioLinked={sourceAudioLinked}
-        onSelect={(id) => {
-          setSelectedTransitionId(id);
-          notify(t("transitionApplied"));
-        }}
-      />
     );
   }
 

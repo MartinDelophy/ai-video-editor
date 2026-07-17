@@ -5,6 +5,7 @@ import {
   FrameCorners,
   Pause,
   Play,
+  Resize,
   SkipBack,
   SkipForward,
 } from "@phosphor-icons/react";
@@ -25,6 +26,7 @@ export function PreviewStage({
   previewVisualRenderSrc,
   previewVisionMaskUrl = "",
   previewVisualType,
+  previewTransition = null,
   previewRatio,
   previewFrameStyle,
   previewFrameSize,
@@ -275,6 +277,16 @@ export function PreviewStage({
                 /> : null}
               </div>
             ) : null}
+            {previewTransition?.next?.src && trackVisibility.image ? (
+              <div className={`preview-transition-layer type-${previewTransition.id}`} style={{ "--transition-progress": previewTransition.progress }}>
+                {previewTransition.next.type === "video" ? (
+                  <video src={previewTransition.next.src} muted playsInline autoPlay preload="auto" style={{ objectFit: activeObjectFit, objectPosition: activeObjectPosition }} />
+                ) : (
+                  <img src={previewTransition.next.src} alt="" style={{ objectFit: activeObjectFit, objectPosition: activeObjectPosition }} />
+                )}
+                {previewTransition.id === "flash" ? <i /> : null}
+              </div>
+            ) : null}
             {showVisionOverlays
               ? visionOverlayBoxes.map((detection, index) => (
                   <div
@@ -334,7 +346,9 @@ export function PreviewStage({
                   <img className="sticker-overlay-image" src={sticker.src} alt="" draggable={false} />
                   {isEditable ? <>
                     <button className="sticker-rotate-handle" type="button" aria-label={t("visualRotation", "旋转")} onPointerDown={(event) => startStickerTransform(event, "rotate", sticker)} />
-                    <button className="sticker-scale-handle" type="button" aria-label={t("visualScale", "缩放")} onPointerDown={(event) => startStickerTransform(event, "scale", sticker)} />
+                    <button className="sticker-scale-handle" type="button" aria-label={t("visualScale", "缩放")} onPointerDown={(event) => startStickerTransform(event, "scale", sticker)}>
+                      <Resize size={12} weight="bold" aria-hidden="true" />
+                    </button>
                   </> : null}
                 </div>
               ) : sticker.text ? (

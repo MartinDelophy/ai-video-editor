@@ -25,7 +25,7 @@ import {
   Waveform,
 } from "@phosphor-icons/react";
 
-import { IMAGE_SEGMENT_SECONDS, MAX_IMAGE_THUMBNAILS } from "../config/editor.js";
+import { IMAGE_SEGMENT_SECONDS, MAX_IMAGE_THUMBNAILS, TRANSITIONS } from "../config/editor.js";
 import { formatClock, formatTime, getSegmentStartTime, packTimedSegmentsIntoLanes } from "../lib/timeline.js";
 import { sliceSourceAudioPeaks } from "../lib/sourceAudioSync.js";
 import {
@@ -163,6 +163,7 @@ export function Timeline({
   setSelectedStickerSegmentId,
   imageSrc,
   displayedVisualSegments,
+  setVisualSegments,
   renderedVisualTimeline,
   visualType,
   currentVisualSegment,
@@ -205,6 +206,13 @@ export function Timeline({
   musicDuration,
   startMusicMove,
 }) {
+  const [transitionEditor, setTransitionEditor] = useState(null);
+
+  const updateJunctionTransition = (index, patch) => {
+    setVisualSegments((items) => items.map((item, itemIndex) => itemIndex === index
+      ? { ...item, transition: { id: item.transition?.id || "none", duration: item.transition?.duration || 0.5, ...patch } }
+      : item));
+  };
   const draggingVisualSegment =
     activeTimelineClipDrag?.track === "image"
       ? displayedVisualSegments.find((segment) => segment.id === activeTimelineClipDrag.segmentId)
@@ -937,6 +945,26 @@ export function Timeline({
                     );
                   })
                 : null}
+              {displayedVisualSegments.slice(0, -1).map((segment, index) => {
+                const range = renderedVisualTimeline[index];
+                const transition = segment.transition || { id: "none", duration: 0.5 };
+                return (
+                  <button
+                    className={`visual-junction ${transition.id !== "none" ? "has-transition" : ""}`}
+                    key={`junction-${segment.id}`}
+                    type="button"
+                    aria-label={`转场：${TRANSITIONS.find((item) => item.id === transition.id)?.name || "无转场"}`}
+                    title="设置转场"
+                    style={{ left: `${((range?.end || 0) / Math.max(0.01, timelineDuration)) * 100}%` }}
+                    onPointerDown={(event) => event.stopPropagation()}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      const rect = event.currentTarget.getBoundingClientRect();
+                      setTransitionEditor({ index, x: rect.left + rect.width / 2, y: rect.top });
+                    }}
+                  ><span>◇</span></button>
+                );
+              })}
               {renderAssetDropSlot("image")}
             </div>
             {showStickerTrack ? stickerLanes.map((lane, laneIndex) => renderStickerTrack(lane, laneIndex)) : null}
@@ -1189,6 +1217,27 @@ export function Timeline({
           )}
         </div>
       ) : null}
+      {transitionEditor ? (() => {
+        const segment = displayedVisualSegments[transitionEditor.index];
+        const transition = segment?.transition || { id: "none", duration: 0.5 };
+        const maxDuration = Math.max(0.1, Math.min(2, (segment?.duration || 0.5) / 2, (displayedVisualSegments[transitionEditor.index + 1]?.duration || 0.5) / 2));
+        return (
+          <div className="transition-popover" role="dialog" aria-label="转场设置" style={{ left: transitionEditor.x, top: transitionEditor.y }} onPointerDown={(event) => event.stopPropagation()}>
+            <div className="transition-popover-head"><strong>转场</strong><button type="button" onClick={() => setTransitionEditor(null)} aria-label="关闭">×</button></div>
+            <div className="transition-presets">
+              {TRANSITIONS.map((option) => (
+                <button type="button" className={transition.id === option.id ? "is-selected" : ""} key={option.id} onClick={() => updateJunctionTransition(transitionEditor.index, { id: option.id })}>
+                  <i className={`transition-preview preview-${option.id}`} /><span>{option.name}</span>
+                </button>
+              ))}
+            </div>
+            <label className="transition-duration-control">
+              <span><b>时长</b><em>{Math.min(maxDuration, transition.duration || 0.5).toFixed(1)}s</em></span>
+              <input type="range" min="0.1" max={maxDuration} step="0.1" value={Math.min(maxDuration, transition.duration || 0.5)} disabled={transition.id === "none"} onChange={(event) => updateJunctionTransition(transitionEditor.index, { duration: Number(event.target.value) })} />
+            </label>
+          </div>
+        );
+      })() : null}
     </section>
   );
 }

@@ -199,7 +199,7 @@ export function App() {
     captionTargetDuration, captionTimeline, currentCaption, currentCaptionSegment,
     currentSegmentIndex, currentStickerSegment, currentStickerSegmentIndex,
     currentVisualRange, currentVisualSegment, currentVisualSegmentIndex, estimatedDuration,
-    focusedSegmentIndex, getStickerDragAsset, peaks, previewSticker, previewStickers,
+    focusedSegmentIndex, getStickerDragAsset, peaks, previewSticker, previewStickers, previewTransition,
     previewVisionBaseAnalysis, previewVisionKey, previewVisionRecord, previewVisualLocalTime,
     previewVisualRange, previewVisualSegment, previewVisualSegmentIndex,
     previewVisualSourceTime, previewVisualSrc, previewVisualType, ratio, segments,
@@ -723,6 +723,7 @@ export function App() {
           previewVisualRenderSrc={previewVisualRenderSrc}
           previewVisionMaskUrl={previewVisionMaskUrl}
           previewVisualType={previewVisualType}
+          previewTransition={previewTransition}
           visualEffects={visualAnimationPreview?.segmentId && visualAnimationPreview.segmentId === previewVisualSegment?.id
             ? { ...previewVisualSegment, animation: visualAnimationPreview.animation }
             : previewVisualSegment}
@@ -908,6 +909,7 @@ export function App() {
         setSelectedStickerSegmentId={setSelectedStickerSegmentId}
         imageSrc={imageSrc}
         displayedVisualSegments={displayedVisualSegments}
+        setVisualSegments={setVisualSegments}
         renderedVisualTimeline={renderedVisualTimeline}
         visualType={visualType}
         currentVisualSegment={currentVisualSegment}

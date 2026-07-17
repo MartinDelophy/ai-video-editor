@@ -18,7 +18,7 @@ export function getLinkedSourceAudioSegments(visualSegments = [], sourceAudioAss
   const timeline = getVisualSegmentTimeline(visualSegments);
   const maximumSourceTime = Math.max(0, Number(sourceAudioDuration) || 0);
   return visualSegments.flatMap((segment, index) => {
-    if (segment.type !== "video" || (!hasMappedOffsets && segment.assetId !== linkedAssetId)) return [];
+    if (segment.type !== "video" || segment.sourceAudioDisabled || (!hasMappedOffsets && segment.assetId !== linkedAssetId)) return [];
     const range = timeline[index];
     const playbackRate = normalizeVisualPlaybackRate(segment.playbackRate);
     const sourceStart = Math.max(0, Number(segment.sourceAudioOffset) || 0) + Math.max(0, Number(segment.sourceStart) || 0);

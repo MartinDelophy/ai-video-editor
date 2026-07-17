@@ -11,6 +11,7 @@ describe("visual animation translations", () => {
       expect(t("stickerProperties")).not.toBe("stickerProperties");
       expect(t("stickerOpacity")).not.toBe("stickerOpacity");
       expect(t("deleteSticker")).not.toBe("deleteSticker");
+      expect(t("newCaptionDefault")).not.toBe("newCaptionDefault");
     }
   });
 });

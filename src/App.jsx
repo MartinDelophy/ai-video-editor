@@ -20,6 +20,7 @@ import { useVideoExport } from "./hooks/useVideoExport.js";
 import { useVoiceRecorder } from "./hooks/useVoiceRecorder.js";
 import { useVoiceGeneration } from "./hooks/useVoiceGeneration.js";
 import { useAutoCaptions } from "./hooks/useAutoCaptions.js";
+import { useAutoEdit } from "./hooks/useAutoEdit.js";
 import { useSourceAudioExtraction } from "./hooks/useSourceAudioExtraction.js";
 import { useVocalSeparation } from "./hooks/useVocalSeparation.js";
 import { useAvatarGeneration } from "./hooks/useAvatarGeneration.js";
@@ -76,6 +77,7 @@ export function App() {
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [exportSettings, setExportSettings] = useState({ resolution: "1080", frameRate: 30, codec: "h264", quality: "high" });
   const [captionVoiceFocusRequest, setCaptionVoiceFocusRequest] = useState(0);
+  const [selectedSourceAudioSegmentId, setSelectedSourceAudioSegmentId] = useState("");
   const timelineImportRestoreRef = useRef(false);
   const [introClosing, setIntroClosing] = useState(false);
   const {
@@ -349,6 +351,10 @@ export function App() {
     setScript, setSelectedSegmentId, setSelectedTrack,
     setVisionRecords, trackLocks,
   });
+  const autoEdit = useAutoEdit({
+    language: activeLanguage, visualSegments, commitCaptionSegments, setCaptionsEnabled,
+    setSelectedSegmentId, setSelectedTrack, notify, t,
+  });
   const {
     clearAudioTrack, clearMusicTrack, clearSourceAudioTrack, commitAudio,
     replaceAudio, replaceMusic, replaceSourceAudio,
@@ -475,7 +481,8 @@ export function App() {
     selectedSegmentIndex, selectedStickerSegmentId, selectedTrack,
     selectedVisualSegmentId, selectedVisualSegmentIndex, setAudioSegments,
     setCaptionSegments, setSelectedAudioSegmentId, setUserAssets, sourceAudioBlob,
-    sourceAudioName, stickerSegments, t, trackLocks, visualSegments, visualType,
+    sourceAudioLinked, sourceAudioName, selectedSourceAudioSegmentId,
+    setSelectedSourceAudioSegmentId, stickerSegments, t, trackLocks, visualSegments, visualType,
   });
 
   useEditorLifecycle({
@@ -840,6 +847,7 @@ export function App() {
           automaticCaptionProgress={status === "captioning" ? progress : 0}
           avatarPanelOpen={avatarPanelOpen}
           smartMode={smartMode}
+          autoEdit={autoEdit}
           uiLanguage={activeLanguage}
           visionAnalysis={previewVisionAnalysis}
           visionOptions={previewVisionOptions}
@@ -949,6 +957,8 @@ export function App() {
         sourceAudioClipPercent={sourceAudioClipPercent}
         sourceAudioStartPercent={sourceAudioStartPercent}
         sourceAudioDuration={sourceAudioDuration}
+        selectedSourceAudioSegmentId={selectedSourceAudioSegmentId}
+        setSelectedSourceAudioSegmentId={setSelectedSourceAudioSegmentId}
         audioBlob={audioBlob}
         peaks={peaks}
         audioClipPercent={audioClipPercent}

@@ -10,11 +10,13 @@ import {
   Crop,
   Diamond,
   DownloadSimple,
+  FrameCorners,
   MicrophoneStage,
   MusicNote,
   Pause,
   PersonSimpleRun,
   Scan,
+  Scissors,
   SelectionBackground,
   Target,
   Trash,
@@ -268,6 +270,8 @@ export function ToolPanel(props) {
     clearVisionAnalysis,
     downloadVisionCutout,
     openAvatarPanel,
+    smartMode,
+    setSmartMode,
     musicBlob,
     musicName,
     musicDuration,
@@ -344,22 +348,22 @@ export function ToolPanel(props) {
 
   if (activeTool === "smart") {
     return (
-      <SmartVisionPanel
-        t={t}
-        language={uiLanguage}
-        hasVisual={hasVisual}
-        visualType={visualType}
-        analysis={visionAnalysis}
-        options={visionOptions}
-        running={visionRunning}
-        progress={visionProgress}
-        phase={visionPhase}
-        onAnalyze={analyzeCurrentVisual}
-        onToggle={toggleVisionOption}
-        onClear={clearVisionAnalysis}
-        onDownloadCutout={downloadVisionCutout}
-        onOpenAvatarPanel={openAvatarPanel}
-      />
+      <div className="tool-panel smart-hub-panel">
+        <div className="smart-hub-grid" role="tablist" aria-label={t("smartTools")}>
+          {[
+            ["auto-edit", Scissors, t("smartAutoEdit"), t("smartAutoEditHint")],
+            ["smart-frame", FrameCorners, t("smartFrame"), t("smartFrameHint")],
+            ["avatar", PersonSimpleRun, t("smartAvatar"), t("smartAvatarHint")],
+          ].map(([id, Icon, title, hint]) => (
+            <button className={smartMode === id ? "is-active" : ""} type="button" role="tab" aria-selected={smartMode === id} key={id} onClick={() => {
+              setSmartMode(id);
+              if (id === "avatar") openAvatarPanel();
+            }}>
+              <Icon size={24} weight="duotone" /><strong>{title}</strong><span>{hint}</span>
+            </button>
+          ))}
+        </div>
+      </div>
     );
   }
 
@@ -698,7 +702,7 @@ function getDisplaySubjectLabel(label, language) {
   return language === "zh" ? SUBJECT_LABELS_ZH[normalized.toLowerCase()] ?? normalized : normalized;
 }
 
-function SmartVisionPanel({
+export function SmartVisionPanel({
   t,
   language = "zh",
   hasVisual,
@@ -712,7 +716,6 @@ function SmartVisionPanel({
   onToggle,
   onClear,
   onDownloadCutout,
-  onOpenAvatarPanel,
 }) {
   const subject = analysis?.subject ?? null;
   const detections = Array.isArray(analysis?.detections) ? analysis.detections : [];
@@ -872,23 +875,6 @@ function SmartVisionPanel({
       </div>
 
       <p className="vision-model-note">{t("smartVisionImageOnly")}</p>
-
-      <section className="avatar-lab-card" aria-label={t("avatarTitle")}>
-        <div className="avatar-lab-heading">
-          <span className="avatar-lab-icon"><PersonSimpleRun size={18} weight="duotone" /></span>
-          <div><span>{t("avatarKicker")}</span><strong>{t("avatarTitle")}</strong></div>
-          <em className="is-ready">{t("avatarWebPort")}</em>
-        </div>
-        <p>{t("avatarDescription")}</p>
-        <div className="avatar-lab-requirements">
-          <span className={hasVisual && visualType === "image" ? "is-ready" : ""}>{t("avatarPortrait")}</span>
-          <span className="is-ready">{t("avatarWebgpu")}</span>
-          <span>{t("avatarAudio")}</span>
-        </div>
-        <button className="panel-primary avatar-open-button" type="button" onClick={onOpenAvatarPanel}>
-          <PersonSimpleRun size={16} />{t("avatarOpen")}
-        </button>
-      </section>
 
       {analysis ? (
         <div className="vision-result-actions">

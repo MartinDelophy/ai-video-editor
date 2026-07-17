@@ -6,6 +6,7 @@ import {
   ImageSquare,
   ListBullets,
   PersonSimpleRun,
+  Scissors,
   Trash,
   Waveform,
 } from "@phosphor-icons/react";
@@ -16,7 +17,7 @@ import { LIVE_PORTRAIT_WEB_MODEL } from "../config/livePortrait.js";
 import { probeLivePortraitWebEnvironment } from "../lib/livePortraitWeb.js";
 import { getCaptionVoiceSegment } from "../lib/captionVoice.js";
 import { normalizeVisualKeyframes } from "../lib/visualEffects.js";
-import { HistoryPanel, MyVoicesPanel, VisualEffectsPanel, VoiceSynthesisPanel } from "./panels.jsx";
+import { HistoryPanel, MyVoicesPanel, SmartVisionPanel, VisualEffectsPanel, VoiceSynthesisPanel } from "./panels.jsx";
 
 function CaptionContextPanel({
   t,
@@ -271,7 +272,6 @@ function AvatarContextPanel({ t, hasVisual, visualType, audioBlob, audioDuration
         <PersonSimpleRun size={17} weight="duotone" />
         {avatarJob?.running ? t("avatarGenerating") : t("avatarGenerate")}
       </button>
-      <div className="avatar-official-notice"><PersonSimpleRun size={17} weight="duotone" /><span><strong>{t("avatarPortingStatus")}</strong><em>{t("avatarServiceHint")}</em></span></div>
     </div>
   );
 }
@@ -338,6 +338,17 @@ export function VoicePanel({
   isGeneratingCaptions,
   automaticCaptionProgress,
   avatarPanelOpen,
+  smartMode = "auto-edit",
+  uiLanguage,
+  visionAnalysis,
+  visionOptions,
+  visionRunning,
+  visionProgress,
+  visionPhase,
+  analyzeCurrentVisual,
+  toggleVisionOption,
+  clearVisionAnalysis,
+  downloadVisionCutout,
   hasVisual,
   visualType,
   audioDuration,
@@ -363,13 +374,16 @@ export function VoicePanel({
   const [captionPanelTab, setCaptionPanelTab] = useState("caption");
   const panelRef = useRef(null);
   const isCaptionContext = activeTool === "caption";
-  const isAvatarContext = activeTool === "smart" && avatarPanelOpen;
+  const isSmartContext = activeTool === "smart";
+  const isAvatarContext = isSmartContext && smartMode === "avatar" && avatarPanelOpen;
+  const isSmartAutoContext = isSmartContext && smartMode === "auto-edit";
+  const isSmartFrameContext = isSmartContext && smartMode === "smart-frame";
   const isAudioClipContext = selectedTrack === "audio" && Boolean(selectedAudioSegment);
-  const isVisualContext = selectedTrack === "image";
+  const isVisualContext = !isSmartContext && selectedTrack === "image";
   const isStickerContext = selectedTrack === "sticker" && Boolean(selectedStickerSegment);
   const selectedCaptionAudioSegment = getCaptionVoiceSegment(audioSegments, selectedCaptionSegment);
-  const title = isStickerContext ? t("stickerProperties") : isVisualContext ? t("visualPanelTitle") : isAvatarContext ? t("avatarTitle") : isCaptionContext ? t("caption") : isAudioClipContext ? t("audioClipProperties") : t("aiVoice");
-  const panelStatusText = isCaptionContext
+  const title = isSmartAutoContext ? t("smartAutoEdit") : isSmartFrameContext ? t("smartFrame") : isAvatarContext ? t("avatarTitle") : isStickerContext ? t("stickerProperties") : isVisualContext ? t("visualPanelTitle") : isCaptionContext ? t("caption") : isAudioClipContext ? t("audioClipProperties") : t("aiVoice");
+  const panelStatusText = isSmartAutoContext ? t("smartComingSoon") : isSmartFrameContext ? (hasVisual ? t("smartVisualReady") : t("smartWaitingVisual")) : isCaptionContext
     ? captionSegments.length
       ? `${captionSegments.length} ${t("captionSegmentsUnit", "条字幕")}`
       : t("noCaptionSegments")
@@ -407,7 +421,7 @@ export function VoicePanel({
         </span>
       </div>
 
-      {!isCaptionContext && !isAvatarContext && !isAudioClipContext && !isVisualContext && !isStickerContext ? (
+      {!isSmartContext && !isCaptionContext && !isAvatarContext && !isAudioClipContext && !isVisualContext && !isStickerContext ? (
         <div className="tabs compact">
           {[
             ["synthesis", t("voiceSynthesis")],
@@ -450,6 +464,8 @@ export function VoicePanel({
       ) : null}
 
       <div className="voice-tab-body">
+        {isSmartAutoContext ? <div className="smart-context-empty"><Scissors size={34} weight="duotone" /><strong>{t("smartAutoWorkspace")}</strong><span>{t("smartAutoWorkspaceEmpty")}</span></div> : null}
+        {isSmartFrameContext ? <SmartVisionPanel t={t} language={uiLanguage} hasVisual={hasVisual} visualType={visualType} analysis={visionAnalysis} options={visionOptions} running={visionRunning} progress={visionProgress} phase={visionPhase} onAnalyze={analyzeCurrentVisual} onToggle={toggleVisionOption} onClear={clearVisionAnalysis} onDownloadCutout={downloadVisionCutout} /> : null}
         {isStickerContext ? <StickerContextPanel t={t} segment={selectedStickerSegment} updateStickerSegment={updateStickerSegment} deleteStickerSegment={deleteStickerSegment} /> : null}
         {isVisualContext && selectedVisualSegment ? (
           <VisualEffectsPanel
@@ -532,7 +548,7 @@ export function VoicePanel({
 
         {isAudioClipContext ? <AudioClipContextPanel t={t} segment={selectedAudioSegment} updateAudioSegment={updateAudioSegment} toggleAudioSegmentReverse={toggleAudioSegmentReverse} deleteAudioSegment={deleteAudioSegment} downloadBlob={downloadBlob} /> : null}
 
-        {!isCaptionContext && !isAvatarContext && !isAudioClipContext && !isVisualContext && !isStickerContext && voiceTab === "synthesis" ? (
+        {!isSmartContext && !isCaptionContext && !isAvatarContext && !isAudioClipContext && !isVisualContext && !isStickerContext && voiceTab === "synthesis" ? (
           <VoiceSynthesisPanel
             script={script}
             updateScript={updateScript}
@@ -560,7 +576,7 @@ export function VoicePanel({
           />
         ) : null}
 
-        {!isCaptionContext && !isAvatarContext && !isAudioClipContext && !isVisualContext && !isStickerContext && voiceTab === "mine" ? (
+        {!isSmartContext && !isCaptionContext && !isAvatarContext && !isAudioClipContext && !isVisualContext && !isStickerContext && voiceTab === "mine" ? (
           <MyVoicesPanel
             favoriteVoiceIds={favoriteVoiceIds}
             setFavoriteVoiceIds={setFavoriteVoiceIds}
@@ -578,7 +594,7 @@ export function VoicePanel({
           />
         ) : null}
 
-        {!isCaptionContext && !isAvatarContext && !isAudioClipContext && !isVisualContext && !isStickerContext && voiceTab === "history" ? (
+        {!isSmartContext && !isCaptionContext && !isAvatarContext && !isAudioClipContext && !isVisualContext && !isStickerContext && voiceTab === "history" ? (
           <HistoryPanel
             historyItems={historyItems}
             useHistoryItem={useHistoryItem}

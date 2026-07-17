@@ -1,5 +1,4 @@
 import {
-  CirclesThree,
   ClosedCaptioning,
   ImageSquare,
   MusicNote,
@@ -162,7 +161,6 @@ export const TOOL_RAIL = [
   { id: "caption", label: "字幕", icon: ClosedCaptioning },
   { id: "smart", label: "智能", icon: Scan },
   { id: "audio", label: "音频", icon: MusicNote },
-  { id: "transition", label: "转场", icon: CirclesThree },
   { id: "stickers", label: "贴纸", icon: Sticker },
 ];
 

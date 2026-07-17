@@ -1,5 +1,6 @@
 import { useCallback } from "react";
 import { downloadBlob, exportBrowserVideo, getSupportedRecordingFormat, transcodeWebmToMp4 } from "../lib/media.js";
+import { exportOfflineVideo } from "../lib/offlineVideoExport.js";
 import { estimateDuration } from "../lib/timeline.js";
 import { getVisionKey } from "../lib/vision.js";
 
@@ -16,7 +17,7 @@ export function useVideoExport(d) {
     };
     const finish = async (phase) => { d.setExportPhase(phase); d.setExportProgress(100); await new Promise((resolve) => setTimeout(resolve, 450)); };
     try {
-      const video = await exportBrowserVideo({
+      const exportOptions = {
         imageSrc: d.imageSrc, visualType: d.visualType,
         visualSegments: d.renderedVisualSegments.map((segment) => {
           const record = d.visionRecords[getVisionKey(segment)];
@@ -37,10 +38,19 @@ export function useVideoExport(d) {
         captionSize: d.captionSize, captionStyle: d.captionStyle,
         captionReferenceSize: d.previewFrameSize.width > 0 && d.previewFrameSize.height > 0 ? d.previewFrameSize
           : { width: (360 * d.ratio.width) / d.ratio.height, height: 360 },
-        sticker: d.stickerSegments.length ? null : d.selectedSticker,
+        // Stickers are timeline clips; a selected library item is not export content.
+        sticker: null,
         stickerSegments: d.trackVisibility.sticker ? d.stickerSegments : [],
         transitionId: "none", exportSettings: d.exportSettings, onProgress: progress,
-      });
+      };
+      let video;
+      try {
+        video = await exportOfflineVideo(exportOptions);
+      } catch (offlineError) {
+        console.warn("Offline WebCodecs export unavailable; using compatibility recorder", offlineError);
+        progress({ progress: 5, phase: "切换兼容导出模式" });
+        video = await exportBrowserVideo(exportOptions);
+      }
       const name = `ai-voiceover-${d.ratio.id.replace(":", "x")}`;
       if (d.exportSettings.codec !== "h264") {
         progress({ progress: 99, phase: `保存 ${video.label} 文件` });

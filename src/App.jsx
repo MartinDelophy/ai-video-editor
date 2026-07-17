@@ -199,7 +199,7 @@ export function App() {
     captionTargetDuration, captionTimeline, currentCaption, currentCaptionSegment,
     currentSegmentIndex, currentStickerSegment, currentStickerSegmentIndex,
     currentVisualRange, currentVisualSegment, currentVisualSegmentIndex, estimatedDuration,
-    focusedSegmentIndex, getStickerDragAsset, peaks, previewStickers, previewTransition,
+    focusedSegmentIndex, getStickerDragAsset, peaks, previewSticker, previewStickers, previewTransition,
     previewVisionBaseAnalysis, previewVisionKey, previewVisionRecord, previewVisualLocalTime,
     previewVisualRange, previewVisualSegment, previewVisualSegmentIndex,
     previewVisualSourceTime, previewVisualSrc, previewVisualType, ratio, segments,
@@ -759,6 +759,7 @@ export function App() {
           captionPlacement={effectiveCaptionPlacement}
           startCaptionDrag={startCaptionDrag}
           setActiveTool={setActiveTool}
+          selectedSticker={previewSticker}
           stickers={previewStickers}
           selectedStickerId={selectedStickerSegment?.id ?? ""}
           stickerEditable

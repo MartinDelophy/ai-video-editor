@@ -49,6 +49,7 @@ export function PreviewStage({
   captionPlacement,
   startCaptionDrag,
   setActiveTool,
+  selectedSticker,
   stickers = [],
   selectedStickerId = "",
   stickerEditable = false,
@@ -68,7 +69,7 @@ export function PreviewStage({
   getDraggedAsset,
   applyAssetToTrack,
 }) {
-  const visibleStickers = stickers;
+  const visibleStickers = stickers.length ? stickers : selectedSticker?.src || selectedSticker?.text ? [selectedSticker] : [];
   const hasStickerOverlay = visibleStickers.some((sticker) => sticker?.src || sticker?.text);
   const hasPreviewContent = Boolean(previewVisualSrc || hasStickerOverlay);
   const renderedVisualSrc = previewVisualRenderSrc || previewVisualSrc;

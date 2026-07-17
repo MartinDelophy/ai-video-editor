@@ -133,7 +133,18 @@ export function useTimelineModel(d) {
         return d.currentTime >= start && d.currentTime < end;
       })
     : [];
-  const previewStickers = currentStickerSegments;
+  const previewSticker = d.trackVisibility.sticker && currentStickerSegment
+    ? currentStickerSegment
+    : d.stickerSegments.length
+      ? STICKERS[0]
+      : selectedSticker;
+  const previewStickers = currentStickerSegments.length
+    ? currentStickerSegments
+    : d.stickerSegments.length
+      ? []
+      : previewSticker?.src || previewSticker?.text
+        ? [previewSticker]
+        : [];
   const currentVisualSegmentIndex = getVisualSegmentIndexAtTime(d.visualSegments, d.currentTime);
   const currentVisualSegment = currentVisualSegmentIndex >= 0
     ? d.visualSegments[currentVisualSegmentIndex] ?? null
@@ -204,7 +215,7 @@ export function useTimelineModel(d) {
     currentCaptionSegment, currentSegmentIndex, currentStickerSegment,
     currentStickerSegmentIndex, currentVisualRange, currentVisualSegment,
     currentVisualSegmentIndex, estimatedDuration, focusedSegmentIndex, getStickerDragAsset,
-    peaks, previewStickers, previewVisionBaseAnalysis, previewVisionKey,
+    peaks, previewSticker, previewStickers, previewVisionBaseAnalysis, previewVisionKey,
     previewTransition, previewVisionRecord, previewVisualLocalTime, previewVisualRange, previewVisualSegment,
     previewVisualSegmentIndex, previewVisualSourceTime, previewVisualSrc, previewVisualType,
     ratio, segments, selectedAudioSegment, selectedCaptionSegment, selectedFilter,

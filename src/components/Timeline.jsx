@@ -20,6 +20,7 @@ import {
   Play,
   PlusCircle,
   Scissors,
+  Sparkle,
   SlidersHorizontal,
   Trash,
   Waveform,
@@ -170,6 +171,8 @@ export function Timeline({
   currentVisualSegment,
   selectedVisualSegmentId,
   currentVisualSegmentIndex,
+  builtInImageCaptionAvailable = false,
+  generateImageCaption,
   setSelectedVisualSegmentId,
   seekTo,
   suppressTimelineClipClickRef,
@@ -267,6 +270,9 @@ export function Timeline({
     contentWidth: 0,
   });
   const [contextMenu, setContextMenu] = useState(null);
+  const contextImageSegment = contextMenu?.track === "image" && contextMenu.segmentId
+    ? displayedVisualSegments.find((segment) => segment.id === contextMenu.segmentId)
+    : null;
   const trackTool = (track) => ({ image: "media", sticker: "stickers", caption: "caption", source: "audio", audio: "audio", music: "audio" })[track] || "media";
   const openTrackPanel = (track) => {
     setSelectedTrack(track);
@@ -1243,6 +1249,11 @@ export function Timeline({
                   openTrackPanel("caption");
                   requestCaptionVoiceFocus?.();
                 })}><Waveform size={16} />{t("aiVoice")}</button>
+              ) : null}
+              {contextMenu.track === "image" && builtInImageCaptionAvailable && contextImageSegment && contextImageSegment.type !== "video" ? (
+                <button type="button" role="menuitem" onClick={() => runContextAction(() => generateImageCaption?.(contextImageSegment))}>
+                  <Sparkle size={16} />{t("generateImageAiCaption")}
+                </button>
               ) : null}
               <button type="button" role="menuitem" onClick={() => runContextAction(handleCutTrack)}><Scissors size={16} />{t("splitAtPlayhead")}</button>
               <button type="button" role="menuitem" onClick={() => runContextAction(handleDuplicateTrack)}><CopySimple size={16} />{t("duplicateClip")}</button>

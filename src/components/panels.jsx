@@ -223,6 +223,8 @@ export function ToolPanel(props) {
     selectedCaptionSegment,
     selectedSegmentId,
     setSelectedSegmentId,
+    setSelectedAudioSegmentId,
+    setSelectedTrack,
     updateCaptionSegmentText,
     toggleCaptionSegmentHidden,
     deleteCaptionSegment,
@@ -375,6 +377,8 @@ export function ToolPanel(props) {
           className="audio-entry-card"
           type="button"
           onClick={() => {
+            setSelectedAudioSegmentId?.("");
+            setSelectedTrack?.("");
             setVoiceTab("synthesis");
             notify("已打开 AI 配音");
           }}

@@ -33,7 +33,7 @@ export function createStickerTimelineActions(d) {
         };
       });
     d.setStickerSegments(normalizedSegments);
-    d.setSelectedTrack("sticker");
+    d.setSelectedTrack(normalizedSegments.length ? "sticker" : "image");
     d.setActiveTool("stickers");
     const selectedSegment =
       normalizedSegments.find((segment) => segment.id === selectedId) ??
@@ -53,10 +53,13 @@ export function createStickerTimelineActions(d) {
       d.notify("当前贴纸素材不可用");
       return;
     }
-    const startTime = Math.min(
+    const requestedStartTime = Number.isFinite(options.startTime)
+      ? options.startTime
+      : getTimelineTimeFromDropPercent(options.percent ?? 0);
+    const startTime = Math.max(0, Math.min(
       MAX_TIMELINE_DURATION_SECONDS - DEFAULT_STICKER_SEGMENT_SECONDS,
-      getTimelineTimeFromDropPercent(options.percent ?? 0),
-    );
+      requestedStartTime,
+    ));
     const nextSegment = createStickerSegment(
       asset,
       startTime,
@@ -64,7 +67,7 @@ export function createStickerTimelineActions(d) {
     );
     commitStickerSegments(
       [...d.stickerSegments, nextSegment],
-      "贴纸已添加到贴纸轨",
+      d.t?.("stickerAddedToTrack") ?? "贴纸已添加到贴纸轨",
       nextSegment.id,
     );
     d.seekTo(startTime);

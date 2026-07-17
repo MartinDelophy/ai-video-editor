@@ -65,6 +65,11 @@ export function createStickerSegment(sticker, start = 0, duration = DEFAULT_STIC
     src: sticker?.src ?? "",
     start: Math.max(0, Math.min(MAX_TIMELINE_DURATION_SECONDS - safeDuration, start || 0)),
     duration: safeDuration,
+    x: Number.isFinite(sticker?.x) ? sticker.x : 82,
+    y: Number.isFinite(sticker?.y) ? sticker.y : 20,
+    scale: Number.isFinite(sticker?.scale) ? sticker.scale : 1,
+    rotation: Number.isFinite(sticker?.rotation) ? sticker.rotation : 0,
+    opacity: Number.isFinite(sticker?.opacity) ? sticker.opacity : 1,
   };
 }
 

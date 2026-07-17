@@ -5,6 +5,10 @@ import {
   reorderTimelineItems,
 } from "./timeline.js";
 
+export function shouldShowStickerTrack({ stickerSegments = [], assetDropTargetTrack = "", assetDragPreview = null, draggedAsset = null } = {}) {
+  return stickerSegments.length > 0 || assetDropTargetTrack === "sticker" || assetDragPreview?.type === "sticker" || draggedAsset?.type === "sticker";
+}
+
 export function createTimelineViewModel(d) {
   const progressPercent = Math.max(0, Math.min(100, d.progress));
   const playheadPercent = Math.max(
@@ -23,12 +27,12 @@ export function createTimelineViewModel(d) {
     : [];
   const activeTimelineClipDrag = d.timelineClipDrag?.dragging ? d.timelineClipDrag : null;
   const draggedAsset = d.draggedAssetId ? d.findAssetById(d.draggedAssetId) : null;
-  const showStickerTrack =
-    d.stickerSegments.length > 0 ||
-    d.selectedTrack === "sticker" ||
-    d.assetDropTargetTrack === "sticker" ||
-    d.assetDragPreview?.type === "sticker" ||
-    draggedAsset?.type === "sticker";
+  const showStickerTrack = shouldShowStickerTrack({
+    stickerSegments: d.stickerSegments,
+    assetDropTargetTrack: d.assetDropTargetTrack,
+    assetDragPreview: d.assetDragPreview,
+    draggedAsset,
+  });
   const displayedVisualSegments = activeTimelineClipDrag?.track === "image"
     ? reorderTimelineItems(
         renderedVisualSegments,
@@ -38,7 +42,7 @@ export function createTimelineViewModel(d) {
     : renderedVisualSegments;
   const renderedVisualTimeline = getVisualSegmentTimeline(displayedVisualSegments);
   const displayedCaptionSegments = activeTimelineClipDrag?.track === "caption"
-    ? activeTimelineClipDrag.mode === "move"
+    ? activeTimelineClipDrag.mode === "move" || activeTimelineClipDrag.mode?.startsWith("resize-")
       ? activeTimelineClipDrag.previewSegments
       : reorderTimelineItems(
           d.captionSegments,

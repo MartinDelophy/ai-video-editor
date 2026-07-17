@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { X } from "@phosphor-icons/react";
 
 export function IconButton({ label, children, active = false, disabled = false, onClick }) {
@@ -16,8 +17,25 @@ export function IconButton({ label, children, active = false, disabled = false, 
 }
 
 export function Popover({ children, onClose, className = "" }) {
+  const popoverRef = useRef(null);
+
+  useEffect(() => {
+    const closeOnOutsidePointer = (event) => {
+      if (!popoverRef.current?.contains(event.target)) onClose?.();
+    };
+    const closeOnEscape = (event) => {
+      if (event.key === "Escape") onClose?.();
+    };
+    document.addEventListener("pointerdown", closeOnOutsidePointer, true);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeOnOutsidePointer, true);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [onClose]);
+
   return (
-    <div className={`popover ${className}`.trim()} role="dialog">
+    <div ref={popoverRef} className={`popover ${className}`.trim()} role="dialog">
       <button className="popover-close" type="button" aria-label="关闭" onClick={onClose}>
         <X size={14} />
       </button>

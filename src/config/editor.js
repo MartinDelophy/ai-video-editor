@@ -2,7 +2,6 @@ import {
   CirclesThree,
   ClosedCaptioning,
   ImageSquare,
-  MagicWand,
   MusicNote,
   Scan,
   Sticker,
@@ -165,7 +164,6 @@ export const TOOL_RAIL = [
   { id: "audio", label: "音频", icon: MusicNote },
   { id: "transition", label: "转场", icon: CirclesThree },
   { id: "stickers", label: "贴纸", icon: Sticker },
-  { id: "filters", label: "滤镜", icon: MagicWand },
 ];
 
 export const RATIO_OPTIONS = [

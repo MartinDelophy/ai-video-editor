@@ -11,6 +11,7 @@ import {
 
 import { formatTime } from "../lib/timeline.js";
 import { getVisualMaskInsets, getVisualMaskSvgDataUrl, resolveVisualTransform } from "../lib/visualEffects.js";
+import { resolveVisualClipAnimation } from "../lib/visualClipAnimations.js";
 import { CaptionOverlay } from "./CaptionOverlay.jsx";
 import { IconButton } from "./ui.jsx";
 
@@ -47,6 +48,11 @@ export function PreviewStage({
   startCaptionDrag,
   setActiveTool,
   selectedSticker,
+  stickers = [],
+  selectedStickerId = "",
+  stickerEditable = false,
+  onSelectSticker,
+  onUpdateSticker,
   isPlaying,
   canPreview,
   handlePlayToggle,
@@ -61,12 +67,14 @@ export function PreviewStage({
   getDraggedAsset,
   applyAssetToTrack,
 }) {
-  const hasStickerOverlay = Boolean(selectedSticker?.src || selectedSticker?.text);
+  const visibleStickers = stickers.length ? stickers : selectedSticker?.src || selectedSticker?.text ? [selectedSticker] : [];
+  const hasStickerOverlay = visibleStickers.some((sticker) => sticker?.src || sticker?.text);
   const hasPreviewContent = Boolean(previewVisualSrc || hasStickerOverlay);
   const renderedVisualSrc = previewVisualRenderSrc || previewVisualSrc;
   const activeObjectFit = visualObjectFit || fitMode;
   const activeObjectPosition = visualObjectPosition || "50% 50%";
   const visualTransform = resolveVisualTransform(visualEffects?.keyframes, visualLocalTime);
+  const visualAnimation = resolveVisualClipAnimation(visualEffects?.animation, visualLocalTime, visualEffects?.duration);
   const visualMask = visualEffects?.mask ?? {};
   const enhancement = visualEffects?.enhancement ?? null;
   const showRemasterPreview = Boolean(
@@ -86,8 +94,8 @@ export function PreviewStage({
   const maskInsets = getVisualMaskInsets(visualMask);
   const roundedRadius = Math.min(maskWidth / 100 * frameWidth, maskHeight / 100 * frameHeight) * (Number.isFinite(visualMask.cornerRadius) ? visualMask.cornerRadius : 12) / 100;
   const visualTransformStyle = {
-    transform: `translate(${visualTransform.x}%, ${visualTransform.y}%) scale(${visualTransform.scale}) rotate(${visualTransform.rotation}deg)`,
-    opacity: visualTransform.opacity,
+    transform: `translate(${visualTransform.x + visualAnimation.x}%, ${visualTransform.y + visualAnimation.y}%) scale(${visualTransform.scale * visualAnimation.scale}) rotate(${visualTransform.rotation}deg)`,
+    opacity: visualTransform.opacity * visualAnimation.opacity,
   };
   const visualMaskStyle = {
     clipPath: ["rectangle", "rounded"].includes(visualMask.type) && !usesAlphaMask
@@ -118,6 +126,52 @@ export function PreviewStage({
         const maxSizePixels = 2 * Math.min(initial.centerX / 100 * frameWidth, (100 - initial.centerX) / 100 * frameWidth, initial.centerY / 100 * frameHeight, (100 - initial.centerY) / 100 * frameHeight);
         onUpdateVisualMask({ ...visualMask, size: Math.max(8, Math.min(maxSizePixels / frameMinDimension * 100, initial.size + deltaPixels / frameMinDimension * 100)) });
       } else onUpdateVisualMask({ ...visualMask, width: Math.max(8, Math.min(2 * Math.min(initial.centerX, 100 - initial.centerX), initial.width + dx * 2)), height: Math.max(8, Math.min(2 * Math.min(initial.centerY, 100 - initial.centerY), initial.height + dy * 2)) });
+    };
+    const end = () => { window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", end); };
+    window.addEventListener("pointermove", move); window.addEventListener("pointerup", end, { once: true });
+  };
+  const startStickerDrag = (event, selectedSticker) => {
+    if (!stickerEditable || !onUpdateSticker || !selectedSticker) return;
+    const frame = previewCanvasRef.current;
+    if (!frame) return;
+    event.preventDefault(); event.stopPropagation();
+    const rect = frame.getBoundingClientRect();
+    const startX = event.clientX; const startY = event.clientY;
+    const initialX = Number.isFinite(selectedSticker.x) ? selectedSticker.x : 82;
+    const initialY = Number.isFinite(selectedSticker.y) ? selectedSticker.y : 20;
+    onSelectSticker?.(selectedSticker.id);
+    const round = (value) => Math.round(value * 100) / 100;
+    const move = (moveEvent) => onUpdateSticker(selectedSticker.id, {
+      x: round(Math.max(4, Math.min(96, initialX + ((moveEvent.clientX - startX) / Math.max(1, rect.width)) * 100))),
+      y: round(Math.max(4, Math.min(96, initialY + ((moveEvent.clientY - startY) / Math.max(1, rect.height)) * 100))),
+    });
+    const end = () => { window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", end); };
+    window.addEventListener("pointermove", move); window.addEventListener("pointerup", end, { once: true });
+  };
+  const startStickerTransform = (event, mode, selectedSticker) => {
+    if (!stickerEditable || !onUpdateSticker || !selectedSticker) return;
+    const sticker = event.currentTarget.closest(".sticker-transform-box");
+    if (!sticker) return;
+    event.preventDefault(); event.stopPropagation();
+    const stickerRect = sticker.getBoundingClientRect();
+    const centerX = stickerRect.left + stickerRect.width / 2;
+    const centerY = stickerRect.top + stickerRect.height / 2;
+    const startX = event.clientX; const startY = event.clientY;
+    const initialScale = Number.isFinite(selectedSticker.scale) ? selectedSticker.scale : 1;
+    const initialRotation = Number.isFinite(selectedSticker.rotation) ? selectedSticker.rotation : 0;
+    const initialAngle = Math.atan2(startY - centerY, startX - centerX) * 180 / Math.PI;
+    const round = (value) => Math.round(value * 100) / 100;
+    const move = (moveEvent) => {
+      if (mode === "scale") {
+        const delta = ((moveEvent.clientX - startX) + (moveEvent.clientY - startY)) / Math.max(60, stickerRect.width + stickerRect.height);
+        onUpdateSticker(selectedSticker.id, { scale: round(Math.max(0.2, Math.min(3, initialScale + delta * 2))) });
+      } else {
+        const angle = Math.atan2(moveEvent.clientY - centerY, moveEvent.clientX - centerX) * 180 / Math.PI;
+        let rotation = initialRotation + angle - initialAngle;
+        while (rotation > 180) rotation -= 360;
+        while (rotation < -180) rotation += 360;
+        onUpdateSticker(selectedSticker.id, { rotation: round(rotation) });
+      }
     };
     const end = () => { window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", end); };
     window.addEventListener("pointermove", move); window.addEventListener("pointerup", end, { once: true });
@@ -263,11 +317,30 @@ export function PreviewStage({
                 onDoubleClick={() => setActiveTool("caption")}
               />
             ) : null}
-            {selectedSticker.src ? (
-              <img className="sticker-overlay is-image" src={selectedSticker.src} alt="" draggable={false} />
-            ) : selectedSticker.text ? (
-              <div className="sticker-overlay is-label">{selectedSticker.text}</div>
-            ) : null}
+            {visibleStickers.map((sticker, index) => {
+              const isEditable = stickerEditable && sticker.id === selectedStickerId;
+              return sticker.src ? (
+                <div
+                  key={sticker.id || `${sticker.src}-${index}`}
+                  className={`sticker-overlay sticker-transform-box ${isEditable ? "is-editable" : ""}`}
+                  onPointerDown={(event) => startStickerDrag(event, sticker)}
+                  style={{
+                    left: `${Number.isFinite(sticker.x) ? sticker.x : 82}%`,
+                    top: `${Number.isFinite(sticker.y) ? sticker.y : 20}%`,
+                    transform: `translate(-50%, -50%) scale(${Number.isFinite(sticker.scale) ? sticker.scale : 1}) rotate(${Number.isFinite(sticker.rotation) ? sticker.rotation : 0}deg)`,
+                    opacity: Number.isFinite(sticker.opacity) ? sticker.opacity : 1,
+                  }}
+                >
+                  <img className="sticker-overlay-image" src={sticker.src} alt="" draggable={false} />
+                  {isEditable ? <>
+                    <button className="sticker-rotate-handle" type="button" aria-label={t("visualRotation", "旋转")} onPointerDown={(event) => startStickerTransform(event, "rotate", sticker)} />
+                    <button className="sticker-scale-handle" type="button" aria-label={t("visualScale", "缩放")} onPointerDown={(event) => startStickerTransform(event, "scale", sticker)} />
+                  </> : null}
+                </div>
+              ) : sticker.text ? (
+                <div key={sticker.id || `${sticker.text}-${index}`} className="sticker-overlay is-label">{sticker.text}</div>
+              ) : null;
+            })}
           </div>
         )}
       </div>

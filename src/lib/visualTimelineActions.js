@@ -114,7 +114,7 @@ export function createVisualTimelineActions(d) {
       sourceSegments.length,
     );
     d.seekTo(totalDuration);
-    if (asset.type === "video") d.extractVideoSourceAudio(asset, totalDuration);
+    if (asset.type === "video") d.extractVideoSourceAudio(asset, totalDuration, { append: true });
   }
 
   function updateVisualAssetInTimeline(assetId, updates) {

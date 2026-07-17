@@ -34,6 +34,7 @@ import {
 import { APP_LANGUAGES } from "../i18n.js";
 import { formatClock, formatTime, getSegmentStartTime } from "../lib/timeline.js";
 import { hasVisualPropertyKeyframe, normalizeVisualKeyframes, resolveVisualTransform } from "../lib/visualEffects.js";
+import { DEFAULT_VISUAL_ANIMATION_DURATION, normalizeVisualClipAnimation, VISUAL_CLIP_ANIMATION_OPTIONS } from "../lib/visualClipAnimations.js";
 import { Popover } from "./ui.jsx";
 
 export function LanguageIntro({ t, closing, onChoose }) {
@@ -470,36 +471,40 @@ export function ToolPanel(props) {
             onChange={(event) => setMusicVolume(Number(event.target.value))}
           />
         </div>
-        <button
-          className="panel-primary"
-          type="button"
-          disabled={!audioBlob}
-          onClick={() => audioBlob && downloadBlob(audioBlob, "ai-voiceover.wav")}
-        >
-          {t("downloadCurrentWav")}
-        </button>
-        <button
-          className="panel-secondary"
-          type="button"
-          disabled={!musicBlob}
-          onClick={() => musicBlob && downloadBlob(musicBlob, musicName || "background-music.wav")}
-        >
-          {t("downloadBgm")}
-        </button>
-        <button
-          className="panel-secondary"
-          type="button"
-          disabled={!sourceAudioBlob}
-          onClick={() => sourceAudioBlob && downloadBlob(sourceAudioBlob, sourceAudioName || "source-audio.wav")}
-        >
-          {t("downloadSource")}
-        </button>
-        <button className="panel-secondary" type="button" disabled={!sourceAudioBlob} onClick={() => clearSourceAudioTrack()}>
-          {t("deleteSource")}
-        </button>
-        <button className="panel-secondary" type="button" disabled={!musicBlob} onClick={() => clearMusicTrack()}>
-          {t("deleteBgm")}
-        </button>
+        <div className="audio-download-actions">
+          <button
+            className="panel-primary"
+            type="button"
+            disabled={!audioBlob}
+            onClick={() => audioBlob && downloadBlob(audioBlob, "ai-voiceover.wav")}
+          >
+            {t("downloadCurrentWav")}
+          </button>
+          <button
+            className="panel-secondary"
+            type="button"
+            disabled={!musicBlob}
+            onClick={() => musicBlob && downloadBlob(musicBlob, musicName || "background-music.wav")}
+          >
+            {t("downloadBgm")}
+          </button>
+          <button
+            className="panel-secondary"
+            type="button"
+            disabled={!sourceAudioBlob}
+            onClick={() => sourceAudioBlob && downloadBlob(sourceAudioBlob, sourceAudioName || "source-audio.wav")}
+          >
+            {t("downloadSource")}
+          </button>
+        </div>
+        <div className="audio-delete-actions">
+          <button className="panel-secondary is-danger" type="button" disabled={!sourceAudioBlob} onClick={() => clearSourceAudioTrack()}>
+            {t("deleteSource")}
+          </button>
+          <button className="panel-secondary is-danger" type="button" disabled={!musicBlob} onClick={() => clearMusicTrack()}>
+            {t("deleteBgm")}
+          </button>
+        </div>
       </div>
     );
   }
@@ -568,8 +573,10 @@ export function ToolPanel(props) {
   );
 }
 
-export function VisualEffectsPanel({ t, segment, localTime, onChange, onSeek, selectedFilterId, trOption, onSelectFilter, contextMode = false, sourceAudioLinked = false }) {
+export function VisualEffectsPanel({ t, segment, localTime, onChange, onSeek, onPreviewAnimation, selectedFilterId, trOption, onSelectFilter, contextMode = false, sourceAudioLinked = false }) {
   const [activeTab, setActiveTab] = useState("transform");
+  const [animationSection, setAnimationSection] = useState("in");
+  const [hoveredAnimation, setHoveredAnimation] = useState(null);
   const keyframes = normalizeVisualKeyframes(segment?.keyframes ?? []);
   const transform = resolveVisualTransform(keyframes, localTime);
   const mask = segment?.mask ?? { type: "none", feather: 0, inverted: false };
@@ -577,6 +584,8 @@ export function VisualEffectsPanel({ t, segment, localTime, onChange, onSeek, se
   const isCircleMask = mask.type === "circle";
   const isVideo = segment?.type === "video";
   const playbackRate = Math.max(0.25, Math.min(4, Number(segment?.playbackRate) || 1));
+  const clipAnimation = normalizeVisualClipAnimation(segment?.animation);
+  const activeAnimation = clipAnimation[animationSection];
   const sourceDuration = Math.max(0, Number(segment?.sourceDuration) || (Number(segment?.duration) || 0) * playbackRate);
   const updateTransform = (key, value) => onChange?.({ propertyKeyframe: { time: localTime, key, value } });
   const tabs = [
@@ -584,7 +593,38 @@ export function VisualEffectsPanel({ t, segment, localTime, onChange, onSeek, se
     ["mask", t("visualTabMask")],
     ["speed", t("visualTabSpeed")],
     ["effects", t("visualTabEffects")],
+    ["animation", t("visualTabAnimation")],
   ];
+  useEffect(() => {
+    if (!hoveredAnimation || !segment || !onPreviewAnimation) return undefined;
+    let frame = 0;
+    let lastPaint = 0;
+    const startedAt = performance.now();
+    const paint = (now) => {
+      if (now - lastPaint >= 32) {
+        const phaseProgress = ((now - startedAt) % 1100) / 900;
+        const progress = Math.min(1, phaseProgress);
+        const previewAnimation = {
+          ...clipAnimation,
+          [hoveredAnimation.phase]: {
+            id: hoveredAnimation.id,
+            duration: DEFAULT_VISUAL_ANIMATION_DURATION,
+          },
+        };
+        const previewLocalTime = hoveredAnimation.phase === "in"
+          ? progress * DEFAULT_VISUAL_ANIMATION_DURATION
+          : Math.max(0, Number(segment.duration) - DEFAULT_VISUAL_ANIMATION_DURATION + progress * DEFAULT_VISUAL_ANIMATION_DURATION);
+        onPreviewAnimation({ segmentId: segment.id, animation: previewAnimation, localTime: previewLocalTime });
+        lastPaint = now;
+      }
+      frame = requestAnimationFrame(paint);
+    };
+    frame = requestAnimationFrame(paint);
+    return () => {
+      cancelAnimationFrame(frame);
+      onPreviewAnimation(null);
+    };
+  }, [hoveredAnimation, onPreviewAnimation, segment?.id, segment?.duration]);
   return (
     <div className={`tool-panel visual-effects-panel ${contextMode ? "is-context-mode" : ""}`}>
       {!contextMode ? <h2>{t("imageTrack")}</h2> : null}
@@ -624,6 +664,25 @@ export function VisualEffectsPanel({ t, segment, localTime, onChange, onSeek, se
           </> : <div className="empty-state visual-speed-empty">{t("visualSpeedImageHint")}</div>}
         </section> : null}
         {activeTab === "effects" ? <VisualChoicePanel title={t("visualEffects")} kind="effect" options={EFFECT_OPTIONS} selectedId={selectedFilterId} trOption={trOption} onSelect={onSelectFilter} /> : null}
+        {activeTab === "animation" ? <section className="visual-editor-card visual-animation-card">
+          <div className="visual-editor-heading"><strong>{t("visualAnimation")}</strong><em>{t("visualAnimationHoverHint")}</em></div>
+          <div className="visual-animation-sections" role="tablist" aria-label={t("visualAnimation")}>
+            {[['in', t('visualAnimationIn')], ['out', t('visualAnimationOut')]].map(([id, label]) => <button type="button" role="tab" aria-selected={animationSection === id} className={animationSection === id ? 'is-active' : ''} key={id} onClick={() => setAnimationSection(id)}>{label}</button>)}
+          </div>
+          <div className="visual-animation-grid">
+            {VISUAL_CLIP_ANIMATION_OPTIONS.map((option) => <button
+              type="button"
+              className={activeAnimation.id === option.id ? "is-active" : ""}
+              key={option.id}
+              onPointerEnter={() => option.id !== "none" && setHoveredAnimation({ phase: animationSection, id: option.id })}
+              onPointerLeave={() => setHoveredAnimation(null)}
+              onFocus={() => option.id !== "none" && setHoveredAnimation({ phase: animationSection, id: option.id })}
+              onBlur={() => setHoveredAnimation(null)}
+              onClick={() => onChange?.({ animation: { ...clipAnimation, [animationSection]: { ...activeAnimation, id: option.id } } })}
+            ><span className={`visual-animation-swatch is-${option.id}`} aria-hidden="true"><i /></span><strong>{t(option.labelKey)}</strong></button>)}
+          </div>
+          {activeAnimation.id !== "none" ? <div className="slider-field compact-slider visual-animation-duration"><div><label>{t("visualAnimationDuration")}</label><strong>{activeAnimation.duration.toFixed(1)}s</strong></div><input aria-label={t("visualAnimationDuration")} type="range" min="0.1" max={Math.min(3, Math.max(0.1, Number(segment.duration) || 0.1))} step="0.1" value={activeAnimation.duration} onChange={(event) => onChange?.({ animation: { ...clipAnimation, [animationSection]: { ...activeAnimation, duration: Number(event.target.value) } } })} /></div> : null}
+        </section> : null}
       </>}
     </div>
   );

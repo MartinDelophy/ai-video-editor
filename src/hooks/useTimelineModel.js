@@ -133,18 +133,7 @@ export function useTimelineModel(d) {
         return d.currentTime >= start && d.currentTime < end;
       })
     : [];
-  const previewSticker = d.trackVisibility.sticker && currentStickerSegment
-    ? currentStickerSegment
-    : d.stickerSegments.length
-      ? STICKERS[0]
-      : selectedSticker;
-  const previewStickers = currentStickerSegments.length
-    ? currentStickerSegments
-    : d.stickerSegments.length
-      ? []
-      : previewSticker?.src || previewSticker?.text
-        ? [previewSticker]
-        : [];
+  const previewStickers = currentStickerSegments;
   const currentVisualSegmentIndex = getVisualSegmentIndexAtTime(d.visualSegments, d.currentTime);
   const currentVisualSegment = currentVisualSegmentIndex >= 0
     ? d.visualSegments[currentVisualSegmentIndex] ?? null
@@ -177,6 +166,15 @@ export function useTimelineModel(d) {
   const previewVisualSourceTime = previewVisualType === "video"
     ? getVisualSourceTime(previewVisualSegment, previewVisualLocalTime)
     : previewVisualLocalTime;
+  const previewTransition = (() => {
+    const junction = previewVisualSegment?.transition;
+    const next = d.visualSegments[previewVisualSegmentIndex + 1];
+    if (!next || !junction?.id || junction.id === "none" || !previewVisualRange) return null;
+    const duration = Math.max(0.1, Math.min(Number(junction.duration) || 0.5, previewVisualSegment.duration || 0.5, next.duration || 0.5));
+    const start = previewVisualRange.end - duration;
+    if (d.currentTime < start || d.currentTime >= previewVisualRange.end) return null;
+    return { id: junction.id, duration, progress: (d.currentTime - start) / duration, next };
+  })();
   const previewVisionKey = getVisionKey(previewVisualSegment ?? (previewVisualSrc ? {
     id: "visual-fallback",
     src: previewVisualSrc,
@@ -206,8 +204,8 @@ export function useTimelineModel(d) {
     currentCaptionSegment, currentSegmentIndex, currentStickerSegment,
     currentStickerSegmentIndex, currentVisualRange, currentVisualSegment,
     currentVisualSegmentIndex, estimatedDuration, focusedSegmentIndex, getStickerDragAsset,
-    peaks, previewSticker, previewStickers, previewVisionBaseAnalysis, previewVisionKey,
-    previewVisionRecord, previewVisualLocalTime, previewVisualRange, previewVisualSegment,
+    peaks, previewStickers, previewVisionBaseAnalysis, previewVisionKey,
+    previewTransition, previewVisionRecord, previewVisualLocalTime, previewVisualRange, previewVisualSegment,
     previewVisualSegmentIndex, previewVisualSourceTime, previewVisualSrc, previewVisualType,
     ratio, segments, selectedAudioSegment, selectedCaptionSegment, selectedFilter,
     selectedSegmentIndex, selectedSticker, selectedStickerSegmentIndex,

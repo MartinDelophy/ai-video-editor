@@ -539,7 +539,6 @@ function drawFittedVisual(context, visual, canvas, fitMode, filter, vision = nul
 function drawPreviewFrame(context, visual, canvas, options) {
   const {
     subtitle,
-    progress = 0,
     fitMode = "contain",
     filter = "none",
     captionsEnabled = true,
@@ -553,6 +552,8 @@ function drawPreviewFrame(context, visual, canvas, options) {
     stickers = [],
     stickerImages = [],
     transitionId = "none",
+    transitionNext = null,
+    transitionProgress = 0,
     vision = null,
     visualEffects = null,
     visualTime = 0,
@@ -614,6 +615,33 @@ function drawPreviewFrame(context, visual, canvas, options) {
     context.translate(-width / 2, -height / 2);
     visualLayout = drawFittedVisual(context, visual, canvas, fitMode, filter, vision);
     context.restore();
+  }
+
+  if (transitionNext?.visual && transitionId !== "none" && transitionProgress > 0) {
+    const amount = Math.max(0, Math.min(1, transitionProgress));
+    context.save();
+    if (transitionId === "wipe-left") context.rect(width * (1 - amount), 0, width * amount, height);
+    else if (transitionId === "wipe-up") context.rect(0, height * (1 - amount), width, height * amount);
+    else if (transitionId === "split") {
+      context.rect(width * (0.5 - amount / 2), 0, width * amount, height);
+    }
+    if (["wipe-left", "wipe-up", "split"].includes(transitionId)) context.clip();
+    context.globalAlpha = transitionId === "flash" ? Math.max(0, (amount - 0.35) / 0.65) : amount;
+    if (transitionId === "zoom") {
+      const scale = 1.12 - amount * 0.12;
+      context.translate(width / 2, height / 2); context.scale(scale, scale); context.translate(-width / 2, -height / 2);
+    }
+    const nextFilter = transitionId === "blur" ? `blur(${Math.max(0, (1 - amount) * 14)}px)` : transitionNext.filter || filter;
+    drawFittedVisual(context, transitionNext.visual, canvas, fitMode, nextFilter, transitionNext.vision || null);
+    context.restore();
+    if (transitionId === "flash") {
+      context.fillStyle = `rgba(255,255,255,${Math.max(0, 1 - Math.abs(amount - 0.5) * 2) * 0.7})`;
+      context.fillRect(0, 0, width, height);
+    }
+    if (transitionId === "glitch") {
+      context.fillStyle = `rgba(53,234,217,${Math.sin(amount * Math.PI * 8) * 0.12})`;
+      context.fillRect(0, 0, width, height);
+    }
   }
 
   if (captionsEnabled && subtitle) {
@@ -678,20 +706,6 @@ function drawPreviewFrame(context, visual, canvas, options) {
     context.fillText(activeSticker.text, width - 160, 90);
     }
   });
-
-  if (transitionId === "fade") {
-    const fadeAlpha =
-      progress < 0.12 ? 1 - progress / 0.12 : progress > 0.88 ? (progress - 0.88) / 0.12 : 0;
-    if (fadeAlpha > 0) {
-      context.fillStyle = `rgba(0, 0, 0, ${Math.min(0.72, fadeAlpha * 0.72)})`;
-      context.fillRect(0, 0, width, height);
-    }
-  }
-
-  if (transitionId === "flash" && progress < 0.08) {
-    context.fillStyle = `rgba(255, 255, 255, ${0.45 * (1 - progress / 0.08)})`;
-    context.fillRect(0, 0, width, height);
-  }
 
 }
 
@@ -1051,6 +1065,18 @@ export async function exportBrowserVideo({
     const visualSourceTime = syncVideoItem(visualItem, localTime);
     const exportStickers = getStickersAtTime(elapsed);
     const exportVisual = visualItem.cutoutVisual || visualItem.visual;
+    const visualIndex = visualItems.indexOf(visualItem);
+    const junction = visualItem.segment.transition;
+    const transitionDuration = junction?.id && junction.id !== "none"
+      ? Math.max(0.1, Math.min(Number(junction.duration) || 0.5, (visualRange?.end || 0) - (visualRange?.start || 0)))
+      : 0;
+    const transitionStart = (visualRange?.end || 0) - transitionDuration;
+    const nextVisualItem = transitionDuration > 0 && elapsed >= transitionStart ? visualItems[visualIndex + 1] : null;
+    const transitionProgress = nextVisualItem ? (elapsed - transitionStart) / transitionDuration : 0;
+    if (nextVisualItem?.segment.type === "video") {
+      const nextTime = Math.max(0, Number(nextVisualItem.segment.sourceStart) || 0) + transitionProgress * transitionDuration;
+      if (!nextVisualItem.visual.seeking && Math.abs(nextVisualItem.visual.currentTime - nextTime) > 0.05) nextVisualItem.visual.currentTime = nextTime;
+    }
     const resolvedVision = resolveVisionAnalysisAtTime(
       visualItem.segment.vision ?? null,
       visualSourceTime,
@@ -1077,7 +1103,9 @@ export async function exportBrowserVideo({
       captionReferenceSize,
       stickers: exportStickers,
       stickerImages: exportStickers.map((item) => item?.src ? stickerImageMap.get(item.src) : null),
-      transitionId,
+      transitionId: nextVisualItem ? junction.id : "none",
+      transitionNext: nextVisualItem ? { visual: nextVisualItem.cutoutVisual || nextVisualItem.visual } : null,
+      transitionProgress,
       vision: frameVision,
       visualEffects: visualItem.segment,
       visualTime: localTime,

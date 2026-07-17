@@ -39,7 +39,7 @@ export function useVideoExport(d) {
           : { width: (360 * d.ratio.width) / d.ratio.height, height: 360 },
         sticker: d.stickerSegments.length ? null : d.selectedSticker,
         stickerSegments: d.trackVisibility.sticker ? d.stickerSegments : [],
-        transitionId: d.selectedTransitionId, exportSettings: d.exportSettings, onProgress: progress,
+        transitionId: "none", exportSettings: d.exportSettings, onProgress: progress,
       });
       const name = `ai-voiceover-${d.ratio.id.replace(":", "x")}`;
       if (d.exportSettings.codec !== "h264") {

@@ -131,6 +131,7 @@ export function App() {
     phase: "",
   });
   const [avatarPanelOpen, setAvatarPanelOpen] = useState(false);
+  const [smartMode, setSmartMode] = useState("auto-edit");
   const [avatarJob, setAvatarJob] = useState({ running: false, progress: 0, phase: "" });
   const lastSaved = useAutosaveTimestamp([
     script, imageSrc, visualType, imageDuration, captionPlacement, selectedVoiceId, speed,
@@ -452,7 +453,7 @@ export function App() {
     imageDuration, imageSrc, notify, selectedSegmentId, selectedSegmentIndex,
     selectedSticker, selectedStickerSegmentId, selectedTrack,
     selectedVisualSegmentId, selectedVisualSegmentIndex, stickerSegments,
-    trackLocks, visualSegments,
+    t, trackLocks, visualSegments,
   });
 
   const adjustSelectedSegmentWeight = createTimelineDurationActions({
@@ -699,7 +700,7 @@ export function App() {
           estimatedDuration, fileInputRef, generateCaptionsFromSourceAudio, handleAssetClick,
           handleAssetPointerDown, handleCaptionPositionChange, handleFiles, handleStickerClick,
           imageSrc, isDragging, mediaTab, musicBlob, musicDuration, musicName, musicVolume,
-          notify, openAvatarPanel, previewVisionAnalysis, previewVisionKey,
+          notify, openAvatarPanel, previewVisionAnalysis, previewVisionKey, smartMode, setSmartMode,
           previewVisionOptions, previewVisualSrc, previewVisualType, progress, script,
           seekTo, segments, selectTool, selectedCaptionSegment, selectedFilterId,
           selectedLibraryAssetId, selectedSegmentId, selectedStickerId, selectedTransitionId,
@@ -838,6 +839,17 @@ export function App() {
           isGeneratingCaptions={status === "captioning"}
           automaticCaptionProgress={status === "captioning" ? progress : 0}
           avatarPanelOpen={avatarPanelOpen}
+          smartMode={smartMode}
+          uiLanguage={activeLanguage}
+          visionAnalysis={previewVisionAnalysis}
+          visionOptions={previewVisionOptions}
+          visionRunning={visionJob.running && visionJob.key === previewVisionKey}
+          visionProgress={visionJob.key === previewVisionKey ? visionJob.progress : 0}
+          visionPhase={visionJob.key === previewVisionKey ? visionJob.phase : ""}
+          analyzeCurrentVisual={analyzeCurrentVisual}
+          toggleVisionOption={toggleVisionOption}
+          clearVisionAnalysis={clearVisionAnalysis}
+          downloadVisionCutout={downloadVisionCutout}
           hasVisual={Boolean(previewVisualSrc)}
           visualType={previewVisualType}
           audioDuration={audioDuration}
@@ -864,6 +876,7 @@ export function App() {
 
       <Timeline
         t={t}
+        trOption={trOption}
         undo={undo}
         redo={redo}
         handleDeleteTrack={handleDeleteTrack}

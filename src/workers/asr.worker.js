@@ -125,7 +125,11 @@ function getPreferredInferenceDevice() {
 }
 
 async function createTranscriber(requestId, device) {
-  const { pipeline } = await import("@huggingface/transformers");
+  const { env, pipeline } = await import("@huggingface/transformers");
+  // The app's service worker is the single cache owner for large model files.
+  // A second Transformers Cache Storage copy can exhaust the site quota after
+  // other local AI workflows have already downloaded their models.
+  env.useBrowserCache = false;
   return pipeline("automatic-speech-recognition", AUTOMATIC_CAPTION_MODEL_ID, {
     dtype: "q8",
     device,
@@ -157,8 +161,14 @@ async function getTranscriber(requestId) {
       })(),
     };
   }
-
-  return transcriberState.promise;
+  try {
+    return await transcriberState.promise;
+  } catch (error) {
+    // Never retain a rejected initialization promise: the next click must be
+    // able to retry after a transient download, quota, or runtime failure.
+    transcriberState = null;
+    throw error;
+  }
 }
 
 async function detectWhisperLanguage(transcriber, audio, preferredLanguage, requestId) {

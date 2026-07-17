@@ -8,6 +8,10 @@ export default defineConfig({
   use: {
     baseURL: "http://127.0.0.1:5173",
     headless: true,
+    channel: process.env.PLAYWRIGHT_CHANNEL || undefined,
+    launchOptions: process.env.PLAYWRIGHT_BUILT_IN_AI ? {
+      ignoreDefaultArgs: ["--disable-background-networking", "--disable-component-update"],
+    } : undefined,
   },
   webServer: {
     command: "npm run dev",

@@ -269,10 +269,40 @@ const AUTO_EDIT_COPY = {
   en: { smartAutoEditHint: "Local captions", autoEditCreateTitle: "Create timed captions from visuals", autoEditCreateDesc: "Detect scene changes, sample representative frames, and use Chrome's built-in model to write timed captions.", autoEditBrowserModel: "Chrome built-in model", autoEditPrivacyHint: "Frames are processed on this device and are not sent to the project server. Chrome may download the model on first use.", autoEditLanguageFallback: "The current UI language is not officially supported by Chrome Prompt API output. Captions will be generated in English and remain editable.", autoEditCheckSupport: "Check browser support", autoEditStepScenes: "Detect scenes", autoEditStepScenesHint: "Select key visuals by frame difference", autoEditStepCaptions: "Understand visuals", autoEditStepCaptionsHint: "Generate copy with the local multimodal model", autoEditStepTimeline: "Write timeline", autoEditStepTimelineHint: "Keep caption start and end times", autoEditGenerate: "Generate visual captions", autoEditNeedsVisual: "Add an image or video first", autoEditFindingScenes: "Detecting scene changes", autoEditWritingCaptions: "Writing captions", autoEditDownloadingModel: "Downloading browser model", autoEditDone: "Visual captions added to the timeline", autoEditUnavailable: "Chrome built-in AI is unavailable on this browser or device", autoEditFailed: "Auto Edit failed", autoEditStatus_unknown: "Not checked", autoEditStatus_checking: "Checking", autoEditStatus_available: "Available", autoEditStatus_downloadable: "Model download needed", autoEditStatus_downloading: "Downloading", autoEditStatus_unavailable: "Unavailable" },
 };
 
+const AUTO_EDIT_BUTTON_COPY = {
+  zh: { autoEditGenerateHint: "检测画面变化并创建时间轴字幕", autoEditNeedsVisualHint: "导入素材后即可开始" },
+  en: { autoEditGenerateHint: "Detect visual changes and create timed captions", autoEditNeedsVisualHint: "Import media to get started" },
+};
+
+const AUTO_EDIT_REVIEW_COPY = {
+  zh: { autoEditReviewTitle: "画面分析与字幕检查", autoEditReviewReady: "分析完成", autoEditReviewFailed: "分析失败", autoEditCandidateTitle: "候选关键帧", autoEditCandidateHint: "根据连续帧的视觉变化筛选，以下画面将作为模型输入。", autoEditFramesUnit: "帧", autoEditCandidateFrame: "候选帧", autoEditVisualChange: "画面变化", autoEditModelResultTitle: "模型解析结果", autoEditModelResultHint: "模型根据候选画面生成的字幕内容与时间范围。", autoEditWaitingForModel: "等待模型解析候选画面", autoEditReviewSummaryReady: "字幕草稿已准备好", autoEditReviewSummaryRunning: "正在构建字幕草稿", autoEditReviewSummaryHint: "确认后才会写入现有字幕轨。", autoEditApplyCaptions: "应用到字幕轨" },
+  en: { autoEditReviewTitle: "Visual analysis & caption review", autoEditReviewReady: "Analysis complete", autoEditReviewFailed: "Analysis failed", autoEditCandidateTitle: "Candidate keyframes", autoEditCandidateHint: "Selected from visual changes across consecutive frames. These frames will be sent to the model.", autoEditFramesUnit: "frames", autoEditCandidateFrame: "Candidate frame", autoEditVisualChange: "Visual change", autoEditModelResultTitle: "Model output", autoEditModelResultHint: "Caption text and time ranges generated from the candidate visuals.", autoEditWaitingForModel: "Waiting for the model to analyze candidates", autoEditReviewSummaryReady: "Caption draft is ready", autoEditReviewSummaryRunning: "Building caption draft", autoEditReviewSummaryHint: "Nothing is written to the caption track until you confirm.", autoEditApplyCaptions: "Apply to caption track" },
+};
+
+const AUTO_EDIT_FLOW_COPY = {
+  zh: { autoEditCandidateHint: "通过轻量级块匹配光流追踪连续画面变化，以下帧将作为模型输入。", autoEditVisualChange: "光流变化", autoEditStepScenesHint: "在 Worker 中通过光流筛选关键画面" },
+  en: { autoEditCandidateHint: "Hybrid scene-cut and motion analysis selects representative frames across each clip. These candidates will be sent to the model.", autoEditVisualChange: "Scene score", autoEditStepScenesHint: "Find representative visuals in a background Worker" },
+};
+
+const AUTO_EDIT_SEGMENT_COPY = {
+  zh: { autoEditClip: "片段", autoEditSegmentStatus_waiting: "等待中", autoEditSegmentStatus_running: "解析中", autoEditSegmentStatus_complete: "已完成", autoEditSegmentStatus_empty: "无结果", autoEditSegmentStatus_error: "失败", autoEditSegmentHint_waiting: "排队等待模型处理", autoEditSegmentHint_running: "正在分析这个片段的候选画面", autoEditSegmentHint_complete: "片段解析完成", autoEditSegmentHint_empty: "模型未为这个片段生成字幕", autoEditSegmentHint_error: "这个片段解析失败", autoEditWindowProgress: "正在处理窗口 {current} / {total}" },
+  en: { autoEditClip: "Clip", autoEditSegmentStatus_waiting: "Waiting", autoEditSegmentStatus_running: "Analyzing", autoEditSegmentStatus_complete: "Complete", autoEditSegmentStatus_empty: "No result", autoEditSegmentStatus_error: "Failed", autoEditSegmentHint_waiting: "Queued for model processing", autoEditSegmentHint_running: "Analyzing this clip's candidate visuals", autoEditSegmentHint_complete: "Clip analysis complete", autoEditSegmentHint_empty: "The model returned no caption for this clip", autoEditSegmentHint_error: "This clip could not be analyzed", autoEditWindowProgress: "Processing window {current} / {total}" },
+};
+
+const AUTO_EDIT_RESULT_COPY = {
+  zh: { autoEditNoResults: "所有片段均已处理，但没有可用字幕" },
+  en: { autoEditNoResults: "All clips were processed, but no usable captions were generated" },
+};
+
 export const UI_COPY = {
   zh: {
     ...SMART_WORKSPACE_COPY.zh,
     ...AUTO_EDIT_COPY.zh,
+    ...AUTO_EDIT_BUTTON_COPY.zh,
+    ...AUTO_EDIT_REVIEW_COPY.zh,
+    ...AUTO_EDIT_FLOW_COPY.zh,
+    ...AUTO_EDIT_SEGMENT_COPY.zh,
+    ...AUTO_EDIT_RESULT_COPY.zh,
     ...VISUAL_EDITOR_COPY.zh,
     ...TRANSITION_EDITOR_COPY.zh,
     ...VISUAL_ANIMATION_COPY.zh,
@@ -647,6 +677,11 @@ export const UI_COPY = {
   en: {
     ...SMART_WORKSPACE_COPY.en,
     ...AUTO_EDIT_COPY.en,
+    ...AUTO_EDIT_BUTTON_COPY.en,
+    ...AUTO_EDIT_REVIEW_COPY.en,
+    ...AUTO_EDIT_FLOW_COPY.en,
+    ...AUTO_EDIT_SEGMENT_COPY.en,
+    ...AUTO_EDIT_RESULT_COPY.en,
     ...VISUAL_EDITOR_COPY.en,
     ...TRANSITION_EDITOR_COPY.en,
     ...VISUAL_ANIMATION_COPY.en,

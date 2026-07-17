@@ -31,6 +31,7 @@ export function usePreviewModel(d) {
   }), [d.previewFrameSize.height, d.previewFrameSize.width, d.ratio.height, d.ratio.width]);
   const previewSmartCropRect = useMemo(() => {
     if (
+      d.fitMode !== "cover" ||
       !previewVisionOptions.smartCrop ||
       !previewVisionAnalysis?.subject?.box ||
       !previewVisionAnalysis?.sourceSize
@@ -41,7 +42,7 @@ export function usePreviewModel(d) {
       previewVisionAnalysis.subject.box,
       { padding: 0.14 },
     );
-  }, [previewVisionAnalysis, previewVisionFrameSize, previewVisionOptions.smartCrop]);
+  }, [d.fitMode, previewVisionAnalysis, previewVisionFrameSize, previewVisionOptions.smartCrop]);
   const previewVisionOverlayBoxes = useMemo(() => {
     if (!previewVisionOptions.showDetections || !previewVisionAnalysis?.sourceSize) return [];
     return (previewVisionAnalysis.detections ?? []).map((detection) => {

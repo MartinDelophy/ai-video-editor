@@ -258,8 +258,9 @@ export function Timeline({
     ...audioLanes.map((_, index) => ["audio", `${t("voiceTrack")} ${index + 1}`, `audio-${index}`]),
     ["music", t("musicTrack")],
   ];
-  const isRowVisible = (track, rowId = track) =>
-    trackVisibility[rowId] ?? trackVisibility[track] ?? true;
+  // Visibility is track-scoped even when overlapping clips are packed into
+  // multiple visual rows. Preview, playback and export all read the track key.
+  const isRowVisible = (track) => trackVisibility[track] ?? true;
   const [rulerViewport, setRulerViewport] = useState({
     scrollLeft: 0,
     viewportWidth: 0,
@@ -597,7 +598,7 @@ export function Timeline({
       <div
         key={`sticker-lane-${laneIndex}`}
         className={`sticker-track ${selectedTrack === "sticker" ? "is-selected" : ""} ${
-          !isRowVisible("sticker", `sticker-${laneIndex}`) ? "is-track-disabled" : ""
+          !isRowVisible("sticker") ? "is-track-disabled" : ""
         } ${
           assetDropTargetTrack === "sticker" ? "is-drop-target" : ""
         } ${assetDropPulseTrack === "sticker" ? "is-drop-landing" : ""}`}
@@ -738,7 +739,7 @@ export function Timeline({
           {timelineTrackLabels.map(([track, label, rowId = track]) => (
             <div
               className={`${selectedTrack === track ? "is-selected" : ""} ${
-                !isRowVisible(track, rowId) ? "is-track-disabled" : ""
+                !isRowVisible(track) ? "is-track-disabled" : ""
               }`}
               key={rowId}
               onContextMenu={(event) => showTrackContextMenu(event, track)}
@@ -748,10 +749,10 @@ export function Timeline({
                 aria-label={`${label} ${t("visible")}`}
                 onClick={(event) => {
                   event.stopPropagation();
-                  toggleTrackVisibility(rowId);
+                  toggleTrackVisibility(track);
                 }}
               >
-                {isRowVisible(track, rowId) ? <Eye size={15} /> : <EyeSlash size={15} />}
+                {isRowVisible(track) ? <Eye size={15} /> : <EyeSlash size={15} />}
               </button>
               <button
                 type="button"
@@ -991,7 +992,7 @@ export function Timeline({
             {captionLanes.map((lane, laneIndex) => (
               <div
                 className={`caption-track ${selectedTrack === "caption" ? "is-selected" : ""} ${
-                  !isRowVisible("caption", `caption-${laneIndex}`) ? "is-track-disabled" : ""
+                  !isRowVisible("caption") ? "is-track-disabled" : ""
                 } ${
                   activeTimelineClipDrag?.track === "caption" ? "is-reordering" : ""
                 }`}
@@ -1134,7 +1135,7 @@ export function Timeline({
             {audioLanes.map((lane, laneIndex) => (
               <button
                 className={`audio-track ${selectedTrack === "audio" ? "is-selected" : ""} ${
-                  !isRowVisible("audio", `audio-${laneIndex}`) ? "is-track-disabled" : ""
+                  !isRowVisible("audio") ? "is-track-disabled" : ""
                 } ${
                   laneIndex === 0 && assetDropTargetTrack === "audio" ? "is-drop-target" : ""
                 } ${laneIndex === 0 && assetDropPulseTrack === "audio" ? "is-drop-landing" : ""}`}

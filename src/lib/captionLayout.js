@@ -9,6 +9,7 @@ const CAPTION_MAX_WIDTH = 680;
 const CAPTION_RADIUS = 7;
 const CAPTION_SHADOW_BLUR = 6;
 const CAPTION_SHADOW_OFFSET_Y = 1;
+export const CAPTION_DESIGN_SHORT_EDGE = 360;
 
 export const CAPTION_FONT_FAMILY =
   'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif';
@@ -29,24 +30,24 @@ function clamp(value, minimum, maximum) {
   return Math.max(minimum, Math.min(maximum, value));
 }
 
-export function getCaptionScale(referenceFrame, renderFrame) {
-  const reference = normalizeFrameSize(referenceFrame);
+export function getCaptionScale(_referenceFrame, renderFrame) {
   const render = normalizeFrameSize(renderFrame);
-  if (!reference.height || !render.height) {
+  const renderShortEdge = Math.min(render.width, render.height);
+  if (!renderShortEdge) {
     return 1;
   }
-  return render.height / reference.height;
+  return renderShortEdge / CAPTION_DESIGN_SHORT_EDGE;
 }
 
 export function resolveCaptionMetrics({
-  captionSize = 12,
+  captionSize = 14,
   captionStyle = {},
   referenceFrame,
   renderFrame,
 } = {}) {
   const frame = normalizeFrameSize(renderFrame);
   const scale = getCaptionScale(referenceFrame, frame);
-  const fontSize = Math.max(1, toPositiveNumber(captionSize, 12) * scale);
+  const fontSize = Math.max(1, toPositiveNumber(captionSize, 14) * scale);
   const paddingX = toPositiveNumber(captionStyle.paddingX, CAPTION_PADDING_X) * scale;
   const paddingY = toPositiveNumber(captionStyle.paddingY, CAPTION_PADDING_Y) * scale;
   const minWidth = frame.width * CAPTION_MIN_WIDTH_RATIO;
@@ -172,7 +173,7 @@ function getFallbackTextWidth(text, fontSize) {
 export function getCaptionTextLayout({
   context = getCaptionMeasurementContext(),
   text = "",
-  captionSize = 12,
+  captionSize = 14,
   captionStyle = {},
   referenceFrame,
   renderFrame,

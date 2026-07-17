@@ -133,18 +133,10 @@ export function useTimelineModel(d) {
         return d.currentTime >= start && d.currentTime < end;
       })
     : [];
-  const previewSticker = d.trackVisibility.sticker && currentStickerSegment
-    ? currentStickerSegment
-    : d.stickerSegments.length
-      ? STICKERS[0]
-      : selectedSticker;
-  const previewStickers = currentStickerSegments.length
-    ? currentStickerSegments
-    : d.stickerSegments.length
-      ? []
-      : previewSticker?.src || previewSticker?.text
-        ? [previewSticker]
-        : [];
+  // The preview is timeline-driven. A library selection is only a source for
+  // creating a clip; it must not survive after the final sticker clip is deleted.
+  const previewSticker = d.trackVisibility.sticker ? currentStickerSegment : null;
+  const previewStickers = currentStickerSegments;
   const currentVisualSegmentIndex = getVisualSegmentIndexAtTime(d.visualSegments, d.currentTime);
   const currentVisualSegment = currentVisualSegmentIndex >= 0
     ? d.visualSegments[currentVisualSegmentIndex] ?? null

@@ -66,7 +66,11 @@ async function cacheFirst(request) {
 
   const response = await fetch(request);
   if (response.ok || response.type === "opaque") {
-    cache.put(request, response.clone()).catch(() => {});
+    // Cache persistence is an optimization. A full browser quota must never
+    // block the live response consumed by an inference worker.
+    cache.put(request, response.clone()).catch((error) => {
+      if (error?.name !== "QuotaExceededError") console.warn("Model cache write failed.", error);
+    });
   }
   return response;
 }
@@ -112,6 +116,9 @@ self.addEventListener("activate", (event) => {
       )
       .then(() => self.clients.claim()),
   );
+  // Older Transformers.js builds created a second copy of Hugging Face model
+  // assets here. The service worker is now the sole cache owner.
+  event.waitUntil(caches.delete("transformers-cache").catch(() => false));
 });
 
 self.addEventListener("fetch", (event) => {

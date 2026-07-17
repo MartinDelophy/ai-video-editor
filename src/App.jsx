@@ -58,19 +58,7 @@ import { getImageThumbnailCount, getVisualSegmentsTotal } from "./lib/timeline.j
 import { removeVisualPropertyKeyframe, updateVisualSegmentPlaybackRate, upsertVisualKeyframe, upsertVisualPropertyKeyframe } from "./lib/visualEffects.js";
 import { getLinkedSourceAudioEnd, getLinkedSourceAudioSegments } from "./lib/sourceAudioSync.js";
 import { getTimelineInitialContentZoom } from "./lib/timelineScale.js";
-
-function getExportDimensions(ratio, longEdge) {
-  const sourceLongEdge = Math.max(ratio.width, ratio.height);
-  const scale = longEdge / sourceLongEdge;
-  const even = (value) => Math.max(2, Math.round(value / 2) * 2);
-  return { width: even(ratio.width * scale), height: even(ratio.height * scale) };
-}
-
-function getExportBitrate(resolution, quality, frameRate) {
-  const base = { 720: 5, 1080: 10, 1440: 18, 2160: 38 }[resolution] || 10;
-  const qualityScale = { standard: 0.65, high: 1, ultra: 1.45 }[quality] || 1;
-  return Math.round(base * qualityScale * (frameRate / 30) * 1_000_000);
-}
+import { getExportBitrate, getExportDimensions } from "./lib/exportSettings.js";
 
 export function App() {
   const [uiLanguage, setUiLanguage] = useState(() => getStoredLanguage());
@@ -670,7 +658,10 @@ export function App() {
         ratioId={ratioId}
         showRatioMenu={showRatioMenu}
         setShowRatioMenu={setShowRatioMenu}
-        setRatioId={setRatioId}
+        setRatioId={(nextRatioId) => {
+          setRatioId(nextRatioId);
+          setFitModeFromUser("contain");
+        }}
         notify={notify}
         isPlaying={isPlaying}
         handlePlayToggle={handlePlayToggle}

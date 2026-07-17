@@ -20,7 +20,7 @@ export function useCaptionState() {
   const [script, setScript] = useState(DEFAULT_SCRIPT);
   const [captionPosition, setCaptionPosition] = useState("bottom");
   const [captionPlacement, setCaptionPlacement] = useState({ x: 50, y: 78 });
-  const [captionSize, setCaptionSize] = useState(12);
+  const [captionSize, setCaptionSize] = useState(14);
   const [captionStyle, setCaptionStyle] = useState(DEFAULT_CAPTION_STYLE);
   const [captionsEnabled, setCaptionsEnabled] = useState(true);
   const [captionSegments, setCaptionSegments] = useState(() => createCaptionSegments(DEFAULT_SCRIPT));

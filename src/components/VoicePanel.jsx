@@ -7,10 +7,13 @@ import {
   ListBullets,
   PersonSimpleRun,
   Scissors,
+  Sparkle,
   Trash,
   Waveform,
+  X,
 } from "@phosphor-icons/react";
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 import { formatTime, getSegmentStartTime } from "../lib/timeline.js";
 import { LIVE_PORTRAIT_WEB_MODEL } from "../config/livePortrait.js";
@@ -19,11 +22,63 @@ import { getCaptionVoiceSegment } from "../lib/captionVoice.js";
 import { normalizeVisualKeyframes } from "../lib/visualEffects.js";
 import { HistoryPanel, MyVoicesPanel, SmartVisionPanel, VisualEffectsPanel, VoiceSynthesisPanel } from "./panels.jsx";
 
+function AutoEditReviewDialog({ t, autoEdit }) {
+  const { review, job } = autoEdit || {};
+  if (!review?.open || typeof document === "undefined") return null;
+  const complete = !job.running && review.captions.length > 0;
+  return createPortal(
+    <div className="auto-edit-review-backdrop" role="presentation">
+      <section className="auto-edit-review-dialog" role="dialog" aria-modal="true" aria-label={t("autoEditReviewTitle")}>
+        <header className="auto-edit-review-header">
+          <div className="auto-edit-review-mark"><Sparkle size={19} weight="fill" /></div>
+          <div><span>{t("smartAutoEdit")}</span><h2>{t("autoEditReviewTitle")}</h2></div>
+          <div className={`auto-edit-review-status ${complete ? "is-complete" : review.error ? "is-error" : ""}`}><i />{review.error ? t("autoEditReviewFailed") : complete ? t("autoEditReviewReady") : job.phase}</div>
+          <button type="button" className="auto-edit-review-close" aria-label={t("close")} onClick={autoEdit.closeReview}><X size={18} /></button>
+        </header>
+
+        <div className="auto-edit-review-progress"><span style={{ width: `${job.progress || 0}%` }} /></div>
+        <div className="auto-edit-review-body">
+          <section className="auto-edit-review-section">
+            <div className="auto-edit-review-section-title"><div><span>01</span><strong>{t("autoEditCandidateTitle")}</strong></div><em>{review.candidates.length} {t("autoEditFramesUnit")}</em></div>
+            <p>{t("autoEditCandidateHint")}</p>
+            {review.candidates.length ? <div className="auto-edit-candidate-grid">{review.candidates.map((candidate, index) => (
+              <article className="auto-edit-candidate-card" key={candidate.id}>
+                <div><img src={candidate.url} alt={`${t("autoEditCandidateFrame")} ${index + 1}`} /><span>#{String(index + 1).padStart(2, "0")}</span><em>{candidate.aspectRatio}</em><time>{formatTime(candidate.time)}</time></div>
+                <footer><span>{t("autoEditVisualChange")}</span><strong>{Math.round(candidate.difference * 100)}%</strong><i><b style={{ width: `${Math.min(100, Math.max(5, candidate.difference * 100))}%` }} /></i></footer>
+              </article>
+            ))}</div> : <div className="auto-edit-review-loading"><i /><span>{t("autoEditFindingScenes")}</span></div>}
+          </section>
+
+          <section className="auto-edit-review-section auto-edit-model-results">
+            <div className="auto-edit-review-section-title"><div><span>02</span><strong>{t("autoEditModelResultTitle")}</strong></div><em>{review.captions.length} {t("captionSegmentsUnit")}</em></div>
+            <p>{t("autoEditModelResultHint")}</p>
+            {review.error ? <div className="auto-edit-review-error"><strong>{t("autoEditReviewFailed")}</strong><span>{review.error}</span></div> : review.segments.length ? <div className="auto-edit-clip-results">{review.segments.map((segment) => {
+              const segmentCaptions = review.captions.filter((caption) => caption.visualSegmentId === segment.id);
+              const preview = review.candidates.find((candidate) => candidate.segmentId === segment.id);
+              return <article className={`auto-edit-clip-result is-${segment.status}`} key={segment.id}>
+                <header>{preview ? <img src={preview.url} alt="" /> : null}<div><strong>{segment.name || `${t("autoEditClip")} ${(segment.index ?? 0) + 1}`}</strong><span>{review.candidates.filter((candidate) => candidate.segmentId === segment.id).length} {t("autoEditFramesUnit")}</span></div><em>{t(`autoEditSegmentStatus_${segment.status}`)}</em></header>
+                {segment.error ? <p className="auto-edit-clip-error">{segment.error}</p> : segmentCaptions.length ? <><div className="auto-edit-result-list">{segmentCaptions.map((caption, index) => (
+                  <article key={caption.id}><span>{String(index + 1).padStart(2, "0")}</span><div><p>{caption.text}</p><time>{formatTime(caption.start)} → {formatTime(caption.end)}</time></div></article>
+                ))}</div>{segment.status === "running" ? <div className="auto-edit-clip-pending"><i /><span>{t("autoEditWindowProgress").replace("{current}", segment.windowIndex || 0).replace("{total}", segment.totalWindows || 0)}</span></div> : null}</> : <div className="auto-edit-clip-pending">{segment.status === "running" ? <i /> : null}<span>{segment.status === "running" && segment.totalWindows ? t("autoEditWindowProgress").replace("{current}", segment.windowIndex || 0).replace("{total}", segment.totalWindows) : t(`autoEditSegmentHint_${segment.status}`)}</span></div>}
+              </article>;
+            })}</div> : <div className="auto-edit-review-loading"><i /><span>{job.running ? job.phase : t("autoEditWaitingForModel")}</span></div>}
+          </section>
+        </div>
+        <footer className="auto-edit-review-actions">
+          <div><strong>{complete ? t("autoEditReviewSummaryReady") : t("autoEditReviewSummaryRunning")}</strong><span>{t("autoEditReviewSummaryHint")}</span></div>
+          <button type="button" className="panel-secondary" onClick={autoEdit.closeReview}>{job.running ? t("cancel") : t("close")}</button>
+          <button type="button" className="auto-edit-apply" disabled={!complete} onClick={autoEdit.applyCaptions}><Sparkle size={16} weight="fill" />{t("autoEditApplyCaptions")}</button>
+        </footer>
+      </section>
+    </div>, document.body,
+  );
+}
+
 function AutoEditPanel({ t, hasVisual, language, autoEdit }) {
   const availability = autoEdit?.support?.availability || "unknown";
   const languageFallback = autoEdit?.support?.language && autoEdit.support.language !== language;
   const ready = availability === "available" || availability === "downloadable" || availability === "downloading";
-  return (
+  return (<>
     <div className="auto-edit-panel">
       <section className="auto-edit-intro"><Scissors size={28} weight="duotone" /><div><strong>{t("autoEditCreateTitle")}</strong><span>{t("autoEditCreateDesc")}</span></div></section>
       <section className="auto-edit-status-card">
@@ -34,9 +89,14 @@ function AutoEditPanel({ t, hasVisual, language, autoEdit }) {
       </section>
       <div className="auto-edit-flow"><span>1</span><p><strong>{t("autoEditStepScenes")}</strong><small>{t("autoEditStepScenesHint")}</small></p><span>2</span><p><strong>{t("autoEditStepCaptions")}</strong><small>{t("autoEditStepCaptionsHint")}</small></p><span>3</span><p><strong>{t("autoEditStepTimeline")}</strong><small>{t("autoEditStepTimelineHint")}</small></p></div>
       {autoEdit?.job?.running ? <div className="auto-edit-progress"><div><span>{autoEdit.job.phase}</span><strong>{autoEdit.job.progress}%</strong></div><progress max="100" value={autoEdit.job.progress} /><button className="panel-secondary" type="button" onClick={autoEdit.cancel}>{t("cancel")}</button></div> : null}
-      <button className="primary-action" type="button" disabled={!hasVisual || !ready || autoEdit?.job?.running} onClick={autoEdit?.run}>{hasVisual ? t("autoEditGenerate") : t("autoEditNeedsVisual")}</button>
+      <button className="auto-edit-generate" type="button" disabled={!hasVisual || !ready || autoEdit?.job?.running} onClick={autoEdit?.run}>
+        <span className="auto-edit-generate-icon"><Sparkle size={17} weight="fill" /></span>
+        <span><strong>{hasVisual ? t("autoEditGenerate") : t("autoEditNeedsVisual")}</strong><small>{hasVisual ? t("autoEditGenerateHint") : t("autoEditNeedsVisualHint")}</small></span>
+        <span className="auto-edit-generate-arrow">→</span>
+      </button>
     </div>
-  );
+    <AutoEditReviewDialog t={t} autoEdit={autoEdit} />
+  </>);
 }
 
 function CaptionContextPanel({

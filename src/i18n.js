@@ -26,6 +26,19 @@ const VISUAL_EDITOR_COPY = {
   vi: { visualSelectClip: "Chọn một clip trên rãnh Visuals", visualKeyframes: "Khung hình chính", visualFrames: "khung", visualScale: "Tỷ lệ", visualPositionX: "Vị trí ngang", visualPositionY: "Vị trí dọc", visualRotation: "Xoay", visualOpacity: "Độ mờ", visualDeleteKeyframe: "Xóa khung hình chính hiện tại", visualMask: "Mặt nạ", visualMaskResize: "Đổi kích thước mặt nạ", visualClipScoped: "Clip", visualMaskNone: "Không", visualMaskRectangle: "Chữ nhật", visualMaskRounded: "Bo góc", visualMaskCircle: "Tròn", visualFeather: "Làm mềm", visualHorizontal: "Ngang", visualVertical: "Dọc", visualWidth: "Rộng", visualHeight: "Cao", visualInvertMask: "Đảo mặt nạ", visualEffects: "Hiệu ứng hình ảnh" },
 };
 
+const TRANSITION_EDITOR_COPY = {
+  zh: { transitionSettings: "转场设置", close: "关闭", duration: "时长", secondsShort: "秒" },
+  en: { transitionSettings: "Transition settings", close: "Close", duration: "Duration", secondsShort: "s" },
+  ja: { transitionSettings: "トランジション設定", close: "閉じる", duration: "長さ", secondsShort: "秒" },
+  ko: { transitionSettings: "전환 설정", close: "닫기", duration: "길이", secondsShort: "초" },
+  es: { transitionSettings: "Ajustes de transición", close: "Cerrar", duration: "Duración", secondsShort: "s" },
+  fr: { transitionSettings: "Paramètres de transition", close: "Fermer", duration: "Durée", secondsShort: "s" },
+  de: { transitionSettings: "Übergangseinstellungen", close: "Schließen", duration: "Dauer", secondsShort: "s" },
+  pt: { transitionSettings: "Configurações de transição", close: "Fechar", duration: "Duração", secondsShort: "s" },
+  th: { transitionSettings: "การตั้งค่าทรานซิชัน", close: "ปิด", duration: "ระยะเวลา", secondsShort: "วิ" },
+  vi: { transitionSettings: "Cài đặt chuyển cảnh", close: "Đóng", duration: "Thời lượng", secondsShort: "giây" },
+};
+
 const VISUAL_PANEL_TITLE_COPY = {
   zh: { visualPanelTitle: "画面" },
   en: { visualPanelTitle: "Visuals" },
@@ -225,11 +238,40 @@ const STICKER_EDITOR_COPY = {
   vi: { stickerProperties: "Thuộc tính nhãn dán", stickerHorizontalPosition: "Vị trí ngang", stickerVerticalPosition: "Vị trí dọc", stickerScale: "Tỷ lệ", stickerRotation: "Xoay", stickerOpacity: "Độ mờ", deleteSticker: "Xóa nhãn dán", stickerAddedToTrack: "Đã thêm nhãn dán vào rãnh" },
 };
 
+const CAPTION_DEFAULT_COPY = {
+  zh: { newCaptionDefault: "新的字幕片段" },
+  en: { newCaptionDefault: "New caption" },
+  ja: { newCaptionDefault: "新しい字幕" },
+  ko: { newCaptionDefault: "새 자막" },
+  es: { newCaptionDefault: "Nuevo subtítulo" },
+  fr: { newCaptionDefault: "Nouveau sous-titre" },
+  de: { newCaptionDefault: "Neue Untertitelzeile" },
+  pt: { newCaptionDefault: "Nova legenda" },
+  th: { newCaptionDefault: "คำบรรยายใหม่" },
+  vi: { newCaptionDefault: "Phụ đề mới" },
+};
+
+const SMART_WORKSPACE_COPY = {
+  zh: { smartTools: "Smart 工具", smartAutoEdit: "自动剪辑", smartAutoEditHint: "即将推出", smartFrame: "Smart Frame", smartFrameHint: "智能构图", smartAvatar: "数字人", smartAvatarHint: "口型视频", smartAutoEditDescription: "这里将用于自动分析素材、整理节奏并生成初始剪辑。", smartPlanning: "功能规划中", smartAutoWorkspace: "自动剪辑工作区", smartAutoWorkspaceEmpty: "功能将在下一阶段接入，这里暂时保持为空。", smartComingSoon: "即将推出", smartVisualReady: "画面已就绪", smartWaitingVisual: "等待画面", smartFrameReadyHint: "在左侧运行检测并配置智能构图。", smartFrameEmptyHint: "添加图片或视频后，在左侧运行 Smart Frame。" },
+  en: { smartTools: "Smart tools", smartAutoEdit: "Auto Edit", smartAutoEditHint: "Coming soon", smartFrame: "Smart Frame", smartFrameHint: "Smart composition", smartAvatar: "Digital Human", smartAvatarHint: "Lip-sync video", smartAutoEditDescription: "Automatically analyze media, shape the pacing, and generate a first edit here.", smartPlanning: "In planning", smartAutoWorkspace: "Auto Edit workspace", smartAutoWorkspaceEmpty: "This workflow will arrive in the next phase. This area is intentionally empty for now.", smartComingSoon: "Coming soon", smartVisualReady: "Visual ready", smartWaitingVisual: "Waiting for visual", smartFrameReadyHint: "Run detection and configure Smart Frame from the left panel.", smartFrameEmptyHint: "Add an image or video, then run Smart Frame from the left panel." },
+  ja: { smartTools: "Smart ツール", smartAutoEdit: "自動編集", smartAutoEditHint: "近日公開", smartFrame: "Smart Frame", smartFrameHint: "スマート構図", smartAvatar: "デジタルヒューマン", smartAvatarHint: "リップシンク動画", smartAutoEditDescription: "素材を自動解析し、テンポを整えて初期編集を生成します。", smartPlanning: "企画中", smartAutoWorkspace: "自動編集ワークスペース", smartAutoWorkspaceEmpty: "次の段階で機能を追加します。現在は空の状態です。", smartComingSoon: "近日公開", smartVisualReady: "映像準備完了", smartWaitingVisual: "映像待ち", smartFrameReadyHint: "左パネルで検出を実行し、Smart Frame を設定します。", smartFrameEmptyHint: "画像または動画を追加して、左パネルから Smart Frame を実行してください。" },
+  ko: { smartTools: "Smart 도구", smartAutoEdit: "자동 편집", smartAutoEditHint: "출시 예정", smartFrame: "Smart Frame", smartFrameHint: "스마트 구도", smartAvatar: "디지털 휴먼", smartAvatarHint: "립싱크 영상", smartAutoEditDescription: "미디어를 자동 분석하고 리듬을 정리해 첫 편집본을 생성합니다.", smartPlanning: "기획 중", smartAutoWorkspace: "자동 편집 작업공간", smartAutoWorkspaceEmpty: "다음 단계에서 제공될 기능입니다. 현재는 비어 있습니다.", smartComingSoon: "출시 예정", smartVisualReady: "화면 준비 완료", smartWaitingVisual: "화면 대기 중", smartFrameReadyHint: "왼쪽 패널에서 감지를 실행하고 Smart Frame을 설정하세요.", smartFrameEmptyHint: "이미지나 영상을 추가한 뒤 왼쪽 패널에서 Smart Frame을 실행하세요." },
+  es: { smartTools: "Herramientas Smart", smartAutoEdit: "Edición automática", smartAutoEditHint: "Próximamente", smartFrame: "Smart Frame", smartFrameHint: "Composición inteligente", smartAvatar: "Humano digital", smartAvatarHint: "Vídeo con sincronización labial", smartAutoEditDescription: "Analiza el contenido, organiza el ritmo y genera un primer montaje automáticamente.", smartPlanning: "En planificación", smartAutoWorkspace: "Espacio de edición automática", smartAutoWorkspaceEmpty: "Esta función llegará en la próxima fase. Por ahora, el espacio queda vacío.", smartComingSoon: "Próximamente", smartVisualReady: "Visual listo", smartWaitingVisual: "Esperando visual", smartFrameReadyHint: "Ejecuta la detección y configura Smart Frame desde el panel izquierdo.", smartFrameEmptyHint: "Añade una imagen o vídeo y ejecuta Smart Frame desde el panel izquierdo." },
+  fr: { smartTools: "Outils Smart", smartAutoEdit: "Montage automatique", smartAutoEditHint: "Bientôt disponible", smartFrame: "Smart Frame", smartFrameHint: "Cadrage intelligent", smartAvatar: "Humain numérique", smartAvatarHint: "Vidéo synchronisée", smartAutoEditDescription: "Analysez les médias, structurez le rythme et générez un premier montage automatiquement.", smartPlanning: "En préparation", smartAutoWorkspace: "Espace de montage automatique", smartAutoWorkspaceEmpty: "Cette fonction arrivera lors de la prochaine étape. Cet espace reste vide pour le moment.", smartComingSoon: "Bientôt disponible", smartVisualReady: "Visuel prêt", smartWaitingVisual: "En attente du visuel", smartFrameReadyHint: "Lancez la détection et configurez Smart Frame dans le panneau gauche.", smartFrameEmptyHint: "Ajoutez une image ou une vidéo, puis lancez Smart Frame dans le panneau gauche." },
+  de: { smartTools: "Smart-Werkzeuge", smartAutoEdit: "Automatischer Schnitt", smartAutoEditHint: "Demnächst", smartFrame: "Smart Frame", smartFrameHint: "Intelligenter Bildausschnitt", smartAvatar: "Digitaler Mensch", smartAvatarHint: "Lippensynchrones Video", smartAutoEditDescription: "Medien automatisch analysieren, Rhythmus strukturieren und einen ersten Schnitt erzeugen.", smartPlanning: "In Planung", smartAutoWorkspace: "Arbeitsbereich Automatischer Schnitt", smartAutoWorkspaceEmpty: "Diese Funktion folgt in der nächsten Phase. Der Bereich bleibt vorerst leer.", smartComingSoon: "Demnächst", smartVisualReady: "Bildmaterial bereit", smartWaitingVisual: "Warten auf Bildmaterial", smartFrameReadyHint: "Erkennung im linken Bereich starten und Smart Frame konfigurieren.", smartFrameEmptyHint: "Bild oder Video hinzufügen und Smart Frame im linken Bereich starten." },
+  pt: { smartTools: "Ferramentas Smart", smartAutoEdit: "Edição automática", smartAutoEditHint: "Em breve", smartFrame: "Smart Frame", smartFrameHint: "Composição inteligente", smartAvatar: "Humano digital", smartAvatarHint: "Vídeo com sincronização labial", smartAutoEditDescription: "Analise a mídia, organize o ritmo e gere uma primeira edição automaticamente.", smartPlanning: "Em planejamento", smartAutoWorkspace: "Área de edição automática", smartAutoWorkspaceEmpty: "Este recurso chegará na próxima fase. Por enquanto, esta área ficará vazia.", smartComingSoon: "Em breve", smartVisualReady: "Visual pronto", smartWaitingVisual: "Aguardando visual", smartFrameReadyHint: "Execute a detecção e configure o Smart Frame no painel esquerdo.", smartFrameEmptyHint: "Adicione uma imagem ou vídeo e execute o Smart Frame no painel esquerdo." },
+  th: { smartTools: "เครื่องมือ Smart", smartAutoEdit: "ตัดต่ออัตโนมัติ", smartAutoEditHint: "เร็ว ๆ นี้", smartFrame: "Smart Frame", smartFrameHint: "จัดองค์ประกอบอัจฉริยะ", smartAvatar: "มนุษย์ดิจิทัล", smartAvatarHint: "วิดีโอลิปซิงก์", smartAutoEditDescription: "วิเคราะห์สื่อ จัดจังหวะ และสร้างฉบับตัดต่อแรกโดยอัตโนมัติ", smartPlanning: "อยู่ระหว่างวางแผน", smartAutoWorkspace: "พื้นที่ตัดต่ออัตโนมัติ", smartAutoWorkspaceEmpty: "ฟีเจอร์นี้จะมาในขั้นถัดไป พื้นที่นี้จึงยังว่างอยู่", smartComingSoon: "เร็ว ๆ นี้", smartVisualReady: "ภาพพร้อมแล้ว", smartWaitingVisual: "กำลังรอภาพ", smartFrameReadyHint: "เรียกใช้การตรวจจับและตั้งค่า Smart Frame จากแผงด้านซ้าย", smartFrameEmptyHint: "เพิ่มรูปภาพหรือวิดีโอ แล้วเรียกใช้ Smart Frame จากแผงด้านซ้าย" },
+  vi: { smartTools: "Công cụ Smart", smartAutoEdit: "Dựng tự động", smartAutoEditHint: "Sắp ra mắt", smartFrame: "Smart Frame", smartFrameHint: "Bố cục thông minh", smartAvatar: "Người kỹ thuật số", smartAvatarHint: "Video đồng bộ môi", smartAutoEditDescription: "Tự động phân tích nội dung, sắp xếp nhịp điệu và tạo bản dựng đầu tiên.", smartPlanning: "Đang lên kế hoạch", smartAutoWorkspace: "Không gian dựng tự động", smartAutoWorkspaceEmpty: "Tính năng sẽ được bổ sung ở giai đoạn tiếp theo. Khu vực này hiện để trống.", smartComingSoon: "Sắp ra mắt", smartVisualReady: "Hình ảnh đã sẵn sàng", smartWaitingVisual: "Đang chờ hình ảnh", smartFrameReadyHint: "Chạy nhận diện và cấu hình Smart Frame từ bảng bên trái.", smartFrameEmptyHint: "Thêm ảnh hoặc video, sau đó chạy Smart Frame từ bảng bên trái." },
+};
+
 export const UI_COPY = {
   zh: {
+    ...SMART_WORKSPACE_COPY.zh,
     ...VISUAL_EDITOR_COPY.zh,
+    ...TRANSITION_EDITOR_COPY.zh,
     ...VISUAL_ANIMATION_COPY.zh,
     ...STICKER_EDITOR_COPY.zh,
+    ...CAPTION_DEFAULT_COPY.zh,
     ...VISUAL_PANEL_TITLE_COPY.zh,
     ...VISUAL_MASK_SHAPE_COPY.zh,
     ...VISUAL_KEYFRAME_ACTION_COPY.zh,
@@ -597,9 +639,12 @@ export const UI_COPY = {
     dropMusicHere: "释放到背景音乐轨",
   },
   en: {
+    ...SMART_WORKSPACE_COPY.en,
     ...VISUAL_EDITOR_COPY.en,
+    ...TRANSITION_EDITOR_COPY.en,
     ...VISUAL_ANIMATION_COPY.en,
     ...STICKER_EDITOR_COPY.en,
+    ...CAPTION_DEFAULT_COPY.en,
     ...VISUAL_PANEL_TITLE_COPY.en,
     ...VISUAL_MASK_SHAPE_COPY.en,
     ...VISUAL_KEYFRAME_ACTION_COPY.en,
@@ -967,9 +1012,12 @@ export const UI_COPY = {
     dropMusicHere: "Drop on music track",
   },
   ja: {
+    ...SMART_WORKSPACE_COPY.ja,
     ...VISUAL_EDITOR_COPY.ja,
+    ...TRANSITION_EDITOR_COPY.ja,
     ...VISUAL_ANIMATION_COPY.ja,
     ...STICKER_EDITOR_COPY.ja,
+    ...CAPTION_DEFAULT_COPY.ja,
     ...VISUAL_PANEL_TITLE_COPY.ja,
     ...VISUAL_MASK_SHAPE_COPY.ja,
     ...VISUAL_KEYFRAME_ACTION_COPY.ja,
@@ -1046,9 +1094,12 @@ export const UI_COPY = {
 
 Object.assign(UI_COPY, {
   ko: {
+    ...SMART_WORKSPACE_COPY.ko,
     ...VISUAL_EDITOR_COPY.ko,
+    ...TRANSITION_EDITOR_COPY.ko,
     ...VISUAL_ANIMATION_COPY.ko,
     ...STICKER_EDITOR_COPY.ko,
+    ...CAPTION_DEFAULT_COPY.ko,
     ...VISUAL_PANEL_TITLE_COPY.ko,
     ...VISUAL_MASK_SHAPE_COPY.ko,
     ...VISUAL_KEYFRAME_ACTION_COPY.ko,
@@ -1106,10 +1157,13 @@ Object.assign(UI_COPY, {
     musicTrack: "배경 음악",
   },
   es: {
+    ...SMART_WORKSPACE_COPY.es,
     ...UI_COPY.en,
     ...VISUAL_EDITOR_COPY.es,
+    ...TRANSITION_EDITOR_COPY.es,
     ...VISUAL_ANIMATION_COPY.es,
     ...STICKER_EDITOR_COPY.es,
+    ...CAPTION_DEFAULT_COPY.es,
     ...VISUAL_PANEL_TITLE_COPY.es,
     ...VISUAL_MASK_SHAPE_COPY.es,
     ...VISUAL_KEYFRAME_ACTION_COPY.es,
@@ -1164,10 +1218,13 @@ Object.assign(UI_COPY, {
     musicTrack: "Música",
   },
   fr: {
+    ...SMART_WORKSPACE_COPY.fr,
     ...UI_COPY.en,
     ...VISUAL_EDITOR_COPY.fr,
+    ...TRANSITION_EDITOR_COPY.fr,
     ...VISUAL_ANIMATION_COPY.fr,
     ...STICKER_EDITOR_COPY.fr,
+    ...CAPTION_DEFAULT_COPY.fr,
     ...VISUAL_PANEL_TITLE_COPY.fr,
     ...VISUAL_MASK_SHAPE_COPY.fr,
     ...VISUAL_KEYFRAME_ACTION_COPY.fr,
@@ -1222,10 +1279,13 @@ Object.assign(UI_COPY, {
     musicTrack: "Musique",
   },
   de: {
+    ...SMART_WORKSPACE_COPY.de,
     ...UI_COPY.en,
     ...VISUAL_EDITOR_COPY.de,
+    ...TRANSITION_EDITOR_COPY.de,
     ...VISUAL_ANIMATION_COPY.de,
     ...STICKER_EDITOR_COPY.de,
+    ...CAPTION_DEFAULT_COPY.de,
     ...VISUAL_PANEL_TITLE_COPY.de,
     ...VISUAL_MASK_SHAPE_COPY.de,
     ...VISUAL_KEYFRAME_ACTION_COPY.de,
@@ -1280,10 +1340,13 @@ Object.assign(UI_COPY, {
     musicTrack: "Musik",
   },
   pt: {
+    ...SMART_WORKSPACE_COPY.pt,
     ...UI_COPY.en,
     ...VISUAL_EDITOR_COPY.pt,
+    ...TRANSITION_EDITOR_COPY.pt,
     ...VISUAL_ANIMATION_COPY.pt,
     ...STICKER_EDITOR_COPY.pt,
+    ...CAPTION_DEFAULT_COPY.pt,
     ...VISUAL_PANEL_TITLE_COPY.pt,
     ...VISUAL_MASK_SHAPE_COPY.pt,
     ...VISUAL_KEYFRAME_ACTION_COPY.pt,
@@ -1338,10 +1401,13 @@ Object.assign(UI_COPY, {
     musicTrack: "Música",
   },
   th: {
+    ...SMART_WORKSPACE_COPY.th,
     ...UI_COPY.en,
     ...VISUAL_EDITOR_COPY.th,
+    ...TRANSITION_EDITOR_COPY.th,
     ...VISUAL_ANIMATION_COPY.th,
     ...STICKER_EDITOR_COPY.th,
+    ...CAPTION_DEFAULT_COPY.th,
     ...VISUAL_PANEL_TITLE_COPY.th,
     ...VISUAL_MASK_SHAPE_COPY.th,
     ...VISUAL_KEYFRAME_ACTION_COPY.th,
@@ -1396,10 +1462,13 @@ Object.assign(UI_COPY, {
     musicTrack: "เพลง",
   },
   vi: {
+    ...SMART_WORKSPACE_COPY.vi,
     ...UI_COPY.en,
     ...VISUAL_EDITOR_COPY.vi,
+    ...TRANSITION_EDITOR_COPY.vi,
     ...VISUAL_ANIMATION_COPY.vi,
     ...STICKER_EDITOR_COPY.vi,
+    ...CAPTION_DEFAULT_COPY.vi,
     ...VISUAL_PANEL_TITLE_COPY.vi,
     ...VISUAL_MASK_SHAPE_COPY.vi,
     ...VISUAL_KEYFRAME_ACTION_COPY.vi,
@@ -1512,6 +1581,13 @@ export const OPTION_COPY = {
     "热点": "Hot",
     "旁白": "Voiceover",
   },
+  ko: { "无转场": "없음", "淡入淡出": "페이드", "轻推拉": "부드러운 줌", "闪白切换": "플래시", "左推入": "왼쪽 밀기", "上推入": "위로 밀기", "模糊切": "블러 컷", "双开门": "분할 열기", "故障闪": "글리치" },
+  es: { "无转场": "Ninguna", "淡入淡出": "Fundido", "轻推拉": "Zoom suave", "闪白切换": "Destello", "左推入": "Empuje izquierdo", "上推入": "Empuje superior", "模糊切": "Corte borroso", "双开门": "Apertura doble", "故障闪": "Fallo digital" },
+  fr: { "无转场": "Aucune", "淡入淡出": "Fondu", "轻推拉": "Zoom léger", "闪白切换": "Flash", "左推入": "Poussée gauche", "上推入": "Poussée haute", "模糊切": "Coupe floue", "双开门": "Double ouverture", "故障闪": "Glitch" },
+  de: { "无转场": "Keine", "淡入淡出": "Überblenden", "轻推拉": "Sanfter Zoom", "闪白切换": "Blitz", "左推入": "Von links", "上推入": "Von oben", "模糊切": "Unschärfeschnitt", "双开门": "Geteiltes Öffnen", "故障闪": "Glitch" },
+  pt: { "无转场": "Nenhuma", "淡入淡出": "Dissolver", "轻推拉": "Zoom suave", "闪白切换": "Flash", "左推入": "Empurrar à esquerda", "上推入": "Empurrar para cima", "模糊切": "Corte desfocado", "双开门": "Abertura dupla", "故障闪": "Falha digital" },
+  th: { "无转场": "ไม่มี", "淡入淡出": "เฟด", "轻推拉": "ซูมเบาๆ", "闪白切换": "แฟลช", "左推入": "ดันจากซ้าย", "上推入": "ดันจากบน", "模糊切": "ตัดแบบเบลอ", "双开门": "เปิดแยก", "故障闪": "กลิทช์" },
+  vi: { "无转场": "Không có", "淡入淡出": "Mờ dần", "轻推拉": "Thu phóng nhẹ", "闪白切换": "Chớp sáng", "左推入": "Đẩy từ trái", "上推入": "Đẩy từ trên", "模糊切": "Cắt mờ", "双开门": "Mở đôi", "故障闪": "Nhiễu hình" },
 };
 
 export const LANGUAGE_FALLBACKS = {

@@ -97,6 +97,8 @@ export function EditorSidebar({ model: d }) {
             clearVisionAnalysis={d.clearVisionAnalysis}
             downloadVisionCutout={d.downloadVisionCutout}
             openAvatarPanel={d.openAvatarPanel}
+            smartMode={d.smartMode}
+            setSmartMode={d.setSmartMode}
             musicBlob={d.musicBlob}
             musicName={d.musicName}
             musicDuration={d.musicDuration}

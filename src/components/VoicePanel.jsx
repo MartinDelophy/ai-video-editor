@@ -19,6 +19,26 @@ import { getCaptionVoiceSegment } from "../lib/captionVoice.js";
 import { normalizeVisualKeyframes } from "../lib/visualEffects.js";
 import { HistoryPanel, MyVoicesPanel, SmartVisionPanel, VisualEffectsPanel, VoiceSynthesisPanel } from "./panels.jsx";
 
+function AutoEditPanel({ t, hasVisual, language, autoEdit }) {
+  const availability = autoEdit?.support?.availability || "unknown";
+  const languageFallback = autoEdit?.support?.language && autoEdit.support.language !== language;
+  const ready = availability === "available" || availability === "downloadable" || availability === "downloading";
+  return (
+    <div className="auto-edit-panel">
+      <section className="auto-edit-intro"><Scissors size={28} weight="duotone" /><div><strong>{t("autoEditCreateTitle")}</strong><span>{t("autoEditCreateDesc")}</span></div></section>
+      <section className="auto-edit-status-card">
+        <div><span>{t("autoEditBrowserModel")}</span><strong className={`auto-edit-availability is-${availability}`}>{t(`autoEditStatus_${availability}`)}</strong></div>
+        <p>{t("autoEditPrivacyHint")}</p>
+        {languageFallback ? <p className="auto-edit-warning">{t("autoEditLanguageFallback")}</p> : null}
+        <button className="panel-secondary" type="button" disabled={autoEdit?.job?.running || availability === "checking"} onClick={autoEdit?.checkSupport}>{t("autoEditCheckSupport")}</button>
+      </section>
+      <div className="auto-edit-flow"><span>1</span><p><strong>{t("autoEditStepScenes")}</strong><small>{t("autoEditStepScenesHint")}</small></p><span>2</span><p><strong>{t("autoEditStepCaptions")}</strong><small>{t("autoEditStepCaptionsHint")}</small></p><span>3</span><p><strong>{t("autoEditStepTimeline")}</strong><small>{t("autoEditStepTimelineHint")}</small></p></div>
+      {autoEdit?.job?.running ? <div className="auto-edit-progress"><div><span>{autoEdit.job.phase}</span><strong>{autoEdit.job.progress}%</strong></div><progress max="100" value={autoEdit.job.progress} /><button className="panel-secondary" type="button" onClick={autoEdit.cancel}>{t("cancel")}</button></div> : null}
+      <button className="primary-action" type="button" disabled={!hasVisual || !ready || autoEdit?.job?.running} onClick={autoEdit?.run}>{hasVisual ? t("autoEditGenerate") : t("autoEditNeedsVisual")}</button>
+    </div>
+  );
+}
+
 function CaptionContextPanel({
   t,
   captionSegments,
@@ -339,6 +359,7 @@ export function VoicePanel({
   automaticCaptionProgress,
   avatarPanelOpen,
   smartMode = "auto-edit",
+  autoEdit,
   uiLanguage,
   visionAnalysis,
   visionOptions,
@@ -383,7 +404,7 @@ export function VoicePanel({
   const isStickerContext = selectedTrack === "sticker" && Boolean(selectedStickerSegment);
   const selectedCaptionAudioSegment = getCaptionVoiceSegment(audioSegments, selectedCaptionSegment);
   const title = isSmartAutoContext ? t("smartAutoEdit") : isSmartFrameContext ? t("smartFrame") : isAvatarContext ? t("avatarTitle") : isStickerContext ? t("stickerProperties") : isVisualContext ? t("visualPanelTitle") : isCaptionContext ? t("caption") : isAudioClipContext ? t("audioClipProperties") : t("aiVoice");
-  const panelStatusText = isSmartAutoContext ? t("smartComingSoon") : isSmartFrameContext ? (hasVisual ? t("smartVisualReady") : t("smartWaitingVisual")) : isCaptionContext
+  const panelStatusText = isSmartAutoContext ? t(`autoEditStatus_${autoEdit?.support?.availability || "unknown"}`) : isSmartFrameContext ? (hasVisual ? t("smartVisualReady") : t("smartWaitingVisual")) : isCaptionContext
     ? captionSegments.length
       ? `${captionSegments.length} ${t("captionSegmentsUnit", "条字幕")}`
       : t("noCaptionSegments")
@@ -411,6 +432,10 @@ export function VoicePanel({
     });
     return () => cancelAnimationFrame(frame);
   }, [captionVoiceFocusRequest, isCaptionContext]);
+
+  useEffect(() => {
+    panelRef.current?.querySelector(".voice-tab-body")?.scrollTo({ top: 0 });
+  }, [activeTool, smartMode]);
 
   return (
     <aside ref={panelRef} className={`voice-panel ${isCaptionContext ? "is-caption-context" : ""} ${isAvatarContext ? "is-avatar-context" : ""} ${isAudioClipContext ? "is-audio-clip-context" : ""} ${isVisualContext ? "is-visual-context" : ""}`}>
@@ -464,7 +489,7 @@ export function VoicePanel({
       ) : null}
 
       <div className="voice-tab-body">
-        {isSmartAutoContext ? <div className="smart-context-empty"><Scissors size={34} weight="duotone" /><strong>{t("smartAutoWorkspace")}</strong><span>{t("smartAutoWorkspaceEmpty")}</span></div> : null}
+        {isSmartAutoContext ? <AutoEditPanel t={t} hasVisual={hasVisual} language={uiLanguage} autoEdit={autoEdit} /> : null}
         {isSmartFrameContext ? <SmartVisionPanel t={t} language={uiLanguage} hasVisual={hasVisual} visualType={visualType} analysis={visionAnalysis} options={visionOptions} running={visionRunning} progress={visionProgress} phase={visionPhase} onAnalyze={analyzeCurrentVisual} onToggle={toggleVisionOption} onClear={clearVisionAnalysis} onDownloadCutout={downloadVisionCutout} /> : null}
         {isStickerContext ? <StickerContextPanel t={t} segment={selectedStickerSegment} updateStickerSegment={updateStickerSegment} deleteStickerSegment={deleteStickerSegment} /> : null}
         {isVisualContext && selectedVisualSegment ? (

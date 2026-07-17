@@ -7,10 +7,10 @@ describe("timeline segment insertion", () => {
     const commitCaptionSegments = vi.fn();
     const controls = createTimelineSegmentCountActions({
       selectedTrack: "caption", currentTime: 4.25, captionSegments: [], trackLocks: {},
-      commitCaptionSegments, notify: vi.fn(),
+      commitCaptionSegments, notify: vi.fn(), t: (key) => key === "newCaptionDefault" ? "New caption" : key,
     });
     controls.handleAddSegment();
-    expect(commitCaptionSegments.mock.calls[0][0][0]).toMatchObject({ start: 4.25, end: 6.05 });
+    expect(commitCaptionSegments.mock.calls[0][0][0]).toMatchObject({ start: 4.25, end: 6.05, text: "New caption" });
   });
 
   it("splits the active visual and inserts the new clip at the playhead", () => {

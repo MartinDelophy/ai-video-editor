@@ -264,9 +264,15 @@ const SMART_WORKSPACE_COPY = {
   vi: { smartTools: "Công cụ Smart", smartAutoEdit: "Dựng tự động", smartAutoEditHint: "Sắp ra mắt", smartFrame: "Smart Frame", smartFrameHint: "Bố cục thông minh", smartAvatar: "Người kỹ thuật số", smartAvatarHint: "Video đồng bộ môi", smartAutoEditDescription: "Tự động phân tích nội dung, sắp xếp nhịp điệu và tạo bản dựng đầu tiên.", smartPlanning: "Đang lên kế hoạch", smartAutoWorkspace: "Không gian dựng tự động", smartAutoWorkspaceEmpty: "Tính năng sẽ được bổ sung ở giai đoạn tiếp theo. Khu vực này hiện để trống.", smartComingSoon: "Sắp ra mắt", smartVisualReady: "Hình ảnh đã sẵn sàng", smartWaitingVisual: "Đang chờ hình ảnh", smartFrameReadyHint: "Chạy nhận diện và cấu hình Smart Frame từ bảng bên trái.", smartFrameEmptyHint: "Thêm ảnh hoặc video, sau đó chạy Smart Frame từ bảng bên trái." },
 };
 
+const AUTO_EDIT_COPY = {
+  zh: { smartAutoEditHint: "本地生成字幕", autoEditCreateTitle: "从画面生成时间轴字幕", autoEditCreateDesc: "检测镜头变化，抽取代表帧，并交给 Chrome 内置模型生成带时间的字幕。", autoEditBrowserModel: "Chrome 内置模型", autoEditPrivacyHint: "画面在设备本地处理，不上传到项目服务器。首次使用可能需要 Chrome 下载模型。", autoEditLanguageFallback: "Chrome 当前未正式支持中文 Prompt 输出，本次会生成英文字幕；生成后可在字幕轨继续编辑。", autoEditCheckSupport: "检测浏览器支持", autoEditStepScenes: "检测镜头", autoEditStepScenesHint: "按帧差筛选关键画面", autoEditStepCaptions: "理解画面", autoEditStepCaptionsHint: "本地多模态模型生成文案", autoEditStepTimeline: "写入时间轴", autoEditStepTimelineHint: "保留每条字幕的开始与结束时间", autoEditGenerate: "生成画面字幕", autoEditNeedsVisual: "请先添加图片或视频", autoEditFindingScenes: "正在检测镜头变化", autoEditWritingCaptions: "正在生成字幕", autoEditDownloadingModel: "正在下载浏览器模型", autoEditDone: "画面字幕已写入时间轴", autoEditUnavailable: "当前浏览器或设备不支持 Chrome 内置模型", autoEditFailed: "自动剪辑失败", autoEditStatus_unknown: "尚未检测", autoEditStatus_checking: "检测中", autoEditStatus_available: "可用", autoEditStatus_downloadable: "模型待下载", autoEditStatus_downloading: "下载中", autoEditStatus_unavailable: "不可用" },
+  en: { smartAutoEditHint: "Local captions", autoEditCreateTitle: "Create timed captions from visuals", autoEditCreateDesc: "Detect scene changes, sample representative frames, and use Chrome's built-in model to write timed captions.", autoEditBrowserModel: "Chrome built-in model", autoEditPrivacyHint: "Frames are processed on this device and are not sent to the project server. Chrome may download the model on first use.", autoEditLanguageFallback: "The current UI language is not officially supported by Chrome Prompt API output. Captions will be generated in English and remain editable.", autoEditCheckSupport: "Check browser support", autoEditStepScenes: "Detect scenes", autoEditStepScenesHint: "Select key visuals by frame difference", autoEditStepCaptions: "Understand visuals", autoEditStepCaptionsHint: "Generate copy with the local multimodal model", autoEditStepTimeline: "Write timeline", autoEditStepTimelineHint: "Keep caption start and end times", autoEditGenerate: "Generate visual captions", autoEditNeedsVisual: "Add an image or video first", autoEditFindingScenes: "Detecting scene changes", autoEditWritingCaptions: "Writing captions", autoEditDownloadingModel: "Downloading browser model", autoEditDone: "Visual captions added to the timeline", autoEditUnavailable: "Chrome built-in AI is unavailable on this browser or device", autoEditFailed: "Auto Edit failed", autoEditStatus_unknown: "Not checked", autoEditStatus_checking: "Checking", autoEditStatus_available: "Available", autoEditStatus_downloadable: "Model download needed", autoEditStatus_downloading: "Downloading", autoEditStatus_unavailable: "Unavailable" },
+};
+
 export const UI_COPY = {
   zh: {
     ...SMART_WORKSPACE_COPY.zh,
+    ...AUTO_EDIT_COPY.zh,
     ...VISUAL_EDITOR_COPY.zh,
     ...TRANSITION_EDITOR_COPY.zh,
     ...VISUAL_ANIMATION_COPY.zh,
@@ -640,6 +646,7 @@ export const UI_COPY = {
   },
   en: {
     ...SMART_WORKSPACE_COPY.en,
+    ...AUTO_EDIT_COPY.en,
     ...VISUAL_EDITOR_COPY.en,
     ...TRANSITION_EDITOR_COPY.en,
     ...VISUAL_ANIMATION_COPY.en,

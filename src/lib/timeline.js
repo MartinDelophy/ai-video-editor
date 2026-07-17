@@ -93,6 +93,22 @@ export function packTimedSegmentsIntoLanes(segments) {
   return lanes.length ? lanes : [[]];
 }
 
+export function packCaptionSegmentsIntoLanes(segments, timeline) {
+  const lanes = [];
+  segments
+    .map((segment, index) => ({ segment, index, range: timeline[index] }))
+    .sort((a, b) => (a.range?.start || 0) - (b.range?.start || 0))
+    .forEach((item) => {
+      const laneIndex = lanes.findIndex((lane) => {
+        const last = lane.at(-1);
+        return !last || (last.range?.end || 0) <= (item.range?.start || 0) + 0.001;
+      });
+      if (laneIndex >= 0) lanes[laneIndex].push(item);
+      else lanes.push([item]);
+    });
+  return lanes.length ? lanes : [[]];
+}
+
 export function getTimedSegmentIndexAtTime(segments, time) {
   const safeTime = Math.max(0, Number.isFinite(time) ? time : 0);
   for (let index = segments.length - 1; index >= 0; index -= 1) {

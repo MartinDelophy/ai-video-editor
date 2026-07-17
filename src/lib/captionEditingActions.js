@@ -1,5 +1,11 @@
 import { getCaptionScript } from "./timeline.js";
 
+export function setCaptionSegmentPlacement(segments, segmentId, placement) {
+  return segments.map((segment) => (
+    segment.id === segmentId ? { ...segment, placement: { ...placement } } : segment
+  ));
+}
+
 export function createCaptionEditingActions(d) {
   function updateScript(nextScript) {
     d.setScript(nextScript);
@@ -62,7 +68,7 @@ export function createCaptionEditingActions(d) {
     }
   }
 
-  function startCaptionDrag(event) {
+  function startCaptionDrag(event, segmentId = d.currentCaptionSegment?.id) {
     if (event.button !== 0) return;
     if (d.trackLocks.caption) {
       d.notify("字幕轨已锁定，无法拖动");
@@ -72,14 +78,18 @@ export function createCaptionEditingActions(d) {
     event.stopPropagation();
     const disabledSmartAvoidance = disableSmartCaptionAvoidance();
     d.setSelectedTrack("caption");
-    if (d.currentCaptionSegment) d.setSelectedSegmentId(d.currentCaptionSegment.id);
+    if (segmentId) d.setSelectedSegmentId(segmentId);
 
     const applyPlacement = (clientX, clientY) => {
       const rect = d.previewCanvasRef.current?.getBoundingClientRect();
       if (!rect) return;
       const x = Math.max(10, Math.min(90, ((clientX - rect.left) / rect.width) * 100));
       const y = Math.max(10, Math.min(90, ((clientY - rect.top) / rect.height) * 100));
-      d.setCaptionPlacement({ x, y });
+      if (segmentId) {
+        d.setCaptionSegments((items) => setCaptionSegmentPlacement(items, segmentId, { x, y }));
+      } else {
+        d.setCaptionPlacement({ x, y });
+      }
       d.setCaptionPosition("custom");
     };
 

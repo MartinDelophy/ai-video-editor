@@ -295,8 +295,8 @@ const AUTO_EDIT_RESULT_COPY = {
 };
 
 const IMAGE_AI_CAPTION_COPY = {
-  zh: { generateImageAiCaption: "AI 生成口播字幕", imageAiCaptionAdded: "AI 口播字幕已加入时间线", imageAiCaptionFailed: "无法生成图片口播字幕" },
-  en: { generateImageAiCaption: "Generate AI voiceover caption", imageAiCaptionAdded: "AI voiceover caption added to the timeline", imageAiCaptionFailed: "Could not generate an image voiceover caption" },
+  zh: { generateImageAiCaption: "AI 生成口播字幕", generatingImageAiCaption: "正在生成口播字幕…", imageAiCaptionAdded: "AI 口播字幕已加入时间线", imageAiCaptionFailed: "无法生成图片口播字幕" },
+  en: { generateImageAiCaption: "Generate AI voiceover caption", generatingImageAiCaption: "Generating AI caption…", imageAiCaptionAdded: "AI voiceover caption added to the timeline", imageAiCaptionFailed: "Could not generate an image voiceover caption" },
 };
 
 export const UI_COPY = {

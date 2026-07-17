@@ -12,6 +12,7 @@ import {
   moveTimedCaptionSegment,
   materializeCaptionTimings,
   packTimedSegmentsIntoLanes,
+  packCaptionSegmentsIntoLanes,
   reorderTimelineItems,
 } from "./timeline.js";
 import {
@@ -140,4 +141,17 @@ describe("timeline primitives", () => {
     expect(sticker.start).toBe(0);
     expect(sticker.duration).toBeGreaterThanOrEqual(0.5);
   });
+});
+
+it("packs overlapping captions into separate stable lanes", () => {
+  const segments = [{ id: "a" }, { id: "b" }, { id: "c" }];
+  const timeline = [
+    { start: 0, end: 4 },
+    { start: 0, end: 2 },
+    { start: 2, end: 4 },
+  ];
+  const lanes = packCaptionSegmentsIntoLanes(segments, timeline);
+  expect(lanes).toHaveLength(2);
+  expect(lanes[0].map(({ segment }) => segment.id)).toEqual(["a"]);
+  expect(lanes[1].map(({ segment }) => segment.id)).toEqual(["b", "c"]);
 });

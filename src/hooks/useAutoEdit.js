@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { createFrameCaptionSession, extractAutoEditFrames, generateFrameCaptions, probeBuiltInAI } from "../lib/autoEdit.js";
-import { getVisualSegmentsTotal } from "../lib/timeline.js";
+import { createFrameCaptionSession, extractAutoEditFrames, generateFrameCaptions, generateImageVoiceoverText, probeBuiltInAI } from "../lib/autoEdit.js";
+import { getVisualSegmentsTotal, makeId } from "../lib/timeline.js";
 
-export function useAutoEdit({ language, visualSegments, commitCaptionSegments, setCaptionsEnabled, setSelectedSegmentId, setSelectedTrack, notify, t }) {
+export function useAutoEdit({ language, visualSegments, captionSegments, commitCaptionSegments, setCaptionsEnabled, setTrackVisibility, setSelectedSegmentId, setSelectedTrack, notify, t }) {
   const [support, setSupport] = useState({ availability: "unknown", reason: "", language: "en" });
   const [job, setJob] = useState({ running: false, progress: 0, phase: "" });
   const [review, setReview] = useState({ open: false, candidates: [], captions: [], segments: [], error: "" });
@@ -19,6 +19,31 @@ export function useAutoEdit({ language, visualSegments, commitCaptionSegments, s
     setSupport(result);
     return result;
   }, [language]);
+  useEffect(() => { checkSupport(); }, [checkSupport]);
+
+  const generateImageCaption = useCallback(async (segment) => {
+    if (!segment?.src || segment.type === "video" || support.availability !== "available" || job.running) return;
+    const index = visualSegments.findIndex((item) => item.id === segment.id);
+    if (index < 0) return;
+    const start = visualSegments.slice(0, index).reduce((sum, item) => sum + Math.max(0, Number(item.duration) || 0), 0);
+    const end = start + Math.max(0.2, Number(segment.duration) || 0.2);
+    setJob({ running: true, progress: 15, phase: t("autoEditWritingCaptions") });
+    try {
+      const text = await generateImageVoiceoverText({ src: segment.src, language });
+      const caption = { id: makeId("caption"), text, start, end, hidden: false, visualSegmentId: segment.id };
+      const next = [...captionSegments, caption].sort((a, b) => (Number(a.start) || 0) - (Number(b.start) || 0));
+      commitCaptionSegments(next, t("imageAiCaptionAdded"), next.findIndex((item) => item.id === caption.id));
+      setCaptionsEnabled(true);
+      setTrackVisibility((visibility) => ({ ...visibility, caption: true }));
+      setSelectedTrack("caption"); setSelectedSegmentId(caption.id);
+      notify(t("imageAiCaptionAdded"));
+    } catch (error) {
+      console.error(error);
+      notify(t("imageAiCaptionFailed"));
+    } finally {
+      setJob({ running: false, progress: 0, phase: "" });
+    }
+  }, [captionSegments, commitCaptionSegments, job.running, language, notify, setCaptionsEnabled, setSelectedSegmentId, setSelectedTrack, setTrackVisibility, support.availability, t, visualSegments]);
   const run = useCallback(async () => {
     if (!visualSegments.length || job.running) return;
     const environment = support.availability === "unknown" ? await checkSupport() : support;
@@ -85,5 +110,5 @@ export function useAutoEdit({ language, visualSegments, commitCaptionSegments, s
     notify(t("autoEditDone"));
     closeReview();
   };
-  return { support, job, review, checkSupport, run, cancel, closeReview, applyCaptions };
+  return { support, job, review, checkSupport, run, generateImageCaption, cancel, closeReview, applyCaptions };
 }

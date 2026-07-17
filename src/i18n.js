@@ -294,6 +294,11 @@ const AUTO_EDIT_RESULT_COPY = {
   en: { autoEditNoResults: "All clips were processed, but no usable captions were generated" },
 };
 
+const IMAGE_AI_CAPTION_COPY = {
+  zh: { generateImageAiCaption: "AI 生成口播字幕", imageAiCaptionAdded: "AI 口播字幕已加入时间线", imageAiCaptionFailed: "无法生成图片口播字幕" },
+  en: { generateImageAiCaption: "Generate AI voiceover caption", imageAiCaptionAdded: "AI voiceover caption added to the timeline", imageAiCaptionFailed: "Could not generate an image voiceover caption" },
+};
+
 export const UI_COPY = {
   zh: {
     ...SMART_WORKSPACE_COPY.zh,
@@ -303,6 +308,7 @@ export const UI_COPY = {
     ...AUTO_EDIT_FLOW_COPY.zh,
     ...AUTO_EDIT_SEGMENT_COPY.zh,
     ...AUTO_EDIT_RESULT_COPY.zh,
+    ...IMAGE_AI_CAPTION_COPY.zh,
     ...VISUAL_EDITOR_COPY.zh,
     ...TRANSITION_EDITOR_COPY.zh,
     ...VISUAL_ANIMATION_COPY.zh,
@@ -682,6 +688,7 @@ export const UI_COPY = {
     ...AUTO_EDIT_FLOW_COPY.en,
     ...AUTO_EDIT_SEGMENT_COPY.en,
     ...AUTO_EDIT_RESULT_COPY.en,
+    ...IMAGE_AI_CAPTION_COPY.en,
     ...VISUAL_EDITOR_COPY.en,
     ...TRANSITION_EDITOR_COPY.en,
     ...VISUAL_ANIMATION_COPY.en,

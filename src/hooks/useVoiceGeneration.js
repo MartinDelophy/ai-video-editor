@@ -39,10 +39,21 @@ export function useVoiceGeneration(d) {
           d.setStatusText(d.t("ttsStatusClearingCache")); await tts.flush?.(); blob = await predictPiperVoice(tts, input, progress);
         }
       } else {
-        const { KokoroTTS } = await import("kokoro-js"); d.setStatusText(d.t("ttsStatusLoadingKokoro"));
+        // Kokoro and the editor share the same Transformers runtime. Disable
+        // its second Cache Storage layer before Kokoro starts loading; the
+        // project service worker already owns persistent model caching.
+        const [{ env: transformersEnv }, { KokoroTTS }] = await Promise.all([
+          import("@huggingface/transformers"),
+          import("kokoro-js"),
+        ]);
+        transformersEnv.useBrowserCache = false;
+        d.setStatusText(d.t("ttsStatusLoadingKokoro"));
         const progressCallback = (event) => { if (event?.progress) d.setProgress((current) => Math.max(current, Math.min(86, Math.max(10, Math.round(event.progress))))); };
         let tts;
-        if (globalThis.navigator?.gpu) {
+        const webGpuAdapter = globalThis.navigator?.gpu
+          ? await globalThis.navigator.gpu.requestAdapter().catch(() => null)
+          : null;
+        if (webGpuAdapter) {
           try {
             d.setStatusText(d.t("ttsStatusLoadingWebGpu"));
             tts = await KokoroTTS.from_pretrained(MODEL_ID, { dtype: "fp32", device: "webgpu", progress_callback: progressCallback });

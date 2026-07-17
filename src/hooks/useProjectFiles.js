@@ -68,7 +68,7 @@ export function useProjectFiles(deps) {
       deps.setSelectedVoiceId(data.selectedVoiceId || VOICES[0].id); deps.setSpeed(Number(data.speed) || 1);
       deps.setVolume(Number(data.volume) || 1); deps.setRatioId(RATIO_OPTIONS.some((option) => option.id === data.ratioId) ? data.ratioId : "16:9");
       deps.setFitMode(data.fitMode || "contain"); deps.setCaptionPosition(data.captionPosition || "bottom");
-      deps.setCaptionPlacement(data.captionPlacement || { x: 50, y: 78 }); deps.setCaptionSize(Number(data.captionSize) || 12);
+      deps.setCaptionPlacement(data.captionPlacement || { x: 50, y: 78 }); deps.setCaptionSize(Number(data.captionSize) || 14);
       deps.setCaptionStyle(data.captionStyle || deps.captionStyle); deps.setCaptionsEnabled(data.captionsEnabled !== false);
       deps.setTrackVisibility(data.trackVisibility || deps.trackVisibility); deps.setTimelineZoom(Number(data.timelineZoom) || 1);
       deps.setSelectedFilterId(data.selectedFilterId || "none"); deps.setSelectedTransitionId(data.selectedTransitionId || "none");

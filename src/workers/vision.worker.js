@@ -67,6 +67,7 @@ function createModelLoadProgressCallback(requestId, { start, end, label }) {
 
 function getTransformers() {
   transformersPromise ??= import("@huggingface/transformers").then((transformers) => {
+    transformers.env.useBrowserCache = false;
     if (transformers.env?.backends?.onnx?.wasm) {
       transformers.env.backends.onnx.wasm.numThreads = 1;
     }

@@ -13,6 +13,7 @@ import {
 import { formatTime } from "../lib/timeline.js";
 import { getVisualMaskInsets, getVisualMaskSvgDataUrl, resolveVisualTransform } from "../lib/visualEffects.js";
 import { resolveVisualClipAnimation } from "../lib/visualClipAnimations.js";
+import { getStickerBaseSize } from "../lib/stickerGeometry.js";
 import { CaptionOverlay } from "./CaptionOverlay.jsx";
 import { IconButton } from "./ui.jsx";
 
@@ -69,7 +70,7 @@ export function PreviewStage({
   getDraggedAsset,
   applyAssetToTrack,
 }) {
-  const visibleStickers = stickers.length ? stickers : selectedSticker?.src || selectedSticker?.text ? [selectedSticker] : [];
+  const visibleStickers = stickers;
   const hasStickerOverlay = visibleStickers.some((sticker) => sticker?.src || sticker?.text);
   const hasPreviewContent = Boolean(previewVisualSrc || hasStickerOverlay);
   const renderedVisualSrc = previewVisualRenderSrc || previewVisualSrc;
@@ -88,6 +89,7 @@ export function PreviewStage({
   const frameWidth = Math.max(1, previewFrameSize.width || 1);
   const frameHeight = Math.max(1, previewFrameSize.height || 1);
   const frameMinDimension = Math.min(frameWidth, frameHeight);
+  const stickerBaseSize = getStickerBaseSize({ width: frameWidth, height: frameHeight });
   const circleSize = Number.isFinite(visualMask.size) ? visualMask.size : 72;
   const maskWidth = visualMask.type === "circle" ? (circleSize * frameMinDimension) / frameWidth : Number.isFinite(visualMask.width) ? visualMask.width : 80;
   const maskHeight = visualMask.type === "circle" ? (circleSize * frameMinDimension) / frameHeight : Number.isFinite(visualMask.height) ? visualMask.height : 80;
@@ -337,6 +339,8 @@ export function PreviewStage({
                   className={`sticker-overlay sticker-transform-box ${isEditable ? "is-editable" : ""}`}
                   onPointerDown={(event) => startStickerDrag(event, sticker)}
                   style={{
+                    width: `${stickerBaseSize}px`,
+                    height: `${stickerBaseSize}px`,
                     left: `${Number.isFinite(sticker.x) ? sticker.x : 82}%`,
                     top: `${Number.isFinite(sticker.y) ? sticker.y : 20}%`,
                     transform: `translate(-50%, -50%) scale(${Number.isFinite(sticker.scale) ? sticker.scale : 1}) rotate(${Number.isFinite(sticker.rotation) ? sticker.rotation : 0}deg)`,

@@ -16,7 +16,7 @@ import {
   positionCaptionLayout,
 } from "./captionLayout.js";
 import { resolveVisionAnalysisAtTime } from "./vision.js";
-import { getCaptionAvoidancePlacement, getSmartCropRect } from "./visualGeometry.js";
+import { getCaptionAvoidancePlacement, getSmartCropRect, getVisualFitRect } from "./visualGeometry.js";
 import {
   getVisualMaskFeatherPixels,
   getVisualMaskGeometry,
@@ -25,6 +25,7 @@ import {
   resolveVisualTransform,
 } from "./visualEffects.js";
 import { resolveVisualClipAnimation } from "./visualClipAnimations.js";
+import { getStickerRenderGeometry } from "./stickerGeometry.js";
 
 export function getAudioRecordingFormat() {
   if (typeof MediaRecorder === "undefined") {
@@ -63,7 +64,7 @@ export function getVideoTrackSampleCount(duration, maxFrames = VIDEO_TRACK_FRAME
   return Math.max(1, Math.min(maxFrames, Math.ceil(safeDuration / targetStep)));
 }
 
-function seekVideoFrame(video, time) {
+export function seekVideoFrame(video, time) {
   const safeTime = Math.max(0, Math.min(time, Math.max(0, (video.duration || time) - 0.04)));
   if (video.readyState >= 2 && Math.abs(video.currentTime - safeTime) < 0.015) {
     return new Promise((resolve) => window.requestAnimationFrame(resolve));
@@ -263,7 +264,7 @@ export function downloadBlob(blob, filename) {
   window.setTimeout(() => URL.revokeObjectURL(url), 800);
 }
 
-function loadImage(src) {
+export function loadImage(src) {
   return new Promise((resolve, reject) => {
     const image = new Image();
     image.crossOrigin = "anonymous";
@@ -273,7 +274,7 @@ function loadImage(src) {
   });
 }
 
-function createTemporalMaskCache(urls, maxEntries = 8) {
+export function createTemporalMaskCache(urls, maxEntries = 8) {
   const orderedUrls = Array.from(new Set(urls.filter(Boolean)));
   const urlIndexes = new Map(orderedUrls.map((url, index) => [url, index]));
   const entries = new Map();
@@ -363,7 +364,7 @@ function createTemporalMaskCache(urls, maxEntries = 8) {
   };
 }
 
-function loadVideo(src) {
+export function loadVideo(src) {
   return new Promise((resolve, reject) => {
     const video = document.createElement("video");
     video.crossOrigin = "anonymous";
@@ -376,10 +377,10 @@ function loadVideo(src) {
   });
 }
 
-function getVisualDimensions(visual) {
+export function getVisualDimensions(visual) {
   return {
-    width: visual.videoWidth || visual.naturalWidth || 1,
-    height: visual.videoHeight || visual.naturalHeight || 1,
+    width: visual.videoWidth || visual.naturalWidth || visual.displayWidth || visual.width || 1,
+    height: visual.videoHeight || visual.naturalHeight || visual.displayHeight || visual.height || 1,
   };
 }
 
@@ -473,7 +474,7 @@ function drawVisualUsingLayout(context, visual, layout, isMask = false) {
 function drawFittedVisual(context, visual, canvas, fitMode, filter, vision = null) {
   const { width, height } = canvas;
   const visualSize = getVisualDimensions(visual);
-  const smartCropEnabled = Boolean(vision?.options?.smartCrop && vision?.subject?.box);
+  const smartCropEnabled = Boolean(fitMode === "cover" && vision?.options?.smartCrop && vision?.subject?.box);
   const smartCropRect = smartCropEnabled
     ? getSmartCropRect(visualSize, canvas, vision.subject.box, { padding: 0.14 })
     : null;
@@ -488,27 +489,12 @@ function drawFittedVisual(context, visual, canvas, fitMode, filter, vision = nul
       outputSize: { width, height },
     };
   } else {
-    const imageRatio = visualSize.width / visualSize.height;
-    const canvasRatio = width / height;
-    const cover = fitMode === "cover";
-    let drawWidth;
-    let drawHeight;
-
-    if (cover ? imageRatio > canvasRatio : imageRatio < canvasRatio) {
-      drawHeight = height;
-      drawWidth = height * imageRatio;
-    } else {
-      drawWidth = width;
-      drawHeight = width / imageRatio;
-    }
-
-    const x = (width - drawWidth) / 2;
-    const y = (height - drawHeight) / 2;
+    const fitRect = getVisualFitRect(visualSize, canvas, fitMode);
     layout = {
       sourceSize: visualSize,
       smartCropRect: null,
-      drawRect: { x, y, width: drawWidth, height: drawHeight },
-      fitMode,
+      drawRect: { x: fitRect.x, y: fitRect.y, width: fitRect.width, height: fitRect.height },
+      fitMode: fitRect.fitMode,
       outputSize: { width, height },
     };
   }
@@ -536,7 +522,7 @@ function drawFittedVisual(context, visual, canvas, fitMode, filter, vision = nul
   return layout;
 }
 
-function drawPreviewFrame(context, visual, canvas, options) {
+export function drawPreviewFrame(context, visual, canvas, options) {
   const {
     subtitle,
     fitMode = "contain",
@@ -544,7 +530,7 @@ function drawPreviewFrame(context, visual, canvas, options) {
     captionsEnabled = true,
     captionPosition = "bottom",
     captionPlacement = null,
-    captionSize = 12,
+    captionSize = 14,
     captionStyle = {},
     captionReferenceSize = null,
     sticker = null,
@@ -682,20 +668,12 @@ function drawPreviewFrame(context, visual, canvas, options) {
   visibleStickers.forEach((activeSticker, index) => {
     const activeStickerImage = stickerImages[index] ?? (activeSticker === sticker ? stickerImage : null);
     if (activeSticker?.src && activeStickerImage) {
-    const stickerRatio =
-      (activeStickerImage.naturalWidth || activeStickerImage.width || 1) /
-      (activeStickerImage.naturalHeight || activeStickerImage.height || 1);
-    const stickerScale = Math.max(0.2, Math.min(3, Number(activeSticker.scale) || 1));
-    const maxStickerSize = Math.min(width, height) * 0.22 * stickerScale;
-    const stickerWidth = stickerRatio >= 1 ? maxStickerSize : maxStickerSize * stickerRatio;
-    const stickerHeight = stickerRatio >= 1 ? maxStickerSize / stickerRatio : maxStickerSize;
-    const centerX = (Number.isFinite(activeSticker.x) ? activeSticker.x : 82) / 100 * width;
-    const centerY = (Number.isFinite(activeSticker.y) ? activeSticker.y : 20) / 100 * height;
+    const geometry = getStickerRenderGeometry(activeSticker, activeStickerImage, canvas);
     context.save();
-    context.globalAlpha = Math.max(0, Math.min(1, Number.isFinite(activeSticker.opacity) ? activeSticker.opacity : 1));
-    context.translate(centerX, centerY);
-    context.rotate(((Number(activeSticker.rotation) || 0) * Math.PI) / 180);
-    context.drawImage(activeStickerImage, -stickerWidth / 2, -stickerHeight / 2, stickerWidth, stickerHeight);
+    context.globalAlpha = geometry.opacity;
+    context.translate(geometry.centerX, geometry.centerY);
+    context.rotate((geometry.rotation * Math.PI) / 180);
+    context.drawImage(activeStickerImage, -geometry.width / 2, -geometry.height / 2, geometry.width, geometry.height);
     context.restore();
     } else if (activeSticker?.text) {
     context.fillStyle = "rgba(53, 240, 221, 0.92)";

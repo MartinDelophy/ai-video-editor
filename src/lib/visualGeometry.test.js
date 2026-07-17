@@ -2,11 +2,27 @@ import { describe, expect, it } from "vitest";
 
 import {
   getSmartCropRect,
+  getVisualFitRect,
   normalizeBoundingBox,
   selectPrimarySubject,
 } from "./visualGeometry.js";
 
 describe("visual geometry", () => {
+  it("contains a 9:16 source inside 16:9 with centered black side space", () => {
+    const rect = getVisualFitRect({ width: 1080, height: 1920 }, { width: 1920, height: 1080 }, "contain");
+    expect(rect.height).toBe(1080);
+    expect(rect.width).toBeCloseTo(607.5, 6);
+    expect(rect.x).toBeCloseTo(656.25, 6);
+    expect(rect.y).toBe(0);
+  });
+
+  it("only crops a portrait source when cover is explicitly requested", () => {
+    const rect = getVisualFitRect({ width: 1080, height: 1920 }, { width: 1920, height: 1080 }, "cover");
+    expect(rect.width).toBe(1920);
+    expect(rect.height).toBeCloseTo(3413.333333, 5);
+    expect(rect.y).toBeLessThan(0);
+  });
+
   it("normalizes pixel coordinates", () => {
     const box = normalizeBoundingBox(
       { xMin: 100, yMin: 50, xMax: 500, yMax: 450 },

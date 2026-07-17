@@ -418,18 +418,9 @@ export function mapNormalizedBoxToFrame(box, sourceSize, frameSize, layout = {})
       : null;
   }
 
-  const fitMode = layout?.fitMode === "cover" ? "cover" : "contain";
-  const sourceAspectRatio = source.width / source.height;
-  const frameAspectRatio = frame.width / frame.height;
-  const useWidth =
-    fitMode === "cover"
-      ? sourceAspectRatio < frameAspectRatio
-      : sourceAspectRatio > frameAspectRatio;
-  const drawWidth = useWidth ? frame.width : frame.height * sourceAspectRatio;
-  const drawHeight = useWidth ? frame.width / sourceAspectRatio : frame.height;
   const position = getLayoutPosition(layout);
-  const drawX = (frame.width - drawWidth) * position.x;
-  const drawY = (frame.height - drawHeight) * position.y;
+  const fitRect = getVisualFitRect(source, frame, layout?.fitMode, position);
+  const { fitMode, x: drawX, y: drawY, width: drawWidth, height: drawHeight } = fitRect;
   const raw = {
     xMin: drawX + normalizedBox.xMin * drawWidth,
     yMin: drawY + normalizedBox.yMin * drawHeight,
@@ -479,6 +470,27 @@ export function mapNormalizedBoxToFrame(box, sourceSize, frameSize, layout = {})
     fitMode,
     cropRect: null,
     drawRect: { x: drawX, y: drawY, width: drawWidth, height: drawHeight },
+  };
+}
+
+export function getVisualFitRect(sourceSize, frameSize, requestedFitMode = "contain", position = { x: 0.5, y: 0.5 }) {
+  const source = getSize(sourceSize);
+  const frame = getSize(frameSize);
+  if (!source.valid || !frame.valid) return { x: 0, y: 0, width: 0, height: 0, fitMode: "contain" };
+  const fitMode = requestedFitMode === "cover" ? "cover" : "contain";
+  const sourceAspectRatio = source.width / source.height;
+  const frameAspectRatio = frame.width / frame.height;
+  const useWidth = fitMode === "cover"
+    ? sourceAspectRatio < frameAspectRatio
+    : sourceAspectRatio > frameAspectRatio;
+  const width = useWidth ? frame.width : frame.height * sourceAspectRatio;
+  const height = useWidth ? frame.width / sourceAspectRatio : frame.height;
+  return {
+    x: (frame.width - width) * (Number.isFinite(position?.x) ? position.x : 0.5),
+    y: (frame.height - height) * (Number.isFinite(position?.y) ? position.y : 0.5),
+    width,
+    height,
+    fitMode,
   };
 }
 

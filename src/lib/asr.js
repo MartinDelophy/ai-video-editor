@@ -562,7 +562,8 @@ async function getTranscriber(onProgress) {
     transcriberState = {
       modelId,
       promise: (async () => {
-        const { pipeline } = await import("@huggingface/transformers");
+        const { env, pipeline } = await import("@huggingface/transformers");
+        env.useBrowserCache = false;
         const reportModelLoadProgress = createModelLoadProgressCallback(onProgress);
         return pipeline("automatic-speech-recognition", modelId, {
           dtype: "q8",
@@ -573,7 +574,12 @@ async function getTranscriber(onProgress) {
     };
   }
 
-  return transcriberState.promise;
+  try {
+    return await transcriberState.promise;
+  } catch (error) {
+    transcriberState = null;
+    throw error;
+  }
 }
 
 function rejectWorkerRequests(error) {

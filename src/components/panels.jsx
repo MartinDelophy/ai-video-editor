@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 
 import {
   BoundingBox,
@@ -31,7 +32,6 @@ import {
   VOICES,
 } from "../config/editor.js";
 import { APP_LANGUAGES } from "../i18n.js";
-import { translateRemasterPhase } from "../lib/remasterProgress.js";
 import { formatClock, formatTime, getSegmentStartTime } from "../lib/timeline.js";
 import { hasVisualPropertyKeyframe, normalizeVisualKeyframes, resolveVisualTransform } from "../lib/visualEffects.js";
 import { Popover } from "./ui.jsx";
@@ -325,8 +325,8 @@ export function ToolPanel(props) {
           <div className="caption-style-heading"><strong>{t("captionStyle")}</strong><span>{t("captionStyleHint")}</span></div>
           <div className="caption-style-presets">
             <button type="button" className={captionStyle.backgroundOpacity === 0 && captionStyle.borderWidth === 0 ? "is-active" : ""} onClick={() => setCaptionStyle((style) => ({ ...style, effect: "normal", backgroundOpacity: 0, borderWidth: 0, shadowOpacity: 0 }))}>{t("captionPresetNone")}</button>
-            {[['normal', t('captionPresetClassic')], ['neon', t('captionPresetNeon')], ['bubble', t('captionPresetBubble')]].map(([effect, label]) => (
-              <button key={effect} type="button" className={captionStyle.effect === effect ? "is-active" : ""} onClick={() => setCaptionStyle((style) => ({ ...style, effect, ...(effect === 'neon' ? { backgroundOpacity: 0.18, borderWidth: 1, borderColor: '#35f0dd' } : effect === 'bubble' ? { backgroundOpacity: 0.88, borderWidth: 0, radius: 18 } : {}) }))}>{label}</button>
+            {[['normal', t('captionPresetClassic')], ['neon', t('captionPresetNeon')]].map(([effect, label]) => (
+              <button key={effect} type="button" className={captionStyle.effect === effect ? "is-active" : ""} onClick={() => setCaptionStyle((style) => ({ ...style, effect, ...(effect === 'neon' ? { backgroundOpacity: 0.18, borderWidth: 1, borderColor: '#35f0dd' } : {}) }))}>{label}</button>
             ))}
           </div>
           <div className="caption-color-row">
@@ -568,7 +568,7 @@ export function ToolPanel(props) {
   );
 }
 
-export function VisualEffectsPanel({ t, segment, localTime, onChange, onSeek, selectedFilterId, trOption, onSelectFilter, contextMode = false, sourceAudioLinked = false, enhancementJob = null, enhancementQuality = "fast", onEnhancementQualityChange, onEnhance, onEnhanceClip, onClearEnhancement }) {
+export function VisualEffectsPanel({ t, segment, localTime, onChange, onSeek, selectedFilterId, trOption, onSelectFilter, contextMode = false, sourceAudioLinked = false }) {
   const [activeTab, setActiveTab] = useState("transform");
   const keyframes = normalizeVisualKeyframes(segment?.keyframes ?? []);
   const transform = resolveVisualTransform(keyframes, localTime);
@@ -578,18 +578,12 @@ export function VisualEffectsPanel({ t, segment, localTime, onChange, onSeek, se
   const isVideo = segment?.type === "video";
   const playbackRate = Math.max(0.25, Math.min(4, Number(segment?.playbackRate) || 1));
   const sourceDuration = Math.max(0, Number(segment?.sourceDuration) || (Number(segment?.duration) || 0) * playbackRate);
-  const enhancement = segment?.enhancement ?? null;
-  const fullClipEnhanced = enhancement?.mode === "remaster-drunet-full";
-  const hasEnhancement = Boolean(fullClipEnhanced || enhancement?.previewUrl);
-  const enhancementRunning = Boolean(enhancementJob?.running && enhancementJob.segmentId === segment?.id);
-  const enhancementBackend = enhancementRunning ? enhancementJob?.backend : enhancement?.backend;
   const updateTransform = (key, value) => onChange?.({ propertyKeyframe: { time: localTime, key, value } });
   const tabs = [
     ["transform", t("visualTabTransform")],
     ["mask", t("visualTabMask")],
     ["speed", t("visualTabSpeed")],
     ["effects", t("visualTabEffects")],
-    ["ai", t("visualTabAi")],
   ];
   return (
     <div className={`tool-panel visual-effects-panel ${contextMode ? "is-context-mode" : ""}`}>
@@ -630,19 +624,6 @@ export function VisualEffectsPanel({ t, segment, localTime, onChange, onSeek, se
           </> : <div className="empty-state visual-speed-empty">{t("visualSpeedImageHint")}</div>}
         </section> : null}
         {activeTab === "effects" ? <VisualChoicePanel title={t("visualEffects")} kind="effect" options={EFFECT_OPTIONS} selectedId={selectedFilterId} trOption={trOption} onSelect={onSelectFilter} /> : null}
-        {activeTab === "ai" ?
-          <section className="visual-editor-card remaster-card">
-            <div className="visual-editor-heading"><strong>{t("remasterTitle")}</strong><em>{t("remasterExperimental")}</em></div>
-            <div className="remaster-model-row"><span><strong>Remaster DRUNet</strong><em>{t("remasterModelMeta")}</em></span><i className={hasEnhancement ? "is-ready" : ""}>{fullClipEnhanced ? t("remasterFullReadyBadge") : enhancement?.previewUrl ? t("remasterReadyBadge") : t("remasterNotRun")}</i></div>
-            {isVideo ? <div className="remaster-performance-row"><div className="visual-speed-presets" aria-label={t("remasterPerformanceMode")}><button type="button" className={enhancementQuality === "fast" ? "is-active" : ""} disabled={enhancementRunning} onClick={() => onEnhancementQualityChange?.("fast")}>{t("remasterFastMode")}</button><button type="button" className={enhancementQuality === "quality" ? "is-active" : ""} disabled={enhancementRunning} onClick={() => onEnhancementQualityChange?.("quality")}>{t("remasterQualityMode")}</button></div><span className={`remaster-backend ${enhancementBackend === "webgpu" ? "is-gpu" : enhancementBackend ? "is-cpu" : ""}`}>{enhancementBackend === "webgpu" ? t("remasterGpuActive") : enhancementBackend === "wasm" ? t("remasterCpuFallback") : t("remasterGpuAuto")}</span></div> : null}
-            {hasEnhancement ? <label className="switch-row remaster-preview-toggle"><input type="checkbox" checked={enhancement.enabled !== false} onChange={(event) => onChange?.({ enhancementEnabled: event.target.checked })} />{fullClipEnhanced ? t("remasterUseEnhanced") : t("remasterShowResult")}</label> : null}
-            {enhancementRunning ? <div className="remaster-progress" role="status" aria-live="polite"><span><i style={{ width: `${Math.max(2, enhancementJob.progress || 0)}%` }} /></span><small>{translateRemasterPhase(enhancementJob, t)} · {Math.round(enhancementJob.progress || 0)}%</small></div> : null}
-            {isVideo ? <button className="panel-primary" type="button" disabled={enhancementRunning || !onEnhanceClip} onClick={onEnhanceClip}>{enhancementRunning && enhancementJob?.mode === "clip" ? t("remasterProcessing") : fullClipEnhanced ? t("remasterRerunClip") : t("remasterEnhanceClip")}</button> : null}
-            <button className={isVideo ? "panel-secondary" : "panel-primary"} type="button" disabled={enhancementRunning || !onEnhance || fullClipEnhanced} onClick={onEnhance}>{enhancementRunning && enhancementJob?.mode === "frame" ? t("remasterProcessing") : t("remasterFramePreview")}</button>
-            {hasEnhancement ? <div className="remaster-result-meta"><span>{fullClipEnhanced ? `${enhancement.totalFrames} ${t("remasterFramesShort")}` : `${enhancement.width}×${enhancement.height}`}</span><span>{fullClipEnhanced ? `${enhancement.frameRate} fps` : `${Math.max(0, enhancement.inferenceMs || 0)} ms`}</span><button type="button" onClick={onClearEnhancement}>{t("remasterClear")}</button></div> : null}
-            <p className="visual-speed-hint">{segment?.type === "video" ? t("remasterVideoHint") : t("remasterImageHint")}</p>
-          </section>
-        : null}
       </>}
     </div>
   );
@@ -1089,6 +1070,31 @@ export function VoiceSynthesisPanel({
   t,
 }) {
   const voiceLanguages = useMemo(() => [...new Set(VOICES.map((voice) => voice.language))], []);
+  const voiceSampleRef = useRef(null);
+  const previousVoiceSampleIdRef = useRef(selectedVoiceId);
+
+  const selectAndPlayVoiceSample = (voice) => {
+    previousVoiceSampleIdRef.current = voice.id;
+    flushSync(() => setSelectedVoiceId(voice.id));
+    const player = voiceSampleRef.current;
+    if (!player) return;
+    player.pause();
+    player.load();
+    delete player.dataset.autoplayStarted;
+    delete player.dataset.autoplayError;
+    player.play()
+      .then(() => { player.dataset.autoplayStarted = "true"; })
+      .catch((error) => { player.dataset.autoplayError = error.name || "PlaybackError"; });
+  };
+
+  useEffect(() => {
+    const player = voiceSampleRef.current;
+    if (!player) return;
+    if (previousVoiceSampleIdRef.current === selectedVoiceId) return;
+    previousVoiceSampleIdRef.current = selectedVoiceId;
+    player.pause();
+    player.load();
+  }, [selectedVoiceId]);
 
   return (
     <>
@@ -1124,7 +1130,7 @@ export function VoiceSynthesisPanel({
                       setVoiceFilter(filter);
                       if (filter !== "all") {
                         const firstVoiceForLanguage = VOICES.find((voice) => voice.language === filter);
-                        if (firstVoiceForLanguage) setSelectedVoiceId(firstVoiceForLanguage.id);
+                        if (firstVoiceForLanguage) selectAndPlayVoiceSample(firstVoiceForLanguage);
                       }
                       setShowVoiceFilter(false);
                     }}
@@ -1144,7 +1150,7 @@ export function VoiceSynthesisPanel({
             className={`voice-card ${voice.id === selectedVoiceId ? "is-selected" : ""}`}
             type="button"
             key={voice.id}
-            onClick={() => setSelectedVoiceId(voice.id)}
+            onClick={() => selectAndPlayVoiceSample(voice)}
           >
             <span className="avatar">
               <MicrophoneStage size={17} weight="fill" />
@@ -1161,7 +1167,7 @@ export function VoiceSynthesisPanel({
       </div>
 
       <div className="model-row">
-        <span>{selectedVoice.detail}</span>
+        <span title={selectedVoice.detail}>{selectedVoice.detail}</span>
         <button
           type="button"
           onClick={() =>
@@ -1170,8 +1176,23 @@ export function VoiceSynthesisPanel({
             )
           }
         >
-          {favoriteVoiceIds.includes(selectedVoiceId) ? t("saved") : t("favoriteVoice")}
+          {favoriteVoiceIds.includes(selectedVoiceId) ? t("saved") : t("favorite")}
         </button>
+      </div>
+
+      <div className="voice-sample-preview">
+        <div>
+          <strong>{t("voiceSampleTitle", "音色样音")}</strong>
+          <span>{selectedVoice.name} · {t("voiceSampleHint", "切换音色后试听对应的预生成样音")}</span>
+        </div>
+        <audio
+          ref={voiceSampleRef}
+          data-testid="voice-sample-player"
+          data-voice-id={selectedVoice.id}
+          controls
+          preload="metadata"
+          src={selectedVoice.sampleUrl}
+        />
       </div>
 
       <div className="slider-field">
@@ -1207,7 +1228,7 @@ export function VoiceSynthesisPanel({
       </div>
       {audioBlob && audioUrl ? (
         <div className="generated-voice-result" aria-live="polite">
-          <div><Check size={18} weight="bold" /><span><strong>{t("voiceAddedToTimeline", "已加入配音时间线")}</strong><em>{t("voicePreviewHint", "可立即试听，时间线片段可继续调整")}</em></span></div>
+          <div><Check size={18} weight="bold" /><span><strong>{t("voiceAddedToTimeline", "已加入配音时间线")}</strong><em>{t("voicePreviewHint", "试听本次已生成的时间线配音")}</em></span></div>
           <audio controls preload="metadata" src={audioUrl} />
         </div>
       ) : null}

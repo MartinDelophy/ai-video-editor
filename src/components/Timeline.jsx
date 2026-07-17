@@ -22,24 +22,28 @@ import {
   Scissors,
   SlidersHorizontal,
   Trash,
+  Waveform,
 } from "@phosphor-icons/react";
 
 import { IMAGE_SEGMENT_SECONDS } from "../config/editor.js";
-import { formatClock, formatTime, getImageThumbnailCount, getSegmentStartTime, packTimedSegmentsIntoLanes } from "../lib/timeline.js";
+import { formatClock, formatTime, getSegmentStartTime, packTimedSegmentsIntoLanes } from "../lib/timeline.js";
 import { sliceSourceAudioPeaks } from "../lib/sourceAudioSync.js";
 import {
-  TIMELINE_MIN_ZOOM,
   clampTimelineZoom,
   getTimelineRulerTicks,
+  getTimelineAutoFitZoom,
   getTimelineTrackWidthPercent,
   getTimelineZoomLabel,
 } from "../lib/timelineScale.js";
 import { IconButton, WaveformStrip } from "./ui.jsx";
 
-const TIMELINE_WHEEL_ZOOM_SENSITIVITY = 0.00034;
+const TIMELINE_WHEEL_ZOOM_SENSITIVITY = 0.00056;
 const TIMELINE_WHEEL_ZOOM_COMMIT_DELAY = 180;
 const TIMELINE_BUTTON_ZOOM_RATIO = 1.25;
+const TIMELINE_TRACK_ROW_HEIGHT = "48px";
 const VIDEO_FRAME_MIN_COUNT = 1;
+const IMAGE_THUMBNAIL_TARGET_WIDTH = 84;
+const IMAGE_THUMBNAIL_MAX_COUNT = 240;
 const TIMELINE_WHEEL_ZOOM_CONTENT_SELECTOR = [
   ".image-clip",
   ".caption-segment",
@@ -103,6 +107,15 @@ function getVideoTimelineFrameCount({ duration, timelineDuration, contentWidth, 
   );
 }
 
+function getImageTimelineThumbnailCount({ duration, timelineDuration, contentWidth }) {
+  if (timelineDuration <= 0 || contentWidth <= 0) {
+    return 1;
+  }
+
+  const clipPixelWidth = Math.max(0, (Math.max(0, duration || 0) / timelineDuration) * contentWidth);
+  return Math.max(1, Math.min(IMAGE_THUMBNAIL_MAX_COUNT, Math.ceil(clipPixelWidth / IMAGE_THUMBNAIL_TARGET_WIDTH)));
+}
+
 export function Timeline({
   t,
   undo,
@@ -123,6 +136,7 @@ export function Timeline({
   selectedTrack,
   setSelectedTrack,
   setActiveTool,
+  requestCaptionVoiceFocus,
   trackVisibility,
   toggleTrackVisibility,
   trackLocks,
@@ -204,7 +218,14 @@ export function Timeline({
     () => packCaptionSegmentsIntoLanes(displayedCaptionSegments, displayedCaptionTimeline),
     [displayedCaptionSegments, displayedCaptionTimeline],
   );
-  const contentRows = ["46px", ...(showStickerTrack ? stickerLanes.map(() => "46px") : []), ...captionLanes.map(() => "46px"), "58px", ...audioLanes.map(() => "58px"), "58px"];
+  const contentRows = [
+    TIMELINE_TRACK_ROW_HEIGHT,
+    ...(showStickerTrack ? stickerLanes.map(() => TIMELINE_TRACK_ROW_HEIGHT) : []),
+    ...captionLanes.map(() => TIMELINE_TRACK_ROW_HEIGHT),
+    TIMELINE_TRACK_ROW_HEIGHT,
+    ...audioLanes.map(() => TIMELINE_TRACK_ROW_HEIGHT),
+    TIMELINE_TRACK_ROW_HEIGHT,
+  ];
   const timelineTrackRows = ["28px", ...contentRows].join(" ");
   const timelineLabelRows = contentRows.join(" ");
   const timelineTrackLabels = [
@@ -238,10 +259,14 @@ export function Timeline({
   const showTrackContextMenu = (event, track, segmentId = "") => {
     event.preventDefault(); event.stopPropagation();
     selectContextTarget(track, segmentId);
+    const trackRect = trackScrollRef.current?.getBoundingClientRect();
+    const targetTime = trackRect && timelineDuration > 0
+      ? Math.max(0, Math.min(timelineDuration, ((event.clientX - trackRect.left) / trackRect.width) * timelineDuration))
+      : currentTime;
     setContextMenu({
       x: Math.max(10, Math.min(window.innerWidth - 234, event.clientX)),
       y: Math.max(10, Math.min(window.innerHeight - 258, event.clientY)),
-      track, segmentId, kind: segmentId ? "clip" : "track",
+      track, segmentId, targetTime, kind: segmentId ? "clip" : "track",
     });
   };
   const runContextAction = (action) => {
@@ -251,12 +276,16 @@ export function Timeline({
   useEffect(() => {
     if (!contextMenu) return undefined;
     const close = () => setContextMenu(null);
+    const closeOnOutsidePointer = (event) => {
+      if (event.target?.closest?.(".timeline-context-menu")) return;
+      close();
+    };
     const closeOnKey = (event) => event.key === "Escape" && close();
-    window.addEventListener("pointerdown", close);
+    window.addEventListener("pointerdown", closeOnOutsidePointer, true);
     window.addEventListener("keydown", closeOnKey);
     window.addEventListener("blur", close);
     return () => {
-      window.removeEventListener("pointerdown", close);
+      window.removeEventListener("pointerdown", closeOnOutsidePointer, true);
       window.removeEventListener("keydown", closeOnKey);
       window.removeEventListener("blur", close);
     };
@@ -337,10 +366,11 @@ export function Timeline({
       if (wheelZoomFrameRef.current) {
         window.cancelAnimationFrame(wheelZoomFrameRef.current);
       }
+      trackScrollRef.current?.classList.remove("is-wheel-zooming");
       wheelZoomActiveRef.current = false;
       window.clearTimeout(commitZoomTimerRef.current);
     },
-    [],
+    [trackScrollRef],
   );
   const secondsPerPixel =
     timelineDuration > 0 && rulerViewport.contentWidth > 0
@@ -356,6 +386,7 @@ export function Timeline({
     [timelineDuration, localTimelineZoom, rulerVisibleEnd, rulerVisibleStart],
   );
   const zoomReadout = getTimelineZoomLabel(localTimelineZoom);
+  const fitTimelineZoom = getTimelineAutoFitZoom(timelineDuration, 0.9);
   const localTrackWidth = `${getTimelineTrackWidthPercent(timelineDuration, localTimelineZoom)}%`;
   const commitTimelineZoom = (nextZoom, delay = 0) => {
     window.clearTimeout(commitZoomTimerRef.current);
@@ -415,6 +446,7 @@ export function Timeline({
 
     wheelZoomActiveRef.current = true;
     timelineZoomRef.current = nextZoom;
+    anchor.trackElement.classList.add("is-wheel-zooming");
     anchor.trackElement.style.width = `${nextTrackWidthPercent}%`;
     anchor.trackElement.style.setProperty("--timeline-zoom", String(nextZoom));
     anchor.scrollElement.scrollLeft = Math.max(0, nextScrollLeft);
@@ -427,7 +459,10 @@ export function Timeline({
       wheelZoomActiveRef.current = false;
       setLocalTimelineZoom(nextZoom);
       setTimelineZoom(nextZoom);
-      window.requestAnimationFrame(() => rulerViewportSyncRef.current?.());
+      window.requestAnimationFrame(() => {
+        anchor.trackElement.classList.remove("is-wheel-zooming");
+        rulerViewportSyncRef.current?.();
+      });
     }, TIMELINE_WHEEL_ZOOM_COMMIT_DELAY);
   };
   const handleTimelineWheel = (event) => {
@@ -447,7 +482,7 @@ export function Timeline({
       return;
     }
 
-    if (Math.abs(event.deltaX) > Math.abs(event.deltaY)) {
+    if (!hasZoomModifier && Math.abs(event.deltaX) > Math.abs(event.deltaY)) {
       return;
     }
 
@@ -660,8 +695,8 @@ export function Timeline({
           <span ref={zoomReadoutRef} className="zoom-readout" data-testid="timeline-zoom-readout">{zoomReadout}</span>
           <IconButton
             label={t("fitTimeline")}
-            active={Math.abs(localTimelineZoom - TIMELINE_MIN_ZOOM) < 0.001}
-            onClick={() => adjustTimelineZoom(TIMELINE_MIN_ZOOM)}
+            active={Math.abs(localTimelineZoom - fitTimelineZoom) < 0.001}
+            onClick={() => adjustTimelineZoom(fitTimelineZoom)}
           >
             <MonitorPlay size={17} />
           </IconButton>
@@ -852,6 +887,7 @@ export function Timeline({
                           className={`image-thumbnails ${segmentType === "video" ? "is-video" : ""} ${
                             isPortraitVideo ? "is-portrait-video" : ""
                           }`}
+                          style={{ "--thumbnail-cell-width": `${IMAGE_THUMBNAIL_TARGET_WIDTH}px` }}
                         >
                           {segmentType === "video" ? (
                             visibleVideoFrames.length ? (
@@ -871,7 +907,11 @@ export function Timeline({
                               {
                                 length: Math.max(
                                   1,
-                                  getImageThumbnailCount(segment.duration || IMAGE_SEGMENT_SECONDS),
+                                  getImageTimelineThumbnailCount({
+                                    duration: segment.duration || IMAGE_SEGMENT_SECONDS,
+                                    timelineDuration,
+                                    contentWidth: rulerViewport.contentWidth,
+                                  }),
                                 ),
                               },
                               (_, thumbnailIndex) => (
@@ -1110,21 +1150,27 @@ export function Timeline({
         </div>
       ) : null}
       {contextMenu ? (
-        <div className="timeline-context-menu" role="menu" aria-label="时间线右键菜单" style={{ left: contextMenu.x, top: contextMenu.y }} onPointerDown={(event) => event.stopPropagation()}>
-          <div className="timeline-context-heading">{contextMenu.kind === "clip" ? "片段操作" : "轨道操作"}<span>{contextMenu.track}</span></div>
-          <button type="button" role="menuitem" onClick={() => runContextAction(() => openTrackPanel(contextMenu.track))}><SlidersHorizontal size={16} />打开对应面板</button>
+        <div className="timeline-context-menu" role="menu" aria-label={t("timelineContextMenu")} style={{ left: contextMenu.x, top: contextMenu.y }} onPointerDown={(event) => event.stopPropagation()}>
+          <div className="timeline-context-heading">{contextMenu.kind === "clip" ? t("clipActions") : t("trackActions")}<span>{t({ image: "imageTrack", caption: "caption", sticker: "stickerTrack", source: "sourceTrack", voice: "voiceTrack", music: "musicTrack" }[contextMenu.track], contextMenu.track)}</span></div>
+          <button type="button" role="menuitem" onClick={() => runContextAction(() => openTrackPanel(contextMenu.track))}><SlidersHorizontal size={16} />{t("openTrackPanel")}</button>
           {contextMenu.kind === "clip" ? (
             <>
-              <button type="button" role="menuitem" onClick={() => runContextAction(handleCutTrack)}><Scissors size={16} />在播放头处分割</button>
-              <button type="button" role="menuitem" onClick={() => runContextAction(handleDuplicateTrack)}><CopySimple size={16} />复制片段</button>
+              {contextMenu.track === "caption" ? (
+                <button type="button" role="menuitem" onClick={() => runContextAction(() => {
+                  openTrackPanel("caption");
+                  requestCaptionVoiceFocus?.();
+                })}><Waveform size={16} />{t("aiVoice")}</button>
+              ) : null}
+              <button type="button" role="menuitem" onClick={() => runContextAction(handleCutTrack)}><Scissors size={16} />{t("splitAtPlayhead")}</button>
+              <button type="button" role="menuitem" onClick={() => runContextAction(handleDuplicateTrack)}><CopySimple size={16} />{t("duplicateClip")}</button>
               <div className="timeline-context-divider" />
-              <button className="is-danger" type="button" role="menuitem" onClick={() => runContextAction(handleDeleteTrack)}><Trash size={16} />删除片段</button>
+              <button className="is-danger" type="button" role="menuitem" onClick={() => runContextAction(handleDeleteTrack)}><Trash size={16} />{t("deleteClip")}</button>
             </>
           ) : (
             <>
-              {["image", "caption"].includes(contextMenu.track) ? <button type="button" role="menuitem" onClick={() => runContextAction(handleAddSegment)}><PlusCircle size={16} />新增片段</button> : null}
-              <button type="button" role="menuitem" onClick={() => runContextAction(() => toggleTrackVisibility(contextMenu.track))}>{trackVisibility[contextMenu.track] ? <EyeSlash size={16} /> : <Eye size={16} />}{trackVisibility[contextMenu.track] ? "隐藏轨道" : "显示轨道"}</button>
-              <button type="button" role="menuitem" onClick={() => runContextAction(() => toggleTrackLock(contextMenu.track))}>{trackLocks[contextMenu.track] ? <LockKeyOpen size={16} /> : <LockKey size={16} />}{trackLocks[contextMenu.track] ? "解锁轨道" : "锁定轨道"}</button>
+              {["image", "caption"].includes(contextMenu.track) ? <button type="button" role="menuitem" onClick={() => runContextAction(() => handleAddSegment(contextMenu.targetTime))}><PlusCircle size={16} />{t("addClip")}</button> : null}
+              <button type="button" role="menuitem" onClick={() => runContextAction(() => toggleTrackVisibility(contextMenu.track))}>{trackVisibility[contextMenu.track] ? <EyeSlash size={16} /> : <Eye size={16} />}{t(trackVisibility[contextMenu.track] ? "hideTrack" : "showTrack")}</button>
+              <button type="button" role="menuitem" onClick={() => runContextAction(() => toggleTrackLock(contextMenu.track))}>{trackLocks[contextMenu.track] ? <LockKeyOpen size={16} /> : <LockKey size={16} />}{t(trackLocks[contextMenu.track] ? "unlockTrack" : "lockTrack")}</button>
             </>
           )}
         </div>

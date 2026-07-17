@@ -16,6 +16,8 @@ import {
 } from "./timeline.js";
 import {
   getTimelineAutoFitZoom,
+  getTimelineInitialContentZoom,
+  getTimelineProjectDuration,
   getTimelineVisibleDuration,
   getTimelineZoomForVisibleDuration,
 } from "./timelineScale.js";
@@ -29,8 +31,23 @@ describe("timeline primitives", () => {
   });
 
   it("clamps automatic timeline fitting to supported zoom limits", () => {
-    expect(getTimelineVisibleDuration(getTimelineZoomForVisibleDuration(10_000))).toBeCloseTo(1800, 2);
+    expect(getTimelineVisibleDuration(getTimelineZoomForVisibleDuration(100_000))).toBeCloseTo(86_400, 2);
     expect(getTimelineVisibleDuration(getTimelineAutoFitZoom(0.5))).toBeCloseTo(5, 2);
+  });
+
+  it("uses an approachable empty and first-content timeline window", () => {
+    expect(getTimelineVisibleDuration(getTimelineInitialContentZoom(0))).toBeCloseTo(10, 2);
+    expect(getTimelineVisibleDuration(getTimelineInitialContentZoom(1.8))).toBeCloseTo(5, 2);
+    expect(getTimelineVisibleDuration(getTimelineInitialContentZoom(15))).toBeCloseTo(15 / 0.82, 2);
+    expect(getTimelineVisibleDuration(getTimelineInitialContentZoom(90))).toBeCloseTo(30, 2);
+  });
+
+  it("grows the project horizon from real content with bounded tail room", () => {
+    expect(getTimelineProjectDuration(0)).toBe(10);
+    expect(getTimelineProjectDuration(1.8)).toBe(10);
+    expect(getTimelineProjectDuration(12)).toBe(17);
+    expect(getTimelineProjectDuration(100)).toBe(105);
+    expect(getTimelineProjectDuration(1_000)).toBe(1_030);
   });
 
   it("reorders without mutating the source array", () => {

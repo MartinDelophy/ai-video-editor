@@ -6,6 +6,7 @@ import { pinyin } from "pinyin-pro";
 ort.env.wasm.numThreads = 1;
 ort.env.wasm.simd = true;
 ort.env.wasm.wasmPaths = { mjs: ortWasmMjsUrl, wasm: ortWasmUrl };
+ort.env.webgpu.powerPreference = "high-performance";
 
 const PINYIN_VOICES = {
   "zh_CN-xiao_ya-medium": "zh/zh_CN/xiao_ya/medium",
@@ -96,8 +97,35 @@ async function loadPinyinVoice(voiceId, onProgress) {
   if (!configResponse.ok) throw new Error(`${voiceName}配置下载失败 (${configResponse.status})`);
   const config = await configResponse.json();
   const model = await fetchArrayBufferWithProgress(`${voiceBase}/${voiceId}.onnx`, onProgress, voiceName);
-  const session = await ort.InferenceSession.create(model, { executionProviders: ["wasm"] });
-  return { config, session };
+  if (globalThis.navigator?.gpu) {
+    try {
+      const session = await ort.InferenceSession.create(model, {
+        executionProviders: [{ name: "webgpu", preferredLayout: "NHWC" }],
+        graphOptimizationLevel: "all",
+      });
+      onProgress?.({ backend: "webgpu" });
+      return { backend: "webgpu", config, model, session };
+    } catch (error) {
+      console.warn("Piper WebGPU initialization failed; using WASM.", error);
+      onProgress?.({ backend: "wasm", fallbackReason: error instanceof Error ? error.message : String(error) });
+    }
+  }
+  const session = await ort.InferenceSession.create(model, { executionProviders: ["wasm"], graphOptimizationLevel: "all" });
+  onProgress?.({ backend: "wasm" });
+  return { backend: "wasm", config, model, session };
+}
+
+function createPinyinFeeds(input, config) {
+  const ids = phonemizeXiaoYa(input.text.trim(), config.phoneme_id_map);
+  return {
+    input: new ort.Tensor("int64", BigInt64Array.from(ids, BigInt), [1, ids.length]),
+    input_lengths: new ort.Tensor("int64", BigInt64Array.from([ids.length], BigInt), [1]),
+    scales: new ort.Tensor("float32", Float32Array.from([
+      config.inference.noise_scale,
+      config.inference.length_scale,
+      config.inference.noise_w,
+    ]), [3]),
+  };
 }
 
 async function predictPinyinVoice(input, onProgress) {
@@ -110,23 +138,25 @@ async function predictPinyinVoice(input, onProgress) {
       }),
     );
   }
-  const { config, session } = await pinyinRuntimePromises.get(input.voiceId);
-  const ids = phonemizeXiaoYa(input.text.trim(), config.phoneme_id_map);
-  const feeds = {
-    input: new ort.Tensor("int64", BigInt64Array.from(ids, BigInt), [1, ids.length]),
-    input_lengths: new ort.Tensor("int64", BigInt64Array.from([ids.length], BigInt), [1]),
-    scales: new ort.Tensor("float32", Float32Array.from([
-      config.inference.noise_scale,
-      config.inference.length_scale,
-      config.inference.noise_w,
-    ]), [3]),
-  };
-  const result = await session.run(feeds);
+  let runtime = await pinyinRuntimePromises.get(input.voiceId);
+  const feeds = createPinyinFeeds(input, runtime.config);
+  let result;
+  try {
+    result = await runtime.session.run(feeds);
+  } catch (error) {
+    if (runtime.backend !== "webgpu") throw error;
+    console.warn("Piper WebGPU inference failed; retrying with WASM.", error);
+    onProgress?.({ backend: "wasm", fallbackReason: error instanceof Error ? error.message : String(error) });
+    const session = await ort.InferenceSession.create(runtime.model, { executionProviders: ["wasm"], graphOptimizationLevel: "all" });
+    runtime = { ...runtime, backend: "wasm", session };
+    pinyinRuntimePromises.set(input.voiceId, Promise.resolve(runtime));
+    result = await session.run(feeds);
+  }
   const samples = result.output.data;
   if (!(samples instanceof Float32Array) || !samples.length || samples.some((sample) => !Number.isFinite(sample))) {
     throw new Error("小雅生成了无效音频");
   }
-  return encodeWav(samples, config.audio.sample_rate);
+  return encodeWav(samples, runtime.config.audio.sample_rate);
 }
 
 export async function predictPiperVoice(tts, input, onProgress) {

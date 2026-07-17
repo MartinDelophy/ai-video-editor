@@ -340,8 +340,8 @@ export function App() {
     setVisionRecords, trackLocks,
   });
   const autoEdit = useAutoEdit({
-    language: activeLanguage, visualSegments, commitCaptionSegments, setCaptionsEnabled,
-    setSelectedSegmentId, setSelectedTrack, notify, t,
+    language: activeLanguage, visualSegments, captionSegments, commitCaptionSegments, setCaptionsEnabled,
+    setTrackVisibility, setSelectedSegmentId, setSelectedTrack, notify, t,
   });
   const {
     clearAudioTrack, clearMusicTrack, clearSourceAudioTrack, commitAudio,
@@ -703,8 +703,8 @@ export function App() {
           seekTo, segments, selectTool, selectedCaptionSegment, selectedFilterId,
           selectedLibraryAssetId, selectedSegmentId, selectedStickerId, selectedTransitionId,
           selectedVoice, setCaptionSize, setCaptionStyle, setCaptionsEnabled, setIsDragging,
-          setMediaTab, setMusicVolume, setSelectedFilterId, setSelectedSegmentId,
-          setSelectedStickerId, setSelectedTransitionId, setSourceAudioVolume, setVoiceTab,
+          setMediaTab, setMusicVolume, setSelectedAudioSegmentId, setSelectedFilterId, setSelectedSegmentId,
+          setSelectedStickerId, setSelectedTrack, setSelectedTransitionId, setSourceAudioVolume, setVoiceTab,
           sourceAudioBlob, sourceAudioDuration, sourceAudioLinked, sourceAudioName, sourceAudioVolume, status, t,
           separateSourceVocals, vocalSeparationJob,
           toggleCaptionSegmentHidden, toggleVisionOption, trOption, updateCaptionSegmentText,
@@ -927,6 +927,8 @@ export function App() {
         currentVisualSegment={currentVisualSegment}
         selectedVisualSegmentId={selectedVisualSegmentId}
         currentVisualSegmentIndex={currentVisualSegmentIndex}
+        builtInImageCaptionAvailable={autoEdit.support.availability === "available"}
+        generateImageCaption={autoEdit.generateImageCaption}
         setSelectedVisualSegmentId={setSelectedVisualSegmentId}
         seekTo={seekTo}
         suppressTimelineClipClickRef={suppressTimelineClipClickRef}

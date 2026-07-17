@@ -19,6 +19,37 @@ const DIGITS = { 0: "零", 1: "一", 2: "二", 3: "三", 4: "四", 5: "五", 6: 
 
 const pinyinRuntimePromises = new Map();
 
+async function getPinyinCacheFile(fileName, create = false) {
+  if (!globalThis.navigator?.storage?.getDirectory) return null;
+  const root = await navigator.storage.getDirectory();
+  const piper = await root.getDirectoryHandle("piper", { create });
+  const pinyinVoices = await piper.getDirectoryHandle("pinyin-voices", { create });
+  return pinyinVoices.getFileHandle(fileName, { create });
+}
+
+async function readPinyinCache(fileName) {
+  try {
+    const handle = await getPinyinCacheFile(fileName);
+    return handle ? (await handle.getFile()).arrayBuffer() : null;
+  } catch {
+    return null;
+  }
+}
+
+async function writePinyinCache(fileName, data) {
+  try {
+    const handle = await getPinyinCacheFile(fileName, true);
+    if (!handle) return;
+    const writable = await handle.createWritable();
+    await writable.write(data);
+    await writable.close();
+  } catch (error) {
+    // Persistence is optional. Keep the downloaded bytes available to the
+    // current inference even when the browser quota is full.
+    console.warn("Piper OPFS cache write skipped.", error);
+  }
+}
+
 function normalizeNumbers(text) {
   return text.replace(/\d/g, (digit) => DIGITS[digit]);
 }
@@ -70,10 +101,20 @@ function encodeWav(samples, sampleRate) {
 }
 
 async function fetchArrayBufferWithProgress(url, onProgress, voiceName) {
+  const cacheName = `${voiceName}-${url.split("/").at(-1)}`;
+  const cached = await readPinyinCache(cacheName);
+  if (cached) {
+    onProgress?.({ url, total: cached.byteLength, loaded: cached.byteLength, cached: true });
+    return cached;
+  }
   const response = await fetch(url);
   if (!response.ok) throw new Error(`${voiceName}模型下载失败 (${response.status})`);
   const total = Number(response.headers.get("content-length")) || 0;
-  if (!response.body) return response.arrayBuffer();
+  if (!response.body) {
+    const data = await response.arrayBuffer();
+    await writePinyinCache(cacheName, data);
+    return data;
+  }
   const reader = response.body.getReader();
   const chunks = [];
   let loaded = 0;
@@ -86,6 +127,7 @@ async function fetchArrayBufferWithProgress(url, onProgress, voiceName) {
   const bytes = new Uint8Array(loaded);
   let offset = 0;
   for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
+  await writePinyinCache(cacheName, bytes);
   return bytes.buffer;
 }
 
@@ -93,9 +135,17 @@ async function loadPinyinVoice(voiceId, onProgress) {
   const voicePath = PINYIN_VOICES[voiceId];
   const voiceName = voiceId === "zh_CN-xiao_ya-medium" ? "小雅" : "超文";
   const voiceBase = `${PIPER_BASE}/${voicePath}`;
-  const configResponse = await fetch(`${voiceBase}/${voiceId}.onnx.json`);
-  if (!configResponse.ok) throw new Error(`${voiceName}配置下载失败 (${configResponse.status})`);
-  const config = await configResponse.json();
+  const configUrl = `${voiceBase}/${voiceId}.onnx.json`;
+  const cachedConfig = await readPinyinCache(`${voiceName}-${voiceId}.onnx.json`);
+  let config;
+  if (cachedConfig) config = JSON.parse(new TextDecoder().decode(cachedConfig));
+  else {
+    const configResponse = await fetch(configUrl);
+    if (!configResponse.ok) throw new Error(`${voiceName}配置下载失败 (${configResponse.status})`);
+    const configBytes = await configResponse.arrayBuffer();
+    config = JSON.parse(new TextDecoder().decode(configBytes));
+    await writePinyinCache(`${voiceName}-${voiceId}.onnx.json`, configBytes);
+  }
   const model = await fetchArrayBufferWithProgress(`${voiceBase}/${voiceId}.onnx`, onProgress, voiceName);
   if (globalThis.navigator?.gpu) {
     try {

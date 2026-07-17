@@ -233,6 +233,32 @@ export function createFrameCaptionSession({ language, onDownloadProgress, signal
   return window.LanguageModel.create(options);
 }
 
+export async function generateImageVoiceoverText({ src, language = "en", signal }) {
+  if (!src) throw new Error("image-missing");
+  const modelLanguage = getAutoEditLanguage(language);
+  const session = await createFrameCaptionSession({ language, signal });
+  try {
+    const response = await fetch(src, { signal });
+    if (!response.ok) throw new Error("image-load-failed");
+    const image = await response.blob();
+    const schema = {
+      type: "object",
+      properties: { text: { type: "string", minLength: 1 } },
+      required: ["text"],
+      additionalProperties: false,
+    };
+    const result = await session.prompt([{ role: "user", content: [
+      { type: "text", value: `Write one concise, natural voiceover narration sentence in ${modelLanguage} describing only the visible content of this image. Do not invent names, identities, locations, or unseen events. Do not use labels, markdown, or quotation marks.` },
+      { type: "image", value: image },
+    ] }], { responseConstraint: schema, signal });
+    const text = String(JSON.parse(result)?.text || "").trim();
+    if (!text) throw new Error("empty-caption");
+    return text;
+  } finally {
+    session.destroy?.();
+  }
+}
+
 async function generateCaptionGroup(session, frames, duration, modelLanguage) {
   const content = [{ type: "text", value: `Describe every provided candidate frame with one concise on-screen caption. Output in ${modelLanguage}. Return exactly ${frames.length} captions in the same order as the images. Use only visible evidence; do not invent names or facts. Frame timestamps: ${frames.map((frame) => frame.time.toFixed(2)).join(", ")} seconds.` }];
   frames.forEach((frame) => content.push({ type: "image", value: frame.blob }));

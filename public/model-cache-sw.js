@@ -36,7 +36,16 @@ function isHuggingFaceModelRequest(url) {
     return false;
   }
 
+  // Piper's runtime owns its OPFS cache. Caching the same voice files here
+  // would keep a second full model copy for every non-English language.
+  if (url.pathname.includes("/rhasspy/piper-voices/resolve/")) return false;
   return url.hostname !== "huggingface.co" || url.pathname.includes("/resolve/");
+}
+
+async function removeLegacyPiperDuplicates() {
+  const cache = await caches.open(MODEL_CACHE_NAME);
+  const keys = await cache.keys();
+  await Promise.all(keys.filter((request) => new URL(request.url).pathname.includes("/rhasspy/piper-voices/resolve/")).map((request) => cache.delete(request)));
 }
 
 function isRuntimeAssetRequest(url) {
@@ -119,6 +128,7 @@ self.addEventListener("activate", (event) => {
   // Older Transformers.js builds created a second copy of Hugging Face model
   // assets here. The service worker is now the sole cache owner.
   event.waitUntil(caches.delete("transformers-cache").catch(() => false));
+  event.waitUntil(removeLegacyPiperDuplicates().catch(() => {}));
 });
 
 self.addEventListener("fetch", (event) => {

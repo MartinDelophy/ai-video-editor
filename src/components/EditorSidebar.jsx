@@ -50,6 +50,8 @@ export function EditorSidebar({ model: d }) {
             selectedCaptionSegment={d.selectedCaptionSegment}
             selectedSegmentId={d.selectedSegmentId}
             setSelectedSegmentId={d.setSelectedSegmentId}
+            setSelectedAudioSegmentId={d.setSelectedAudioSegmentId}
+            setSelectedTrack={d.setSelectedTrack}
             updateCaptionSegmentText={d.updateCaptionSegmentText}
             toggleCaptionSegmentHidden={d.toggleCaptionSegmentHidden}
             deleteCaptionSegment={d.deleteCaptionSegment}

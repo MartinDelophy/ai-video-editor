@@ -13,6 +13,19 @@ export const APP_LANGUAGES = [
   { id: "vi", name: "Vietnamese", nativeName: "Tiếng Việt", hint: "Vietnamese" },
 ];
 
+const EXPORT_RENDER_COPY = {
+  zh: { exportPreparing: "准备导出", exportRecordingStream: "录制 {format} 视频流", exportEmbeddedAudio: "准备视频内嵌音频 {current}/{total}", exportOfflinePreparing: "准备离线渲染", exportOfflineRendering: "离线渲染 {current}/{total}", exportVerifyFile: "验证导出文件", exportPrepareVisuals: "准备导出画面", exportPrepareTracks: "准备画布与轨道", exportMixAudio: "解码并混合音频轨", exportStartRecording: "开始录制视频流", exportRecording: "录制视频流", exportPackageFile: "封装导出文件", exportCompatibility: "切换兼容导出模式", exportSaveFile: "保存 {format} 文件", exportComplete: "导出完成", exportFailed: "导出失败" },
+  en: { exportPreparing: "Preparing export", exportRecordingStream: "Recording {format} video stream", exportEmbeddedAudio: "Preparing embedded video audio {current}/{total}", exportOfflinePreparing: "Preparing offline render", exportOfflineRendering: "Offline rendering {current}/{total}", exportVerifyFile: "Verifying exported file", exportPrepareVisuals: "Preparing visuals", exportPrepareTracks: "Preparing canvas and tracks", exportMixAudio: "Decoding and mixing audio tracks", exportStartRecording: "Starting video stream recording", exportRecording: "Recording video stream", exportPackageFile: "Packaging export file", exportCompatibility: "Switching to compatibility export", exportSaveFile: "Saving {format} file", exportComplete: "Export complete", exportFailed: "Export failed" },
+  ja: { exportPreparing: "書き出しを準備中", exportRecordingStream: "{format} 動画ストリームを録画中", exportEmbeddedAudio: "動画内音声を準備中 {current}/{total}", exportOfflinePreparing: "オフラインレンダリングを準備中", exportOfflineRendering: "オフラインレンダリング {current}/{total}", exportVerifyFile: "書き出しファイルを確認中", exportPrepareVisuals: "映像を準備中", exportPrepareTracks: "キャンバスとトラックを準備中", exportMixAudio: "音声トラックをデコード・ミックス中", exportStartRecording: "動画ストリーム録画を開始中", exportRecording: "動画ストリームを録画中", exportPackageFile: "書き出しファイルを作成中", exportCompatibility: "互換書き出しに切り替え中", exportSaveFile: "{format} ファイルを保存中", exportComplete: "書き出し完了", exportFailed: "書き出し失敗" },
+  ko: { exportPreparing: "내보내기 준비 중", exportRecordingStream: "{format} 비디오 스트림 녹화 중", exportEmbeddedAudio: "비디오 내장 오디오 준비 중 {current}/{total}", exportOfflinePreparing: "오프라인 렌더링 준비 중", exportOfflineRendering: "오프라인 렌더링 {current}/{total}", exportVerifyFile: "내보낸 파일 확인 중", exportPrepareVisuals: "화면 준비 중", exportPrepareTracks: "캔버스와 트랙 준비 중", exportMixAudio: "오디오 트랙 디코딩 및 믹싱 중", exportStartRecording: "비디오 스트림 녹화 시작 중", exportRecording: "비디오 스트림 녹화 중", exportPackageFile: "내보내기 파일 패키징 중", exportCompatibility: "호환 내보내기로 전환 중", exportSaveFile: "{format} 파일 저장 중", exportComplete: "내보내기 완료", exportFailed: "내보내기 실패" },
+  es: { exportPreparing: "Preparando exportación", exportRecordingStream: "Grabando flujo de vídeo {format}", exportEmbeddedAudio: "Preparando audio integrado {current}/{total}", exportOfflinePreparing: "Preparando renderizado sin conexión", exportOfflineRendering: "Renderizado sin conexión {current}/{total}", exportVerifyFile: "Verificando archivo exportado", exportPrepareVisuals: "Preparando imagen", exportPrepareTracks: "Preparando lienzo y pistas", exportMixAudio: "Decodificando y mezclando audio", exportStartRecording: "Iniciando grabación del flujo", exportRecording: "Grabando flujo de vídeo", exportPackageFile: "Empaquetando archivo exportado", exportCompatibility: "Cambiando a exportación compatible", exportSaveFile: "Guardando archivo {format}", exportComplete: "Exportación completada", exportFailed: "Error de exportación" },
+  fr: { exportPreparing: "Préparation de l’export", exportRecordingStream: "Enregistrement du flux vidéo {format}", exportEmbeddedAudio: "Préparation de l’audio intégré {current}/{total}", exportOfflinePreparing: "Préparation du rendu hors ligne", exportOfflineRendering: "Rendu hors ligne {current}/{total}", exportVerifyFile: "Vérification du fichier exporté", exportPrepareVisuals: "Préparation des images", exportPrepareTracks: "Préparation du canevas et des pistes", exportMixAudio: "Décodage et mixage audio", exportStartRecording: "Démarrage de l’enregistrement vidéo", exportRecording: "Enregistrement du flux vidéo", exportPackageFile: "Assemblage du fichier exporté", exportCompatibility: "Passage à l’export compatible", exportSaveFile: "Enregistrement du fichier {format}", exportComplete: "Export terminé", exportFailed: "Échec de l’export" },
+  de: { exportPreparing: "Export wird vorbereitet", exportRecordingStream: "{format}-Videostream wird aufgenommen", exportEmbeddedAudio: "Eingebettetes Audio wird vorbereitet {current}/{total}", exportOfflinePreparing: "Offline-Rendering wird vorbereitet", exportOfflineRendering: "Offline-Rendering {current}/{total}", exportVerifyFile: "Exportdatei wird geprüft", exportPrepareVisuals: "Bildmaterial wird vorbereitet", exportPrepareTracks: "Canvas und Spuren werden vorbereitet", exportMixAudio: "Audiospuren werden dekodiert und gemischt", exportStartRecording: "Videostream-Aufnahme wird gestartet", exportRecording: "Videostream wird aufgenommen", exportPackageFile: "Exportdatei wird verpackt", exportCompatibility: "Kompatibilitätsexport wird verwendet", exportSaveFile: "{format}-Datei wird gespeichert", exportComplete: "Export abgeschlossen", exportFailed: "Export fehlgeschlagen" },
+  pt: { exportPreparing: "Preparando exportação", exportRecordingStream: "Gravando fluxo de vídeo {format}", exportEmbeddedAudio: "Preparando áudio incorporado {current}/{total}", exportOfflinePreparing: "Preparando renderização offline", exportOfflineRendering: "Renderização offline {current}/{total}", exportVerifyFile: "Verificando arquivo exportado", exportPrepareVisuals: "Preparando imagens", exportPrepareTracks: "Preparando tela e faixas", exportMixAudio: "Decodificando e mixando áudio", exportStartRecording: "Iniciando gravação do vídeo", exportRecording: "Gravando fluxo de vídeo", exportPackageFile: "Empacotando arquivo exportado", exportCompatibility: "Alternando para exportação compatível", exportSaveFile: "Salvando arquivo {format}", exportComplete: "Exportação concluída", exportFailed: "Falha na exportação" },
+  th: { exportPreparing: "กำลังเตรียมส่งออก", exportRecordingStream: "กำลังบันทึกสตรีมวิดีโอ {format}", exportEmbeddedAudio: "กำลังเตรียมเสียงในวิดีโอ {current}/{total}", exportOfflinePreparing: "กำลังเตรียมเรนเดอร์ออฟไลน์", exportOfflineRendering: "เรนเดอร์ออฟไลน์ {current}/{total}", exportVerifyFile: "กำลังตรวจสอบไฟล์ส่งออก", exportPrepareVisuals: "กำลังเตรียมภาพ", exportPrepareTracks: "กำลังเตรียมแคนวาสและแทร็ก", exportMixAudio: "กำลังถอดรหัสและผสมเสียง", exportStartRecording: "กำลังเริ่มบันทึกวิดีโอ", exportRecording: "กำลังบันทึกสตรีมวิดีโอ", exportPackageFile: "กำลังจัดแพ็กไฟล์ส่งออก", exportCompatibility: "กำลังสลับเป็นโหมดส่งออกที่เข้ากันได้", exportSaveFile: "กำลังบันทึกไฟล์ {format}", exportComplete: "ส่งออกเสร็จแล้ว", exportFailed: "ส่งออกไม่สำเร็จ" },
+  vi: { exportPreparing: "Đang chuẩn bị xuất", exportRecordingStream: "Đang ghi luồng video {format}", exportEmbeddedAudio: "Đang chuẩn bị âm thanh nhúng {current}/{total}", exportOfflinePreparing: "Đang chuẩn bị kết xuất ngoại tuyến", exportOfflineRendering: "Kết xuất ngoại tuyến {current}/{total}", exportVerifyFile: "Đang xác minh tệp xuất", exportPrepareVisuals: "Đang chuẩn bị hình ảnh", exportPrepareTracks: "Đang chuẩn bị khung vẽ và rãnh", exportMixAudio: "Đang giải mã và trộn âm thanh", exportStartRecording: "Đang bắt đầu ghi video", exportRecording: "Đang ghi luồng video", exportPackageFile: "Đang đóng gói tệp xuất", exportCompatibility: "Đang chuyển sang xuất tương thích", exportSaveFile: "Đang lưu tệp {format}", exportComplete: "Xuất hoàn tất", exportFailed: "Xuất thất bại" },
+};
+
 const VISUAL_EDITOR_COPY = {
   zh: { visualSelectClip: "请先选择 Visuals 轨上的片段", visualKeyframes: "关键帧", visualFrames: "帧", visualScale: "缩放", visualPositionX: "水平位置", visualPositionY: "垂直位置", visualRotation: "旋转", visualOpacity: "不透明度", visualDeleteKeyframe: "删除当前位置关键帧", visualMask: "蒙版", visualMaskResize: "调整蒙版大小", visualClipScoped: "片段级", visualMaskNone: "无", visualMaskRectangle: "矩形", visualMaskRounded: "圆角", visualMaskCircle: "圆形", visualFeather: "羽化", visualHorizontal: "水平", visualVertical: "垂直", visualWidth: "宽度", visualHeight: "高度", visualDiameter: "直径", visualCornerRadius: "圆角半径", visualMaskNoneHint: "选择一种蒙版后显示对应参数", visualInvertMask: "反向蒙版", visualEffects: "画面效果" },
   en: { visualSelectClip: "Select a clip on the Visuals track", visualKeyframes: "Keyframes", visualFrames: "frames", visualScale: "Scale", visualPositionX: "Horizontal position", visualPositionY: "Vertical position", visualRotation: "Rotation", visualOpacity: "Opacity", visualDeleteKeyframe: "Delete keyframe at playhead", visualMask: "Mask", visualMaskResize: "Resize mask", visualClipScoped: "Clip", visualMaskNone: "None", visualMaskRectangle: "Rectangle", visualMaskRounded: "Rounded", visualMaskCircle: "Circle", visualFeather: "Feather", visualHorizontal: "Horizontal", visualVertical: "Vertical", visualWidth: "Width", visualHeight: "Height", visualDiameter: "Diameter", visualCornerRadius: "Corner radius", visualMaskNoneHint: "Choose a mask to show its parameters", visualInvertMask: "Invert mask", visualEffects: "Visual effects" },
@@ -199,6 +212,23 @@ const CONTEXT_PANEL_COPY = {
   vi: { timelineContextMenu: "Trình đơn ngữ cảnh dòng thời gian", clipActions: "Thao tác clip", trackActions: "Thao tác rãnh", openTrackPanel: "Mở bảng", splitAtPlayhead: "Tách tại đầu phát", duplicateClip: "Nhân đôi clip", deleteClip: "Xóa clip", addClip: "Thêm clip", hideTrack: "Ẩn rãnh", showTrack: "Hiện rãnh", unlockTrack: "Mở khóa rãnh", lockTrack: "Khóa rãnh", voiceAddedToTimeline: "Đã thêm vào rãnh lồng tiếng", voicePreviewHint: "Sẵn sàng nghe thử và tiếp tục chỉnh trên dòng thời gian" },
 };
 
+const TIMELINE_AUDIO_MENU_COPY = {
+  zh: { muteClip: "静音", unmuteClip: "取消静音", separateSourceAudio: "分离音频", separatingSourceAudio: "正在分离音频…" },
+  en: { muteClip: "Mute", unmuteClip: "Unmute", separateSourceAudio: "Separate audio", separatingSourceAudio: "Separating audio…" },
+  ja: { muteClip: "ミュート", unmuteClip: "ミュート解除", separateSourceAudio: "音声を分離", separatingSourceAudio: "音声を分離中…" },
+  ko: { muteClip: "음소거", unmuteClip: "음소거 해제", separateSourceAudio: "오디오 분리", separatingSourceAudio: "오디오 분리 중…" },
+  es: { muteClip: "Silenciar", unmuteClip: "Activar sonido", separateSourceAudio: "Separar audio", separatingSourceAudio: "Separando audio…" },
+  fr: { muteClip: "Couper le son", unmuteClip: "Rétablir le son", separateSourceAudio: "Séparer l’audio", separatingSourceAudio: "Séparation audio…" },
+  de: { muteClip: "Stummschalten", unmuteClip: "Ton einschalten", separateSourceAudio: "Audio trennen", separatingSourceAudio: "Audio wird getrennt…" },
+  pt: { muteClip: "Silenciar", unmuteClip: "Ativar som", separateSourceAudio: "Separar áudio", separatingSourceAudio: "Separando áudio…" },
+  th: { muteClip: "ปิดเสียง", unmuteClip: "เปิดเสียง", separateSourceAudio: "แยกเสียง", separatingSourceAudio: "กำลังแยกเสียง…" },
+  vi: { muteClip: "Tắt tiếng", unmuteClip: "Bật tiếng", separateSourceAudio: "Tách âm thanh", separatingSourceAudio: "Đang tách âm thanh…" },
+};
+
+Object.entries(TIMELINE_AUDIO_MENU_COPY).forEach(([language, copy]) => {
+  Object.assign(CONTEXT_PANEL_COPY[language], copy);
+});
+
 const TTS_BACKEND_COPY = {
   zh: { ttsStatusLoadingWebGpu: "正在加载 WebGPU 配音模型", ttsStatusGeneratingWebGpu: "正在使用 WebGPU 生成配音", ttsStatusFallingBackWasm: "WebGPU 不可用，正在切换到 WASM", ttsStatusGeneratingWasm: "正在使用 WASM 生成配音" },
   en: { ttsStatusLoadingWebGpu: "Loading WebGPU voice model", ttsStatusGeneratingWebGpu: "Generating voice with WebGPU", ttsStatusFallingBackWasm: "WebGPU unavailable; switching to WASM", ttsStatusGeneratingWasm: "Generating voice with WASM" },
@@ -299,6 +329,19 @@ const IMAGE_AI_CAPTION_COPY = {
   en: { generateImageAiCaption: "Generate AI voiceover caption", generatingImageAiCaption: "Generating AI caption…", imageAiCaptionAdded: "AI voiceover caption added to the timeline", imageAiCaptionFailed: "Could not generate an image voiceover caption" },
 };
 
+const PICTURE_IN_PICTURE_COPY = {
+  zh: { pictureInPicture: "画中画", overlayTrack: "画中画", dropAsOverlay: "作为画中画", appendAfter: "添加到后面", dropSlot: "放置位置", layoutPresets: "布局预设", moveLayerUp: "上移一层", moveLayerDown: "下移一层" },
+  en: { pictureInPicture: "Picture in picture", overlayTrack: "Overlay", dropAsOverlay: "Add as picture in picture", appendAfter: "Append to sequence", dropSlot: "Drop position", layoutPresets: "Layout presets", moveLayerUp: "Move layer up", moveLayerDown: "Move layer down" },
+  ja: { pictureInPicture: "ピクチャーインピクチャー", overlayTrack: "オーバーレイ", dropAsOverlay: "ワイプとして追加", appendAfter: "後ろに追加", dropSlot: "配置位置", layoutPresets: "レイアウトプリセット", moveLayerUp: "レイヤーを上へ", moveLayerDown: "レイヤーを下へ" },
+  ko: { pictureInPicture: "화면 속 화면", overlayTrack: "오버레이", dropAsOverlay: "오버레이로 추가", appendAfter: "뒤에 추가", dropSlot: "놓을 위치", layoutPresets: "레이아웃 프리셋", moveLayerUp: "레이어 올리기", moveLayerDown: "레이어 내리기" },
+  es: { pictureInPicture: "Imagen en imagen", overlayTrack: "Superposición", dropAsOverlay: "Añadir como superposición", appendAfter: "Añadir al final", dropSlot: "Posición de destino", layoutPresets: "Diseños predefinidos", moveLayerUp: "Subir capa", moveLayerDown: "Bajar capa" },
+  fr: { pictureInPicture: "Image dans l’image", overlayTrack: "Incrustation", dropAsOverlay: "Ajouter en incrustation", appendAfter: "Ajouter à la suite", dropSlot: "Position de dépôt", layoutPresets: "Préréglages de disposition", moveLayerUp: "Monter le calque", moveLayerDown: "Descendre le calque" },
+  de: { pictureInPicture: "Bild-in-Bild", overlayTrack: "Overlay", dropAsOverlay: "Als Überlagerung hinzufügen", appendAfter: "Hinten anfügen", dropSlot: "Ablageposition", layoutPresets: "Layout-Vorlagen", moveLayerUp: "Ebene nach oben", moveLayerDown: "Ebene nach unten" },
+  pt: { pictureInPicture: "Picture-in-picture", overlayTrack: "Sobreposição", dropAsOverlay: "Adicionar como sobreposição", appendAfter: "Adicionar ao final", dropSlot: "Posição de destino", layoutPresets: "Predefinições de layout", moveLayerUp: "Subir camada", moveLayerDown: "Descer camada" },
+  th: { pictureInPicture: "ภาพซ้อนภาพ", overlayTrack: "ภาพซ้อน", dropAsOverlay: "เพิ่มเป็นภาพซ้อน", appendAfter: "เพิ่มต่อท้าย", dropSlot: "ตำแหน่งวาง", layoutPresets: "รูปแบบสำเร็จรูป", moveLayerUp: "เลื่อนเลเยอร์ขึ้น", moveLayerDown: "เลื่อนเลเยอร์ลง" },
+  vi: { pictureInPicture: "Hình trong hình", overlayTrack: "Lớp phủ", dropAsOverlay: "Thêm làm lớp phủ", appendAfter: "Thêm vào cuối", dropSlot: "Vị trí thả", layoutPresets: "Bố cục mẫu", moveLayerUp: "Đưa lớp lên", moveLayerDown: "Đưa lớp xuống" },
+};
+
 export const UI_COPY = {
   zh: {
     ...SMART_WORKSPACE_COPY.zh,
@@ -309,6 +352,7 @@ export const UI_COPY = {
     ...AUTO_EDIT_SEGMENT_COPY.zh,
     ...AUTO_EDIT_RESULT_COPY.zh,
     ...IMAGE_AI_CAPTION_COPY.zh,
+    ...PICTURE_IN_PICTURE_COPY.zh,
     ...VISUAL_EDITOR_COPY.zh,
     ...TRANSITION_EDITOR_COPY.zh,
     ...VISUAL_ANIMATION_COPY.zh,
@@ -390,7 +434,10 @@ export const UI_COPY = {
     currentMediaAlt: "当前上传素材预览",
     fit: "适合",
     cover: "填充",
-    fullscreenPreview: "全屏预览",
+    fullscreenPreview: "大画布预览与编辑",
+    focusPreviewTitle: "大画布编辑",
+    focusPreviewHint: "点击画面元素进行移动、缩放和旋转",
+    closeFocusPreview: "关闭大画布预览",
     backTwoSeconds: "后退 2 秒",
     forwardTwoSeconds: "前进 2 秒",
     deleteTrack: "删除选中轨道",
@@ -689,6 +736,7 @@ export const UI_COPY = {
     ...AUTO_EDIT_SEGMENT_COPY.en,
     ...AUTO_EDIT_RESULT_COPY.en,
     ...IMAGE_AI_CAPTION_COPY.en,
+    ...PICTURE_IN_PICTURE_COPY.en,
     ...VISUAL_EDITOR_COPY.en,
     ...TRANSITION_EDITOR_COPY.en,
     ...VISUAL_ANIMATION_COPY.en,
@@ -770,7 +818,10 @@ export const UI_COPY = {
     currentMediaAlt: "Current uploaded media preview",
     fit: "Fit",
     cover: "Fill",
-    fullscreenPreview: "Fullscreen preview",
+    fullscreenPreview: "Large canvas preview and edit",
+    focusPreviewTitle: "Large canvas editor",
+    focusPreviewHint: "Select an element to move, resize, or rotate it",
+    closeFocusPreview: "Close large canvas preview",
     backTwoSeconds: "Back 2 seconds",
     forwardTwoSeconds: "Forward 2 seconds",
     deleteTrack: "Delete selected track",
@@ -1061,6 +1112,7 @@ export const UI_COPY = {
     dropMusicHere: "Drop on music track",
   },
   ja: {
+    ...PICTURE_IN_PICTURE_COPY.ja,
     ...SMART_WORKSPACE_COPY.ja,
     ...VISUAL_EDITOR_COPY.ja,
     ...TRANSITION_EDITOR_COPY.ja,
@@ -1081,6 +1133,7 @@ export const UI_COPY = {
     ...TTS_BACKEND_COPY.ja,
     ...CAPTION_WORKSPACE_COPY.ja,
     ...RESOURCE_LINK_COPY.ja,
+    ...PICTURE_IN_PICTURE_COPY.ja,
     languageTitle: "表示言語を選択",
     languageSubtitle: "一度保存すると、次回からこの言語で開きます。",
     languageSaved: "あとで設定から変更できます",
@@ -1143,6 +1196,7 @@ export const UI_COPY = {
 
 Object.assign(UI_COPY, {
   ko: {
+    ...PICTURE_IN_PICTURE_COPY.ko,
     ...SMART_WORKSPACE_COPY.ko,
     ...VISUAL_EDITOR_COPY.ko,
     ...TRANSITION_EDITOR_COPY.ko,
@@ -1166,6 +1220,7 @@ Object.assign(UI_COPY, {
     ...TTS_BACKEND_COPY.ko,
     ...CAPTION_WORKSPACE_COPY.ko,
     ...RESOURCE_LINK_COPY.ko,
+    ...PICTURE_IN_PICTURE_COPY.ko,
     languageTitle: "인터페이스 언어 선택",
     languageSubtitle: "한 번 저장하면 다음부터 이 언어로 열립니다.",
     languageSaved: "나중에 설정에서 변경할 수 있습니다",
@@ -1206,6 +1261,7 @@ Object.assign(UI_COPY, {
     musicTrack: "배경 음악",
   },
   es: {
+    ...PICTURE_IN_PICTURE_COPY.es,
     ...SMART_WORKSPACE_COPY.es,
     ...UI_COPY.en,
     ...VISUAL_EDITOR_COPY.es,
@@ -1227,6 +1283,7 @@ Object.assign(UI_COPY, {
     ...TTS_BACKEND_COPY.es,
     ...CAPTION_WORKSPACE_COPY.es,
     ...RESOURCE_LINK_COPY.es,
+    ...PICTURE_IN_PICTURE_COPY.es,
     languageTitle: "Elige el idioma",
     languageSubtitle: "Se guarda una vez y se abrirá así la próxima vez.",
     languageSaved: "Puedes cambiarlo luego en Ajustes",
@@ -1267,6 +1324,7 @@ Object.assign(UI_COPY, {
     musicTrack: "Música",
   },
   fr: {
+    ...PICTURE_IN_PICTURE_COPY.fr,
     ...SMART_WORKSPACE_COPY.fr,
     ...UI_COPY.en,
     ...VISUAL_EDITOR_COPY.fr,
@@ -1288,6 +1346,7 @@ Object.assign(UI_COPY, {
     ...TTS_BACKEND_COPY.fr,
     ...CAPTION_WORKSPACE_COPY.fr,
     ...RESOURCE_LINK_COPY.fr,
+    ...PICTURE_IN_PICTURE_COPY.fr,
     languageTitle: "Choisir la langue",
     languageSubtitle: "Enregistrée une fois, elle sera utilisée à la prochaine ouverture.",
     languageSaved: "Modifiable plus tard dans les réglages",
@@ -1328,6 +1387,7 @@ Object.assign(UI_COPY, {
     musicTrack: "Musique",
   },
   de: {
+    ...PICTURE_IN_PICTURE_COPY.de,
     ...SMART_WORKSPACE_COPY.de,
     ...UI_COPY.en,
     ...VISUAL_EDITOR_COPY.de,
@@ -1349,6 +1409,7 @@ Object.assign(UI_COPY, {
     ...TTS_BACKEND_COPY.de,
     ...CAPTION_WORKSPACE_COPY.de,
     ...RESOURCE_LINK_COPY.de,
+    ...PICTURE_IN_PICTURE_COPY.de,
     languageTitle: "Sprache wählen",
     languageSubtitle: "Einmal gespeichert, startet der Editor künftig in dieser Sprache.",
     languageSaved: "Später in den Einstellungen änderbar",
@@ -1389,6 +1450,7 @@ Object.assign(UI_COPY, {
     musicTrack: "Musik",
   },
   pt: {
+    ...PICTURE_IN_PICTURE_COPY.pt,
     ...SMART_WORKSPACE_COPY.pt,
     ...UI_COPY.en,
     ...VISUAL_EDITOR_COPY.pt,
@@ -1410,6 +1472,7 @@ Object.assign(UI_COPY, {
     ...TTS_BACKEND_COPY.pt,
     ...CAPTION_WORKSPACE_COPY.pt,
     ...RESOURCE_LINK_COPY.pt,
+    ...PICTURE_IN_PICTURE_COPY.pt,
     languageTitle: "Escolha o idioma",
     languageSubtitle: "Salvo uma vez, o editor abrirá nesse idioma depois.",
     languageSaved: "Você pode alterar em Configurações",
@@ -1450,6 +1513,7 @@ Object.assign(UI_COPY, {
     musicTrack: "Música",
   },
   th: {
+    ...PICTURE_IN_PICTURE_COPY.th,
     ...SMART_WORKSPACE_COPY.th,
     ...UI_COPY.en,
     ...VISUAL_EDITOR_COPY.th,
@@ -1471,6 +1535,7 @@ Object.assign(UI_COPY, {
     ...TTS_BACKEND_COPY.th,
     ...CAPTION_WORKSPACE_COPY.th,
     ...RESOURCE_LINK_COPY.th,
+    ...PICTURE_IN_PICTURE_COPY.th,
     languageTitle: "เลือกภาษาอินเทอร์เฟซ",
     languageSubtitle: "บันทึกครั้งเดียว ครั้งถัดไปจะเปิดด้วยภาษานี้",
     languageSaved: "เปลี่ยนได้ภายหลังใน Settings",
@@ -1511,6 +1576,7 @@ Object.assign(UI_COPY, {
     musicTrack: "เพลง",
   },
   vi: {
+    ...PICTURE_IN_PICTURE_COPY.vi,
     ...SMART_WORKSPACE_COPY.vi,
     ...UI_COPY.en,
     ...VISUAL_EDITOR_COPY.vi,
@@ -1532,6 +1598,7 @@ Object.assign(UI_COPY, {
     ...TTS_BACKEND_COPY.vi,
     ...CAPTION_WORKSPACE_COPY.vi,
     ...RESOURCE_LINK_COPY.vi,
+    ...PICTURE_IN_PICTURE_COPY.vi,
     languageTitle: "Chọn ngôn ngữ giao diện",
     languageSubtitle: "Lưu một lần, lần sau sẽ mở bằng ngôn ngữ này.",
     languageSaved: "Có thể đổi lại trong Cài đặt",
@@ -1670,7 +1737,8 @@ export function createTranslator(languageId) {
   const copyLanguage = getCopyLanguage(languageId);
   const copy = UI_COPY[copyLanguage] ?? UI_COPY.en;
   const fallback = UI_COPY.en;
-  return (key, fallbackText) => copy[key] ?? fallback[key] ?? UI_COPY.zh[key] ?? fallbackText ?? key;
+  const exportCopy = EXPORT_RENDER_COPY[copyLanguage] ?? EXPORT_RENDER_COPY.en;
+  return (key, fallbackText) => exportCopy[key] ?? EXPORT_RENDER_COPY.en[key] ?? copy[key] ?? fallback[key] ?? UI_COPY.zh[key] ?? fallbackText ?? key;
 }
 
 export function translateOptionName(languageId, name) {

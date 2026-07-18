@@ -3,6 +3,12 @@ import { MAX_TIMELINE_DURATION_SECONDS, SUPPORTED_MEDIA_TYPES } from "../config/
 import { decodeWaveform, extractVideoTrackFrames } from "../lib/media.js";
 import { formatClock, formatTime } from "../lib/timeline.js";
 
+export function shouldAutoAddImportedVisual(assets, visualSegments) {
+  return Boolean(
+    !visualSegments.length && assets.some((asset) => asset.type === "image" || asset.type === "video"),
+  );
+}
+
 export function useFileUpload(deps) {
   return useCallback((files) => {
     const mediaFiles = Array.from(files ?? []).filter((file) => SUPPORTED_MEDIA_TYPES.some((type) => file.type.startsWith(type)));
@@ -15,7 +21,8 @@ export function useFileUpload(deps) {
     });
     const primary = assets[0]; deps.setSelectedLibraryAssetId(primary.id); deps.setUserAssets((current) => [...assets, ...current]);
     const primaryVisual = assets.find((asset) => asset.type === "image" || asset.type === "video");
-    if (primaryVisual) {
+    const shouldAutoAddFirstVisual = shouldAutoAddImportedVisual(assets, deps.visualSegments);
+    if (shouldAutoAddFirstVisual) {
       deps.appendVisualAssetToTimeline(primaryVisual);
       deps.setSelectedTrack("image");
     }
@@ -47,7 +54,10 @@ export function useFileUpload(deps) {
       };
       image.onerror = () => update(asset.id, { meta: "读取失败" }); image.src = asset.src;
     });
-    deps.notify(mediaFiles.length > 1 ? `已上传 ${mediaFiles.length} 个素材${primaryVisual ? "，首个画面已加入时间线" : ""}`
-      : primaryVisual ? `${primary.type === "video" ? "视频" : "图片"}已加入画布和时间线` : "音频已上传到素材库，可拖到音乐或配音轨");
+    deps.notify(mediaFiles.length > 1 ? `已上传 ${mediaFiles.length} 个素材${shouldAutoAddFirstVisual ? "，项目首个画面已加入时间线" : "，请拖到目标轨道使用"}`
+      : primaryVisual ? shouldAutoAddFirstVisual
+        ? `${primary.type === "video" ? "视频" : "图片"}已加入画布和时间线`
+        : `${primary.type === "video" ? "视频" : "图片"}已加入素材库，请拖到 Visuals 或画中画轨道`
+      : "音频已上传到素材库，可拖到音乐或配音轨");
   }, [deps]);
 }

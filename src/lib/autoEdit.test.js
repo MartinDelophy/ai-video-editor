@@ -32,7 +32,11 @@ describe("auto edit", () => {
     ];
     expect(selectChangedFrames(frames, { maxFrames: 3 }).map((frame) => frame.time)).toEqual([0, 2, 5]);
   });
-  it("falls back to an officially supported output language", () => expect(getAutoEditLanguage("zh")).toBe("en"));
+  it("uses the language selected by the user", () => {
+    expect(getAutoEditLanguage("zh")).toBe("zh-CN");
+    expect(getAutoEditLanguage("pt")).toBe("pt-BR");
+    expect(getAutoEditLanguage("ko")).toBe("ko");
+  });
   it("labels common source aspect ratios", () => {
     expect(getAspectRatioLabel(1080, 1920)).toBe("9:16");
     expect(getAspectRatioLabel(1920, 1080)).toBe("16:9");

@@ -33,7 +33,7 @@ export function createTimelineViewModel(d) {
     assetDragPreview: d.assetDragPreview,
     draggedAsset,
   });
-  const displayedVisualSegments = activeTimelineClipDrag?.track === "image"
+  const displayedVisualSegments = activeTimelineClipDrag?.track === "image" && activeTimelineClipDrag.mode !== "overlay"
     ? reorderTimelineItems(
         renderedVisualSegments,
         activeTimelineClipDrag.fromIndex,

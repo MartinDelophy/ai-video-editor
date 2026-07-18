@@ -3,20 +3,37 @@ import { downloadBlob, exportBrowserVideo, getSupportedRecordingFormat, transcod
 import { exportOfflineVideo } from "../lib/offlineVideoExport.js";
 import { estimateDuration } from "../lib/timeline.js";
 import { getVisionKey } from "../lib/vision.js";
+import { prepareEmbeddedVideoAudio } from "../lib/embeddedVideoAudioExport.js";
 
 export function useVideoExport(d) {
   return useCallback(async () => {
     if (d.exporting) return;
     if (!d.imageSrc) return void d.notify("请先上传或选择图片/视频素材再导出");
     d.setExporting(true); d.exportStartRef.current = performance.now(); d.setExportProgress(1);
-    d.setExportPhase("准备导出"); d.setStatus("generating");
-    const format = getSupportedRecordingFormat(); d.setStatusText(`录制 ${format.label} 视频流`); d.setExportPhase(`录制 ${format.label} 视频流`);
-    const progress = ({ progress, phase }) => {
+    const localize = (key, params = {}) => Object.entries(params).reduce(
+      (text, [name, value]) => text.replaceAll(`{${name}}`, String(value)),
+      d.t(key),
+    );
+    d.setExportPhase(localize("exportPreparing")); d.setStatus("generating");
+    const format = getSupportedRecordingFormat();
+    const recordingPhase = localize("exportRecordingStream", { format: format.label });
+    d.setStatusText(recordingPhase); d.setExportPhase(recordingPhase);
+    const progress = ({ progress, phase, phaseKey, phaseParams }) => {
       d.setExportProgress((current) => Math.max(current, Math.min(100, Math.max(0, Math.round(progress)))));
-      if (phase) d.setExportPhase(phase);
+      const localizedPhase = phaseKey ? localize(phaseKey, phaseParams) : phase;
+      if (localizedPhase) d.setExportPhase(localizedPhase);
     };
     const finish = async (phase) => { d.setExportPhase(phase); d.setExportProgress(100); await new Promise((resolve) => setTimeout(resolve, 450)); };
     try {
+      const embeddedVideoAudio = !d.sourceAudioBlob && d.trackVisibility.source !== false
+        ? await prepareEmbeddedVideoAudio(d.renderedVisualSegments, progress)
+        : { blob: null, segments: [] };
+      const exportSourceAudioBlob = d.trackVisibility.source !== false
+        ? d.sourceAudioBlob || embeddedVideoAudio.blob
+        : null;
+      const exportSourceAudioSegments = d.sourceAudioBlob
+        ? d.sourceAudioLinked ? d.linkedSourceAudioSegments : []
+        : embeddedVideoAudio.segments;
       const exportOptions = {
         imageSrc: d.imageSrc, visualType: d.visualType,
         visualSegments: d.renderedVisualSegments.map((segment) => {
@@ -24,8 +41,8 @@ export function useVideoExport(d) {
           return record ? { ...segment, vision: { ...record.analysis, options: record.options } } : segment;
         }),
         audioBlob: null, voiceAudioSegments: d.trackVisibility.audio ? d.audioSegments : [], voiceVolume: d.volume,
-        sourceAudioBlob: d.trackVisibility.source ? d.sourceAudioBlob : null, sourceAudioVolume: d.sourceAudioVolume,
-        sourceAudioSegments: d.sourceAudioLinked ? d.linkedSourceAudioSegments : [],
+        sourceAudioBlob: exportSourceAudioBlob, sourceAudioVolume: d.sourceAudioBlob ? d.sourceAudioVolume : 1,
+        sourceAudioSegments: exportSourceAudioSegments,
         sourceAudioStart: d.sourceAudioStart, musicBlob: d.trackVisibility.music ? d.musicBlob : null,
         musicVolume: d.musicVolume, musicStart: d.musicStart, text: d.script, captionSegments: d.captionSegments,
         duration: Math.max(d.trackVisibility.audio ? d.voiceTrackDuration : 0, d.captionDuration,
@@ -41,6 +58,7 @@ export function useVideoExport(d) {
         // Stickers are timeline clips; a selected library item is not export content.
         sticker: null,
         stickerSegments: d.trackVisibility.sticker ? d.stickerSegments : [],
+        visualOverlaySegments: d.trackVisibility.overlay === false ? [] : d.visualOverlaySegments,
         transitionId: "none", exportSettings: d.exportSettings, onProgress: progress,
       };
       let video;
@@ -48,31 +66,31 @@ export function useVideoExport(d) {
         video = await exportOfflineVideo(exportOptions);
       } catch (offlineError) {
         console.warn("Offline WebCodecs export unavailable; using compatibility recorder", offlineError);
-        progress({ progress: 5, phase: "切换兼容导出模式" });
+        progress({ progress: 5, phaseKey: "exportCompatibility" });
         video = await exportBrowserVideo(exportOptions);
       }
       const name = `ai-voiceover-${d.ratio.id.replace(":", "x")}`;
       if (d.exportSettings.codec !== "h264") {
-        progress({ progress: 99, phase: `保存 ${video.label} 文件` });
+        progress({ progress: 99, phaseKey: "exportSaveFile", phaseParams: { format: video.label } });
         downloadBlob(video.blob, `${name}.${video.extension}`);
-        d.setStatus("done"); d.setStatusText(`${video.label} 已导出`); await finish("导出完成");
+        d.setStatus("done"); d.setStatusText(localize("exportComplete")); await finish(localize("exportComplete"));
         d.notify(`${video.label} 视频已导出`); return;
       }
       if (video.nativeMp4) {
-        progress({ progress: 98, phase: "保存 MP4 文件" }); downloadBlob(video.blob, `${name}.mp4`);
-        d.setStatus("done"); d.setStatusText("MP4 已导出"); await finish("导出完成"); d.notify("已用浏览器原生 MP4 快速导出"); return;
+        progress({ progress: 98, phaseKey: "exportSaveFile", phaseParams: { format: "MP4" } }); downloadBlob(video.blob, `${name}.mp4`);
+        d.setStatus("done"); d.setStatusText(localize("exportComplete")); await finish(localize("exportComplete")); d.notify(localize("exportComplete")); return;
       }
       d.setStatusText("当前浏览器不支持原生 MP4，加载 FFmpeg WASM"); progress({ progress: 95, phase: "加载 FFmpeg 转码器" });
       try {
         d.setStatusText("转码 MP4"); progress({ progress: 96, phase: "转码 MP4" });
-        const mp4 = await transcodeWebmToMp4(video.blob); progress({ progress: 99, phase: "保存 MP4 文件" });
-        downloadBlob(mp4, `${name}.mp4`); d.setStatus("done"); d.setStatusText("MP4 已导出"); await finish("导出完成"); d.notify("MP4 视频已导出");
+        const mp4 = await transcodeWebmToMp4(video.blob); progress({ progress: 99, phaseKey: "exportSaveFile", phaseParams: { format: "MP4" } });
+        downloadBlob(mp4, `${name}.mp4`); d.setStatus("done"); d.setStatusText(localize("exportComplete")); await finish(localize("exportComplete")); d.notify(localize("exportComplete"));
       } catch (error) {
         console.error(error); progress({ progress: 99, phase: "保存 WebM 兜底文件" }); downloadBlob(video.blob, `${name}.webm`);
         d.setStatus("done"); d.setStatusText("WebM 兜底已导出"); await finish("WebM 兜底已导出"); d.notify("MP4 转码失败，已导出 WebM 兜底");
       }
     } catch (error) {
-      console.error(error); d.setStatus("error"); d.setStatusText(error instanceof Error ? error.message : "视频导出失败"); d.setExportPhase("导出失败");
+      console.error(error); d.setStatus("error"); d.setStatusText(error instanceof Error ? error.message : localize("exportFailed")); d.setExportPhase(localize("exportFailed"));
     } finally { d.setExporting(false); d.setExportProgress(0); }
   }, [d]);
 }

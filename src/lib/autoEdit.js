@@ -1,10 +1,37 @@
 import { makeId } from "./timeline.js";
 
-export const BUILT_IN_AI_LANGUAGES = new Set(["en", "es", "ja", "de", "fr"]);
+const AUTO_EDIT_LANGUAGE_TAGS = {
+  zh: "zh-CN",
+  en: "en",
+  ja: "ja",
+  ko: "ko",
+  es: "es",
+  fr: "fr",
+  de: "de",
+  pt: "pt-BR",
+  th: "th",
+  vi: "vi",
+};
+
+const AUTO_EDIT_LANGUAGE_NAMES = {
+  "zh-CN": "Simplified Chinese",
+  en: "English",
+  ja: "Japanese",
+  ko: "Korean",
+  es: "Spanish",
+  fr: "French",
+  de: "German",
+  "pt-BR": "Brazilian Portuguese",
+  th: "Thai",
+  vi: "Vietnamese",
+};
 
 export function getAutoEditLanguage(language = "en") {
-  const normalized = language === "pt" ? "pt-BR" : language;
-  return BUILT_IN_AI_LANGUAGES.has(normalized) ? normalized : "en";
+  return AUTO_EDIT_LANGUAGE_TAGS[language] || language || "en";
+}
+
+function getAutoEditLanguageName(language) {
+  return AUTO_EDIT_LANGUAGE_NAMES[language] || language;
 }
 
 export async function probeBuiltInAI(language = "en") {
@@ -248,7 +275,7 @@ export async function generateImageVoiceoverText({ src, language = "en", signal 
       additionalProperties: false,
     };
     const result = await session.prompt([{ role: "user", content: [
-      { type: "text", value: `Write one concise, natural voiceover narration sentence in ${modelLanguage} describing only the visible content of this image. Do not invent names, identities, locations, or unseen events. Do not use labels, markdown, or quotation marks.` },
+      { type: "text", value: `Write one concise, natural voiceover narration sentence in ${getAutoEditLanguageName(modelLanguage)} describing only the visible content of this image. Do not invent names, identities, locations, or unseen events. Do not use labels, markdown, or quotation marks.` },
       { type: "image", value: image },
     ] }], { responseConstraint: schema, signal });
     const text = String(JSON.parse(result)?.text || "").trim();
@@ -260,7 +287,8 @@ export async function generateImageVoiceoverText({ src, language = "en", signal 
 }
 
 async function generateCaptionGroup(session, frames, duration, modelLanguage) {
-  const content = [{ type: "text", value: `Describe every provided candidate frame with one concise on-screen caption. Output in ${modelLanguage}. Return exactly ${frames.length} captions in the same order as the images. Use only visible evidence; do not invent names or facts. Frame timestamps: ${frames.map((frame) => frame.time.toFixed(2)).join(", ")} seconds.` }];
+  const outputLanguage = getAutoEditLanguageName(modelLanguage);
+  const content = [{ type: "text", value: `Describe every provided candidate frame with one concise on-screen caption. Output only in ${outputLanguage}. Return exactly ${frames.length} captions in the same order as the images. Use only visible evidence; do not invent names or facts. Frame timestamps: ${frames.map((frame) => frame.time.toFixed(2)).join(", ")} seconds.` }];
   frames.forEach((frame) => content.push({ type: "image", value: frame.blob }));
   const schema = { type: "object", properties: { captions: { type: "array", minItems: frames.length, maxItems: frames.length, items: { type: "object", properties: { text: { type: "string", minLength: 1 } }, required: ["text"], additionalProperties: false } } }, required: ["captions"], additionalProperties: false };
   const response = await session.prompt([{ role: "user", content }], { responseConstraint: schema });
@@ -271,7 +299,7 @@ async function generateCaptionGroup(session, frames, duration, modelLanguage) {
     if (descriptions[index]) continue;
     const frame = frames[index];
     const singleResponse = await session.prompt([{ role: "user", content: [
-      { type: "text", value: `Write one concise ${modelLanguage} on-screen caption describing only what is visibly happening in this video frame at ${frame.time.toFixed(2)} seconds. Return a meaningful non-empty caption. Do not mention the timestamp.` },
+      { type: "text", value: `Write one concise on-screen caption in ${outputLanguage} describing only what is visibly happening in this video frame at ${frame.time.toFixed(2)} seconds. Return a meaningful non-empty caption. Do not mention the timestamp.` },
       { type: "image", value: frame.blob },
     ] }], { responseConstraint: singleSchema });
     descriptions[index] = String(JSON.parse(singleResponse)?.text || "").trim();

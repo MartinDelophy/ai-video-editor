@@ -10,6 +10,8 @@ export function useVisualTrackState() {
   const [imageDuration, setImageDuration] = useState(0);
   const [visualSegments, setVisualSegments] = useState([]);
   const [selectedVisualSegmentId, setSelectedVisualSegmentId] = useState("");
+  const [visualOverlaySegments, setVisualOverlaySegments] = useState([]);
+  const [selectedVisualOverlayId, setSelectedVisualOverlayId] = useState("");
   const [selectedFilterId, setSelectedFilterId] = useState("none");
   const [selectedTransitionId, setSelectedTransitionId] = useState("none");
   const [selectedStickerId, setSelectedStickerId] = useState("none");
@@ -23,6 +25,7 @@ export function useVisualTrackState() {
     setImageDuration, setImageMeta, setImageName, setImageSrc, setSelectedFilterId,
     setSelectedStickerId, setSelectedStickerSegmentId, setSelectedTransitionId,
     setSelectedVisualSegmentId, setStickerSegments, setVisualSegments, setVisualType,
-    stickerSegments, visualSegments, visualType,
+    stickerSegments, visualSegments, visualType, visualOverlaySegments,
+    selectedVisualOverlayId, setVisualOverlaySegments, setSelectedVisualOverlayId,
   };
 }

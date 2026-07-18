@@ -1,5 +1,9 @@
 import { ASSET_DRAG_MIME, STICKERS } from "../config/editor.js";
 
+export function resolveVisualDropIntent({ track = "image" } = {}) {
+  return track === "overlay" ? "overlay" : "image";
+}
+
 export function createAssetDragControls(deps) {
   const findAssetById = (id) => {
     if (!id) return null;
@@ -11,7 +15,7 @@ export function createAssetDragControls(deps) {
   const getTimelineDropPercent = (clientX, rect) => rect?.width ? Math.max(8, Math.min(92, ((clientX - rect.left) / rect.width) * 100)) : 50;
   const canDropAssetOnTrack = (asset, track) => {
     if (!asset || deps.trackLocks[track]) return false;
-    if (track === "image") return asset.type === "image" || asset.type === "video";
+    if (track === "image" || track === "overlay") return asset.type === "image" || asset.type === "video";
     if (track === "sticker") return asset.type === "sticker";
     if (track === "audio" || track === "music") return asset.type === "audio";
     return track === "source" && asset.type === "video";
@@ -33,9 +37,15 @@ export function createAssetDragControls(deps) {
       return { track: "sticker", percent: getTimelineDropPercent(clientX, rect) };
     }
     const trackElement = element.closest("[data-asset-drop-track]");
-    const track = trackElement?.dataset.assetDropTrack ?? "";
-    return !track || !(trackElement instanceof HTMLElement) ? { track, percent: 50 }
-      : { track, percent: getTimelineDropPercent(clientX, trackElement.getBoundingClientRect()) };
+    let track = trackElement?.dataset.assetDropTrack ?? "";
+    const startTime = trackElement instanceof HTMLElement && Number.isFinite(Number(trackElement.dataset.dropStartTime))
+      ? Number(trackElement.dataset.dropStartTime)
+      : undefined;
+    const layer = trackElement instanceof HTMLElement && Number.isFinite(Number(trackElement.dataset.dropLayer))
+      ? Number(trackElement.dataset.dropLayer)
+      : undefined;
+    return !track || !(trackElement instanceof HTMLElement) ? { track, percent: 50, startTime, layer }
+      : { track, percent: getTimelineDropPercent(clientX, trackElement.getBoundingClientRect()), startTime, layer };
   };
   const triggerAssetDropPulse = (track) => {
     if (!track) return;
@@ -67,14 +77,13 @@ export function createAssetDragControls(deps) {
       if (!state?.dragging) return;
       deps.suppressAssetClickRef.current = state.assetId; setTimeout(() => { if (deps.suppressAssetClickRef.current === state.assetId) deps.suppressAssetClickRef.current = ""; }, 300);
       const dragged = findAssetById(state.assetId); const track = dragged?.type === "sticker" && info.track ? "sticker" : info.track;
-      if (canDropAssetOnTrack(dragged, track)) { triggerAssetDropPulse(track); void deps.applyAssetToTrack(dragged, track, { percent: info.percent }); }
+      if (canDropAssetOnTrack(dragged, track)) { triggerAssetDropPulse(track); void deps.applyAssetToTrack(dragged, track, { percent: info.percent, startTime: info.startTime, layer: info.layer }); }
     };
     addEventListener("pointermove", move, { passive: false }); addEventListener("pointerup", up); addEventListener("pointercancel", cleanup);
   };
   const handleAssetClick = (event, asset) => {
     if (deps.suppressAssetClickRef.current === asset.id) { deps.suppressAssetClickRef.current = ""; event.preventDefault(); event.stopPropagation(); return; }
     deps.setSelectedLibraryAssetId(asset.id);
-    if (event.detail >= 2) return void deps.applyAssetToTrack(asset, asset.type === "audio" ? "music" : "image");
     deps.notify("素材已选中，请拖到对应轨道使用");
   };
   const handleStickerClick = (event, sticker) => {
@@ -83,7 +92,8 @@ export function createAssetDragControls(deps) {
     deps.addStickerAssetToTimeline(sticker, { startTime: deps.currentTime });
   };
   const handleTrackAssetDragOver = (event, track) => {
-    const asset = getDraggedAsset(event); const target = asset?.type === "sticker" ? "sticker" : track;
+    const asset = getDraggedAsset(event);
+    let target = asset?.type === "sticker" ? "sticker" : track;
     if (!canDropAssetOnTrack(asset, target)) return;
     event.preventDefault(); event.dataTransfer.dropEffect = "copy";
     const rect = target === "sticker" ? deps.trackScrollRef.current?.getBoundingClientRect() ?? event.currentTarget.getBoundingClientRect() : event.currentTarget.getBoundingClientRect();

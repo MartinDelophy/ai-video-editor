@@ -7,11 +7,12 @@ import { createCaptionSegments, getImageThumbnailCount, getVisualSegmentsTotal }
 export function useProjectFiles(deps) {
   const getProjectSnapshot = useCallback(() => {
     const visualSegments = deps.visualSegments.map(({ blob, trackFrames, src, cutoutVisual, enhancement: _enhancement, ...segment }) => segment);
+    const visualOverlaySegments = deps.visualOverlaySegments.map(({ blob, src, ...segment }) => segment);
     return {
       script: deps.script, selectedVoiceId: deps.selectedVoiceId, speed: deps.speed, volume: deps.volume,
       ratioId: deps.ratioId, fitMode: deps.fitMode, captionPosition: deps.captionPosition,
       captionPlacement: deps.captionPlacement, captionSize: deps.captionSize, captionStyle: deps.captionStyle,
-      captionsEnabled: deps.captionsEnabled, captionSegments: deps.captionSegments, visualSegments,
+      captionsEnabled: deps.captionsEnabled, captionSegments: deps.captionSegments, visualSegments, visualOverlaySegments,
       stickerSegments: deps.stickerSegments, selectedFilterId: deps.selectedFilterId,
       selectedTransitionId: deps.selectedTransitionId, selectedStickerId: deps.selectedStickerId,
       trackVisibility: deps.trackVisibility, timelineZoom: deps.timelineZoom, audioDuration: deps.audioDuration,
@@ -28,7 +29,7 @@ export function useProjectFiles(deps) {
     try {
       deps.notify("正在打包工程与媒体素材…");
       const archive = await createProjectArchive({
-        project: getProjectSnapshot(), visualSegments: deps.visualSegments,
+        project: getProjectSnapshot(), visualSegments: [...deps.visualSegments, ...deps.visualOverlaySegments],
         audio: deps.audioBlob ? { blob: deps.audioBlob, name: "ai-voiceover" } : null,
         sourceAudio: deps.sourceAudioBlob ? { blob: deps.sourceAudioBlob, name: deps.sourceAudioName || "source-audio" } : null,
         music: deps.musicBlob ? { blob: deps.musicBlob, name: deps.musicName || "background-music" } : null,
@@ -42,6 +43,7 @@ export function useProjectFiles(deps) {
     if (!window.confirm("新建工程将清空当前时间线，是否继续？")) return;
     deps.setScript(DEFAULT_SCRIPT); deps.setCaptionSegments(createCaptionSegments(DEFAULT_SCRIPT));
     deps.setSelectedSegmentId(""); deps.clearImageTrack(""); deps.clearAudioTrack("");
+    deps.setVisualOverlaySegments([]); deps.setSelectedVisualOverlayId("");
     deps.clearSourceAudioTrack(""); deps.clearMusicTrack(""); deps.setStickerSegments([]);
     deps.setSelectedStickerSegmentId(""); deps.clearAllVisionState(); deps.setCurrentTime(0);
     deps.setTimelineHorizon(DEFAULT_TIMELINE_DURATION_SECONDS); deps.setTimelineZoom(1);
@@ -79,6 +81,11 @@ export function useProjectFiles(deps) {
       }).filter(Boolean) : [];
       visuals.filter((segment) => segment.src?.startsWith("blob:")).forEach((segment) => deps.imageUrlRefs.current.add(segment.src));
       deps.setVisualSegments(visuals); deps.setImageDuration(getVisualSegmentsTotal(visuals));
+      const overlays = Array.isArray(data.visualOverlaySegments) ? data.visualOverlaySegments.map((segment) => {
+        const media = visualMedia.get(segment.assetId) || visualMedia.get(segment.id);
+        return media?.blob ? { ...segment, src: URL.createObjectURL(media.blob), blob: media.blob } : segment?.src ? segment : null;
+      }).filter(Boolean) : [];
+      deps.setVisualOverlaySegments(overlays); deps.setSelectedVisualOverlayId("");
       deps.setImageClipCount(getImageThumbnailCount(getVisualSegmentsTotal(visuals))); deps.setCurrentVisualAsset(visuals[0] || null);
       if (audio) { const decoded = await decodeWaveform(audio); deps.replaceAudio(audio, Number(data.audioDuration) || decoded.duration, decoded.peaks, "已恢复工程配音"); } else deps.clearAudioTrack("");
       if (sourceAudio) { const decoded = await decodeWaveform(sourceAudio); deps.replaceSourceAudio(sourceAudio, Number(data.sourceAudioDuration) || decoded.duration, decoded.peaks, data.sourceAudioName || "source-audio", "", Number(data.sourceAudioStart) || 0, data.sourceAudioAssetId || "", { focusAudio: false }); } else deps.clearSourceAudioTrack("");

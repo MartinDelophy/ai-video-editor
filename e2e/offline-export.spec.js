@@ -18,6 +18,9 @@ test("offline export preserves stickers, captions, voice audio, dimensions and d
       context.clearRect(0, 0, 320, 180);
       context.fillStyle = "#00ffff"; context.fillRect(120, 50, 80, 80);
     });
+    const overlay = makeImage((context, canvas) => {
+      context.fillStyle = "#246bff"; context.fillRect(0, 0, canvas.width, canvas.height);
+    });
     const sampleRate = 48_000;
     const frames = sampleRate;
     const wav = new ArrayBuffer(44 + frames * 2);
@@ -41,6 +44,7 @@ test("offline export preserves stickers, captions, voice audio, dimensions and d
       captionReferenceSize: { width: 320, height: 180 },
       sticker: null,
       stickerSegments: [{ id: "sticker", src: sticker, start: 0, duration: 1, x: 50, y: 50, scale: 2, opacity: 1 }],
+      visualOverlaySegments: [{ id: "overlay", src: overlay, type: "image", start: 0, duration: 1, layer: 1, keyframes: [{ time: 0, x: 30, y: -25, scale: 0.3, rotation: 0, opacity: 1 }] }],
       exportSettings: { codec: "vp9", width: 320, height: 180, frameRate: 30, videoBitsPerSecond: 3_000_000 },
     });
     const audioContext = new AudioContext();
@@ -56,10 +60,11 @@ test("offline export preserves stickers, captions, voice audio, dimensions and d
     const context = sample.getContext("2d"); context.drawImage(video, 0, 0);
     const center = [...context.getImageData(160, 90, 1, 1).data];
     const lower = [...context.getImageData(160, 156, 1, 1).data];
+    const overlayPixel = [...context.getImageData(256, 45, 1, 1).data];
     const metadata = {
       width: video.videoWidth, height: video.videoHeight,
       duration: decodedAudio.duration, hasAudio: decodedAudio.length > 0,
-      mediaDuration: video.duration, center, lower, size: exported.blob.size,
+      mediaDuration: video.duration, center, lower, overlayPixel, size: exported.blob.size,
       diagnostics: exported.diagnostics,
     };
     URL.revokeObjectURL(url);
@@ -74,6 +79,7 @@ test("offline export preserves stickers, captions, voice audio, dimensions and d
   expect(result.center[1]).toBeGreaterThan(result.center[0]);
   expect(result.center[2]).toBeGreaterThan(result.center[0]);
   expect(result.lower[0] + result.lower[1] + result.lower[2]).toBeGreaterThan(40);
+  expect(result.overlayPixel[2]).toBeGreaterThan(result.overlayPixel[0]);
   expect(result.diagnostics.frameCount).toBe(30);
 });
 

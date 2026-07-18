@@ -17,6 +17,13 @@ export function createTimelineClipboardActions(d) {
   const handleDeleteTrack = () => {
     if (d.trackLocks[d.selectedTrack]) return void d.notify("当前轨道已锁定，无法删除");
     if (d.selectedTrack === "caption") return void d.handleRemoveSegment();
+    if (d.selectedTrack === "overlay") {
+      if (!d.selectedVisualOverlayId) return void d.notify("请先选择一个画中画片段");
+      const next = d.visualOverlaySegments.filter((segment) => segment.id !== d.selectedVisualOverlayId);
+      d.setVisualOverlaySegments(next);
+      d.setSelectedVisualOverlayId("");
+      return void d.notify("已删除画中画片段");
+    }
     if (d.selectedTrack === "sticker") return void deleteSticker();
     if (d.selectedTrack === "image") {
       if (!d.imageSrc || d.imageClipCount === 0) return void d.notify("当前没有视觉片段可删除");
@@ -49,6 +56,14 @@ export function createTimelineClipboardActions(d) {
     d.clearImageTrack();
   };
   const handleDuplicateTrack = () => {
+    if (d.selectedTrack === "overlay") {
+      const source = d.visualOverlaySegments.find((segment) => segment.id === d.selectedVisualOverlayId);
+      if (!source) return void d.notify("请先选择一个画中画片段");
+      const copy = { ...source, id: makeId("overlay"), name: `${source.name || "画中画"} 副本`, start: Math.min(MAX_TIMELINE_DURATION_SECONDS - source.duration, source.start + 0.2), layer: d.visualOverlaySegments.length + 1 };
+      d.setVisualOverlaySegments((items) => [...items, copy]);
+      d.setSelectedVisualOverlayId(copy.id);
+      return void d.notify("已复制画中画片段");
+    }
     if (d.selectedTrack === "sticker") {
       const source = d.stickerSegments[focusedStickerIndex()]; if (!source) return void d.notify("请先选择一个贴纸片段");
       const copy = { ...source, id: makeId("sticker"), start: Math.min(MAX_TIMELINE_DURATION_SECONDS - source.duration, source.start + source.duration + 0.2) };

@@ -10,7 +10,6 @@ export function createAssetLibraryActions(deps) {
     }
     deps.replaceVisualTimeline(asset, deps.getVisualDurationForAsset(asset));
     deps.notify(`${asset.type === "video" ? "视频" : "图片"}素材已应用到预览和时间线`);
-    if (asset.type === "video") deps.extractVideoSourceAudio(asset);
   }
 
   function deleteUserAsset(asset) {

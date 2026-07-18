@@ -11,7 +11,15 @@ const addRange = (points, track, id, start, duration) => {
 };
 
 export function collectTimelineSnapPoints(d, exclude = {}) {
-  const points = [];
+  const timelineDuration = Math.max(0, Number(d.timelineDuration) || 0);
+  const currentTime = Math.max(0, Math.min(timelineDuration, Number(d.currentTime) || 0));
+  const points = [
+    { time: 0, track: "timeline", id: "start", edge: "start" },
+  ];
+  if (timelineDuration > 0) points.push({ time: timelineDuration, track: "timeline", id: "end", edge: "end" });
+  if (currentTime > 0 && currentTime < timelineDuration) {
+    points.push({ time: currentTime, track: "playhead", id: "playhead", edge: "playhead" });
+  }
   getVisualSegmentTimeline(d.visualSegments ?? []).forEach((range, index) => {
     const segment = d.visualSegments[index];
     addRange(points, "image", segment?.id, range.start, range.end - range.start);

@@ -1,5 +1,5 @@
-import { useEffect } from "react";
-import { PLAYBACK_UI_FRAME_MS, getAudioSegmentPreviewVolume, getTimelineTrackLocalTime, isTimelineTimeInsideTrack } from "../lib/editorRuntime.js";
+import { startTransition, useEffect } from "react";
+import { PLAYBACK_UI_FRAME_MS, getAudioSegmentPreviewVolume, getTimelineTrackLocalTime, isTimelineTimeInsideTrack, shouldCorrectPreviewMediaTime } from "../lib/editorRuntime.js";
 import { getLinkedSourceAudioState } from "../lib/sourceAudioSync.js";
 
 export function useMediaSync(d) {
@@ -38,11 +38,26 @@ export function useMediaSync(d) {
   useEffect(() => {
     const v = d.previewVideoRef.current; if (!v || d.previewVisualType !== "video") return;
     v.playbackRate = Math.max(0.25, Math.min(4, Number(d.previewVisualSegment?.playbackRate) || 1));
+  }, [d.previewVisualSegment?.playbackRate, d.previewVisualSrc, d.previewVisualType]);
+  useEffect(() => {
+    const v = d.previewVideoRef.current; if (!v || d.previewVisualType !== "video") return;
+    const sourceStart = Math.max(0, Number(d.previewVisualSegment?.sourceStart) || 0);
+    const max = Math.max(0, (Number(v.duration) || sourceStart) - 0.001);
+    const time = Math.min(sourceStart, max);
+    if (Number.isFinite(time) && Math.abs(v.currentTime - time) > 0.04) {
+      v.currentTime = time;
+      d.setPreviewVideoMediaTime(time);
+    }
+  }, [d.previewVisualSegment?.id, d.previewVisualSegment?.sourceStart, d.previewVisualSrc, d.previewVisualType]);
+  useEffect(() => {
+    const v = d.previewVideoRef.current; if (!v || d.previewVisualType !== "video") return;
     const max = Math.max(0, (Number(v.duration) || d.previewVisualSourceTime) - 0.001);
     const time = Math.min(Math.max(0, d.previewVisualSourceTime), max);
-    if (Number.isFinite(time) && Math.abs(v.currentTime - time) > 0.2) { v.currentTime = time; d.setPreviewVideoMediaTime(time); }
-    if (d.isPlaying && d.trackVisibility.image && v.paused) v.play().catch(() => {});
-  }, [d.isPlaying, d.previewVisualSegment?.playbackRate, d.previewVisualSourceTime, d.previewVisualSrc, d.previewVisualType, d.trackVisibility.image]);
+    if (shouldCorrectPreviewMediaTime({ isPlaying: d.isPlaying, currentTime: v.currentTime, targetTime: time })) {
+      v.currentTime = time;
+      d.setPreviewVideoMediaTime(time);
+    }
+  }, [d.isPlaying, d.previewVisualSegment?.id, d.previewVisualSourceTime, d.previewVisualSrc, d.previewVisualType]);
   useEffect(() => {
     const v = d.previewVideoRef.current; if (!v || d.previewVisualType !== "video") return;
     if (!d.isPlaying || !d.trackVisibility.image) v.pause(); else v.play().catch(() => {});
@@ -55,7 +70,10 @@ export function useMediaSync(d) {
     const tick = (now) => {
       const next = Math.min(d.estimatedDuration, d.visualPlaybackStartTimeRef.current + (now - d.visualPlaybackStartedAtRef.current) / 1000);
       d.currentTimeRef.current = next;
-      if (now - d.visualPlaybackLastUpdateRef.current > PLAYBACK_UI_FRAME_MS || next >= d.estimatedDuration) { d.visualPlaybackLastUpdateRef.current = now; d.setCurrentTime(next); }
+      if (now - d.visualPlaybackLastUpdateRef.current > PLAYBACK_UI_FRAME_MS || next >= d.estimatedDuration) {
+        d.visualPlaybackLastUpdateRef.current = now;
+        startTransition(() => d.setCurrentTime(next));
+      }
       if (next >= d.estimatedDuration) { d.pauseTimelineMedia(); d.setIsPlaying(false); d.visualPlaybackFrameRef.current = 0; return; }
       d.visualPlaybackFrameRef.current = requestAnimationFrame(tick);
     };

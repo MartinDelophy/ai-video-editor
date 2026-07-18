@@ -137,6 +137,7 @@ export function useEditorLifecycle(d) {
         (d.selectedTrack === "caption" && d.selectedSegmentId && d.captionSegments.some((segment) => segment.id === d.selectedSegmentId)) ||
         (d.selectedTrack === "sticker" && d.selectedStickerSegmentId && d.stickerSegments.some((segment) => segment.id === d.selectedStickerSegmentId)) ||
         (d.selectedTrack === "image" && d.selectedVisualSegmentId && d.visualSegments.some((segment) => segment.id === d.selectedVisualSegmentId)) ||
+        (d.selectedTrack === "overlay" && d.selectedVisualOverlayId && d.visualOverlaySegments.some((segment) => segment.id === d.selectedVisualOverlayId)) ||
         (d.selectedTrack === "audio" && d.selectedAudioSegmentId && d.audioSegments.some((segment) => segment.id === d.selectedAudioSegmentId)) ||
         (d.selectedTrack === "source" && d.sourceAudioBlob) ||
         (d.selectedTrack === "music" && d.musicBlob);

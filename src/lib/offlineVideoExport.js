@@ -54,6 +54,12 @@ export function getOfflineStickersAtTime(stickerSegments = [], sticker = null, t
   return stickerSegments.filter((item) => time >= item.start && time < item.start + item.duration);
 }
 
+export function getOfflineVisualOverlaysAtTime(segments = [], time = 0) {
+  return segments
+    .filter((segment) => time >= segment.start && time < segment.start + segment.duration)
+    .sort((left, right) => (left.layer || 1) - (right.layer || 1));
+}
+
 async function decodeAudioInputs(inputs) {
   if (!inputs.length) return [];
   const AudioContextClass = window.AudioContext || window.webkitAudioContext;
@@ -176,7 +182,11 @@ async function prepareComposition(options) {
     ...(options.sticker?.src ? [options.sticker.src] : []),
   ])];
   const stickerImages = new Map((await Promise.all(stickerSources.map(async (src) => [src, await loadImage(src).catch(() => null)]))).filter(([, image]) => image));
-  return { segments, timeline, items, stickerImages };
+  const overlayItems = await Promise.all((options.visualOverlaySegments || []).filter((segment) => segment.src).map(async (segment) => ({
+    segment,
+    visual: segment.type === "video" ? await loadVideo(segment.src) : await loadImage(segment.src),
+  })));
+  return { segments, timeline, items, stickerImages, overlayItems };
 }
 
 async function renderCompositionAt(context, canvas, prepared, options, time) {
@@ -211,6 +221,16 @@ async function renderCompositionAt(context, canvas, prepared, options, time) {
   const captionIndex = getSegmentIndexAtTime(captionSegments, time, 0);
   const caption = captionIndex >= 0 && !captionSegments[captionIndex]?.hidden ? captionSegments[captionIndex].text : "";
   const stickers = getOfflineStickersAtTime(options.stickerSegments, options.sticker, time);
+  const activeOverlaySegments = getOfflineVisualOverlaysAtTime(prepared.overlayItems.map((item) => item.segment), time);
+  const activeOverlayIds = new Set(activeOverlaySegments.map((segment) => segment.id));
+  const activeOverlayItems = prepared.overlayItems
+    .filter((item) => activeOverlayIds.has(item.segment.id))
+    .sort((left, right) => activeOverlaySegments.findIndex((segment) => segment.id === left.segment.id) - activeOverlaySegments.findIndex((segment) => segment.id === right.segment.id));
+  for (const overlay of activeOverlayItems) {
+    if (overlay.segment.type === "video") {
+      await seekVideoFrame(overlay.visual, Math.min(Math.max(0, (overlay.visual.duration || 0) - 0.04), Math.max(0, time - overlay.segment.start)));
+    }
+  }
   drawPreviewFrame(context, frameVisual, canvas, {
     subtitle: caption, fitMode: options.fitMode, filter: options.filter,
     captionsEnabled: options.captionsEnabled, captionPosition: options.captionPosition,
@@ -220,6 +240,8 @@ async function renderCompositionAt(context, canvas, prepared, options, time) {
     transitionId: next ? junction.id : "none",
     transitionNext: next ? { visual: next.cutoutVisual || next.visual } : null,
     transitionProgress, vision: frameVision, visualEffects: item.segment, visualTime: localTime,
+    visualOverlays: activeOverlayItems.map((item) => ({ ...item.segment, start: item.segment.start - (range?.start || 0) })),
+    visualOverlaySources: activeOverlayItems.map((item) => item.visual),
   });
 }
 
@@ -237,7 +259,7 @@ export async function exportOfflineVideo(options) {
   canvas.width = width; canvas.height = height;
   const context = canvas.getContext("2d", { alpha: false, desynchronized: false });
   if (!context) throw new Error("无法创建离线导出画布。");
-  options.onProgress?.({ progress: 4, phase: "准备离线渲染" });
+  options.onProgress?.({ progress: 4, phaseKey: "exportOfflinePreparing" });
   const frames = createOfflineFramePlan(options.duration, settings.frameRate);
   const preparedPromise = prepareComposition({ ...options, framePlan: frames });
   const audioPromise = mixOfflineAudio({ ...options, duration: frames.length * frames[0].duration });
@@ -265,7 +287,7 @@ export async function exportOfflineVideo(options) {
       await renderCompositionAt(context, canvas, prepared, options, frame.timestamp);
       await videoSource.add(frame.timestamp, frame.duration, { keyFrame: frame.keyFrame });
       if (frame.index % Math.max(1, Math.round(frames.length / 100)) === 0) {
-        options.onProgress?.({ progress: 10 + Math.round((frame.index / frames.length) * 84), phase: `离线渲染 ${frame.index + 1} / ${frames.length}` });
+        options.onProgress?.({ progress: 10 + Math.round((frame.index / frames.length) * 84), phaseKey: "exportOfflineRendering", phaseParams: { current: frame.index + 1, total: frames.length } });
       }
     }
     await output.finalize();
@@ -277,8 +299,11 @@ export async function exportOfflineVideo(options) {
       item.temporalMaskCache?.dispose();
       if (item.segment.type === "video") { item.visual.removeAttribute("src"); item.visual.load(); }
     });
+    prepared.overlayItems.forEach((item) => {
+      if (item.segment.type === "video") { item.visual.removeAttribute("src"); item.visual.load(); }
+    });
   }
-  options.onProgress?.({ progress: 98, phase: "验证导出文件" });
+  options.onProgress?.({ progress: 98, phaseKey: "exportVerifyFile" });
   return {
     blob: new Blob([target.buffer], { type: codec.mimeType }), extension: codec.extension,
     label: codec.extension === "mp4" ? "MP4" : "WebM", mimeType: codec.mimeType,

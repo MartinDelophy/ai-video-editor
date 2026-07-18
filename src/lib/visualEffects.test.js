@@ -1,7 +1,18 @@
 import { describe, expect, it } from "vitest";
-import { getCircleMaskCss, getVisualMaskFeatherPixels, getVisualMaskInsets, getVisualMaskSvgDataUrl, getVisualSourceTime, hasVisualPropertyKeyframe, normalizeVisualKeyframes, removeVisualPropertyKeyframe, resolveVisualTransform, updateVisualSegmentPlaybackRate, upsertVisualKeyframe, upsertVisualPropertyKeyframe } from "./visualEffects.js";
+import { getCircleMaskCss, getVisualMaskFeatherPixels, getVisualMaskInsets, getVisualMaskSvgDataUrl, getVisualSourceTime, hasVisualPropertyKeyframe, normalizeVisualKeyframes, removeVisualPropertyKeyframe, resolveVisualTransform, snapVisualScaleToFrameEdges, updateVisualSegmentPlaybackRate, upsertVisualKeyframe, upsertVisualPropertyKeyframe } from "./visualEffects.js";
 
 describe("visual effects", () => {
+  it("snaps visual scaling to nearby frame edges", () => {
+    const snapped = snapVisualScaleToFrameEdges({ x: 0, y: 0, scale: 0.985, rotation: 0 }, { width: 360, height: 640 });
+    expect(snapped.transform.scale).toBe(1);
+    expect(snapped.guides).toEqual(["left", "right", "top", "bottom"]);
+  });
+
+  it("keeps free scaling outside the edge snap threshold", () => {
+    const transform = { x: 0, y: 0, scale: 0.8, rotation: 0 };
+    expect(snapVisualScaleToFrameEdges(transform, { width: 360, height: 640 })).toEqual({ transform, guides: [] });
+  });
+
   it("maps timeline time to source time using the clip playback rate", () => {
     expect(getVisualSourceTime({ sourceStart: 1.5, playbackRate: 2 }, 2)).toBe(5.5);
   });
@@ -30,6 +41,19 @@ describe("visual effects", () => {
   it("interpolates visual keyframes", () => {
     expect(resolveVisualTransform([{ time: 0, x: 0, scale: 1 }, { time: 2, x: 40, scale: 2 }], 1))
       .toMatchObject({ x: 20, scale: 1.5 });
+  });
+
+  it("applies a clip-wide base transform when no keyframe was explicitly added", () => {
+    const baseTransform = { x: 12, y: -8, scale: 1.6, rotation: 4, opacity: 0.75 };
+    expect(resolveVisualTransform([], 0, baseTransform)).toEqual(baseTransform);
+    expect(resolveVisualTransform([], 8, baseTransform)).toEqual(baseTransform);
+  });
+
+  it("uses the clip-wide transform before sparse keyframes and for unkeyed properties", () => {
+    const baseTransform = { x: 10, y: -8, scale: 1.4, rotation: 4, opacity: 0.75 };
+    expect(resolveVisualTransform([{ time: 2, scale: 2 }], 1, baseTransform)).toEqual(baseTransform);
+    expect(resolveVisualTransform([{ time: 2, scale: 2 }], 3, baseTransform))
+      .toEqual({ ...baseTransform, scale: 2 });
   });
 
   it("keeps defaults before the first keyframe, interpolates between frames, and holds the last frame", () => {

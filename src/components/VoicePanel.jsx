@@ -76,7 +76,6 @@ function AutoEditReviewDialog({ t, autoEdit }) {
 
 function AutoEditPanel({ t, hasVisual, language, autoEdit }) {
   const availability = autoEdit?.support?.availability || "unknown";
-  const languageFallback = autoEdit?.support?.language && autoEdit.support.language !== language;
   const ready = availability === "available" || availability === "downloadable" || availability === "downloading";
   return (<>
     <div className="auto-edit-panel">
@@ -84,7 +83,6 @@ function AutoEditPanel({ t, hasVisual, language, autoEdit }) {
       <section className="auto-edit-status-card">
         <div><span>{t("autoEditBrowserModel")}</span><strong className={`auto-edit-availability is-${availability}`}>{t(`autoEditStatus_${availability}`)}</strong></div>
         <p>{t("autoEditPrivacyHint")}</p>
-        {languageFallback ? <p className="auto-edit-warning">{t("autoEditLanguageFallback")}</p> : null}
         <button className="panel-secondary" type="button" disabled={autoEdit?.job?.running || availability === "checking"} onClick={autoEdit?.checkSupport}>{t("autoEditCheckSupport")}</button>
       </section>
       <div className="auto-edit-flow"><span>1</span><p><strong>{t("autoEditStepScenes")}</strong><small>{t("autoEditStepScenesHint")}</small></p><span>2</span><p><strong>{t("autoEditStepCaptions")}</strong><small>{t("autoEditStepCaptionsHint")}</small></p><span>3</span><p><strong>{t("autoEditStepTimeline")}</strong><small>{t("autoEditStepTimelineHint")}</small></p></div>
@@ -451,6 +449,10 @@ export function VoicePanel({
   selectedFilterId,
   setSelectedFilterId,
   trOption,
+  selectedVisualOverlay,
+  updateVisualOverlaySegment,
+  deleteVisualOverlay,
+  applyVisualOverlayPreset,
 }) {
   const [captionPanelTab, setCaptionPanelTab] = useState("caption");
   const panelRef = useRef(null);
@@ -462,14 +464,17 @@ export function VoicePanel({
   const isAudioClipContext = selectedTrack === "audio" && Boolean(selectedAudioSegment);
   const isVisualContext = !isSmartContext && selectedTrack === "image";
   const isStickerContext = selectedTrack === "sticker" && Boolean(selectedStickerSegment);
+  const isOverlayContext = selectedTrack === "overlay" && Boolean(selectedVisualOverlay);
   const selectedCaptionAudioSegment = getCaptionVoiceSegment(audioSegments, selectedCaptionSegment);
-  const title = isSmartAutoContext ? t("smartAutoEdit") : isSmartFrameContext ? t("smartFrame") : isAvatarContext ? t("avatarTitle") : isStickerContext ? t("stickerProperties") : isVisualContext ? t("visualPanelTitle") : isCaptionContext ? t("caption") : isAudioClipContext ? t("audioClipProperties") : t("aiVoice");
+  const title = isSmartAutoContext ? t("smartAutoEdit") : isSmartFrameContext ? t("smartFrame") : isAvatarContext ? t("avatarTitle") : isOverlayContext ? t("pictureInPicture", "画中画") : isStickerContext ? t("stickerProperties") : isVisualContext ? t("visualPanelTitle") : isCaptionContext ? t("caption") : isAudioClipContext ? t("audioClipProperties") : t("aiVoice");
   const panelStatusText = isSmartAutoContext ? t(`autoEditStatus_${autoEdit?.support?.availability || "unknown"}`) : isSmartFrameContext ? (hasVisual ? t("smartVisualReady") : t("smartWaitingVisual")) : isCaptionContext
     ? captionSegments.length
       ? `${captionSegments.length} ${t("captionSegmentsUnit", "条字幕")}`
       : t("noCaptionSegments")
     : isStickerContext
       ? `${selectedStickerSegment.start.toFixed(2)}s · ${selectedStickerSegment.duration.toFixed(2)}s`
+    : isOverlayContext
+      ? `${selectedVisualOverlay.start.toFixed(2)}s · ${selectedVisualOverlay.duration.toFixed(2)}s · L${selectedVisualOverlay.layer || 1}`
     : isVisualContext
       ? selectedVisualSegment
         ? `${visualLocalTime.toFixed(2)}s · ${normalizeVisualKeyframes(selectedVisualSegment.keyframes).length} ${t("visualFrames")}`
@@ -506,7 +511,7 @@ export function VoicePanel({
         </span>
       </div>
 
-      {!isSmartContext && !isCaptionContext && !isAvatarContext && !isAudioClipContext && !isVisualContext && !isStickerContext ? (
+      {!isSmartContext && !isCaptionContext && !isAvatarContext && !isAudioClipContext && !isVisualContext && !isStickerContext && !isOverlayContext ? (
         <div className="tabs compact">
           {[
             ["synthesis", t("voiceSynthesis")],
@@ -552,6 +557,16 @@ export function VoicePanel({
         {isSmartAutoContext ? <AutoEditPanel t={t} hasVisual={hasVisual} language={uiLanguage} autoEdit={autoEdit} /> : null}
         {isSmartFrameContext ? <SmartVisionPanel t={t} language={uiLanguage} hasVisual={hasVisual} visualType={visualType} analysis={visionAnalysis} options={visionOptions} running={visionRunning} progress={visionProgress} phase={visionPhase} onAnalyze={analyzeCurrentVisual} onToggle={toggleVisionOption} onClear={clearVisionAnalysis} onDownloadCutout={downloadVisionCutout} /> : null}
         {isStickerContext ? <StickerContextPanel t={t} segment={selectedStickerSegment} updateStickerSegment={updateStickerSegment} deleteStickerSegment={deleteStickerSegment} /> : null}
+        {isOverlayContext ? <div className="visual-overlay-inspector">
+          <div className="sticker-properties-preview">{selectedVisualOverlay.type === "video" ? <video src={selectedVisualOverlay.src} muted playsInline /> : <img src={selectedVisualOverlay.src} alt="" />}</div>
+          <section className="visual-overlay-presets"><strong>{t("layoutPresets", "布局预设")}</strong><div>
+            {[["top-left", "↖"], ["top-right", "↗"], ["bottom-left", "↙"], ["bottom-right", "↘"], ["center", "●"], ["full", "□"]].map(([id, label]) => <button type="button" key={id} title={id} aria-label={`${t("layoutPresets", "布局预设")} ${id}`} onClick={() => applyVisualOverlayPreset?.(id)}>{label}</button>)}
+          </div></section>
+          <label><span>{t("clipStart", "开始时间")}</span><input type="number" min="0" step="0.1" value={selectedVisualOverlay.start} onChange={(event) => updateVisualOverlaySegment?.({ start: Math.max(0, Number(event.target.value) || 0) })} /></label>
+          <label><span>{t("clipDuration", "持续时间")}</span><input type="number" min="0.1" step="0.1" value={selectedVisualOverlay.duration} onChange={(event) => updateVisualOverlaySegment?.({ duration: Math.max(0.1, Number(event.target.value) || 0.1) })} /></label>
+          <label><span>{t("layer", "图层")}</span><input type="number" min="1" step="1" value={selectedVisualOverlay.layer || 1} onChange={(event) => updateVisualOverlaySegment?.({ layer: Math.max(1, Math.round(Number(event.target.value) || 1)) })} /></label>
+          <button className="panel-secondary visual-overlay-delete" type="button" onClick={deleteVisualOverlay}><Trash size={14} />{t("delete", "删除")}</button>
+        </div> : null}
         {isVisualContext && selectedVisualSegment ? (
           <VisualEffectsPanel
             contextMode
@@ -633,7 +648,7 @@ export function VoicePanel({
 
         {isAudioClipContext ? <AudioClipContextPanel t={t} segment={selectedAudioSegment} updateAudioSegment={updateAudioSegment} toggleAudioSegmentReverse={toggleAudioSegmentReverse} deleteAudioSegment={deleteAudioSegment} downloadBlob={downloadBlob} /> : null}
 
-        {!isSmartContext && !isCaptionContext && !isAvatarContext && !isAudioClipContext && !isVisualContext && !isStickerContext && voiceTab === "synthesis" ? (
+        {!isSmartContext && !isCaptionContext && !isAvatarContext && !isAudioClipContext && !isVisualContext && !isStickerContext && !isOverlayContext && voiceTab === "synthesis" ? (
           <VoiceSynthesisPanel
             script={script}
             updateScript={updateScript}
@@ -661,7 +676,7 @@ export function VoicePanel({
           />
         ) : null}
 
-        {!isSmartContext && !isCaptionContext && !isAvatarContext && !isAudioClipContext && !isVisualContext && !isStickerContext && voiceTab === "mine" ? (
+        {!isSmartContext && !isCaptionContext && !isAvatarContext && !isAudioClipContext && !isVisualContext && !isStickerContext && !isOverlayContext && voiceTab === "mine" ? (
           <MyVoicesPanel
             favoriteVoiceIds={favoriteVoiceIds}
             setFavoriteVoiceIds={setFavoriteVoiceIds}
@@ -679,7 +694,7 @@ export function VoicePanel({
           />
         ) : null}
 
-        {!isSmartContext && !isCaptionContext && !isAvatarContext && !isAudioClipContext && !isVisualContext && !isStickerContext && voiceTab === "history" ? (
+        {!isSmartContext && !isCaptionContext && !isAvatarContext && !isAudioClipContext && !isVisualContext && !isStickerContext && !isOverlayContext && voiceTab === "history" ? (
           <HistoryPanel
             historyItems={historyItems}
             useHistoryItem={useHistoryItem}

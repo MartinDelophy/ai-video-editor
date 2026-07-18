@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getLinkedSourceAudioEnd, getLinkedSourceAudioSegments, getLinkedSourceAudioState } from "./sourceAudioSync.js";
+import { getLinkedSourceAudioEnd, getLinkedSourceAudioSegments, getLinkedSourceAudioState, shouldMuteEmbeddedVideoAudio } from "./sourceAudioSync.js";
 
 describe("linked source audio", () => {
   const visualSegments = [
@@ -45,5 +45,13 @@ describe("linked source audio", () => {
       6,
     );
     expect(segments.map((segment) => segment.id)).toEqual(["c"]);
+  });
+
+  it("plays embedded video audio until that clip has an extracted source-audio mapping", () => {
+    const clip = { id: "video-clip", assetId: "video-1", type: "video" };
+    expect(shouldMuteEmbeddedVideoAudio(clip)).toBe(false);
+    expect(shouldMuteEmbeddedVideoAudio({ ...clip, sourceAudioDisabled: true })).toBe(true);
+    expect(shouldMuteEmbeddedVideoAudio(clip, { sourceAudioBlob: new Blob(), sourceAudioAssetId: "video-1" })).toBe(true);
+    expect(shouldMuteEmbeddedVideoAudio(clip, { sourceAudioBlob: new Blob(), sourceAudioAssetId: "another-video" })).toBe(false);
   });
 });

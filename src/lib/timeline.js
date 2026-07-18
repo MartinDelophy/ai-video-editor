@@ -289,6 +289,14 @@ export function getSegmentStartTime(captionSegments, index, targetDuration = 0) 
   return getCaptionTimeline(captionSegments, targetDuration)[Math.max(0, index)]?.start ?? 0;
 }
 
+export function getVisualSegmentStartTime(visualSegments, index) {
+  const safeIndex = Math.max(0, Math.min(Array.isArray(visualSegments) ? visualSegments.length : 0, Number(index) || 0));
+  return (visualSegments || []).slice(0, safeIndex).reduce(
+    (total, segment) => total + Math.max(0, Number(segment?.duration) || 0),
+    0,
+  );
+}
+
 export function formatTime(value) {
   const seconds = Math.max(0, Number.isFinite(value) ? value : 0);
   const minutes = Math.floor(seconds / 60);

@@ -8,6 +8,7 @@ import {
   getTimedSegmentIndexAtTime,
   getTimedSegmentsEnd,
   getVisualSegmentIndexAtTime,
+  getVisualSegmentStartTime,
   getVisualSegmentTimeline,
   moveTimedCaptionSegment,
   materializeCaptionTimings,
@@ -24,6 +25,13 @@ import {
 } from "./timelineScale.js";
 
 describe("timeline primitives", () => {
+  it("computes a visual clip start without treating visual clips as captions", () => {
+    const clips = [{ duration: 1.25 }, { duration: 2.5 }, { duration: 4 }];
+    expect(getVisualSegmentStartTime(clips, 0)).toBe(0);
+    expect(getVisualSegmentStartTime(clips, 1)).toBe(1.25);
+    expect(getVisualSegmentStartTime(clips, 2)).toBe(3.75);
+  });
+
   it("fits an uploaded video into most of the visible timeline", () => {
     const zoom = getTimelineAutoFitZoom(15);
     const visibleDuration = getTimelineVisibleDuration(zoom);

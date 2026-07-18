@@ -10,8 +10,8 @@ import {
 const HISTORY_LIMIT = 50;
 const HISTORY_DEBOUNCE_MS = 180;
 
-function cloneItems(items) {
-  return items.map((item) => ({ ...item }));
+function cloneItems(items = []) {
+  return (Array.isArray(items) ? items : []).map((item) => ({ ...item }));
 }
 
 function createSnapshot(d) {
@@ -24,6 +24,7 @@ function createSnapshot(d) {
     captionStyle: { ...d.captionStyle },
     captionsEnabled: d.captionsEnabled,
     visualSegments: cloneItems(d.visualSegments),
+    visualOverlaySegments: cloneItems(d.visualOverlaySegments),
     imageSrc: d.imageSrc,
     imageName: d.imageName,
     imageMeta: d.imageMeta,
@@ -59,6 +60,7 @@ function createSnapshot(d) {
     selectedTrack: d.selectedTrack,
     selectedSegmentId: d.selectedSegmentId,
     selectedVisualSegmentId: d.selectedVisualSegmentId,
+    selectedVisualOverlayId: d.selectedVisualOverlayId,
     selectedStickerSegmentId: d.selectedStickerSegmentId,
     selectedAudioSegmentId: d.selectedAudioSegmentId,
     currentTime: d.currentTime,
@@ -86,6 +88,7 @@ export function createEditorSnapshotSignature(snapshot) {
     captionStyle: snapshot.captionStyle,
     captionsEnabled: snapshot.captionsEnabled,
     visuals: snapshot.visualSegments.map(mediaIdentity),
+    visualOverlays: (snapshot.visualOverlaySegments ?? []).map(mediaIdentity),
     image: {
       name: snapshot.imageName,
       meta: snapshot.imageMeta,
@@ -139,6 +142,7 @@ function restoreSnapshot(snapshot, d) {
     return { ...item, src: item.src ? nextUrl : item.src, url: item.url ? nextUrl : item.url };
   };
   const visualSegments = snapshot.visualSegments.map(restoreAsset);
+  const visualOverlaySegments = (snapshot.visualOverlaySegments ?? []).map(restoreAsset);
   const userAssets = snapshot.userAssets.map(restoreAsset);
   const restoredImage = visualSegments.find((item) => item.id === snapshot.selectedVisualSegmentId)
     ?? visualSegments.find((item) => item.src)
@@ -152,6 +156,7 @@ function restoreSnapshot(snapshot, d) {
   d.setCaptionStyle({ ...snapshot.captionStyle });
   d.setCaptionsEnabled(snapshot.captionsEnabled);
   d.setVisualSegments(visualSegments);
+  d.setVisualOverlaySegments(visualOverlaySegments);
   d.setImageSrc(restoredImage?.src || snapshot.imageSrc);
   d.setImageName(snapshot.imageName);
   d.setImageMeta(snapshot.imageMeta);
@@ -194,6 +199,7 @@ function restoreSnapshot(snapshot, d) {
   d.setSelectedTrack(snapshot.selectedTrack);
   d.setSelectedSegmentId(snapshot.selectedSegmentId);
   d.setSelectedVisualSegmentId(snapshot.selectedVisualSegmentId);
+  d.setSelectedVisualOverlayId(snapshot.selectedVisualOverlayId);
   d.setSelectedStickerSegmentId(snapshot.selectedStickerSegmentId);
   d.setSelectedAudioSegmentId(snapshot.selectedAudioSegmentId);
   d.setCurrentTime(snapshot.currentTime);

@@ -1,6 +1,9 @@
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   CaretDown,
+  ArrowDown,
+  ArrowUp,
   CloudArrowUp,
   FrameCorners,
   Pause,
@@ -8,14 +11,16 @@ import {
   Resize,
   SkipBack,
   SkipForward,
+  X,
 } from "@phosphor-icons/react";
 
 import { formatTime } from "../lib/timeline.js";
-import { getVisualMaskInsets, getVisualMaskSvgDataUrl, resolveVisualTransform } from "../lib/visualEffects.js";
+import { getVisualMaskInsets, getVisualMaskSvgDataUrl, resolveVisualTransform, snapVisualScaleToFrameEdges } from "../lib/visualEffects.js";
 import { resolveVisualClipAnimation } from "../lib/visualClipAnimations.js";
 import { getStickerBaseSize } from "../lib/stickerGeometry.js";
 import { CaptionOverlay } from "./CaptionOverlay.jsx";
 import { IconButton } from "./ui.jsx";
+import { getVisualOverlayPixelBox, snapVisualOverlayTransform } from "../lib/visualOverlayTimeline.js";
 
 export function PreviewStage({
   t,
@@ -27,6 +32,7 @@ export function PreviewStage({
   previewVisualRenderSrc,
   previewVisionMaskUrl = "",
   previewVisualType,
+  previewVisualMuted = true,
   previewTransition = null,
   previewRatio,
   previewFrameStyle,
@@ -68,16 +74,30 @@ export function PreviewStage({
   visualLocalTime = 0,
   visualMaskEditable = false,
   onUpdateVisualMask,
+  visualTransformEditable = false,
+  onSelectVisual,
+  onDeselectVisuals,
+  onUpdateVisualTransform,
   getDraggedAsset,
   applyAssetToTrack,
+  addVisualOverlay,
+  visualOverlays = [],
+  selectedVisualOverlayId = "",
+  onSelectVisualOverlay,
+  onUpdateVisualOverlay,
+  onReorderVisualOverlay,
 }) {
+  const [overlaySnapGuides, setOverlaySnapGuides] = useState([]);
+  const lastReportedVideoTimeRef = useRef(-Infinity);
+  const [isFocusPreviewOpen, setIsFocusPreviewOpen] = useState(false);
+  const [focusPreviewFrameSize, setFocusPreviewFrameSize] = useState({ width: 0, height: 0 });
   const visibleStickers = stickers;
   const hasStickerOverlay = visibleStickers.some((sticker) => sticker?.src || sticker?.text);
   const hasPreviewContent = Boolean(previewVisualSrc || hasStickerOverlay);
   const renderedVisualSrc = previewVisualRenderSrc || previewVisualSrc;
   const activeObjectFit = visualObjectFit || fitMode;
   const activeObjectPosition = visualObjectPosition || "50% 50%";
-  const visualTransform = resolveVisualTransform(visualEffects?.keyframes, visualLocalTime);
+  const visualTransform = resolveVisualTransform(visualEffects?.keyframes, visualLocalTime, visualEffects?.baseTransform);
   const visualAnimation = resolveVisualClipAnimation(visualEffects?.animation, visualLocalTime, visualEffects?.duration);
   const visualMask = visualEffects?.mask ?? {};
   const enhancement = visualEffects?.enhancement ?? null;
@@ -87,8 +107,12 @@ export function PreviewStage({
   );
   const maskCenterX = Number.isFinite(visualMask.centerX) ? visualMask.centerX : 50;
   const maskCenterY = Number.isFinite(visualMask.centerY) ? visualMask.centerY : 50;
-  const frameWidth = Math.max(1, previewFrameSize.width || 1);
-  const frameHeight = Math.max(1, previewFrameSize.height || 1);
+  const activePreviewFrameSize = isFocusPreviewOpen && focusPreviewFrameSize.width > 0 ? focusPreviewFrameSize : previewFrameSize;
+  const activePreviewFrameStyle = isFocusPreviewOpen && focusPreviewFrameSize.width > 0
+    ? { ...previewFrameStyle, width: `${focusPreviewFrameSize.width}px`, height: `${focusPreviewFrameSize.height}px` }
+    : previewFrameStyle;
+  const frameWidth = Math.max(1, activePreviewFrameSize.width || 1);
+  const frameHeight = Math.max(1, activePreviewFrameSize.height || 1);
   const frameMinDimension = Math.min(frameWidth, frameHeight);
   const stickerBaseSize = getStickerBaseSize({ width: frameWidth, height: frameHeight });
   const circleSize = Number.isFinite(visualMask.size) ? visualMask.size : 72;
@@ -181,6 +205,79 @@ export function PreviewStage({
     const end = () => { window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", end); };
     window.addEventListener("pointermove", move); window.addEventListener("pointerup", end, { once: true });
   };
+  const startVisualTransform = (event, mode) => {
+    if (!visualTransformEditable || !onUpdateVisualTransform) return;
+    const frame = previewCanvasRef.current;
+    if (!frame) return;
+    event.preventDefault(); event.stopPropagation();
+    onSelectVisual?.();
+    const rect = frame.getBoundingClientRect();
+    const startX = event.clientX; const startY = event.clientY;
+    const initial = { ...visualTransform };
+    const centerX = rect.left + rect.width * (0.5 + initial.x / 100);
+    const centerY = rect.top + rect.height * (0.5 + initial.y / 100);
+    const startDistance = Math.max(1, Math.hypot(startX - centerX, startY - centerY));
+    const startAngle = Math.atan2(startY - centerY, startX - centerX) * 180 / Math.PI;
+    const round = (value) => Math.round(value * 100) / 100;
+    const move = (moveEvent) => {
+      if (mode === "move") onUpdateVisualTransform({
+        ...initial,
+        x: round(initial.x + (moveEvent.clientX - startX) / Math.max(1, rect.width) * 100),
+        y: round(initial.y + (moveEvent.clientY - startY) / Math.max(1, rect.height) * 100),
+      });
+      if (mode === "scale") {
+        const candidate = {
+          ...initial,
+          scale: round(Math.max(0.1, Math.min(4, initial.scale * Math.hypot(moveEvent.clientX - centerX, moveEvent.clientY - centerY) / startDistance))),
+        };
+        const snapped = snapVisualScaleToFrameEdges(candidate, { width: rect.width, height: rect.height });
+        setOverlaySnapGuides(snapped.guides);
+        onUpdateVisualTransform({ ...snapped.transform, scale: round(snapped.transform.scale) });
+      }
+      if (mode === "rotate") {
+        const angle = Math.atan2(moveEvent.clientY - centerY, moveEvent.clientX - centerX) * 180 / Math.PI;
+        onUpdateVisualTransform({ ...initial, rotation: round(initial.rotation + angle - startAngle) });
+      }
+    };
+    const end = () => { setOverlaySnapGuides([]); window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", end); };
+    window.addEventListener("pointermove", move); window.addEventListener("pointerup", end, { once: true });
+  };
+  const startOverlayTransform = (event, mode, overlay) => {
+    if (!overlay || !onUpdateVisualOverlay) return;
+    const frame = previewCanvasRef.current;
+    if (!frame) return;
+    event.preventDefault(); event.stopPropagation();
+    onSelectVisualOverlay?.(overlay.id);
+    const rect = frame.getBoundingClientRect();
+    const localTime = Math.max(0, currentTime - (overlay.start || 0));
+    const initial = resolveVisualTransform(overlay.keyframes, localTime);
+    const startX = event.clientX; const startY = event.clientY;
+    const centerX = rect.left + rect.width * (0.5 + initial.x / 100);
+    const centerY = rect.top + rect.height * (0.5 + initial.y / 100);
+    const startDistance = Math.max(1, Math.hypot(startX - centerX, startY - centerY));
+    const startAngle = Math.atan2(startY - centerY, startX - centerX) * 180 / Math.PI;
+    const round = (value) => Math.round(value * 100) / 100;
+    const move = (moveEvent) => {
+      if (mode === "move") {
+        const candidate = { ...initial, x: round(initial.x + (moveEvent.clientX - startX) / Math.max(1, rect.width) * 100), y: round(initial.y + (moveEvent.clientY - startY) / Math.max(1, rect.height) * 100) };
+        const snapped = snapVisualOverlayTransform(candidate);
+        setOverlaySnapGuides(snapped.guides);
+        onUpdateVisualOverlay(snapped.transform);
+      }
+      if (mode.startsWith("scale")) {
+        const horizontal = Math.abs(moveEvent.clientX - centerX) / Math.max(1, Math.abs(startX - centerX));
+        const vertical = Math.abs(moveEvent.clientY - centerY) / Math.max(1, Math.abs(startY - centerY));
+        const ratio = mode === "scale-e" || mode === "scale-w" ? horizontal : mode === "scale-n" || mode === "scale-s" ? vertical : Math.hypot(moveEvent.clientX - centerX, moveEvent.clientY - centerY) / startDistance;
+        onUpdateVisualOverlay({ ...initial, scale: round(Math.max(0.08, Math.min(4, initial.scale * ratio))) });
+      }
+      if (mode === "rotate") {
+        const angle = Math.atan2(moveEvent.clientY - centerY, moveEvent.clientX - centerX) * 180 / Math.PI;
+        onUpdateVisualOverlay({ ...initial, rotation: round(initial.rotation + angle - startAngle) });
+      }
+    };
+    const end = () => { setOverlaySnapGuides([]); window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", end); };
+    window.addEventListener("pointermove", move); window.addEventListener("pointerup", end, { once: true });
+  };
 
   useEffect(() => {
     const video = previewVideoRef.current;
@@ -194,9 +291,11 @@ export function PreviewStage({
 
     let callbackId = 0;
     const handleVideoFrame = (_now, metadata) => {
-      onPreviewVideoTimeUpdate?.(
-        Number.isFinite(metadata?.mediaTime) ? metadata.mediaTime : video.currentTime,
-      );
+      const mediaTime = Number.isFinite(metadata?.mediaTime) ? metadata.mediaTime : video.currentTime;
+      if (Math.abs(mediaTime - lastReportedVideoTimeRef.current) >= 1 / 12) {
+        lastReportedVideoTimeRef.current = mediaTime;
+        onPreviewVideoTimeUpdate?.(mediaTime);
+      }
       callbackId = video.requestVideoFrameCallback(handleVideoFrame);
     };
     callbackId = video.requestVideoFrameCallback(handleVideoFrame);
@@ -208,15 +307,75 @@ export function PreviewStage({
     previewVisualType,
   ]);
 
-  return (
-    <section className="preview-stage">
+  useEffect(() => {
+    if (!isFocusPreviewOpen) return undefined;
+    const shell = previewShellRef.current;
+    if (!shell) return undefined;
+    const updateFocusFrameSize = () => {
+      const style = getComputedStyle(shell);
+      const availableWidth = Math.max(1, shell.clientWidth - parseFloat(style.paddingLeft || 0) - parseFloat(style.paddingRight || 0));
+      const availableHeight = Math.max(1, shell.clientHeight - parseFloat(style.paddingTop || 0) - parseFloat(style.paddingBottom || 0));
+      const [ratioWidth, ratioHeight] = String(previewRatio).split("/").map((value) => Number(value.trim()));
+      const ratio = Math.max(0.01, ratioWidth > 0 && ratioHeight > 0 ? ratioWidth / ratioHeight : 16 / 9);
+      const width = Math.max(1, Math.floor(Math.min(availableWidth, availableHeight * ratio)));
+      const height = Math.max(1, Math.floor(width / ratio));
+      setFocusPreviewFrameSize((current) => current.width === width && current.height === height ? current : { width, height });
+    };
+    updateFocusFrameSize();
+    const observer = window.ResizeObserver ? new ResizeObserver(updateFocusFrameSize) : null;
+    observer?.observe(shell);
+    window.addEventListener("resize", updateFocusFrameSize);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener("resize", updateFocusFrameSize);
+    };
+  }, [isFocusPreviewOpen, previewRatio, previewShellRef]);
+
+  useEffect(() => {
+    if (!isFocusPreviewOpen) return undefined;
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") setIsFocusPreviewOpen(false);
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isFocusPreviewOpen]);
+
+  useEffect(() => {
+    if (!isFocusPreviewOpen) return undefined;
+    const shell = previewShellRef.current;
+    if (!shell) return undefined;
+    const [ratioWidth, ratioHeight] = String(previewRatio).split("/").map(Number);
+    const ratio = ratioWidth > 0 && ratioHeight > 0 ? ratioWidth / ratioHeight : 16 / 9;
+    const update = () => {
+      const style = getComputedStyle(shell);
+      const availableWidth = Math.max(1, shell.clientWidth - parseFloat(style.paddingLeft || 0) - parseFloat(style.paddingRight || 0));
+      const availableHeight = Math.max(1, shell.clientHeight - parseFloat(style.paddingTop || 0) - parseFloat(style.paddingBottom || 0));
+      const width = Math.max(1, Math.floor(Math.min(availableWidth, availableHeight * ratio)));
+      const height = Math.max(1, Math.floor(width / ratio));
+      setFocusPreviewFrameSize((old) => old.width === width && old.height === height ? old : { width, height });
+    };
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(shell);
+    return () => observer.disconnect();
+  }, [isFocusPreviewOpen, previewRatio, previewShellRef]);
+
+  const previewStage = (
+    <section className={`preview-stage ${isFocusPreviewOpen ? "is-focus-preview" : ""}`} role={isFocusPreviewOpen ? "dialog" : undefined} aria-modal={isFocusPreviewOpen ? "true" : undefined} aria-label={isFocusPreviewOpen ? t("focusPreviewTitle", "大画布编辑") : undefined}>
+      {isFocusPreviewOpen ? <header className="focus-preview-header">
+        <div><strong>{t("focusPreviewTitle", "大画布编辑")}</strong><span>{t("focusPreviewHint", "点击画面元素进行移动、缩放和旋转")}</span></div>
+        <IconButton label={t("closeFocusPreview", "关闭大画布预览")} onClick={() => setIsFocusPreviewOpen(false)}><X size={20} /></IconButton>
+      </header> : null}
       <div
         ref={previewShellRef}
         className={`preview-canvas fit-${fitMode} ${hasPreviewContent ? "" : "is-empty"} ${
           previewVisualSrc && !trackVisibility.image ? "is-image-hidden" : ""
         }`}
         style={{ "--preview-ratio": previewRatio }}
-        data-asset-drop-track="image"
+        data-asset-drop-track={previewVisualSrc ? "overlay" : "image"}
+        onPointerDown={(event) => {
+          if (event.target === event.currentTarget) onDeselectVisuals?.();
+        }}
         onDragOver={(event) => {
           const asset = getDraggedAsset?.(event);
           if (asset?.type === "image" || asset?.type === "video") event.preventDefault();
@@ -225,11 +384,12 @@ export function PreviewStage({
           const asset = getDraggedAsset?.(event);
           if (asset?.type !== "image" && asset?.type !== "video") return;
           event.preventDefault(); event.stopPropagation();
-          void applyAssetToTrack?.(asset, "image");
+          if (previewVisualSrc) addVisualOverlay?.(asset);
+          else void applyAssetToTrack?.(asset, "image");
         }}
       >
         {!hasPreviewContent ? (
-          <button className="preview-empty" type="button" style={previewFrameStyle} onClick={() => fileInputRef.current?.click()}>
+          <button className="preview-empty" type="button" style={activePreviewFrameStyle} onClick={() => fileInputRef.current?.click()}>
             <CloudArrowUp size={38} />
             <strong>{t("previewEmptyTitle")}</strong>
             <span>{t("previewEmptySubtitle")}</span>
@@ -241,10 +401,15 @@ export function PreviewStage({
               backgroundRemoved ? "has-background-removed" : ""
             } ${smartCropActive ? "has-smart-crop" : ""}`}
             data-hidden-label={t("imageHidden")}
-            style={previewFrameStyle}
+            style={activePreviewFrameStyle}
+            onPointerDown={(event) => {
+              if (event.target === event.currentTarget) onDeselectVisuals?.();
+            }}
           >
+            <div className="caption-canvas-guide is-vertical" aria-hidden="true" />
+            <div className="caption-canvas-guide is-horizontal" aria-hidden="true" />
             {renderedVisualSrc && trackVisibility.image ? (
-              <div className="visual-media-layer" style={visualMaskStyle}>
+              <div className={`visual-media-layer ${visualTransformEditable ? "is-transform-editable" : ""}`} style={visualMaskStyle} onPointerDown={(event) => { event.stopPropagation(); onSelectVisual?.(); if (visualTransformEditable) startVisualTransform(event, "move"); }}>
                 {previewVisualType === "image" ? <img
                   src={renderedVisualSrc}
                   alt={t("currentMediaAlt")}
@@ -255,11 +420,14 @@ export function PreviewStage({
                   ref={previewVideoRef}
                   className="preview-video"
                   src={previewVisualSrc}
-                  muted
+                  muted={previewVisualMuted}
                   playsInline
                   preload="metadata"
                   onTimeUpdate={(event) => onPreviewVideoTimeUpdate?.(event.currentTarget.currentTime)}
-                  onSeeked={(event) => onPreviewVideoTimeUpdate?.(event.currentTarget.currentTime)}
+                  onSeeked={(event) => {
+                    lastReportedVideoTimeRef.current = event.currentTarget.currentTime;
+                    onPreviewVideoTimeUpdate?.(event.currentTarget.currentTime);
+                  }}
                   style={{
                     ...visualTransformStyle, filter: selectedFilter.css, objectFit: activeObjectFit, objectPosition: activeObjectPosition,
                     WebkitMaskImage: previewVisionMaskUrl ? `url("${previewVisionMaskUrl}")` : undefined,
@@ -280,6 +448,13 @@ export function PreviewStage({
                 /> : null}
               </div>
             ) : null}
+            {renderedVisualSrc && trackVisibility.image && visualTransformEditable && (!visualMask.type || visualMask.type === "none") ? (
+              <div className="visual-transform-box" style={visualTransformStyle} onPointerDown={(event) => startVisualTransform(event, "move")}>
+                <span className="visual-transform-label">{t("visualBasic", "画面")}</span>
+                <button className="visual-transform-rotate" type="button" aria-label={t("visualRotation", "旋转")} onPointerDown={(event) => startVisualTransform(event, "rotate")} />
+                {['nw', 'ne', 'sw', 'se'].map((corner) => <button key={corner} className={`visual-transform-handle is-${corner}`} type="button" aria-label={t("visualScale", "缩放")} onPointerDown={(event) => startVisualTransform(event, "scale")} />)}
+              </div>
+            ) : null}
             {previewTransition?.next?.src && trackVisibility.image ? (
               <div className={`preview-transition-layer type-${previewTransition.id}`} style={{ "--transition-progress": previewTransition.progress }}>
                 {previewTransition.next.type === "video" ? (
@@ -290,6 +465,33 @@ export function PreviewStage({
                 {previewTransition.id === "flash" ? <i /> : null}
               </div>
             ) : null}
+            {visualOverlays.map((overlay) => {
+              const localTime = Math.max(0, currentTime - (overlay.start || 0));
+              const transform = resolveVisualTransform(overlay.keyframes, localTime);
+              const containBox = getVisualOverlayPixelBox(overlay, activePreviewFrameSize);
+              const style = {
+                left: `${50 + transform.x}%`,
+                top: `${50 + transform.y}%`,
+                width: `${containBox.width * transform.scale}px`,
+                height: `${containBox.height * transform.scale}px`,
+                transform: `translate(-50%, -50%) rotate(${transform.rotation}deg)`,
+                opacity: transform.opacity,
+              };
+              const selected = overlay.id === selectedVisualOverlayId;
+              return <div className={`visual-overlay-layer ${selected ? "is-selected" : ""}`} key={overlay.id} style={{ ...style, zIndex: 3 + (overlay.layer || 1) }} onPointerDown={(event) => startOverlayTransform(event, "move", overlay)}>
+                {overlay.type === "video" ? <video src={overlay.src} muted={overlay.muted === true} playsInline autoPlay={isPlaying} preload="metadata" /> : <img src={overlay.src} alt="" draggable={false} />}
+                {selected && !isPlaying ? <>
+                  <span className="visual-transform-label">{overlay.name || t("pictureInPicture", "画中画")}</span>
+                  <div className="visual-overlay-order-actions">
+                    <button type="button" aria-label={t("moveLayerUp", "上移一层")} onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); onReorderVisualOverlay?.(overlay.id, 1); }}><ArrowUp size={12} /></button>
+                    <button type="button" aria-label={t("moveLayerDown", "下移一层")} onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); onReorderVisualOverlay?.(overlay.id, -1); }}><ArrowDown size={12} /></button>
+                  </div>
+                  <button className="visual-transform-rotate" type="button" aria-label={t("visualRotation", "旋转")} onPointerDown={(event) => startOverlayTransform(event, "rotate", overlay)} />
+                  {['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'].map((handle) => <button key={handle} className={`visual-transform-handle is-${handle}`} type="button" aria-label={t("visualScale", "缩放")} onPointerDown={(event) => startOverlayTransform(event, `scale-${handle}`, overlay)} />)}
+                </> : null}
+              </div>;
+            })}
+            {overlaySnapGuides.map((guide) => <div className={`visual-snap-guide is-${guide}`} key={guide} />)}
             {showVisionOverlays
               ? visionOverlayBoxes.map((detection, index) => (
                   <div
@@ -335,7 +537,7 @@ export function PreviewStage({
                         ...basePlacement,
                         y: basePlacement.y + (caption.placement ? 0 : (index - (visibleCaptions.length - 1) / 2) * 12),
                       }}
-                      frameSize={previewFrameSize}
+                      frameSize={activePreviewFrameSize}
                       onPointerDown={(event) => startCaptionDrag(event, caption.id)}
                       onDoubleClick={() => setActiveTool("caption")}
                     />
@@ -408,11 +610,18 @@ export function PreviewStage({
           >
             {fitMode === "contain" ? t("fit") : t("cover")} <CaretDown size={14} />
           </button>
-          <IconButton label={t("fullscreenPreview")} onClick={() => document.documentElement.requestFullscreen?.()}>
+          <IconButton label={isFocusPreviewOpen ? t("closeFocusPreview", "关闭大画布预览") : t("fullscreenPreview")} onClick={() => setIsFocusPreviewOpen((open) => !open)}>
             <FrameCorners size={19} />
           </IconButton>
         </div>
       </div>
     </section>
   );
+  if (isFocusPreviewOpen && typeof document !== "undefined") {
+    return createPortal(<>
+      <button className="focus-preview-backdrop" type="button" aria-label={t("closeFocusPreview", "关闭大画布预览")} onClick={() => setIsFocusPreviewOpen(false)} />
+      {previewStage}
+    </>, document.body);
+  }
+  return previewStage;
 }

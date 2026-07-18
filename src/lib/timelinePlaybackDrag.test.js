@@ -15,6 +15,37 @@ function installPointerListeners() {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("timeline drag playback behavior", () => {
+  it("reveals and commits a picture-in-picture target when a main visual is dragged downward", () => {
+    const listeners = installPointerListeners();
+    vi.stubGlobal("document", {
+      querySelector: vi.fn(() => ({
+        getBoundingClientRect: () => ({ left: 100, width: 500, top: 20, bottom: 68 }),
+        querySelectorAll: () => [],
+      })),
+    });
+    const first = { id: "visual-1", assetId: "asset-1", type: "image", src: "one.png", duration: 5 };
+    const second = { id: "visual-2", assetId: "asset-2", type: "image", src: "two.png", duration: 5 };
+    const timelineClipDragRef = { current: null };
+    const setVisualOverlaySegments = vi.fn((update) => update([]));
+    const controls = createTimelineReorderControls({
+      visualSegments: [first, second], renderedVisualSegments: [first, second], visualOverlaySegments: [],
+      timelineDuration: 10, trackLocks: { image: false }, timelineClipDragRef,
+      setTimelineClipDrag: vi.fn(), setSelectedTrack: vi.fn(), setSelectedVisualSegmentId: vi.fn(),
+      setSelectedVisualOverlayId: vi.fn(), setVisualOverlaySegments, commitVisualSegments: vi.fn(),
+      seekTo: vi.fn(), notify: vi.fn(), suppressTimelineClipClickRef: { current: "" },
+      pauseForTimelineEdit: vi.fn(),
+    });
+
+    controls.startTimelineClipDrag(
+      { button: 0, clientX: 400, clientY: 40, target: { closest: () => null }, preventDefault: vi.fn(), stopPropagation: vi.fn() },
+      "image", "visual-2", 1,
+    );
+    listeners.get("pointermove")({ clientX: 200, clientY: 90 });
+    expect(timelineClipDragRef.current).toMatchObject({ mode: "overlay", overlayStart: 2, dragging: true });
+    listeners.get("pointerup")();
+    expect(setVisualOverlaySegments).toHaveBeenCalledTimes(1);
+  });
+
   it("pauses immediately when a sticker clip is pressed", () => {
     const listeners = installPointerListeners();
     const pauseForTimelineEdit = vi.fn();

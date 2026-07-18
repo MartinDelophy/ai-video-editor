@@ -6,6 +6,23 @@ export function setCaptionSegmentPlacement(segments, segmentId, placement) {
   ));
 }
 
+export function snapCaptionPlacement(x, y, thresholdX, thresholdY) {
+  const closest = (value, anchors, threshold) => {
+    const anchor = anchors.reduce((best, item) => (
+      Math.abs(item - value) < Math.abs(best - value) ? item : best
+    ));
+    return Math.abs(anchor - value) <= threshold ? anchor : null;
+  };
+  const guideX = closest(x, [50], thresholdX);
+  const guideY = closest(y, [18, 50, 78], thresholdY);
+  return {
+    x: guideX ?? x,
+    y: guideY ?? y,
+    guideX,
+    guideY,
+  };
+}
+
 export function createCaptionEditingActions(d) {
   function updateScript(nextScript) {
     d.setScript(nextScript);
@@ -81,10 +98,21 @@ export function createCaptionEditingActions(d) {
     if (segmentId) d.setSelectedSegmentId(segmentId);
 
     const applyPlacement = (clientX, clientY) => {
-      const rect = d.previewCanvasRef.current?.getBoundingClientRect();
+      const frame = d.previewCanvasRef.current;
+      const rect = frame?.getBoundingClientRect();
       if (!rect) return;
-      const x = Math.max(10, Math.min(90, ((clientX - rect.left) / rect.width) * 100));
-      const y = Math.max(10, Math.min(90, ((clientY - rect.top) / rect.height) * 100));
+      const rawX = Math.max(10, Math.min(90, ((clientX - rect.left) / rect.width) * 100));
+      const rawY = Math.max(10, Math.min(90, ((clientY - rect.top) / rect.height) * 100));
+      const { x, y, guideX, guideY } = snapCaptionPlacement(
+        rawX,
+        rawY,
+        (9 / Math.max(1, rect.width)) * 100,
+        (9 / Math.max(1, rect.height)) * 100,
+      );
+      frame.style.setProperty("--caption-guide-x", `${guideX ?? 50}%`);
+      frame.style.setProperty("--caption-guide-y", `${guideY ?? 50}%`);
+      frame.toggleAttribute("data-caption-guide-x", guideX !== null);
+      frame.toggleAttribute("data-caption-guide-y", guideY !== null);
       if (segmentId) {
         d.setCaptionSegments((items) => setCaptionSegmentPlacement(items, segmentId, { x, y }));
       } else {
@@ -98,6 +126,9 @@ export function createCaptionEditingActions(d) {
     const handlePointerUp = () => {
       window.removeEventListener("pointermove", handlePointerMove);
       window.removeEventListener("pointerup", handlePointerUp);
+      const frame = d.previewCanvasRef.current;
+      frame?.removeAttribute("data-caption-guide-x");
+      frame?.removeAttribute("data-caption-guide-y");
       d.notify(disabledSmartAvoidance
         ? "字幕位置已手动调整，智能避让已关闭"
         : "字幕位置已调整");

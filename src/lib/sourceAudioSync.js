@@ -56,6 +56,14 @@ export function getLinkedSourceAudioEnd(linkedSegments = []) {
   return linkedSegments.reduce((end, segment) => Math.max(end, segment.start + segment.duration), 0);
 }
 
+export function shouldMuteEmbeddedVideoAudio(segment, { sourceAudioBlob = null, sourceAudioAssetId = "", linkedSegments = [] } = {}) {
+  if (!segment || segment.type !== "video" || segment.sourceAudioDisabled) return true;
+  if (!sourceAudioBlob) return false;
+  return Number.isFinite(segment.sourceAudioOffset) ||
+    Boolean(sourceAudioAssetId && segment.assetId === sourceAudioAssetId) ||
+    linkedSegments.some((item) => item.id === segment.id);
+}
+
 export function sliceSourceAudioPeaks(peaks = [], segment, sourceAudioDuration = 0) {
   if (!peaks.length || !segment || sourceAudioDuration <= 0) return peaks;
   const startIndex = Math.max(0, Math.floor((segment.sourceStart / sourceAudioDuration) * peaks.length));

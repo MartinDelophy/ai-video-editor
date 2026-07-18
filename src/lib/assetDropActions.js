@@ -15,6 +15,10 @@ export function createAssetDropActions(d) {
       d.appendVisualAssetToTimeline(asset);
       return;
     }
+    if (track === "overlay") {
+      d.addVisualOverlay?.(asset, options);
+      return;
+    }
     if (track === "music") {
       await d.selectAsset(asset);
       return;
@@ -42,7 +46,7 @@ export function createAssetDropActions(d) {
 
   function handleTrackAssetDrop(event, track) {
     const asset = d.getDraggedAsset(event);
-    const targetTrack = asset?.type === "sticker" ? "sticker" : track;
+    let targetTrack = asset?.type === "sticker" ? "sticker" : track;
     if (!d.canDropAssetOnTrack(asset, targetTrack)) return;
     event.preventDefault();
     event.stopPropagation();
@@ -56,7 +60,9 @@ export function createAssetDropActions(d) {
     d.setAssetDropTargetTrack("");
     d.setAssetDropPosition({ track: "", percent: 50 });
     d.triggerAssetDropPulse(targetTrack);
-    void applyAssetToTrack(asset, targetTrack, { percent });
+    const startTime = Number.isFinite(Number(event.currentTarget.dataset.dropStartTime)) ? Number(event.currentTarget.dataset.dropStartTime) : undefined;
+    const layer = Number.isFinite(Number(event.currentTarget.dataset.dropLayer)) ? Number(event.currentTarget.dataset.dropLayer) : undefined;
+    void applyAssetToTrack(asset, targetTrack, { percent, startTime, layer });
   }
 
   function handleVisualStyleDrop(event) {

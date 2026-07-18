@@ -1,5 +1,6 @@
 import { getVisualSegmentTimeline, materializeCaptionTimings, moveTimedCaptionSegment, reorderTimelineItems } from "./timeline.js";
 import { collectTimelineSnapPoints, findClosestTimelineSnap, snapTimelineRange } from "./timelineSnap.js";
+import { createVisualOverlaySegment } from "./visualOverlayTimeline.js";
 
 export function createTimelineReorderControls(d) {
   const getTimelineReorderIndex = (track, x, y) => {
@@ -68,13 +69,25 @@ export function createTimelineReorderControls(d) {
     const count = track === "image" ? d.renderedVisualSegments.length : d.captionSegments.length;
     if (count < 2) return;
     event.preventDefault(); event.stopPropagation();
-    const initial = { track, segmentId, fromIndex: index, overIndex: index, startX: event.clientX, startY: event.clientY, x: event.clientX, y: event.clientY, dragging: false };
+    const imageTrackElement = track === "image" ? document.querySelector('[data-timeline-reorder-track="image"]') : null;
+    const imageTrackRect = imageTrackElement?.getBoundingClientRect();
+    const draggedVisual = track === "image" ? d.renderedVisualSegments[index] : null;
+    const initial = { track, mode: "reorder", segmentId, fromIndex: index, overIndex: index, startX: event.clientX, startY: event.clientY, x: event.clientX, y: event.clientY, dragging: false };
     d.timelineClipDragRef.current = initial; d.setTimelineClipDrag(initial);
     const move = (e) => {
       const state = d.timelineClipDragRef.current; if (!state || state.segmentId !== segmentId) return;
       if (!state.dragging && Math.hypot(e.clientX - state.startX, e.clientY - state.startY) < 6) return;
-      const overIndex = Math.max(0, Math.min(count - 1, getTimelineReorderIndex(track, e.clientX, e.clientY)));
-      const next = { ...state, overIndex, x: e.clientX, y: e.clientY, dragging: true };
+      const wantsOverlay = track === "image" && imageTrackRect && e.clientY > imageTrackRect.bottom + 8;
+      const overIndex = wantsOverlay
+        ? state.overIndex
+        : Math.max(0, Math.min(count - 1, getTimelineReorderIndex(track, e.clientX, e.clientY)));
+      const overlayStart = wantsOverlay
+        ? Math.max(0, Math.min(
+            Math.max(0, d.timelineDuration - (draggedVisual?.duration || 0)),
+            ((e.clientX - imageTrackRect.left) / Math.max(1, imageTrackRect.width)) * d.timelineDuration,
+          ))
+        : state.overlayStart;
+      const next = { ...state, mode: wantsOverlay ? "overlay" : "reorder", overIndex, overlayStart, x: e.clientX, y: e.clientY, dragging: true };
       d.timelineClipDragRef.current = next; d.setTimelineClipDrag(next);
     };
     const up = () => {
@@ -83,6 +96,22 @@ export function createTimelineReorderControls(d) {
       if (!state?.dragging) return;
       d.suppressTimelineClipClickRef.current = segmentId;
       setTimeout(() => { if (d.suppressTimelineClipClickRef.current === segmentId) d.suppressTimelineClipClickRef.current = ""; }, 120);
+      if (track === "image" && state.mode === "overlay" && draggedVisual) {
+        const remaining = d.visualSegments.filter((segment) => segment.id !== segmentId);
+        if (!remaining.length) return void d.notify("至少保留一个主画面后才能转为画中画");
+        const overlay = createVisualOverlaySegment(
+          { ...draggedVisual, id: draggedVisual.assetId || draggedVisual.id },
+          state.overlayStart,
+          { duration: draggedVisual.duration, layer: d.visualOverlaySegments.length + 1 },
+        );
+        d.commitVisualSegments(remaining, "画面片段已移至画中画轨道");
+        d.setVisualOverlaySegments((items) => [...items, overlay]);
+        d.setSelectedVisualSegmentId("");
+        d.setSelectedVisualOverlayId(overlay.id);
+        d.setSelectedTrack("overlay");
+        d.seekTo(overlay.start);
+        return;
+      }
       commitTimelineClipReorder(track, state.fromIndex, state.overIndex);
     };
     addEventListener("pointermove", move); addEventListener("pointerup", up, { once: true });

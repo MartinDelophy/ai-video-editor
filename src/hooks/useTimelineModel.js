@@ -22,6 +22,7 @@ import {
 import { getVisionKey } from "../lib/vision.js";
 import { getVisualSourceTime } from "../lib/visualEffects.js";
 import { getTimelineProjectDuration } from "../lib/timelineScale.js";
+import { getActiveVisualOverlays } from "../lib/visualOverlayTimeline.js";
 
 export function useTimelineModel(d) {
   const selectedVoice = useMemo(
@@ -78,17 +79,22 @@ export function useTimelineModel(d) {
     () => getTimedSegmentsEnd(d.stickerSegments),
     [d.stickerSegments],
   );
+  const visualOverlayDuration = useMemo(
+    () => getTimedSegmentsEnd(d.visualOverlaySegments),
+    [d.visualOverlaySegments],
+  );
   const estimatedDuration = useMemo(() => Math.max(
     voiceTrackDuration,
     captionDuration,
     d.sourceAudioBlob ? (d.sourceAudioTimelineEnd ?? d.sourceAudioStart + d.sourceAudioDuration) : 0,
     d.musicBlob ? d.musicStart + d.musicDuration : 0,
     stickerDuration,
+    visualOverlayDuration,
     d.imageSrc ? d.imageDuration : 0,
   ), [
     voiceTrackDuration, captionDuration, d.imageDuration, d.imageSrc, d.musicBlob,
     d.musicDuration, d.musicStart, d.sourceAudioBlob, d.sourceAudioDuration,
-    d.sourceAudioStart, d.sourceAudioTimelineEnd, stickerDuration,
+    d.sourceAudioStart, d.sourceAudioTimelineEnd, stickerDuration, visualOverlayDuration,
   ]);
   const timelineDuration = useMemo(() => estimatedDuration <= 0
     ? DEFAULT_TIMELINE_DURATION_SECONDS
@@ -155,6 +161,9 @@ export function useTimelineModel(d) {
   // creating a clip; it must not survive after the final sticker clip is deleted.
   const previewSticker = d.trackVisibility.sticker ? currentStickerSegment : null;
   const previewStickers = currentStickerSegments;
+  const previewVisualOverlays = d.trackVisibility.overlay === false
+    ? []
+    : getActiveVisualOverlays(d.visualOverlaySegments, d.currentTime);
   const currentVisualSegmentIndex = getVisualSegmentIndexAtTime(d.visualSegments, d.currentTime);
   const currentVisualSegment = currentVisualSegmentIndex >= 0
     ? d.visualSegments[currentVisualSegmentIndex] ?? null
@@ -225,12 +234,12 @@ export function useTimelineModel(d) {
     currentCaptionSegment, currentSegmentIndex, currentStickerSegment,
     currentStickerSegmentIndex, currentVisualRange, currentVisualSegment,
     currentVisualSegmentIndex, estimatedDuration, focusedSegmentIndex, getStickerDragAsset,
-    peaks, previewSticker, previewStickers, previewVisionBaseAnalysis, previewVisionKey,
+    peaks, previewSticker, previewStickers, previewVisualOverlays, previewVisionBaseAnalysis, previewVisionKey,
     previewTransition, previewVisionRecord, previewVisualLocalTime, previewVisualRange, previewVisualSegment,
     previewVisualSegmentIndex, previewVisualSourceTime, previewVisualSrc, previewVisualType,
     ratio, segments, selectedAudioSegment, selectedCaptionSegment, selectedFilter,
     selectedSegmentIndex, selectedSticker, selectedStickerSegmentIndex,
     selectedVisualSegmentIndex, selectedVoice, stickerDuration, timelineDuration, visualTimeline,
-    voiceTrackDuration,
+    voiceTrackDuration, visualOverlayDuration,
   };
 }

@@ -71,18 +71,19 @@ export function normalizeVisualKeyframes(keyframes = []) {
     }, []);
 }
 
-export function resolveVisualTransform(keyframes = [], time = 0) {
+export function resolveVisualTransform(keyframes = [], time = 0, baseTransform = DEFAULT_TRANSFORM) {
   const safeTime = Math.max(0, Number(time) || 0);
   const normalizedKeyframes = normalizeVisualKeyframes(keyframes);
+  const normalizedBaseTransform = normalizeVisualTransform(baseTransform);
   return Object.fromEntries(VISUAL_TRANSFORM_KEYS.map((key) => {
     const frames = normalizedKeyframes
       .filter((frame) => Number.isFinite(Number(frame[key])))
       .map((frame) => ({ time: Math.max(0, Number(frame.time) || 0), value: normalizeVisualProperty(key, frame[key]) }))
       .sort((a, b) => a.time - b.time);
-    if (!frames.length) return [key, DEFAULT_TRANSFORM[key]];
+    if (!frames.length) return [key, normalizedBaseTransform[key]];
     // A keyframe starts controlling its property at its own timestamp. Before
     // the first keyframe the clip must retain its unmodified default value.
-    if (safeTime < frames[0].time) return [key, DEFAULT_TRANSFORM[key]];
+    if (safeTime < frames[0].time) return [key, normalizedBaseTransform[key]];
     if (safeTime === frames[0].time) return [key, frames[0].value];
     if (safeTime >= frames.at(-1).time) return [key, frames.at(-1).value];
     const rightIndex = frames.findIndex((frame) => frame.time >= safeTime);
@@ -122,6 +123,36 @@ export function removeVisualPropertyKeyframe(keyframes = [], time, key) {
     const { [key]: _removed, ...rest } = frame;
     return VISUAL_TRANSFORM_KEYS.some((property) => property in rest) ? [rest] : [];
   });
+}
+
+export function snapVisualScaleToFrameEdges(transform = {}, frame = {}, thresholdPixels = 8) {
+  const width = Math.max(1, Number(frame.width) || 1);
+  const height = Math.max(1, Number(frame.height) || 1);
+  const scale = Math.max(0.1, Number(transform.scale) || 1);
+  const centerX = 0.5 + (Number(transform.x) || 0) / 100;
+  const centerY = 0.5 + (Number(transform.y) || 0) / 100;
+  const radians = (Number(transform.rotation) || 0) * Math.PI / 180;
+  const cosine = Math.abs(Math.cos(radians));
+  const sine = Math.abs(Math.sin(radians));
+  const horizontalScaleExtent = 0.5 * (cosine + (height / width) * sine);
+  const verticalScaleExtent = 0.5 * (cosine + (width / height) * sine);
+  const targets = [
+    { scale: centerX / horizontalScaleExtent, guide: "left", dimension: width },
+    { scale: (1 - centerX) / horizontalScaleExtent, guide: "right", dimension: width },
+    { scale: centerY / verticalScaleExtent, guide: "top", dimension: height },
+    { scale: (1 - centerY) / verticalScaleExtent, guide: "bottom", dimension: height },
+  ].filter((target) => Number.isFinite(target.scale) && target.scale >= 0.1 && target.scale <= 4);
+  const nearest = targets.reduce((best, target) => {
+    const distance = Math.abs(scale - target.scale) * target.dimension * (target.dimension === width ? horizontalScaleExtent : verticalScaleExtent);
+    return distance < best.distance ? { ...target, distance } : best;
+  }, { distance: Infinity });
+  if (nearest.distance > Math.max(1, Number(thresholdPixels) || 8)) return { transform, guides: [] };
+  const snappedScale = nearest.scale;
+  const guides = targets.filter((target) => {
+    const extent = target.dimension === width ? horizontalScaleExtent : verticalScaleExtent;
+    return Math.abs(snappedScale - target.scale) * target.dimension * extent <= 0.75;
+  }).map((target) => target.guide);
+  return { transform: { ...transform, scale: snappedScale }, guides };
 }
 
 export function getVisualMaskCss(mask = {}) {

@@ -4,6 +4,7 @@ import {
   createOfflineFramePlan,
   getOfflineExportCodec,
   getOfflineStickersAtTime,
+  getOfflineVisualOverlaysAtTime,
 } from "./offlineVideoExport.js";
 import { getVisualDimensions } from "./media.js";
 
@@ -36,6 +37,15 @@ describe("offline video export", () => {
 
   it("renders no sticker after the final timeline sticker is deleted", () => {
     expect(getOfflineStickersAtTime([], null, 1)).toEqual([]);
+  });
+
+  it("resolves active picture-in-picture layers in export order", () => {
+    const overlays = [
+      { id: "top", start: 0, duration: 3, layer: 2 },
+      { id: "bottom", start: 1, duration: 3, layer: 1 },
+      { id: "ended", start: 0, duration: 1, layer: 3 },
+    ];
+    expect(getOfflineVisualOverlaysAtTime(overlays, 1.5).map((item) => item.id)).toEqual(["bottom", "top"]);
   });
 
   it("preserves decoded canvas dimensions instead of treating frames as square", () => {

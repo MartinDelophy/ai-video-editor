@@ -568,7 +568,7 @@ export function VisualEffectsPanel({ t, segment, localTime, onChange, onSeek, on
   const [animationSection, setAnimationSection] = useState("in");
   const [hoveredAnimation, setHoveredAnimation] = useState(null);
   const keyframes = normalizeVisualKeyframes(segment?.keyframes ?? []);
-  const transform = resolveVisualTransform(keyframes, localTime);
+  const transform = resolveVisualTransform(keyframes, localTime, segment?.baseTransform);
   const mask = segment?.mask ?? { type: "none", feather: 0, inverted: false };
   const hasMask = mask.type && mask.type !== "none";
   const isCircleMask = mask.type === "circle";
@@ -577,7 +577,11 @@ export function VisualEffectsPanel({ t, segment, localTime, onChange, onSeek, on
   const clipAnimation = normalizeVisualClipAnimation(segment?.animation);
   const activeAnimation = clipAnimation[animationSection];
   const sourceDuration = Math.max(0, Number(segment?.sourceDuration) || (Number(segment?.duration) || 0) * playbackRate);
-  const updateTransform = (key, value) => onChange?.({ propertyKeyframe: { time: localTime, key, value } });
+  const updateTransform = (key, value) => onChange?.(
+    hasVisualPropertyKeyframe(keyframes, localTime, key)
+      ? { propertyKeyframe: { time: localTime, key, value } }
+      : { baseTransform: { [key]: value } },
+  );
   const tabs = [
     ["transform", t("visualTabTransform")],
     ["mask", t("visualTabMask")],

@@ -543,13 +543,15 @@ export function drawPreviewFrame(context, visual, canvas, options) {
     vision = null,
     visualEffects = null,
     visualTime = 0,
+    visualOverlays = [],
+    visualOverlaySources = [],
   } = options;
 
   const { width, height } = canvas;
   context.clearRect(0, 0, width, height);
   context.fillStyle = "#090b0f";
   context.fillRect(0, 0, width, height);
-  const transform = resolveVisualTransform(visualEffects?.keyframes, visualTime);
+  const transform = resolveVisualTransform(visualEffects?.keyframes, visualTime, visualEffects?.baseTransform);
   const animation = resolveVisualClipAnimation(visualEffects?.animation, visualTime, visualEffects?.duration);
   const animatedTransform = {
     ...transform,
@@ -629,6 +631,21 @@ export function drawPreviewFrame(context, visual, canvas, options) {
       context.fillRect(0, 0, width, height);
     }
   }
+
+  visualOverlays.forEach((overlay, index) => {
+    const overlayVisual = visualOverlaySources[index];
+    if (!overlayVisual) return;
+    const overlayTime = Math.max(0, visualTime - (overlay.start || 0));
+    const overlayTransform = resolveVisualTransform(overlay.keyframes, overlayTime);
+    context.save();
+    context.globalAlpha = overlayTransform.opacity;
+    context.translate(width / 2 + (overlayTransform.x / 100) * width, height / 2 + (overlayTransform.y / 100) * height);
+    context.rotate((overlayTransform.rotation * Math.PI) / 180);
+    context.scale(overlayTransform.scale, overlayTransform.scale);
+    context.translate(-width / 2, -height / 2);
+    drawFittedVisual(context, overlayVisual, canvas, "contain", "none", null);
+    context.restore();
+  });
 
   if (captionsEnabled && subtitle) {
     const captionLayout = getCaptionTextLayout({
@@ -784,7 +801,7 @@ export async function exportBrowserVideo({
     await document.fonts.ready.catch(() => {});
   }
 
-  onProgress?.({ progress: 4, phase: "准备导出画面" });
+  onProgress?.({ progress: 4, phaseKey: "exportPrepareVisuals" });
   const exportVisualSegments = visualSegments.some((segment) => segment.src)
     ? visualSegments.filter((segment) => segment.src)
     : [{ id: "export-visual", src: imageSrc, type: visualType, duration }];
@@ -844,7 +861,7 @@ export async function exportBrowserVideo({
     stickerSources.map(async (src) => [src, await loadImage(src).catch(() => null)]),
   );
   const stickerImageMap = new Map(stickerImageEntries.filter(([, image]) => image));
-  onProgress?.({ progress: 8, phase: "准备画布与轨道" });
+  onProgress?.({ progress: 8, phaseKey: "exportPrepareTracks" });
   const canvas = document.createElement("canvas");
   canvas.width = Math.max(2, Math.round(Number(exportSettings.width) || ratio.width));
   canvas.height = Math.max(2, Math.round(Number(exportSettings.height) || ratio.height));
@@ -891,7 +908,7 @@ export async function exportBrowserVideo({
       throw new Error("当前浏览器不支持 AudioContext，无法混入音频。");
     }
 
-    onProgress?.({ progress: 12, phase: "解码并混合音频轨" });
+    onProgress?.({ progress: 12, phaseKey: "exportMixAudio" });
     audioContext = new AudioContextClass();
     destination = audioContext.createMediaStreamDestination();
     const decodedByBlob = new Map();
@@ -977,7 +994,7 @@ export async function exportBrowserVideo({
     recorder.onstop = () => resolve();
   });
 
-  onProgress?.({ progress: 16, phase: "开始录制视频流" });
+  onProgress?.({ progress: 16, phaseKey: "exportStartRecording" });
   recorder.start(250);
   const startTime = performance.now();
   let animationFrame = 0;
@@ -1093,7 +1110,7 @@ export async function exportBrowserVideo({
       lastProgressUpdate = performance.now();
       onProgress?.({
         progress: Math.min(92, 16 + Math.round((elapsed / totalDuration) * 76)),
-        phase: "录制视频流",
+        phaseKey: "exportRecording",
       });
     }
 
@@ -1151,7 +1168,7 @@ export async function exportBrowserVideo({
     vision: finalFrameVision,
   });
   recorder.stop();
-  onProgress?.({ progress: 94, phase: "封装导出文件" });
+  onProgress?.({ progress: 94, phaseKey: "exportPackageFile" });
   await stopped;
   canvasStream.getTracks().forEach((track) => track.stop());
   destination?.stream.getTracks().forEach((track) => track.stop());

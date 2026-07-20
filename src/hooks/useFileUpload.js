@@ -25,6 +25,7 @@ export function useFileUpload(deps) {
     if (shouldAutoAddFirstVisual) {
       deps.appendVisualAssetToTimeline(primaryVisual);
       deps.setSelectedTrack("image");
+      deps.onFirstVisualAutoAdded?.();
     }
     const update = (id, patch) => deps.setUserAssets((current) => current.map((item) => item.id === id ? { ...item, ...patch } : item));
     assets.forEach((asset) => {

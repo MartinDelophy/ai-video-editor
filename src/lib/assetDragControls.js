@@ -54,6 +54,7 @@ export function createAssetDragControls(deps) {
   };
   const handleAssetPointerDown = (event, asset) => {
     if (event.button !== 0 || (event.target instanceof Element && event.target.closest(".asset-delete"))) return;
+    void deps.prefetchAsset?.(asset);
     deps.setSelectedLibraryAssetId(asset.id);
     deps.pointerAssetDragRef.current = { assetId: asset.id, startX: event.clientX, startY: event.clientY, dragging: false };
     const move = (e) => {

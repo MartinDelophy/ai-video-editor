@@ -8,7 +8,7 @@
 
 Timeline Studio is a local-first AI video editor that runs in the browser. It combines a CapCut-style multi-track timeline with browser-side AI voiceovers, automatic captions, vision tools, talking-avatar generation, and deterministic offline export.
 
-[Open the editor](https://video-editor.ai-creator.top/) · [Watch the demo](https://youtu.be/mUXduGpBmwE) · [Hugging Face Space](https://huggingface.co/spaces/haixin/timeline-studio)
+[Open the editor](https://video-editor.ai-creator.top/) · [Watch the demo](https://www.youtube.com/watch?v=chdRPG2ndMs) · [Hugging Face Space](https://huggingface.co/spaces/haixin/timeline-studio)
 
 ![Timeline Studio editor](docs/screenshots/editor-timeline.png)
 
@@ -45,6 +45,22 @@ It helps an agent:
 - keep the editable `.timeline` project as the source of truth instead of returning only an opaque render.
 
 The current Skill is honest about its boundary: browser-driven editing is available today, while the versioned headless command runner described in its command contract is the next automation layer.
+
+## Roadmap
+
+- **Now:** harden deterministic offline export, improve timeline editing reliability, and expand end-to-end browser tests.
+- **Next:** ship the versioned headless command runner for agent-driven editing and make reusable project templates easier to share.
+- **Later:** add collaborative review workflows, a plugin extension surface, and more locally verified AI models.
+
+Roadmap priorities are shaped in [GitHub Discussions](https://github.com/MartinDelophy/ai-video-editor/discussions). Feature requests and real-world workflow feedback are welcome.
+
+## Help wanted
+
+Timeline Studio is looking for contributors interested in browser media, WebCodecs, WebGPU/ONNX, timeline UX, localization, testing, and documentation.
+
+- Try the [live editor](https://video-editor.ai-creator.top/) and report reproducible bugs in [Issues](https://github.com/MartinDelophy/ai-video-editor/issues).
+- Join [Discussions](https://github.com/MartinDelophy/ai-video-editor/discussions) to propose features, share projects, or help prioritize the roadmap.
+- Contributions of focused fixes, tests, translations, documentation, and example projects are especially useful.
 
 ## Quick start
 

@@ -83,10 +83,34 @@ export function createTimelineCutActions(d) {
     d.setSelectedAudioSegmentId(secondId);
     d.notify("已在播放头位置切开配音片段");
   };
+  const handleCutMusicSegment = () => {
+    if (d.trackLocks.music) return void d.notify("音乐轨已锁定，无法剪切");
+    if (!d.musicBlob || d.musicDuration <= 0) return void d.notify("请先添加背景音乐");
+    const segments = d.musicSegments?.length ? d.musicSegments : [{
+      id: "music-audio", start: d.musicStart || 0, duration: d.musicDuration,
+      sourceStart: 0, peaks: d.musicPeaks || [],
+    }];
+    const index = segments.findIndex((segment) => d.currentTime > segment.start + 0.05 && d.currentTime < segment.start + segment.duration - 0.05);
+    const source = segments[index];
+    if (!source) return void d.notify("请把播放头放在音乐片段中间再剪切");
+    const firstDuration = d.currentTime - source.start;
+    const secondDuration = source.duration - firstDuration;
+    const peakCount = source.peaks?.length || 0;
+    const peakSplit = peakCount > 1 ? Math.max(1, Math.min(peakCount - 1, Math.round(firstDuration / source.duration * peakCount))) : 0;
+    const first = { ...source, id: makeId("music"), duration: firstDuration, peaks: peakCount ? source.peaks.slice(0, peakSplit) : [] };
+    const second = { ...source, id: makeId("music"), start: d.currentTime, duration: secondDuration,
+      sourceStart: Math.max(0, Number(source.sourceStart) || 0) + firstDuration,
+      peaks: peakCount ? source.peaks.slice(peakSplit) : [] };
+    const next = [...segments];
+    next.splice(index, 1, first, second);
+    d.setMusicSegments(next);
+    d.notify("已在播放头位置切开音乐片段");
+  };
   const handleCutTrack = () => {
     if (d.selectedTrack === "image") return void handleCutVisualSegment();
     if (d.selectedTrack === "caption") return void handleCutCaption();
     if (d.selectedTrack === "audio") return void handleCutAudioSegment();
+    if (d.selectedTrack === "music") return void handleCutMusicSegment();
     if (d.selectedTrack === "sticker") {
       if (d.trackLocks.sticker) return void d.notify("贴纸轨已锁定，无法剪切");
       const selected = d.selectedStickerSegmentId && d.stickerSegments.findIndex((segment) => segment.id === d.selectedStickerSegmentId);

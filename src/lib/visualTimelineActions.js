@@ -88,10 +88,10 @@ export function createVisualTimelineActions(d) {
     d.setImageClipCount(getImageThumbnailCount(segment.duration));
   }
 
-  function appendVisualAssetToTimeline(asset) {
+  function appendVisualAssetToTimeline(asset, options = {}) {
     if (d.trackLocks.image) {
       d.notify("图片轨已锁定，无法添加素材");
-      return;
+      return null;
     }
     const sourceSegments = d.visualSegments.length
       ? d.visualSegments
@@ -102,7 +102,7 @@ export function createVisualTimelineActions(d) {
     const availableDuration = MAX_TIMELINE_DURATION_SECONDS - totalDuration;
     if (availableDuration < MIN_VISUAL_SEGMENT_SECONDS) {
       d.notify("视觉轨道已经达到 30 分钟上限");
-      return;
+      return null;
     }
     const segmentDuration = Math.min(getVisualDurationForAsset(asset), availableDuration);
     const nextSegment = createVisualSegment(segmentDuration, asset);
@@ -110,10 +110,11 @@ export function createVisualTimelineActions(d) {
     setCurrentVisualAsset(asset);
     commitVisualSegments(
       [...sourceSegments, nextSegment],
-      `${asset.type === "video" ? "视频" : "图片"}素材已追加到图片轨`,
+      options.message ?? `${asset.type === "video" ? "视频" : "图片"}素材已追加到图片轨`,
       sourceSegments.length,
     );
     d.seekTo(totalDuration);
+    return nextSegment;
   }
 
   function updateVisualAssetInTimeline(assetId, updates) {
@@ -144,6 +145,7 @@ export function createVisualTimelineActions(d) {
     if (d.previewVisualSegment?.assetId === assetId || d.previewVisualSegment?.src === updates.src) {
       d.setImageMeta(updates.meta ?? d.imageMeta);
       if (updates.type) d.setVisualType(updates.type);
+      if (updates.src) d.setImageSrc(updates.src);
     }
   }
 

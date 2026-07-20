@@ -7,6 +7,7 @@ import {
   CopySimple,
   Crop,
   CircleNotch,
+  ClosedCaptioning,
   Eye,
   EyeSlash,
   LockKey,
@@ -169,6 +170,9 @@ export function Timeline({
   builtInImageCaptionAvailable = false,
   generateImageCaption,
   extractVideoSourceAudio,
+  generateCaptionsFromAudioClip,
+  separateAudioClipVocals,
+  audioProcessingBusy = false,
   setSelectedVisualSegmentId,
   seekTo,
   suppressTimelineClipClickRef,
@@ -202,8 +206,8 @@ export function Timeline({
   startAudioSegmentMove,
   startSourceAudioMove,
   musicBlob,
+  musicSegments = [],
   musicPeaks,
-  musicClipPercent,
   musicStartPercent,
   musicDuration,
   startMusicMove,
@@ -290,6 +294,13 @@ export function Timeline({
     : null;
   const contextOverlaySegment = contextMenu?.track === "overlay" && contextMenu.segmentId
     ? visualOverlaySegments.find((segment) => segment.id === contextMenu.segmentId)
+    : null;
+  const contextAudioSegment = contextMenu?.track === "audio" && contextMenu.segmentId
+    ? audioSegments.find((segment) => segment.id === contextMenu.segmentId)
+    : null;
+  const contextMusicSegment = contextMenu?.track === "music" && contextMenu.segmentId
+    ? (musicSegments.length ? musicSegments : [{ id: "music-audio", start: musicStartPercent / 100 * timelineDuration, duration: musicDuration, peaks: musicPeaks }])
+      .find((segment) => segment.id === contextMenu.segmentId)
     : null;
   const trackTool = (track) => ({ image: "media", overlay: "media", sticker: "stickers", caption: "caption", source: "audio", audio: "audio", music: "audio" })[track] || "media";
   const openTrackPanel = (track) => {
@@ -1057,19 +1068,20 @@ export function Timeline({
                       ? Math.max(0.01, Math.min(100, ((promotionOverlay?.duration || 0.5) / timelineDuration) * 100))
                       : 0;
                     const videoTrackFrames = Array.isArray(segment.trackFrames) ? segment.trackFrames : [];
-                    const visibleVideoFrames =
-                      segmentType === "video" && videoTrackFrames.length
-                        ? getSampledVideoFrames(
-                            videoTrackFrames,
-                            getTimelineThumbnailCount({
-                              duration: segment.duration,
-                              timelineDuration,
-                              contentWidth: rulerViewport.contentWidth,
-                              timelineZoom: localTimelineZoom,
-                              availableFrames: MAX_IMAGE_THUMBNAILS,
-                            }),
-                          )
-                        : [];
+                    const desiredVideoFrameCount = getTimelineThumbnailCount({
+                      duration: segment.duration,
+                      timelineDuration,
+                      contentWidth: rulerViewport.contentWidth,
+                      timelineZoom: localTimelineZoom,
+                      availableFrames: videoTrackFrames.length || MAX_IMAGE_THUMBNAILS,
+                    });
+                    const visibleVideoFrames = segmentType === "video"
+                      ? videoTrackFrames.length
+                        ? getSampledVideoFrames(videoTrackFrames, desiredVideoFrameCount)
+                        : segment.thumbnail
+                          ? Array.from({ length: desiredVideoFrameCount }, () => segment.thumbnail)
+                          : []
+                      : [];
                     const isPortraitVideo = segmentType === "video" && (segment.height || 0) > (segment.width || 0);
 
                     return (
@@ -1091,8 +1103,10 @@ export function Timeline({
                           isDraggingVisualSegment ? "is-reorder-dragging" : ""
                         } ${isReorderTarget ? "is-reorder-target" : ""} ${
                           isOverlayPromotionInsertTarget ? "is-overlay-promotion-insert-target" : ""
-                        }`}
-                        onPointerDown={(event) => startTimelineClipDrag(event, "image", segment.id, index)}
+                        } ${segment.preparing ? "is-preparing" : ""}`}
+                        onPointerDown={(event) => {
+                          if (!segment.preparing) startTimelineClipDrag(event, "image", segment.id, index);
+                        }}
                         onContextMenu={(event) => showTrackContextMenu(event, "image", segment.id)}
                         onClick={(event) => {
                           event.stopPropagation();
@@ -1112,7 +1126,13 @@ export function Timeline({
                           }
                         }}
                       >
-                        {segmentType === "video" ? (
+                        {segment.preparing ? (
+                          <div className="timeline-media-preparing" aria-live="polite">
+                            <i className="timeline-media-spinner" />
+                            <strong>{t("timelineMediaPreparing", "正在准备素材")}</strong>
+                            <em>{Math.round((segment.prepareProgress || 0) * 100)}%</em>
+                          </div>
+                        ) : segmentType === "video" ? (
                           <button
                             className="clip-mute-toggle"
                             type="button"
@@ -1127,7 +1147,7 @@ export function Timeline({
                             {segment.sourceAudioDisabled ? <SpeakerSlash size={13} /> : <SpeakerHigh size={13} />}
                           </button>
                         ) : null}
-                        <div
+                        {!segment.preparing ? <div
                           className={`image-thumbnails ${segmentType === "video" ? "is-video" : ""} ${
                             isPortraitVideo ? "is-portrait-video" : ""
                           }`}
@@ -1166,9 +1186,9 @@ export function Timeline({
                               ),
                             )
                           )}
-                        </div>
-                        <span className="image-clip-duration">{formatClock(segment.duration)}</span>
-                        {!activeTimelineClipDrag ? (
+                        </div> : null}
+                        {!segment.preparing ? <span className="image-clip-duration">{formatClock(segment.duration)}</span> : null}
+                        {!segment.preparing && !activeTimelineClipDrag ? (
                           <button
                             className="image-resize-handle"
                             type="button"
@@ -1343,7 +1363,9 @@ export function Timeline({
                   onPointerDown={startSourceAudioMove}
                   onClick={(event) => {
                     event.stopPropagation();
+                    if (suppressTimelineClipClickRef.current === "source") return void (suppressTimelineClipClickRef.current = "");
                     setSelectedTrack("source");
+                    setActiveTool("audio");
                     clearClipSelections("source");
                     setSelectedSourceAudioSegmentId(segment.id);
                   }}
@@ -1362,7 +1384,9 @@ export function Timeline({
                   onPointerDown={startSourceAudioMove}
                   onClick={(event) => {
                     event.stopPropagation();
+                    if (suppressTimelineClipClickRef.current === "source") return void (suppressTimelineClipClickRef.current = "");
                     setSelectedTrack("source");
+                    setActiveTool("audio");
                     clearClipSelections("source");
                     setSelectedSourceAudioSegmentId("source-audio");
                   }}
@@ -1404,7 +1428,9 @@ export function Timeline({
                         onContextMenu={(event) => showTrackContextMenu(event, "audio", segment.id)}
                         onClick={(event) => {
                           event.stopPropagation();
+                          if (suppressTimelineClipClickRef.current === segment.id) return void (suppressTimelineClipClickRef.current = "");
                           setSelectedTrack("audio");
+                          setActiveTool("audio");
                           clearClipSelections("voice");
                           setSelectedAudioSegmentId(segment.id);
                           seekTo(segment.start);
@@ -1438,12 +1464,12 @@ export function Timeline({
                   <div className="track-drop-hint">{t("dropMusicHere")}</div>
                 ) : null}
               {renderAssetDropSlot("music")}
-                {musicBlob ? (
-                <div className={`audio-clip is-music ${musicClipSelected ? "is-selected" : ""}`} style={{ width: `${musicClipPercent}%`, left: `${musicStartPercent}%` }} onPointerDown={startMusicMove} onContextMenu={(event) => showTrackContextMenu(event, "music", "music-audio")} onClick={(event) => { event.stopPropagation(); setSelectedTrack("music"); clearClipSelections("music"); setMusicClipSelected(true); }}>
-                  <WaveformStrip peaks={musicPeaks} active />
-                  <span className="audio-clip-duration">{formatTime(musicDuration)}</span>
+              {musicBlob ? (musicSegments.length ? musicSegments : [{ id: "music-audio", start: musicStartPercent / 100 * timelineDuration, duration: musicDuration, peaks: musicPeaks }]).map((segment) => (
+                <div className={`audio-clip is-music ${musicClipSelected ? "is-selected" : ""}`} key={segment.id} style={{ width: `${timelineDuration > 0 ? segment.duration / timelineDuration * 100 : 0}%`, left: `${timelineDuration > 0 ? segment.start / timelineDuration * 100 : 0}%` }} onPointerDown={startMusicMove} onContextMenu={(event) => showTrackContextMenu(event, "music", segment.id)} onClick={(event) => { event.stopPropagation(); if (suppressTimelineClipClickRef.current === "music") return void (suppressTimelineClipClickRef.current = ""); setSelectedTrack("music"); setActiveTool("audio"); clearClipSelections("music"); setMusicClipSelected(true); }}>
+                  <WaveformStrip peaks={segment.peaks?.length ? segment.peaks : musicPeaks} active />
+                  <span className="audio-clip-duration">{formatTime(segment.duration)}</span>
                 </div>
-              ) : null}
+              )) : null}
             </button> : null}
           </div>
         </div>
@@ -1474,7 +1500,7 @@ export function Timeline({
       ) : null}
       {contextMenu ? (
         <div className="timeline-context-menu" role="menu" aria-label={t("timelineContextMenu")} style={{ left: contextMenu.x, top: contextMenu.y }} onPointerDown={(event) => event.stopPropagation()}>
-          <div className="timeline-context-heading">{contextMenu.kind === "clip" ? t("clipActions") : t("trackActions")}<span>{t({ image: "imageTrack", overlay: "overlayTrack", caption: "caption", sticker: "stickerTrack", source: "sourceTrack", voice: "voiceTrack", music: "musicTrack" }[contextMenu.track], contextMenu.track)}</span></div>
+          <div className="timeline-context-heading">{contextMenu.kind === "clip" ? t("clipActions") : t("trackActions")}<span>{t({ image: "imageTrack", overlay: "overlayTrack", caption: "caption", sticker: "stickerTrack", source: "sourceTrack", audio: "voiceTrack", music: "musicTrack" }[contextMenu.track], contextMenu.track)}</span></div>
           <button type="button" role="menuitem" onClick={() => runContextAction(() => openTrackPanel(contextMenu.track))}><SlidersHorizontal size={16} />{t("openTrackPanel")}</button>
           {contextMenu.kind === "clip" ? (
             <>
@@ -1500,6 +1526,14 @@ export function Timeline({
               {contextMenu.track === "overlay" && contextOverlaySegment?.type === "video" ? (
                 <button type="button" role="menuitem" onClick={() => runContextAction(() => setVisualOverlaySegments((items) => items.map((item) => item.id === contextOverlaySegment.id ? { ...item, muted: !item.muted } : item)))}>{contextOverlaySegment.muted ? <SpeakerHigh size={16} /> : <SpeakerSlash size={16} />}{t(contextOverlaySegment.muted ? "unmuteClip" : "muteClip", contextOverlaySegment.muted ? "取消静音" : "静音")}</button>
               ) : null}
+              {contextMenu.track === "audio" && contextAudioSegment ? <>
+                <button type="button" role="menuitem" disabled={audioProcessingBusy} onClick={() => runContextAction(() => separateAudioClipVocals?.({ blob: contextAudioSegment.blob, name: contextAudioSegment.name, start: contextAudioSegment.start, sourceStart: contextAudioSegment.sourceStart || 0, duration: contextAudioSegment.duration, segmentId: contextAudioSegment.id, track: "audio" }))}><Waveform size={16} />{t("separateVocalsFromClip")}</button>
+                <button type="button" role="menuitem" disabled={audioProcessingBusy} onClick={() => runContextAction(() => generateCaptionsFromAudioClip?.({ blob: contextAudioSegment.blob, start: contextAudioSegment.start, sourceStart: contextAudioSegment.sourceStart || 0, duration: contextAudioSegment.duration, append: true }))}><ClosedCaptioning size={16} />{t("generateCaptionsFromClip")}</button>
+              </> : null}
+              {contextMenu.track === "music" && contextMusicSegment && musicBlob ? <>
+                <button type="button" role="menuitem" disabled={audioProcessingBusy} onClick={() => runContextAction(() => separateAudioClipVocals?.({ blob: musicBlob, name: t("musicTrack"), start: contextMusicSegment.start, sourceStart: contextMusicSegment.sourceStart || 0, duration: contextMusicSegment.duration, segmentId: contextMusicSegment.id, track: "music" }))}><Waveform size={16} />{t("separateVocalsFromClip")}</button>
+                <button type="button" role="menuitem" disabled={audioProcessingBusy} onClick={() => runContextAction(() => generateCaptionsFromAudioClip?.({ blob: musicBlob, start: contextMusicSegment.start, sourceStart: contextMusicSegment.sourceStart || 0, duration: contextMusicSegment.duration, append: true }))}><ClosedCaptioning size={16} />{t("generateCaptionsFromClip")}</button>
+              </> : null}
               <button type="button" role="menuitem" onClick={() => runContextAction(handleCutTrack)}><Scissors size={16} />{t("splitAtPlayhead")}</button>
               <button type="button" role="menuitem" onClick={() => runContextAction(handleDuplicateTrack)}><CopySimple size={16} />{t("duplicateClip")}</button>
               <div className="timeline-context-divider" />

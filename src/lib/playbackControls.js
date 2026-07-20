@@ -1,10 +1,11 @@
 import { MAX_TIMELINE_DURATION_SECONDS } from "../config/editor.js";
-import { getAudioSegmentPreviewVolume, getTimelineTrackLocalTime, isTimelineTimeInsideTrack } from "./editorRuntime.js";
+import { getAudioSegmentPreviewVolume, getTimelineTrackLocalTime, isTimelineTimeInsideTrack, requestTimelineMediaPlay } from "./editorRuntime.js";
 import { getVisualSegmentIndexAtTime } from "./timeline.js";
 import { getLinkedSourceAudioState } from "./sourceAudioSync.js";
 import { getVisualSourceTime, normalizeVisualPlaybackRate } from "./visualEffects.js";
 
 export function createPlaybackControls(deps) {
+  const isTrackAudible = (track) => deps.trackVisibility?.[track] !== false;
   const getSourceState = (timelineTime) => deps.sourceAudioLinked && deps.linkedSourceAudioSegments?.length
     ? getLinkedSourceAudioState(deps.linkedSourceAudioSegments, timelineTime)
     : {
@@ -45,14 +46,14 @@ export function createPlaybackControls(deps) {
   };
   const handlePlayToggle = () => {
     const video = deps.previewVideoRef.current;
-    const voices = deps.trackVisibility.audio ? deps.audioSegments.map((segment) => ({ segment, audio: deps.audioSegmentRefs.current.get(segment.id) })).filter(({ audio }) => audio) : [];
-    const source = deps.trackVisibility.source ? deps.sourceAudioRef.current : null;
-    const music = deps.trackVisibility.music ? deps.musicRef.current : null;
+    const voices = isTrackAudible("audio") ? deps.audioSegments.map((segment) => ({ segment, audio: deps.audioSegmentRefs.current.get(segment.id) })).filter(({ audio }) => audio) : [];
+    const source = isTrackAudible("source") ? deps.sourceAudioRef.current : null;
+    const music = isTrackAudible("music") ? deps.musicRef.current : null;
     if (deps.isPlaying) { pauseTimelineMedia(); deps.setIsPlaying(false); return; }
     if (!deps.canPreview) return void deps.notify("请先上传图片/视频素材、生成配音或上传背景音乐");
     if (deps.currentTimeRef.current >= deps.estimatedDuration - 0.02) seekTo(0);
     const timelineTime = deps.currentTimeRef.current;
-    const playIf = (media, ready) => ready ? media?.play().catch(() => {}) : media?.pause();
+    const playIf = (media, ready) => ready ? requestTimelineMediaPlay(media) : media?.pause();
     voices.forEach(({ segment, audio }) => {
       const active = isTimelineTimeInsideTrack(timelineTime, segment.start, segment.duration);
       audio.currentTime = Math.max(0, Number(segment.sourceStart) || 0) + getTimelineTrackLocalTime(timelineTime, segment.start, segment.duration);

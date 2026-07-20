@@ -125,3 +125,20 @@ export function revokeVisionObjectUrls(value) {
 }
 export function getTimelineTrackLocalTime(time, start = 0, duration = 0) { return Math.max(0, Math.min(duration || 0, time - start)); }
 export function isTimelineTimeInsideTrack(time, start = 0, duration = 0) { return duration > 0 && time >= start && time <= start + duration; }
+
+export function requestTimelineMediaPlay(media) {
+  if (!media || media.__timelinePlayPending) return;
+  media.__timelinePlayPending = true;
+  let request;
+  try {
+    request = media.play();
+  } catch {
+    media.__timelinePlayPending = false;
+    return;
+  }
+  if (!request?.then) {
+    media.__timelinePlayPending = false;
+    return;
+  }
+  request.catch(() => {}).finally(() => { media.__timelinePlayPending = false; });
+}

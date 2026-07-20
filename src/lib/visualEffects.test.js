@@ -13,6 +13,26 @@ describe("visual effects", () => {
     expect(snapVisualScaleToFrameEdges(transform, { width: 360, height: 640 })).toEqual({ transform, guides: [] });
   });
 
+  it("snaps intrinsic media bounds to quarter and half-frame guides", () => {
+    const quarter = snapVisualScaleToFrameEdges(
+      { x: 0, y: 0, scale: 0.49, rotation: 0 },
+      { width: 400, height: 400 },
+      8,
+      { width: 400, height: 200 },
+    );
+    expect(quarter.transform.scale).toBeCloseTo(0.5);
+    expect(quarter.guides).toEqual(expect.arrayContaining(["quarter-x-1", "quarter-x-3"]));
+
+    const half = snapVisualScaleToFrameEdges(
+      { x: -25, y: 0, scale: 0.49, rotation: 0 },
+      { width: 400, height: 400 },
+      8,
+      { width: 400, height: 200 },
+    );
+    expect(half.transform.scale).toBeCloseTo(0.5);
+    expect(half.guides).toContain("center-x");
+  });
+
   it("maps timeline time to source time using the clip playback rate", () => {
     expect(getVisualSourceTime({ sourceStart: 1.5, playbackRate: 2 }, 2)).toBe(5.5);
   });

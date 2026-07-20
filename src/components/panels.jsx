@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { flushSync } from "react-dom";
+import { createPortal, flushSync } from "react-dom";
 
 import {
   BoundingBox,
@@ -14,6 +14,7 @@ import {
   MicrophoneStage,
   MusicNote,
   Pause,
+  PlayCircle,
   PersonSimpleRun,
   Scan,
   Scissors,
@@ -21,6 +22,7 @@ import {
   Target,
   Trash,
   Waveform,
+  X,
 } from "@phosphor-icons/react";
 
 import {
@@ -33,6 +35,7 @@ import {
   VOICES,
 } from "../config/editor.js";
 import { APP_LANGUAGES } from "../i18n.js";
+import { getRemoteAssetBlob } from "../lib/remoteAssetCache.js";
 import { formatClock, formatTime, getSegmentStartTime } from "../lib/timeline.js";
 import { hasVisualPropertyKeyframe, normalizeVisualKeyframes, resolveVisualTransform } from "../lib/visualEffects.js";
 import { DEFAULT_VISUAL_ANIMATION_DURATION, normalizeVisualClipAnimation, VISUAL_CLIP_ANIMATION_OPTIONS } from "../lib/visualClipAnimations.js";
@@ -80,6 +83,15 @@ export function MediaPanel({
   handleFiles,
   selectedLibraryAssetId,
   builtInAssets,
+  libraryType,
+  libraryQuery,
+  setLibraryQuery,
+  selectLibraryType,
+  libraryStatus,
+  libraryError,
+  libraryProvider,
+  assetDownloadStates,
+  prefetchLibraryAsset,
   userAssets,
   deleteUserAsset,
   draggedAssetId,
@@ -87,9 +99,27 @@ export function MediaPanel({
   handleAssetClick,
 }) {
   const assets = mediaTab === "library" ? builtInAssets : userAssets;
+  const assetIntentTimerRef = useRef(null);
+  const [previewAsset, setPreviewAsset] = useState(null);
+
+  useEffect(() => {
+    if (!previewAsset) return undefined;
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") setPreviewAsset(null);
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [previewAsset]);
+
+  const openAssetPreview = (event, asset) => {
+    handleAssetClick(event, asset);
+    if (!event.defaultPrevented) setPreviewAsset(asset);
+  };
   const renderAssetList = (items, { deletable = false } = {}) => (
     <div className={`asset-list ${mediaTab === "upload" ? "upload-assets" : ""}`}>
-      {items.length ? (
+      {libraryStatus === "loading" && mediaTab === "library" ? (
+        <LibraryLoadingGrid label={t("libraryLoading")} />
+      ) : items.length ? (
         items.map((asset) => (
           <div
             className={`asset-row-wrap ${draggedAssetId === asset.id ? "is-dragging" : ""}`}
@@ -99,9 +129,15 @@ export function MediaPanel({
               type="button"
               className="asset-row-button"
               onPointerDown={(event) => handleAssetPointerDown(event, asset)}
-              onClick={(event) => handleAssetClick(event, asset)}
+              onPointerEnter={() => {
+                if (mediaTab !== "library") return;
+                clearTimeout(assetIntentTimerRef.current);
+                assetIntentTimerRef.current = setTimeout(() => void prefetchLibraryAsset?.(asset), 180);
+              }}
+              onPointerLeave={() => clearTimeout(assetIntentTimerRef.current)}
+              onClick={(event) => openAssetPreview(event, asset)}
             >
-              <AssetRow asset={asset} selected={asset.id === selectedLibraryAssetId} t={t} />
+              <AssetRow asset={asset} selected={asset.id === selectedLibraryAssetId} t={t} downloadState={assetDownloadStates?.[asset.id]} />
             </button>
             {deletable ? (
               <button
@@ -119,7 +155,7 @@ export function MediaPanel({
           </div>
         ))
       ) : (
-        <div className="empty-state">{t("emptyAssets")}</div>
+        <div className="empty-state">{mediaTab === "library" ? (libraryError || t("libraryEmpty")) : t("emptyAssets")}</div>
       )}
     </div>
   );
@@ -174,32 +210,205 @@ export function MediaPanel({
 
           {renderAssetList(userAssets, { deletable: true })}
         </>
+      ) : mediaTab === "library" ? (
+        <>
+          <div className="library-type-tabs" role="tablist" aria-label={t("libraryMediaType")}>
+            {["image", "video", "audio"].map((type) => (
+              <button type="button" role="tab" aria-selected={libraryType === type} className={libraryType === type ? "is-active" : ""} key={type} onClick={() => selectLibraryType(type)}>
+                {t(`library${type[0].toUpperCase()}${type.slice(1)}`)}
+              </button>
+            ))}
+          </div>
+          <form className="library-search" onSubmit={(event) => event.preventDefault()}>
+            <input value={libraryQuery} onChange={(event) => setLibraryQuery(event.target.value)} placeholder={t(libraryType === "audio" ? "librarySearchMusicPlaceholder" : "librarySearchPlaceholder")} aria-label={t(libraryType === "audio" ? "librarySearchMusicPlaceholder" : "librarySearchPlaceholder")} />
+          </form>
+          <div className="library-provider">{t("libraryProvidedBy")} <strong>{libraryProvider}</strong></div>
+          {renderAssetList(assets)}
+        </>
       ) : (
         renderAssetList(assets, { deletable: mediaTab === "mine" })
       )}
+
+      {previewAsset ? createPortal(
+        <AssetPreviewDialog asset={previewAsset} t={t} onClose={() => setPreviewAsset(null)} />,
+        document.body,
+      ) : null}
     </>
   );
 }
 
-function AssetRow({ asset, selected, t }) {
+function AssetPreviewDialog({ asset, t, onClose }) {
+  const mediaSrc = asset.type === "image" ? (asset.originalSrc || asset.src) : (asset.previewSrc || asset.src);
+  const [audioPreviewStatus, setAudioPreviewStatus] = useState(asset.type === "audio" ? "loading" : "ready");
+  const [audioPreviewProgress, setAudioPreviewProgress] = useState(0);
+  const [audioPreviewSrc, setAudioPreviewSrc] = useState(asset.type === "audio" && !/^https?:/i.test(mediaSrc) ? mediaSrc : "");
+  const audioFallbacksRef = useRef([]);
+  const audioFallbackIndexRef = useRef(-1);
+  const tryNextAudioFallback = () => {
+    const nextIndex = audioFallbackIndexRef.current + 1;
+    const nextSrc = audioFallbacksRef.current[nextIndex];
+    if (!nextSrc) {
+      setAudioPreviewStatus("error");
+      return;
+    }
+    audioFallbackIndexRef.current = nextIndex;
+    setAudioPreviewStatus("loading");
+    setAudioPreviewProgress(0.03);
+    setAudioPreviewSrc(nextSrc);
+  };
+  useEffect(() => {
+    if (asset.type !== "audio" || !/^https?:/i.test(mediaSrc)) return undefined;
+    let canceled = false;
+    let objectUrl = "";
+    setAudioPreviewStatus("loading");
+    setAudioPreviewProgress(0);
+    setAudioPreviewSrc("");
+    audioFallbacksRef.current = [];
+    audioFallbackIndexRef.current = -1;
+    try {
+      const sourceUrl = new URL(mediaSrc);
+      const trackId = sourceUrl.searchParams.get("trackid");
+      if (trackId && sourceUrl.hostname.endsWith("storage.jamendo.com")) {
+        audioFallbacksRef.current = ["mp31", "ogg", "mp32"].map((format) => {
+          const fallbackUrl = new URL(sourceUrl);
+          fallbackUrl.searchParams.set("format", format);
+          return fallbackUrl.toString();
+        });
+      } else {
+        audioFallbacksRef.current = [mediaSrc];
+      }
+    } catch {
+      audioFallbacksRef.current = [mediaSrc];
+    }
+    getRemoteAssetBlob({ ...asset, src: mediaSrc }, (progress) => {
+      if (!canceled) setAudioPreviewProgress(Math.min(0.96, Math.max(0.01, progress || 0)));
+    }).then((blob) => {
+      if (canceled || !blob) return;
+      objectUrl = URL.createObjectURL(blob);
+      setAudioPreviewProgress(0.98);
+      setAudioPreviewSrc(objectUrl);
+    }).catch((error) => {
+      console.warn("Music preview download failed", error);
+      if (!canceled) tryNextAudioFallback();
+    });
+    return () => {
+      canceled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [asset, mediaSrc]);
+  return (
+    <div className="asset-preview-backdrop" onPointerDown={(event) => {
+      if (event.target === event.currentTarget) onClose();
+    }}>
+      <section className="asset-preview-dialog" role="dialog" aria-modal="true" aria-labelledby="asset-preview-title">
+        <header>
+          <div>
+            <span>{t("assetPreview", "素材预览")}</span>
+            <strong id="asset-preview-title">{asset.name}</strong>
+          </div>
+          <button type="button" onClick={onClose} aria-label={t("closeAssetPreview", "关闭预览")}>
+            <X size={20} />
+          </button>
+        </header>
+        <div className={`asset-preview-media type-${asset.type}`}>
+          {asset.type === "video" ? (
+            <video key={mediaSrc} src={mediaSrc} poster={asset.thumbnail} controls autoPlay playsInline />
+          ) : asset.type === "audio" ? (
+            <div className="asset-preview-audio">
+              <MusicNote size={58} weight="duotone" />
+              <strong>{asset.name}</strong>
+              {audioPreviewStatus === "loading" ? (
+                <div className="asset-preview-audio-loading" role="status" aria-live="polite">
+                  <i style={{ "--audio-preview-progress": `${Math.round(audioPreviewProgress * 100)}%` }}>
+                    <b>{Math.round(audioPreviewProgress * 100)}%</b>
+                  </i>
+                  <span>{t("audioPreviewLoading", "正在加载音乐预览…")}</span>
+                </div>
+              ) : null}
+              {audioPreviewStatus === "error" ? (
+                <div className="asset-preview-audio-error" role="alert">{t("audioPreviewFailed", "音乐预览加载失败，请稍后重试")}</div>
+              ) : null}
+              {audioPreviewSrc ? <audio
+                className={audioPreviewStatus === "ready" ? "is-ready" : "is-waiting"}
+                key={audioPreviewSrc}
+                src={audioPreviewSrc}
+                controls
+                autoPlay
+                preload="metadata"
+                onLoadedMetadata={() => setAudioPreviewProgress((progress) => Math.max(progress, 0.99))}
+                onCanPlay={() => { setAudioPreviewProgress(1); setAudioPreviewStatus("ready"); }}
+                onError={tryNextAudioFallback}
+              /> : null}
+            </div>
+          ) : (
+            <img src={mediaSrc} alt={asset.name} />
+          )}
+        </div>
+        {asset.meta ? <footer>{asset.meta}</footer> : null}
+      </section>
+    </div>
+  );
+}
+
+function LibraryLoadingGrid({ label }) {
+  return (
+    <div className="library-loading-grid" aria-label={label} aria-busy="true">
+      {Array.from({ length: 6 }, (_, index) => (
+        <div className="library-skeleton-card" key={index}>
+          <div className="library-skeleton-thumb"><i /></div>
+          <span /><small />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function AssetRow({ asset, selected, t, downloadState }) {
+  const [mediaLoaded, setMediaLoaded] = useState(asset.type === "audio");
+  const [previewSrc, setPreviewSrc] = useState(asset.thumbnail || asset.src);
+  useEffect(() => {
+    setPreviewSrc(asset.thumbnail || asset.src);
+    setMediaLoaded(asset.type === "audio");
+  }, [asset.id, asset.src, asset.thumbnail, asset.type]);
+  const handlePreviewError = () => {
+    if (previewSrc !== asset.src) {
+      setPreviewSrc(asset.src);
+      return;
+    }
+    if (asset.originalSrc && previewSrc !== asset.originalSrc) {
+      setPreviewSrc(asset.originalSrc);
+      return;
+    }
+    setMediaLoaded(true);
+  };
   return (
     <div className={`asset-card ${selected ? "is-selected" : ""}`}>
       <div className="asset-thumb">
+        {!mediaLoaded ? <div className="asset-media-loading" aria-hidden="true"><i /></div> : null}
         {asset.type === "video" ? (
-          <video src={asset.src} muted playsInline preload="metadata" draggable={false} />
+          asset.thumbnail ? <img src={previewSrc} alt="" draggable={false} onLoad={() => setMediaLoaded(true)} onError={handlePreviewError} /> : <video src={asset.src} muted playsInline preload="metadata" draggable={false} onLoadedData={() => setMediaLoaded(true)} onError={() => setMediaLoaded(true)} />
         ) : asset.type === "audio" ? (
           <div className="asset-audio-thumb">
             <MusicNote size={28} weight="duotone" />
           </div>
         ) : (
-          <img src={asset.src} alt="" draggable={false} />
+          <img src={previewSrc} alt="" draggable={false} onLoad={() => setMediaLoaded(true)} onError={handlePreviewError} />
         )}
         <span>
           {asset.type === "audio"
-            ? t("assetAudio")
+            ? t(asset.kind === "music" ? "libraryAudio" : "assetAudio")
             : asset.type === "video"
               ? t("assetVideo")
               : t("assetImage")}
+        </span>
+        {downloadState?.status === "loading" ? (
+          <div className="asset-download-progress" aria-label={t("libraryPreparingAsset")}>
+            <i style={{ "--asset-progress": `${Math.max(8, Math.round((downloadState.progress || 0) * 100))}%` }} />
+          </div>
+        ) : downloadState?.status === "ready" ? <i className="asset-ready-dot" title={t("libraryAssetReady")} /> : null}
+        <span className="asset-preview-hover" aria-hidden="true">
+          <PlayCircle size={30} weight="fill" />
+          <em>{t("assetPreview", "素材预览")}</em>
         </span>
       </div>
       <div>
@@ -259,6 +468,8 @@ export function ToolPanel(props) {
     isGeneratingCaptions,
     automaticCaptionProgress,
     separateSourceVocals,
+    selectedAudioToolTarget,
+    separateSelectedAudioVocals,
     vocalSeparationJob,
     hasVisual,
     visualType,
@@ -392,26 +603,32 @@ export function ToolPanel(props) {
         <button
           className="audio-entry-card separation-entry-card"
           type="button"
-          disabled={!sourceAudioBlob || vocalSeparationJob.running}
-          onClick={separateSourceVocals}
+          disabled={!selectedAudioToolTarget || vocalSeparationJob.running}
+          onClick={separateSelectedAudioVocals || separateSourceVocals}
         >
           <Waveform size={24} weight="duotone" />
           <span>
             <strong>{vocalSeparationJob.running ? t("vocalSeparationRunning") : t("vocalSeparationTitle")}</strong>
-            <em>{sourceAudioBlob ? (vocalSeparationJob.phase || t("vocalSeparationDesc")) : t("vocalSeparationNeedsSource")}</em>
+            <em>{selectedAudioToolTarget ? (vocalSeparationJob.phase || t("vocalSeparationDesc")) : t("vocalSeparationNeedsSource")}</em>
           </span>
           {vocalSeparationJob.running ? <span className="inline-progress" aria-hidden="true"><span style={{ width: `${vocalSeparationJob.progress}%` }} /></span> : null}
         </button>
         <button
           className="audio-entry-card caption-entry-card"
           type="button"
-          disabled={!sourceAudioBlob || isGeneratingCaptions}
-          onClick={generateCaptionsFromSourceAudio}
+          disabled={!selectedAudioToolTarget || isGeneratingCaptions}
+          onClick={() => selectedAudioToolTarget && generateCaptionsFromSourceAudio({
+            blob: selectedAudioToolTarget.blob,
+            start: selectedAudioToolTarget.start,
+            sourceStart: selectedAudioToolTarget.sourceStart,
+            duration: selectedAudioToolTarget.duration,
+            append: selectedAudioToolTarget.track !== "source",
+          })}
         >
           <ClosedCaptioning size={24} weight="duotone" />
           <span>
             <strong>{isGeneratingCaptions ? t("autoCaptionsRunning") : t("autoCaptionsTitle")}</strong>
-            <em>{sourceAudioBlob ? t("autoCaptionsDesc") : t("autoCaptionsNeedsSource")}</em>
+            <em>{selectedAudioToolTarget ? t("autoCaptionsDesc") : t("autoCaptionsNeedsSource")}</em>
           </span>
           {isGeneratingCaptions ? (
             <span className="inline-progress" aria-hidden="true">

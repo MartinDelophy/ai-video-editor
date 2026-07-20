@@ -1,6 +1,7 @@
 import { useCallback } from "react";
 import { MODEL_ID } from "../config/editor.js";
 import { predictPiperVoice } from "../lib/piperVoiceRuntime.js";
+import { predictMmsVoice } from "../lib/mmsVoiceRuntime.js";
 import { clearPiperCacheIfStorageTight, isPiperSymbolError, isStorageQuotaError, prepareTextForVoice, TtsInputError } from "../lib/ttsText.js";
 
 export function useVoiceGeneration(d) {
@@ -22,7 +23,7 @@ export function useVoiceGeneration(d) {
         if (await clearPiperCacheIfStorageTight(tts)) d.notify(d.t("ttsNoticePiperCacheCleared"));
         d.setStatusText(d.selectedVoice.language === "中文"
           ? d.t("ttsStatusLoadingChineseModel")
-          : `Loading ${d.selectedVoice.language} Piper model…`);
+          : d.t("ttsStatusPreparingModel"));
         const progress = (event) => {
           if (event?.backend) d.setStatusText(d.t(event.backend === "webgpu" ? "ttsStatusGeneratingWebGpu" : "ttsStatusGeneratingWasm"));
           if (event?.total) {
@@ -38,6 +39,19 @@ export function useVoiceGeneration(d) {
           if (!isStorageQuotaError(error)) throw error;
           d.setStatusText(d.t("ttsStatusClearingCache")); await tts.flush?.(); blob = await predictPiperVoice(tts, input, progress);
         }
+      } else if (d.selectedVoice.engine === "mms") {
+        d.setStatusText(d.t("ttsStatusPreparingModel"));
+        blob = await predictMmsVoice({ text: prepared.text, voiceId: d.selectedVoice.id }, (event) => {
+          if (event?.backend) d.setStatusText(d.t("ttsStatusGeneratingWasm"));
+          if (Number.isFinite(event?.progress)) d.setProgress((current) => Math.max(current, Math.min(86, Math.round(event.progress))));
+        });
+      } else if (d.selectedVoice.engine === "supertonic") {
+        d.setStatusText(d.t("ttsStatusPreparingModel"));
+        const { predictSupertonicVoice } = await import("../lib/supertonicVoiceRuntime.js");
+        blob = await predictSupertonicVoice({ text: prepared.text, speed: d.speed }, (event) => {
+          if (event?.backend) d.setStatusText(d.t("ttsStatusGeneratingWasm"));
+          if (Number.isFinite(event?.progress)) d.setProgress((current) => Math.max(current, Math.min(86, Math.round(event.progress))));
+        });
       } else {
         // Kokoro and the editor share the same Transformers runtime. Disable
         // its second Cache Storage layer before Kokoro starts loading; the

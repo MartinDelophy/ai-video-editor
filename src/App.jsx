@@ -7,6 +7,8 @@ import { Timeline } from "./components/Timeline.jsx";
 import { Topbar } from "./components/Topbar.jsx";
 import { AssetDragPreview, ExportProgressOverlay } from "./components/EditorOverlays.jsx";
 import { EditorSidebar } from "./components/EditorSidebar.jsx";
+import { FirstVisualGuide } from "./components/FirstVisualGuide.jsx";
+import { hasSeenFirstVisualGuide, markFirstVisualGuideSeen } from "./lib/firstVisualGuide.js";
 import { useExportElapsed } from "./hooks/useExportElapsed.js";
 import { usePreviewFrameSize } from "./hooks/usePreviewFrameSize.js";
 import { useEditorCatalog } from "./hooks/useEditorCatalog.js";
@@ -68,6 +70,8 @@ export function App() {
   const [captionVoiceFocusRequest, setCaptionVoiceFocusRequest] = useState(0);
   const [selectedSourceAudioSegmentId, setSelectedSourceAudioSegmentId] = useState("");
   const [canvasVisualTarget, setCanvasVisualTarget] = useState("");
+  const [showFirstVisualGuide, setShowFirstVisualGuide] = useState(false);
+  const firstVisualGuideShownRef = useRef(false);
   const timelineImportRestoreRef = useRef(false);
   const [introClosing, setIntroClosing] = useState(false);
   const {
@@ -77,11 +81,11 @@ export function App() {
     setCaptionsEnabled, setScript, setSelectedSegmentId,
   } = useCaptionState();
   const {
-    audioSegments, favoriteVoiceIds, historyItems, musicBlob, musicDuration, musicName, musicStart,
+    audioSegments, favoriteVoiceIds, historyItems, musicBlob, musicDuration, musicName, musicSegments, musicStart,
     musicPeaks, musicUrl, musicVolume, recordedVoices, recordingElapsed, recordingState,
     selectedAudioSegmentId, selectedVoiceId, setAudioSegments, setFavoriteVoiceIds,
     setHistoryItems, setMusicBlob, setMusicDuration, setMusicName, setMusicPeaks, setMusicStart,
-    setMusicUrl, setMusicVolume, setRecordedVoices, setRecordingElapsed,
+    setMusicSegments, setMusicUrl, setMusicVolume, setRecordedVoices, setRecordingElapsed,
     setRecordingState, setSelectedAudioSegmentId, setSelectedVoiceId, setSourceAudioBlob,
     setSourceAudioAssetId, setSourceAudioDuration, setSourceAudioLinked, setSourceAudioName, setSourceAudioPeaks, setSourceAudioStart,
     setSourceAudioUrl, setSourceAudioVolume, setSpeed, setTimelineHorizon, setVolume,
@@ -178,6 +182,11 @@ export function App() {
     return activeLanguage !== "zh" && option?.nameEn ? option.nameEn : translateOptionName(activeLanguage, name);
   };
   const shouldShowLanguageIntro = !uiLanguage;
+  const requestFirstVisualGuide = () => {
+    if (firstVisualGuideShownRef.current || hasSeenFirstVisualGuide()) return;
+    firstVisualGuideShownRef.current = true;
+    setShowFirstVisualGuide(true);
+  };
 
   const linkedSourceAudioSegments = useMemo(
     () => sourceAudioLinked && sourceAudioBlob
@@ -313,7 +322,8 @@ export function App() {
     previewVisualSourceTime, previewVisualSrc, previewVisualType, ratio,
   });
 
-  const { builtInAssets, filteredVoices } = useEditorCatalog(voiceFilter);
+  const { builtInAssets, filteredVoices, libraryType, libraryQuery, setLibraryQuery,
+    selectLibraryType, libraryStatus, libraryError, libraryProvider, assetDownloadStates, prefetchLibraryAsset } = useEditorCatalog(voiceFilter);
 
   const {
     canDropAssetOnTrack, findAssetById, getActiveDraggedAsset, getDraggedAsset,
@@ -322,7 +332,7 @@ export function App() {
     handleTrackAssetDragOver, triggerAssetDropPulse,
   } = createAssetDragControls({
     addStickerAssetToTimeline: (...args) => addStickerAssetToTimeline(...args), applyAssetToTrack: (...args) => applyAssetToTrack(...args), assetDropPulseTimerRef, builtInAssets, currentTime, draggedAssetId,
-    draggedAssetIdRef, getStickerDragAsset, notify, pointerAssetDragRef,
+    draggedAssetIdRef, getStickerDragAsset, notify, pointerAssetDragRef, prefetchAsset: prefetchLibraryAsset,
     setAssetDragPreview, setAssetDropPosition, setAssetDropPulseTrack,
     setAssetDropTargetTrack, setDraggedAssetId, setSelectedLibraryAssetId,
     setSelectedStickerId, setSelectedStickerSegmentId, suppressAssetClickRef,
@@ -368,16 +378,27 @@ export function App() {
     currentTimeRef, imageDuration, imageSrc, musicBlob, musicDuration, musicRef,
     musicUrlRef, notify, script, selectedVoice, selectedVoiceId, setActiveTool,
     setAudioSegments, setCaptionSegments, setCurrentTime, setHistoryItems,
-    setIsPlaying, setMusicBlob, setMusicDuration, setMusicName, setMusicPeaks,
+    setIsPlaying, setMusicBlob, setMusicDuration, setMusicName, setMusicPeaks, setMusicSegments,
     setMusicStart, setMusicUrl, setProgress, setSelectedAudioSegmentId, setSelectedSegmentId,
     setSelectedTrack, setSourceAudioAssetId, setSourceAudioBlob, setSourceAudioDuration, setSourceAudioLinked, setSourceAudioName,
     setSourceAudioPeaks, setSourceAudioStart, setSourceAudioUrl, setSourceAudioVolume,
     setStatus, setStatusText, setTimelineHorizon, sourceAudioBlob, sourceAudioDuration,
     sourceAudioAssetId, sourceAudioRef, sourceAudioStart, sourceAudioUrlRef, t,
   });
-  const { separateSourceVocals, vocalSeparationJob } = useVocalSeparation({
-    sourceAudioBlob, sourceAudioName, replaceSourceAudio, replaceMusic, notify, t,
+  const { separateAudioClipVocals, separateSourceVocals, vocalSeparationJob } = useVocalSeparation({
+    sourceAudioBlob, sourceAudioName, replaceAudio, replaceSourceAudio, replaceMusic, notify, t,
   });
+  const selectedSourceAudioPiece = linkedSourceAudioSegments.find((segment) => segment.id === selectedSourceAudioSegmentId) ?? null;
+  const selectedAudioToolTarget = selectedTrack === "audio" && selectedAudioSegmentId && selectedAudioSegment
+    ? { blob: selectedAudioSegment.blob, name: selectedAudioSegment.name, start: selectedAudioSegment.start, sourceStart: selectedAudioSegment.sourceStart || 0, duration: selectedAudioSegment.duration, segmentId: selectedAudioSegment.id, track: "audio" }
+    : selectedTrack === "music" && musicBlob
+      ? { blob: musicBlob, name: musicName || t("musicTrack"), start: musicStart, sourceStart: 0, duration: musicDuration, segmentId: musicSegments[0]?.id || "music-audio", track: "music" }
+      : selectedTrack === "source" && sourceAudioBlob
+        ? { blob: sourceAudioBlob, name: sourceAudioName, start: selectedSourceAudioPiece?.start ?? sourceAudioStart, sourceStart: selectedSourceAudioPiece?.sourceStart ?? 0, duration: selectedSourceAudioPiece?.duration ?? sourceAudioDuration, segmentId: selectedSourceAudioSegmentId || "source-audio", track: "source" }
+        : null;
+  const separateSelectedAudioVocals = () => selectedAudioToolTarget?.track === "source"
+    ? separateSourceVocals()
+    : selectedAudioToolTarget && separateAudioClipVocals(selectedAudioToolTarget);
 
   const {
     chooseInterfaceLanguage, clearAllVisionState, selectTool, toggleTrackLock,
@@ -510,8 +531,9 @@ export function App() {
     audioSegments, captionSegments, commitCaptionSegments, commitStickerSegments, commitVisualSegments,
     currentStickerSegmentIndex, currentTime, focusedSegmentIndex,
     getCurrentVisualAssetSnapshot, imageDuration, imageSrc, notify,
+    musicBlob, musicDuration, musicPeaks, musicSegments, musicStart,
     selectedAudioSegmentId, selectedSegmentId, selectedSegmentIndex, selectedStickerSegmentId,
-    setAudioSegments, setCaptionSegments, setSelectedAudioSegmentId,
+    setAudioSegments, setCaptionSegments, setMusicSegments, setSelectedAudioSegmentId,
     selectedTrack, stickerSegments, trackLocks, visualSegments,
   });
 
@@ -544,7 +566,7 @@ export function App() {
     audioSegments, captionSegments, captionTargetDuration, estimatedDuration, notify, seekTo, setActiveTool,
     setAudioSegments, setCaptionSegments, setSelectedAudioSegmentId, setSelectedStickerId,
     setSelectedStickerSegmentId, setSelectedTrack, setStickerSegments, setTimelineHorizon,
-    setMusicStart, setSourceAudioLinked, setSourceAudioStart, musicDuration, musicStart,
+    setMusicStart, setSourceAudioLinked, setSourceAudioStart, musicDuration, musicSegments, musicStart, setMusicSegments,
     sourceAudioDuration, sourceAudioStart, stickerSegments, suppressTimelineClipClickRef, t, timelineDurationRef,
     trackLocks, trackScrollRef, pauseForTimelineEdit, visualSegments, setSnapGuide,
   });
@@ -567,12 +589,13 @@ export function App() {
     notify, script, seekTo, setActiveTool, setCaptionSegments,
     setCaptionsEnabled, setProgress, setScript, setSelectedSegmentId,
     setSelectedTrack, setStatus, setStatusText, setTrackVisibility, sourceAudioBlob,
-    sourceAudioStart, status, trackLocks, uiLanguage,
+    sourceAudioStart, status, t, trackLocks, uiLanguage,
   });
 
   const handleFiles = useFileUpload({
     appendVisualAssetToTimeline, imageUrlRefs, notify, setSelectedLibraryAssetId, setSelectedTrack, setUserAssets,
     updateVisualAssetInTimeline, visualSegments,
+    onFirstVisualAutoAdded: requestFirstVisualGuide,
   });
 
   const { deleteUserAsset, selectAsset } = createAssetLibraryActions({
@@ -584,13 +607,13 @@ export function App() {
   });
 
   const { applyAssetToTrack, handleTrackAssetDrop, handleVisualStyleDrop } = createAssetDropActions({
-    addStickerAssetToTimeline, addVisualOverlay: (...args) => addVisualOverlay(...args), appendVisualAssetToTimeline, canDropAssetOnTrack,
-    draggedAssetIdRef, extractVideoSourceAudio, getDraggedAsset, getTimelineDropPercent,
-    notify, replaceAudio, selectAsset, setActiveTool, setAssetDropPosition,
+    addStickerAssetToTimeline, addVisualOverlay: (...args) => addVisualOverlay(...args), appendVisualAssetToTimeline, canDropAssetOnTrack, clearImageTrack,
+    draggedAssetIdRef, extractVideoSourceAudio, getDraggedAsset, getTimelineDropPercent, imageUrlRefs,
+    notify, onFirstVisualDropped: requestFirstVisualGuide, replaceAudio, selectAsset, setActiveTool, setAssetDropPosition,
     setAssetDropTargetTrack, setDraggedAssetId, setSelectedFilterId,
     setSelectedLibraryAssetId, setSelectedTrack, setSelectedTransitionId,
-    setSelectedVisualSegmentId, setVisualSegments, trackScrollRef, resolveVisualDropIntent,
-    triggerAssetDropPulse,
+    setSelectedVisualSegmentId, setVisualSegments, trackScrollRef, resolveVisualDropIntent, updateVisualAssetInTimeline,
+    t, triggerAssetDropPulse, visualSegments,
   });
   const addVisualOverlay = (asset, options = {}) => {
     if (!asset?.src || (asset.type !== "image" && asset.type !== "video")) return;
@@ -743,6 +766,8 @@ export function App() {
           estimatedDuration, fileInputRef, generateCaptionsFromSourceAudio, handleAssetClick,
           handleAssetPointerDown, handleCaptionPositionChange, handleFiles, handleStickerClick,
           imageSrc, isDragging, mediaTab, musicBlob, musicDuration, musicName, musicVolume,
+          libraryType, libraryQuery, setLibraryQuery, selectLibraryType, libraryStatus, libraryError, libraryProvider,
+          assetDownloadStates, prefetchLibraryAsset,
           notify, openAvatarPanel, previewVisionAnalysis, previewVisionKey, smartMode, setSmartMode,
           previewVisionOptions, previewVisualSrc, previewVisualType, progress, script,
           seekTo, segments, selectTool, selectedCaptionSegment, selectedFilterId,
@@ -751,7 +776,7 @@ export function App() {
           setMediaTab, setMusicVolume, setSelectedAudioSegmentId, setSelectedFilterId, setSelectedSegmentId,
           setSelectedStickerId, setSelectedTrack, setSelectedTransitionId, setSourceAudioVolume, setVoiceTab,
           sourceAudioBlob, sourceAudioDuration, sourceAudioLinked, sourceAudioName, sourceAudioVolume, status, t,
-          separateSourceVocals, vocalSeparationJob,
+          selectedAudioToolTarget, separateSelectedAudioVocals, separateSourceVocals, vocalSeparationJob,
           toggleCaptionSegmentHidden, toggleVisionOption, trOption, updateCaptionSegmentText,
           updateScript, userAssets, visionJob,
           selectedVisualSegment, visualLocalTime, updateSelectedVisualEffects,
@@ -1022,6 +1047,9 @@ export function App() {
         builtInImageCaptionAvailable={autoEdit.support.availability === "available"}
         generateImageCaption={autoEdit.generateImageCaption}
         extractVideoSourceAudio={extractVideoSourceAudio}
+        generateCaptionsFromAudioClip={generateCaptionsFromSourceAudio}
+        separateAudioClipVocals={separateAudioClipVocals}
+        audioProcessingBusy={vocalSeparationJob.running || status === "captioning"}
         setSelectedVisualSegmentId={setSelectedVisualSegmentId}
         seekTo={seekTo}
         suppressTimelineClipClickRef={suppressTimelineClipClickRef}
@@ -1055,8 +1083,8 @@ export function App() {
         startAudioSegmentMove={startAudioSegmentMove}
         startSourceAudioMove={startSourceAudioMove}
         musicBlob={musicBlob}
+        musicSegments={musicSegments}
         musicPeaks={musicPeaks}
-        musicClipPercent={musicClipPercent}
         musicStartPercent={musicStartPercent}
         musicDuration={musicDuration}
         startMusicMove={startMusicMove}
@@ -1064,6 +1092,16 @@ export function App() {
 
       <AssetDragPreview preview={assetDragPreview} t={t} />
       <ExportProgressOverlay exporting={exporting} percent={exportPercent} phase={exportPhase} elapsedSeconds={exportElapsedSeconds} t={t} />
+      {showFirstVisualGuide && !shouldShowLanguageIntro ? (
+        <FirstVisualGuide
+          language={activeLanguage}
+          onClose={() => setShowFirstVisualGuide(false)}
+          onComplete={() => {
+            markFirstVisualGuideSeen();
+            setShowFirstVisualGuide(false);
+          }}
+        />
+      ) : null}
       {shouldShowLanguageIntro ? (
         <LanguageIntro t={t} closing={introClosing} onChoose={chooseInterfaceLanguage} />
       ) : null}

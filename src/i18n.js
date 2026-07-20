@@ -53,6 +53,47 @@ const TRANSITION_EDITOR_COPY = {
   vi: { transitionSettings: "Cài đặt chuyển cảnh", close: "Đóng", duration: "Thời lượng", secondsShort: "giây" },
 };
 
+const ASSET_PREVIEW_COPY = {
+  zh: { assetPreview: "素材预览", closeAssetPreview: "关闭预览", audioPreviewLoading: "正在加载音乐预览…", audioPreviewFailed: "音乐预览加载失败，请稍后重试" },
+  en: { assetPreview: "Preview", closeAssetPreview: "Close preview", audioPreviewLoading: "Loading music preview…", audioPreviewFailed: "Music preview failed to load. Try again later." },
+  ja: { assetPreview: "素材プレビュー", closeAssetPreview: "プレビューを閉じる", audioPreviewLoading: "音楽プレビューを読み込み中…", audioPreviewFailed: "音楽プレビューを読み込めませんでした" },
+  ko: { assetPreview: "미디어 미리보기", closeAssetPreview: "미리보기 닫기", audioPreviewLoading: "음악 미리보기 로딩 중…", audioPreviewFailed: "음악 미리보기를 불러오지 못했습니다" },
+  es: { assetPreview: "Vista previa", closeAssetPreview: "Cerrar vista previa", audioPreviewLoading: "Cargando vista previa de música…", audioPreviewFailed: "No se pudo cargar la vista previa" },
+  fr: { assetPreview: "Aperçu", closeAssetPreview: "Fermer l’aperçu", audioPreviewLoading: "Chargement de l’aperçu musical…", audioPreviewFailed: "Impossible de charger l’aperçu musical" },
+  de: { assetPreview: "Vorschau", closeAssetPreview: "Vorschau schließen", audioPreviewLoading: "Musikvorschau wird geladen…", audioPreviewFailed: "Musikvorschau konnte nicht geladen werden" },
+  pt: { assetPreview: "Pré-visualização", closeAssetPreview: "Fechar pré-visualização", audioPreviewLoading: "Carregando prévia da música…", audioPreviewFailed: "Não foi possível carregar a prévia" },
+  th: { assetPreview: "ดูตัวอย่าง", closeAssetPreview: "ปิดตัวอย่าง", audioPreviewLoading: "กำลังโหลดตัวอย่างเพลง…", audioPreviewFailed: "โหลดตัวอย่างเพลงไม่สำเร็จ" },
+  vi: { assetPreview: "Xem trước", closeAssetPreview: "Đóng bản xem trước", audioPreviewLoading: "Đang tải bản nghe thử…", audioPreviewFailed: "Không thể tải bản nghe thử" },
+};
+
+const ASSET_DROP_COPY = {
+  zh: { remoteAssetDownloading: "正在下载在线素材…", remoteAssetDownloadFailed: "在线素材下载失败，请稍后重试或打开来源页下载", assetTrackMismatch: "请把素材拖到匹配的轨道", remoteAssetPreparing: "在线素材正在准备", remoteAssetRemovedAfterFailure: "在线素材下载失败，已移除临时片段", audioAssetUnavailable: "当前音频素材不可用，请重新上传", audioDroppedOnVoiceTrack: "音频已拖入配音音频轨" },
+  en: { remoteAssetDownloading: "Downloading online media…", remoteAssetDownloadFailed: "Couldn’t download the online media. Try again later or open the source page.", assetTrackMismatch: "Drop the media onto a compatible track", remoteAssetPreparing: "Preparing online media", remoteAssetRemovedAfterFailure: "Download failed and the temporary clip was removed", audioAssetUnavailable: "This audio item is unavailable. Please upload it again.", audioDroppedOnVoiceTrack: "Audio added to the voiceover track" },
+  ja: { remoteAssetDownloading: "オンライン素材をダウンロード中…", remoteAssetDownloadFailed: "オンライン素材をダウンロードできませんでした。後でもう一度お試しください。", assetTrackMismatch: "対応するトラックに素材をドロップしてください", remoteAssetPreparing: "オンライン素材を準備中", remoteAssetRemovedAfterFailure: "ダウンロードに失敗したため一時クリップを削除しました", audioAssetUnavailable: "この音声素材は利用できません。再アップロードしてください。", audioDroppedOnVoiceTrack: "音声をナレーショントラックに追加しました" },
+  ko: { remoteAssetDownloading: "온라인 미디어 다운로드 중…", remoteAssetDownloadFailed: "온라인 미디어를 다운로드하지 못했습니다. 나중에 다시 시도하세요.", assetTrackMismatch: "호환되는 트랙에 미디어를 놓으세요", remoteAssetPreparing: "온라인 미디어 준비 중", remoteAssetRemovedAfterFailure: "다운로드에 실패하여 임시 클립을 제거했습니다", audioAssetUnavailable: "이 오디오를 사용할 수 없습니다. 다시 업로드하세요.", audioDroppedOnVoiceTrack: "오디오를 보이스오버 트랙에 추가했습니다" },
+  es: { remoteAssetDownloading: "Descargando contenido en línea…", remoteAssetDownloadFailed: "No se pudo descargar. Inténtalo de nuevo más tarde.", assetTrackMismatch: "Suelta el contenido en una pista compatible", remoteAssetPreparing: "Preparando contenido en línea", remoteAssetRemovedAfterFailure: "La descarga falló y se eliminó el clip temporal", audioAssetUnavailable: "Este audio no está disponible. Vuelve a subirlo.", audioDroppedOnVoiceTrack: "Audio añadido a la pista de voz" },
+  fr: { remoteAssetDownloading: "Téléchargement du média en ligne…", remoteAssetDownloadFailed: "Impossible de télécharger le média. Réessayez plus tard.", assetTrackMismatch: "Déposez le média sur une piste compatible", remoteAssetPreparing: "Préparation du média en ligne", remoteAssetRemovedAfterFailure: "Échec du téléchargement, clip temporaire supprimé", audioAssetUnavailable: "Ce média audio est indisponible. Importez-le à nouveau.", audioDroppedOnVoiceTrack: "Audio ajouté à la piste de voix off" },
+  de: { remoteAssetDownloading: "Online-Medium wird heruntergeladen…", remoteAssetDownloadFailed: "Online-Medium konnte nicht heruntergeladen werden. Versuche es später erneut.", assetTrackMismatch: "Medium auf eine kompatible Spur ziehen", remoteAssetPreparing: "Online-Medium wird vorbereitet", remoteAssetRemovedAfterFailure: "Download fehlgeschlagen; temporärer Clip wurde entfernt", audioAssetUnavailable: "Dieses Audio ist nicht verfügbar. Bitte erneut hochladen.", audioDroppedOnVoiceTrack: "Audio zur Voiceover-Spur hinzugefügt" },
+  pt: { remoteAssetDownloading: "Baixando mídia on-line…", remoteAssetDownloadFailed: "Não foi possível baixar a mídia. Tente novamente mais tarde.", assetTrackMismatch: "Solte a mídia em uma faixa compatível", remoteAssetPreparing: "Preparando mídia on-line", remoteAssetRemovedAfterFailure: "O download falhou e o clipe temporário foi removido", audioAssetUnavailable: "Este áudio não está disponível. Envie-o novamente.", audioDroppedOnVoiceTrack: "Áudio adicionado à faixa de narração" },
+  th: { remoteAssetDownloading: "กำลังดาวน์โหลดสื่อออนไลน์…", remoteAssetDownloadFailed: "ดาวน์โหลดสื่อไม่สำเร็จ โปรดลองอีกครั้งภายหลัง", assetTrackMismatch: "วางสื่อลงในแทร็กที่รองรับ", remoteAssetPreparing: "กำลังเตรียมสื่อออนไลน์", remoteAssetRemovedAfterFailure: "ดาวน์โหลดไม่สำเร็จและลบคลิปชั่วคราวแล้ว", audioAssetUnavailable: "ไฟล์เสียงนี้ใช้ไม่ได้ โปรดอัปโหลดใหม่", audioDroppedOnVoiceTrack: "เพิ่มเสียงลงในแทร็กพากย์แล้ว" },
+  vi: { remoteAssetDownloading: "Đang tải nội dung trực tuyến…", remoteAssetDownloadFailed: "Không thể tải nội dung. Hãy thử lại sau.", assetTrackMismatch: "Thả nội dung vào rãnh tương thích", remoteAssetPreparing: "Đang chuẩn bị nội dung trực tuyến", remoteAssetRemovedAfterFailure: "Tải xuống thất bại và clip tạm đã bị xóa", audioAssetUnavailable: "Âm thanh này không khả dụng. Vui lòng tải lên lại.", audioDroppedOnVoiceTrack: "Đã thêm âm thanh vào rãnh lồng tiếng" },
+  ru: { remoteAssetDownloading: "Загрузка онлайн-медиа…", remoteAssetDownloadFailed: "Не удалось загрузить медиа. Повторите попытку позже.", assetTrackMismatch: "Перетащите медиа на совместимую дорожку", remoteAssetPreparing: "Подготовка онлайн-медиа", remoteAssetRemovedAfterFailure: "Загрузка не удалась, временный клип удалён", audioAssetUnavailable: "Это аудио недоступно. Загрузите его снова.", audioDroppedOnVoiceTrack: "Аудио добавлено на дорожку озвучки" },
+};
+
+const AUTO_CAPTION_STATUS_COPY = {
+  zh: { asrDownloadingModel: "下载或读取 Whisper small ONNX", asrDetectingLanguage: "识别音频语言", asrInitializingWebGpu: "初始化 WebGPU ONNX", asrInitializingWasm: "初始化 WASM ONNX", asrFallingBackWasm: "WebGPU 初始化失败，切换 WASM", asrTranscribingLanguage: "使用 {language} 转写字幕", asrDecodingAudio: "解码原声音频", asrWorkerFallback: "Worker 不可用，切换主线程自动字幕", asrRetryingWasm: "识别结果异常，切换稳定 WASM 重新识别", asrWritingCaptions: "写入字幕轨道" },
+  en: { asrDownloadingModel: "Downloading or loading Whisper small ONNX", asrDetectingLanguage: "Detecting audio language", asrInitializingWebGpu: "Initializing WebGPU ONNX", asrInitializingWasm: "Initializing WASM ONNX", asrFallingBackWasm: "WebGPU initialization failed; switching to WASM", asrTranscribingLanguage: "Transcribing captions in {language}", asrDecodingAudio: "Decoding source audio", asrWorkerFallback: "Worker unavailable; switching to main-thread captions", asrRetryingWasm: "Unexpected result; retrying with stable WASM", asrWritingCaptions: "Writing caption track" },
+  ja: { asrDownloadingModel: "Whisper small ONNXをダウンロードまたは読み込み中", asrDetectingLanguage: "音声言語を検出中", asrInitializingWebGpu: "WebGPU ONNXを初期化中", asrInitializingWasm: "WASM ONNXを初期化中", asrFallingBackWasm: "WebGPUの初期化に失敗、WASMへ切り替え中", asrTranscribingLanguage: "{language}で字幕を文字起こし中", asrDecodingAudio: "元音声をデコード中", asrWorkerFallback: "Workerを利用できないためメインスレッドへ切り替え中", asrRetryingWasm: "結果が不安定なためWASMで再認識中", asrWritingCaptions: "字幕トラックへ書き込み中" },
+  ko: { asrDownloadingModel: "Whisper small ONNX 다운로드 또는 불러오는 중", asrDetectingLanguage: "오디오 언어 감지 중", asrInitializingWebGpu: "WebGPU ONNX 초기화 중", asrInitializingWasm: "WASM ONNX 초기화 중", asrFallingBackWasm: "WebGPU 초기화 실패, WASM으로 전환 중", asrTranscribingLanguage: "{language} 자막 변환 중", asrDecodingAudio: "원본 오디오 디코딩 중", asrWorkerFallback: "Worker를 사용할 수 없어 메인 스레드로 전환 중", asrRetryingWasm: "결과가 불안정하여 WASM으로 다시 인식 중", asrWritingCaptions: "자막 트랙 작성 중" },
+  es: { asrDownloadingModel: "Descargando o cargando Whisper small ONNX", asrDetectingLanguage: "Detectando idioma del audio", asrInitializingWebGpu: "Inicializando WebGPU ONNX", asrInitializingWasm: "Inicializando WASM ONNX", asrFallingBackWasm: "Falló WebGPU; cambiando a WASM", asrTranscribingLanguage: "Transcribiendo subtítulos en {language}", asrDecodingAudio: "Decodificando audio de origen", asrWorkerFallback: "Worker no disponible; usando el hilo principal", asrRetryingWasm: "Resultado inesperado; reintentando con WASM", asrWritingCaptions: "Escribiendo pista de subtítulos" },
+  fr: { asrDownloadingModel: "Téléchargement ou chargement de Whisper small ONNX", asrDetectingLanguage: "Détection de la langue audio", asrInitializingWebGpu: "Initialisation de WebGPU ONNX", asrInitializingWasm: "Initialisation de WASM ONNX", asrFallingBackWasm: "Échec de WebGPU, passage à WASM", asrTranscribingLanguage: "Transcription des sous-titres en {language}", asrDecodingAudio: "Décodage de l’audio source", asrWorkerFallback: "Worker indisponible, passage au thread principal", asrRetryingWasm: "Résultat inattendu, nouvel essai avec WASM", asrWritingCaptions: "Écriture de la piste de sous-titres" },
+  de: { asrDownloadingModel: "Whisper small ONNX wird geladen", asrDetectingLanguage: "Audiosprache wird erkannt", asrInitializingWebGpu: "WebGPU ONNX wird initialisiert", asrInitializingWasm: "WASM ONNX wird initialisiert", asrFallingBackWasm: "WebGPU fehlgeschlagen; Wechsel zu WASM", asrTranscribingLanguage: "Untertitel werden auf {language} transkribiert", asrDecodingAudio: "Quellaudio wird dekodiert", asrWorkerFallback: "Worker nicht verfügbar; Wechsel zum Hauptthread", asrRetryingWasm: "Unerwartetes Ergebnis; neuer WASM-Versuch", asrWritingCaptions: "Untertitelspur wird geschrieben" },
+  pt: { asrDownloadingModel: "Baixando ou carregando Whisper small ONNX", asrDetectingLanguage: "Detectando idioma do áudio", asrInitializingWebGpu: "Inicializando WebGPU ONNX", asrInitializingWasm: "Inicializando WASM ONNX", asrFallingBackWasm: "Falha no WebGPU; alternando para WASM", asrTranscribingLanguage: "Transcrevendo legendas em {language}", asrDecodingAudio: "Decodificando áudio de origem", asrWorkerFallback: "Worker indisponível; alternando para a thread principal", asrRetryingWasm: "Resultado inesperado; tentando novamente com WASM", asrWritingCaptions: "Gravando faixa de legendas" },
+  th: { asrDownloadingModel: "กำลังดาวน์โหลดหรือโหลด Whisper small ONNX", asrDetectingLanguage: "กำลังตรวจหาภาษาเสียง", asrInitializingWebGpu: "กำลังเริ่ม WebGPU ONNX", asrInitializingWasm: "กำลังเริ่ม WASM ONNX", asrFallingBackWasm: "เริ่ม WebGPU ไม่สำเร็จ กำลังเปลี่ยนเป็น WASM", asrTranscribingLanguage: "กำลังถอดคำบรรยายภาษา {language}", asrDecodingAudio: "กำลังถอดรหัสเสียงต้นฉบับ", asrWorkerFallback: "ใช้ Worker ไม่ได้ กำลังเปลี่ยนไปใช้เธรดหลัก", asrRetryingWasm: "ผลลัพธ์ผิดปกติ กำลังลองใหม่ด้วย WASM", asrWritingCaptions: "กำลังเขียนแทร็กคำบรรยาย" },
+  vi: { asrDownloadingModel: "Đang tải Whisper small ONNX", asrDetectingLanguage: "Đang nhận diện ngôn ngữ âm thanh", asrInitializingWebGpu: "Đang khởi tạo WebGPU ONNX", asrInitializingWasm: "Đang khởi tạo WASM ONNX", asrFallingBackWasm: "WebGPU thất bại; chuyển sang WASM", asrTranscribingLanguage: "Đang chép phụ đề bằng {language}", asrDecodingAudio: "Đang giải mã âm thanh nguồn", asrWorkerFallback: "Worker không khả dụng; chuyển sang luồng chính", asrRetryingWasm: "Kết quả bất thường; thử lại bằng WASM", asrWritingCaptions: "Đang ghi rãnh phụ đề" },
+  ru: { asrDownloadingModel: "Загрузка Whisper small ONNX", asrDetectingLanguage: "Определение языка аудио", asrInitializingWebGpu: "Инициализация WebGPU ONNX", asrInitializingWasm: "Инициализация WASM ONNX", asrFallingBackWasm: "Ошибка WebGPU; переключение на WASM", asrTranscribingLanguage: "Распознавание субтитров на языке {language}", asrDecodingAudio: "Декодирование исходного аудио", asrWorkerFallback: "Worker недоступен; переход в основной поток", asrRetryingWasm: "Неожиданный результат; повтор через WASM", asrWritingCaptions: "Запись дорожки субтитров" },
+};
+
 const VISUAL_PANEL_TITLE_COPY = {
   zh: { visualPanelTitle: "画面" },
   en: { visualPanelTitle: "Visuals" },
@@ -214,16 +255,16 @@ const CONTEXT_PANEL_COPY = {
 };
 
 const TIMELINE_AUDIO_MENU_COPY = {
-  zh: { muteClip: "静音", unmuteClip: "取消静音", separateSourceAudio: "分离音频", separatingSourceAudio: "正在分离音频…" },
-  en: { muteClip: "Mute", unmuteClip: "Unmute", separateSourceAudio: "Separate audio", separatingSourceAudio: "Separating audio…" },
-  ja: { muteClip: "ミュート", unmuteClip: "ミュート解除", separateSourceAudio: "音声を分離", separatingSourceAudio: "音声を分離中…" },
-  ko: { muteClip: "음소거", unmuteClip: "음소거 해제", separateSourceAudio: "오디오 분리", separatingSourceAudio: "오디오 분리 중…" },
-  es: { muteClip: "Silenciar", unmuteClip: "Activar sonido", separateSourceAudio: "Separar audio", separatingSourceAudio: "Separando audio…" },
-  fr: { muteClip: "Couper le son", unmuteClip: "Rétablir le son", separateSourceAudio: "Séparer l’audio", separatingSourceAudio: "Séparation audio…" },
-  de: { muteClip: "Stummschalten", unmuteClip: "Ton einschalten", separateSourceAudio: "Audio trennen", separatingSourceAudio: "Audio wird getrennt…" },
-  pt: { muteClip: "Silenciar", unmuteClip: "Ativar som", separateSourceAudio: "Separar áudio", separatingSourceAudio: "Separando áudio…" },
-  th: { muteClip: "ปิดเสียง", unmuteClip: "เปิดเสียง", separateSourceAudio: "แยกเสียง", separatingSourceAudio: "กำลังแยกเสียง…" },
-  vi: { muteClip: "Tắt tiếng", unmuteClip: "Bật tiếng", separateSourceAudio: "Tách âm thanh", separatingSourceAudio: "Đang tách âm thanh…" },
+  zh: { muteClip: "静音", unmuteClip: "取消静音", separateSourceAudio: "分离音频", separatingSourceAudio: "正在分离音频…", separateVocalsFromClip: "AI 人声分离", generateCaptionsFromClip: "从此片段生成字幕", captionTrackLocked: "字幕轨已锁定，无法生成自动字幕", autoCaptionsPreparing: "准备自动字幕模型", autoCaptionsComplete: "已生成 {count} 条自动字幕", autoCaptionsFailed: "自动字幕生成失败", autoCaptionsFailedHint: "自动字幕生成失败，请换一段有清晰人声的音频试试", audioClipFile: "音频片段" },
+  en: { muteClip: "Mute", unmuteClip: "Unmute", separateSourceAudio: "Separate audio", separatingSourceAudio: "Separating audio…", separateVocalsFromClip: "AI vocal separation", generateCaptionsFromClip: "Generate captions from clip", captionTrackLocked: "The caption track is locked", autoCaptionsPreparing: "Preparing the automatic caption model", autoCaptionsComplete: "Generated {count} automatic captions", autoCaptionsFailed: "Automatic caption generation failed", autoCaptionsFailedHint: "Caption generation failed. Try audio with clearer speech.", audioClipFile: "audio-clip" },
+  ja: { muteClip: "ミュート", unmuteClip: "ミュート解除", separateSourceAudio: "音声を分離", separatingSourceAudio: "音声を分離中…", separateVocalsFromClip: "AIボーカル分離", generateCaptionsFromClip: "このクリップから字幕を生成", captionTrackLocked: "字幕トラックがロックされています", autoCaptionsPreparing: "自動字幕モデルを準備中", autoCaptionsComplete: "自動字幕を{count}件生成しました", autoCaptionsFailed: "自動字幕の生成に失敗しました", autoCaptionsFailedHint: "字幕を生成できませんでした。音声が明瞭なクリップをお試しください。", audioClipFile: "音声クリップ" },
+  ko: { muteClip: "음소거", unmuteClip: "음소거 해제", separateSourceAudio: "오디오 분리", separatingSourceAudio: "오디오 분리 중…", separateVocalsFromClip: "AI 보컬 분리", generateCaptionsFromClip: "이 클립에서 자막 생성", captionTrackLocked: "자막 트랙이 잠겨 있습니다", autoCaptionsPreparing: "자동 자막 모델 준비 중", autoCaptionsComplete: "자동 자막 {count}개 생성됨", autoCaptionsFailed: "자동 자막 생성 실패", autoCaptionsFailedHint: "자막 생성에 실패했습니다. 음성이 더 선명한 오디오를 사용해 보세요.", audioClipFile: "오디오 클립" },
+  es: { muteClip: "Silenciar", unmuteClip: "Activar sonido", separateSourceAudio: "Separar audio", separatingSourceAudio: "Separando audio…", separateVocalsFromClip: "Separación vocal con IA", generateCaptionsFromClip: "Generar subtítulos del clip", captionTrackLocked: "La pista de subtítulos está bloqueada", autoCaptionsPreparing: "Preparando el modelo de subtítulos", autoCaptionsComplete: "Se generaron {count} subtítulos", autoCaptionsFailed: "Error al generar subtítulos", autoCaptionsFailedHint: "No se pudieron generar subtítulos. Prueba un audio con voz más clara.", audioClipFile: "clip-de-audio" },
+  fr: { muteClip: "Couper le son", unmuteClip: "Rétablir le son", separateSourceAudio: "Séparer l’audio", separatingSourceAudio: "Séparation audio…", separateVocalsFromClip: "Séparation vocale par IA", generateCaptionsFromClip: "Générer les sous-titres du clip", captionTrackLocked: "La piste de sous-titres est verrouillée", autoCaptionsPreparing: "Préparation du modèle de sous-titres", autoCaptionsComplete: "{count} sous-titres générés", autoCaptionsFailed: "Échec de la génération des sous-titres", autoCaptionsFailedHint: "Échec des sous-titres. Essayez un son avec une voix plus nette.", audioClipFile: "clip-audio" },
+  de: { muteClip: "Stummschalten", unmuteClip: "Ton einschalten", separateSourceAudio: "Audio trennen", separatingSourceAudio: "Audio wird getrennt…", separateVocalsFromClip: "KI-Stimmentrennung", generateCaptionsFromClip: "Untertitel aus Clip erzeugen", captionTrackLocked: "Die Untertitelspur ist gesperrt", autoCaptionsPreparing: "Automatisches Untertitelmodell wird vorbereitet", autoCaptionsComplete: "{count} automatische Untertitel erstellt", autoCaptionsFailed: "Untertitel konnten nicht erstellt werden", autoCaptionsFailedHint: "Untertitel fehlgeschlagen. Versuche Audio mit deutlicherer Sprache.", audioClipFile: "audio-clip" },
+  pt: { muteClip: "Silenciar", unmuteClip: "Ativar som", separateSourceAudio: "Separar áudio", separatingSourceAudio: "Separando áudio…", separateVocalsFromClip: "Separação vocal por IA", generateCaptionsFromClip: "Gerar legendas do clipe", captionTrackLocked: "A faixa de legendas está bloqueada", autoCaptionsPreparing: "Preparando o modelo de legendas", autoCaptionsComplete: "{count} legendas automáticas geradas", autoCaptionsFailed: "Falha ao gerar legendas", autoCaptionsFailedHint: "Falha nas legendas. Tente um áudio com fala mais clara.", audioClipFile: "clipe-de-audio" },
+  th: { muteClip: "ปิดเสียง", unmuteClip: "เปิดเสียง", separateSourceAudio: "แยกเสียง", separatingSourceAudio: "กำลังแยกเสียง…", separateVocalsFromClip: "แยกเสียงร้องด้วย AI", generateCaptionsFromClip: "สร้างคำบรรยายจากคลิป", captionTrackLocked: "แทร็กคำบรรยายถูกล็อก", autoCaptionsPreparing: "กำลังเตรียมโมเดลคำบรรยาย", autoCaptionsComplete: "สร้างคำบรรยายอัตโนมัติ {count} รายการแล้ว", autoCaptionsFailed: "สร้างคำบรรยายไม่สำเร็จ", autoCaptionsFailedHint: "สร้างคำบรรยายไม่สำเร็จ โปรดลองเสียงพูดที่ชัดเจนกว่า", audioClipFile: "คลิปเสียง" },
+  vi: { muteClip: "Tắt tiếng", unmuteClip: "Bật tiếng", separateSourceAudio: "Tách âm thanh", separatingSourceAudio: "Đang tách âm thanh…", separateVocalsFromClip: "Tách giọng hát bằng AI", generateCaptionsFromClip: "Tạo phụ đề từ clip", captionTrackLocked: "Rãnh phụ đề đang bị khóa", autoCaptionsPreparing: "Đang chuẩn bị mô hình phụ đề", autoCaptionsComplete: "Đã tạo {count} phụ đề tự động", autoCaptionsFailed: "Không thể tạo phụ đề", autoCaptionsFailedHint: "Tạo phụ đề thất bại. Hãy thử âm thanh có giọng nói rõ hơn.", audioClipFile: "clip-am-thanh" },
 };
 
 Object.entries(TIMELINE_AUDIO_MENU_COPY).forEach(([language, copy]) => {
@@ -426,6 +467,18 @@ export const UI_COPY = {
     loadMoreStickers: "加载更多贴纸",
     uploadTab: "本地上传",
     libraryTab: "素材库",
+    libraryMediaType: "素材类型",
+    libraryImage: "图片",
+    libraryVideo: "视频",
+    libraryAudio: "音乐",
+    librarySearchPlaceholder: "搜索开放素材",
+    librarySearchMusicPlaceholder: "搜索开放音乐",
+    libraryProvidedBy: "素材来源：",
+    libraryLoading: "正在加载开放素材…",
+    libraryPreparingAsset: "正在准备素材",
+    libraryAssetReady: "素材已准备，可快速拖入",
+    timelineMediaPreparing: "正在准备素材",
+    libraryEmpty: "没有找到匹配的开放素材，请更换关键词。",
     mineTab: "我的素材",
     uploadDropTitle: "点击上传或拖拽图片/视频/音频到此处",
     uploadSupport: "支持 JPG、PNG、WebP、MP4、WebM、MOV、MP3、WAV、M4A",
@@ -810,6 +863,18 @@ export const UI_COPY = {
     loadMoreStickers: "Load more stickers",
     uploadTab: "Upload",
     libraryTab: "Library",
+    libraryMediaType: "Media type",
+    libraryImage: "Images",
+    libraryVideo: "Videos",
+    libraryAudio: "Music",
+    librarySearchPlaceholder: "Search open media",
+    librarySearchMusicPlaceholder: "Search open music",
+    libraryProvidedBy: "Provided by",
+    libraryLoading: "Loading open media…",
+    libraryPreparingAsset: "Preparing media",
+    libraryAssetReady: "Media ready to add",
+    timelineMediaPreparing: "Preparing media",
+    libraryEmpty: "No matching open media. Try another search.",
     mineTab: "My assets",
     uploadDropTitle: "Click or drop image, video, or audio here",
     uploadSupport: "Supports JPG, PNG, WebP, MP4, WebM, MOV, MP3, WAV, M4A",
@@ -1740,7 +1805,10 @@ export function createTranslator(languageId) {
   const copy = UI_COPY[copyLanguage] ?? UI_COPY.en;
   const fallback = UI_COPY.en;
   const exportCopy = EXPORT_RENDER_COPY[copyLanguage] ?? EXPORT_RENDER_COPY.en;
-  return (key, fallbackText) => exportCopy[key] ?? EXPORT_RENDER_COPY.en[key] ?? copy[key] ?? fallback[key] ?? UI_COPY.zh[key] ?? fallbackText ?? key;
+  const assetPreviewCopy = ASSET_PREVIEW_COPY[copyLanguage] ?? ASSET_PREVIEW_COPY.en;
+  const assetDropCopy = ASSET_DROP_COPY[copyLanguage] ?? ASSET_DROP_COPY.en;
+  const autoCaptionStatusCopy = AUTO_CAPTION_STATUS_COPY[copyLanguage] ?? AUTO_CAPTION_STATUS_COPY.en;
+  return (key, fallbackText) => exportCopy[key] ?? EXPORT_RENDER_COPY.en[key] ?? assetPreviewCopy[key] ?? ASSET_PREVIEW_COPY.en[key] ?? assetDropCopy[key] ?? ASSET_DROP_COPY.en[key] ?? autoCaptionStatusCopy[key] ?? AUTO_CAPTION_STATUS_COPY.en[key] ?? copy[key] ?? fallback[key] ?? UI_COPY.zh[key] ?? fallbackText ?? key;
 }
 
 export function translateOptionName(languageId, name) {

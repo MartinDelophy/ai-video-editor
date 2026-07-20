@@ -43,6 +43,7 @@ import { createTimelineReorderControls } from "./lib/timelineReorderControls.js"
 import { createTimelineMoveControls } from "./lib/timelineMoveControls.js";
 import { createImageResizeControl } from "./lib/imageResizeControl.js";
 import { createTimelineClipboardActions } from "./lib/timelineClipboardActions.js";
+import { appendImportedCaptions } from "./lib/subtitles.js";
 import { createTimelineCutActions } from "./lib/timelineCutActions.js";
 import { createTimelineSegmentCountActions } from "./lib/timelineSegmentCountActions.js";
 import { createTimelineDurationActions } from "./lib/timelineDurationActions.js";
@@ -366,6 +367,19 @@ export function App() {
     setScript, setSelectedSegmentId, setSelectedTrack,
     setVisionRecords, trackLocks,
   });
+  const importCaptionSegments = (importedSegments, mode, skipped = 0) => {
+    const nextSegments = mode === "append"
+      ? appendImportedCaptions(captionSegments, importedSegments)
+      : importedSegments;
+    const selectedIndex = nextSegments.findIndex((segment) => segment.id === importedSegments[0]?.id);
+    commitCaptionSegments(
+      nextSegments,
+      t("srtImportComplete").replace("{count}", importedSegments.length).replace("{skipped}", skipped),
+      Math.max(0, selectedIndex),
+    );
+    setCaptionsEnabled(true);
+    setTrackVisibility((current) => ({ ...current, caption: true }));
+  };
   const autoEdit = useAutoEdit({
     language: activeLanguage, visualSegments, captionSegments, commitCaptionSegments, setCaptionsEnabled,
     setTrackVisibility, setSelectedSegmentId, setSelectedTrack, notify, t,
@@ -935,6 +949,7 @@ export function App() {
           updateCaptionSegmentText={updateCaptionSegmentText}
           toggleCaptionSegmentHidden={toggleCaptionSegmentHidden}
           deleteCaptionSegment={deleteCaptionSegment}
+          importCaptionSegments={importCaptionSegments}
           seekTo={seekTo}
           sourceAudioBlob={sourceAudioBlob}
           sourceAudioLinked={sourceAudioLinked}

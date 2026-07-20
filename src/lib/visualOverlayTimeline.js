@@ -37,6 +37,14 @@ export function getVisualOverlayPixelBox(overlay, frameSize) {
 
 export function createVisualOverlaySegment(asset, start = 0, options = {}) {
   const duration = Math.max(0.1, Number(options.duration ?? asset?.duration) || DEFAULT_OVERLAY_SECONDS);
+  const baseTransform = {
+    x: 27,
+    y: -24,
+    scale: 0.34,
+    rotation: 0,
+    opacity: 1,
+    ...(options.baseTransform || {}),
+  };
   return {
     id: options.id || `overlay-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
     assetId: asset?.id || "",
@@ -54,14 +62,8 @@ export function createVisualOverlaySegment(asset, start = 0, options = {}) {
     duration,
     muted: options.muted === true,
     layer: Math.max(1, Number(options.layer) || 1),
-    keyframes: normalizeVisualKeyframes(options.keyframes?.length ? options.keyframes : [{
-      time: 0,
-      x: 27,
-      y: -24,
-      scale: 0.34,
-      rotation: 0,
-      opacity: 1,
-    }]),
+    baseTransform,
+    keyframes: normalizeVisualKeyframes(options.keyframes || []),
   };
 }
 

@@ -21,7 +21,7 @@ export function createPlaybackControls(deps) {
     deps.currentTimeRef.current = clamped; deps.setCurrentTime(clamped);
     deps.audioSegments.forEach((segment) => {
       const audio = deps.audioSegmentRefs.current.get(segment.id);
-      if (audio) audio.currentTime = getTimelineTrackLocalTime(clamped, segment.start, segment.duration);
+      if (audio) audio.currentTime = Math.max(0, Number(segment.sourceStart) || 0) + getTimelineTrackLocalTime(clamped, segment.start, segment.duration);
     });
     if (deps.sourceAudioRef.current) deps.sourceAudioRef.current.currentTime = getSourceState(clamped).sourceTime;
     if (deps.musicRef.current) deps.musicRef.current.currentTime = getTimelineTrackLocalTime(clamped, deps.musicStart, deps.musicDuration);
@@ -55,7 +55,7 @@ export function createPlaybackControls(deps) {
     const playIf = (media, ready) => ready ? media?.play().catch(() => {}) : media?.pause();
     voices.forEach(({ segment, audio }) => {
       const active = isTimelineTimeInsideTrack(timelineTime, segment.start, segment.duration);
-      audio.currentTime = getTimelineTrackLocalTime(timelineTime, segment.start, segment.duration);
+      audio.currentTime = Math.max(0, Number(segment.sourceStart) || 0) + getTimelineTrackLocalTime(timelineTime, segment.start, segment.duration);
       audio.volume = getAudioSegmentPreviewVolume(segment, timelineTime); audio.playbackRate = 1; playIf(audio, active);
     });
     if (source && deps.sourceAudioUrl) {

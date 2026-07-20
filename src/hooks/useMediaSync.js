@@ -9,7 +9,7 @@ export function useMediaSync(d) {
     d.audioSegments.forEach((s) => {
       const a = d.audioSegmentRefs.current.get(s.id); if (!a) return;
       const active = isTimelineTimeInsideTrack(d.currentTime, s.start, s.duration);
-      if (active) { const expected = getTimelineTrackLocalTime(d.currentTime, s.start, s.duration); if (Math.abs(a.currentTime - expected) > 0.2) a.currentTime = expected; if (a.paused) a.play().catch(() => {}); }
+      if (active) { const expected = Math.max(0, Number(s.sourceStart) || 0) + getTimelineTrackLocalTime(d.currentTime, s.start, s.duration); if (Math.abs(a.currentTime - expected) > 0.2) a.currentTime = expected; if (a.paused) a.play().catch(() => {}); }
       else if (!a.paused) a.pause();
     });
   }, [d.audioSegments, d.currentTime, d.isPlaying, d.trackVisibility.audio]);

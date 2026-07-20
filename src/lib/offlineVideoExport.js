@@ -92,7 +92,7 @@ export async function mixOfflineAudio({
   const inputs = [
     ...voiceAudioSegments.filter((item) => item.blob).map((item) => ({
       blob: item.blob, start: Math.max(0, item.start || 0), volume: item.volume ?? 1,
-      sourceOffset: 0, sourceDuration: 0, playbackRate: 1,
+      sourceOffset: Math.max(0, item.sourceStart || 0), sourceDuration: Math.max(0, item.duration || 0), playbackRate: 1,
       fadeIn: Math.max(0, item.fadeIn || 0), fadeOut: Math.max(0, item.fadeOut || 0),
     })),
     ...(sourceAudioBlob && sourceAudioSegments.length ? sourceAudioSegments.map((item) => ({

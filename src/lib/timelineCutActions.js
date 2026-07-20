@@ -37,9 +37,56 @@ export function createTimelineCutActions(d) {
       { ...source, id: makeId("caption"), text: source.text.slice(splitAt), weight: Math.max(0.7, (source.weight ?? 1) / 2), ...(splitTime ? { start: splitTime } : {}) });
     d.commitCaptionSegments(next, "已把当前字幕片段拆成两段", index + 1);
   };
+  const handleCutAudioSegment = () => {
+    if (d.trackLocks.audio) return void d.notify("配音轨已锁定，无法剪切");
+    const index = d.audioSegments.findIndex((segment) => segment.id === d.selectedAudioSegmentId);
+    const source = d.audioSegments[index];
+    if (!source) return void d.notify("请先选择一个配音片段");
+    const time = Math.max(source.start, Math.min(source.start + source.duration, d.currentTime));
+    if (time <= source.start + 0.05 || time >= source.start + source.duration - 0.05) {
+      return void d.notify("请把播放头放在配音片段中间再剪切");
+    }
+    const firstDuration = time - source.start;
+    const secondDuration = source.duration - firstDuration;
+    const peakSplit = Math.max(1, Math.min((source.peaks?.length || 1) - 1, Math.round((firstDuration / source.duration) * (source.peaks?.length || 0))));
+    const firstId = makeId("voice");
+    const secondId = makeId("voice");
+    const firstUrl = source.blob ? URL.createObjectURL(source.blob) : source.url;
+    const secondUrl = source.blob ? URL.createObjectURL(source.blob) : source.url;
+    const first = {
+      ...source,
+      id: firstId,
+      url: firstUrl,
+      duration: firstDuration,
+      peaks: source.peaks?.slice(0, peakSplit) || [],
+      fadeOut: 0,
+    };
+    const second = {
+      ...source,
+      id: secondId,
+      url: secondUrl,
+      start: time,
+      duration: secondDuration,
+      sourceStart: Math.max(0, Number(source.sourceStart) || 0) + firstDuration,
+      peaks: source.peaks?.slice(peakSplit) || [],
+      fadeIn: 0,
+    };
+    d.setAudioSegments((segments) => {
+      const next = [...segments];
+      next.splice(index, 1, first, second);
+      return next;
+    });
+    if (source.blob && source.url) URL.revokeObjectURL(source.url);
+    d.setCaptionSegments((captions) => captions.map((caption) => caption.audioSegmentId === source.id
+      ? { ...caption, audioSegmentId: firstId, end: Math.min(caption.end, time) }
+      : caption));
+    d.setSelectedAudioSegmentId(secondId);
+    d.notify("已在播放头位置切开配音片段");
+  };
   const handleCutTrack = () => {
     if (d.selectedTrack === "image") return void handleCutVisualSegment();
     if (d.selectedTrack === "caption") return void handleCutCaption();
+    if (d.selectedTrack === "audio") return void handleCutAudioSegment();
     if (d.selectedTrack === "sticker") {
       if (d.trackLocks.sticker) return void d.notify("贴纸轨已锁定，无法剪切");
       const selected = d.selectedStickerSegmentId && d.stickerSegments.findIndex((segment) => segment.id === d.selectedStickerSegmentId);

@@ -507,10 +507,11 @@ export function App() {
   });
 
   const { handleCutTrack } = createTimelineCutActions({
-    captionSegments, commitCaptionSegments, commitStickerSegments, commitVisualSegments,
+    audioSegments, captionSegments, commitCaptionSegments, commitStickerSegments, commitVisualSegments,
     currentStickerSegmentIndex, currentTime, focusedSegmentIndex,
     getCurrentVisualAssetSnapshot, imageDuration, imageSrc, notify,
-    selectedSegmentId, selectedSegmentIndex, selectedStickerSegmentId,
+    selectedAudioSegmentId, selectedSegmentId, selectedSegmentIndex, selectedStickerSegmentId,
+    setAudioSegments, setCaptionSegments, setSelectedAudioSegmentId,
     selectedTrack, stickerSegments, trackLocks, visualSegments,
   });
 

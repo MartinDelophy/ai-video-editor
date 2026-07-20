@@ -13,7 +13,8 @@ describe("visual overlay timeline", () => {
   it("creates a picture-in-picture clip at the requested time", () => {
     const clip = createVisualOverlaySegment({ id: "asset", name: "camera", type: "video", src: "blob:test", duration: 3, trackFrames: ["frame-a", "frame-b"] }, 4, { id: "pip" });
     expect(clip).toMatchObject({ id: "pip", start: 4, duration: 3, type: "video", layer: 1, muted: false, trackFrames: ["frame-a", "frame-b"] });
-    expect(clip.keyframes[0]).toMatchObject({ scale: 0.34, x: 27, y: -24 });
+    expect(clip.baseTransform).toMatchObject({ scale: 0.34, x: 27, y: -24 });
+    expect(clip.keyframes).toEqual([]);
   });
 
   it("preserves a square overlay box inside portrait and landscape frames", () => {

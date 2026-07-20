@@ -880,6 +880,9 @@ export async function exportBrowserVideo({
       volume: segment.volume ?? 1,
       role: "voice",
       start: Math.max(0, segment.start || 0),
+      sourceOffset: Math.max(0, segment.sourceStart || 0),
+      sourceDuration: Math.max(0, segment.duration || 0),
+      outputDuration: Math.max(0, segment.duration || 0),
       fadeIn: Math.max(0, segment.fadeIn || 0),
       fadeOut: Math.max(0, segment.fadeOut || 0),
     })),
@@ -936,7 +939,7 @@ export async function exportBrowserVideo({
       }),
     );
 
-    decodedDuration = Math.max(0, ...decodedInputs.filter((input) => input.role === "voice").map((input) => input.start + input.decoded.duration));
+    decodedDuration = Math.max(0, ...decodedInputs.filter((input) => input.role === "voice").map((input) => input.start + input.outputDuration));
 
     decodedInputs.forEach((input) => {
       const source = audioContext.createBufferSource();

@@ -21,6 +21,7 @@ import { getStickerBaseSize } from "../lib/stickerGeometry.js";
 import { CaptionOverlay } from "./CaptionOverlay.jsx";
 import { IconButton } from "./ui.jsx";
 import { getVisualOverlayPixelBox, snapVisualOverlayTransform } from "../lib/visualOverlayTimeline.js";
+import { getAnchoredResize } from "../lib/anchoredResize.js";
 
 export function PreviewStage({
   t,
@@ -216,7 +217,6 @@ export function PreviewStage({
     const initial = { ...visualTransform };
     const centerX = rect.left + rect.width * (0.5 + initial.x / 100);
     const centerY = rect.top + rect.height * (0.5 + initial.y / 100);
-    const startDistance = Math.max(1, Math.hypot(startX - centerX, startY - centerY));
     const startAngle = Math.atan2(startY - centerY, startX - centerX) * 180 / Math.PI;
     const round = (value) => Math.round(value * 100) / 100;
     const move = (moveEvent) => {
@@ -225,14 +225,14 @@ export function PreviewStage({
         x: round(initial.x + (moveEvent.clientX - startX) / Math.max(1, rect.width) * 100),
         y: round(initial.y + (moveEvent.clientY - startY) / Math.max(1, rect.height) * 100),
       });
-      if (mode === "scale") {
-        const candidate = {
-          ...initial,
-          scale: round(Math.max(0.1, Math.min(4, initial.scale * Math.hypot(moveEvent.clientX - centerX, moveEvent.clientY - centerY) / startDistance))),
-        };
+      if (mode.startsWith("scale-")) {
+        const handle = mode.slice(6);
+        let candidate = getAnchoredResize({ handle, pointer: { x: moveEvent.clientX, y: moveEvent.clientY }, frame: rect, box: { width: rect.width, height: rect.height }, transform: initial });
+        candidate = { ...candidate, scale: Math.max(0.1, Math.min(4, candidate.scale)) };
         const snapped = snapVisualScaleToFrameEdges(candidate, { width: rect.width, height: rect.height });
+        candidate = getAnchoredResize({ handle, pointer: { x: moveEvent.clientX, y: moveEvent.clientY }, frame: rect, box: { width: rect.width, height: rect.height }, transform: initial, scale: snapped.transform.scale });
         setOverlaySnapGuides(snapped.guides);
-        onUpdateVisualTransform({ ...snapped.transform, scale: round(snapped.transform.scale) });
+        onUpdateVisualTransform({ ...candidate, x: round(candidate.x), y: round(candidate.y), scale: round(candidate.scale) });
       }
       if (mode === "rotate") {
         const angle = Math.atan2(moveEvent.clientY - centerY, moveEvent.clientX - centerX) * 180 / Math.PI;
@@ -254,7 +254,6 @@ export function PreviewStage({
     const startX = event.clientX; const startY = event.clientY;
     const centerX = rect.left + rect.width * (0.5 + initial.x / 100);
     const centerY = rect.top + rect.height * (0.5 + initial.y / 100);
-    const startDistance = Math.max(1, Math.hypot(startX - centerX, startY - centerY));
     const startAngle = Math.atan2(startY - centerY, startX - centerX) * 180 / Math.PI;
     const round = (value) => Math.round(value * 100) / 100;
     const move = (moveEvent) => {
@@ -265,10 +264,12 @@ export function PreviewStage({
         onUpdateVisualOverlay(snapped.transform);
       }
       if (mode.startsWith("scale")) {
-        const horizontal = Math.abs(moveEvent.clientX - centerX) / Math.max(1, Math.abs(startX - centerX));
-        const vertical = Math.abs(moveEvent.clientY - centerY) / Math.max(1, Math.abs(startY - centerY));
-        const ratio = mode === "scale-e" || mode === "scale-w" ? horizontal : mode === "scale-n" || mode === "scale-s" ? vertical : Math.hypot(moveEvent.clientX - centerX, moveEvent.clientY - centerY) / startDistance;
-        onUpdateVisualOverlay({ ...initial, scale: round(Math.max(0.08, Math.min(4, initial.scale * ratio))) });
+        const handle = mode.slice(6);
+        const box = getVisualOverlayPixelBox(overlay, activePreviewFrameSize);
+        let candidate = getAnchoredResize({ handle, pointer: { x: moveEvent.clientX, y: moveEvent.clientY }, frame: rect, box, transform: initial });
+        const clampedScale = Math.max(0.08, Math.min(4, candidate.scale));
+        candidate = getAnchoredResize({ handle, pointer: { x: moveEvent.clientX, y: moveEvent.clientY }, frame: rect, box, transform: initial, scale: clampedScale });
+        onUpdateVisualOverlay({ ...candidate, x: round(candidate.x), y: round(candidate.y), scale: round(candidate.scale) });
       }
       if (mode === "rotate") {
         const angle = Math.atan2(moveEvent.clientY - centerY, moveEvent.clientX - centerX) * 180 / Math.PI;
@@ -452,7 +453,7 @@ export function PreviewStage({
               <div className="visual-transform-box" style={visualTransformStyle} onPointerDown={(event) => startVisualTransform(event, "move")}>
                 <span className="visual-transform-label">{t("visualBasic", "画面")}</span>
                 <button className="visual-transform-rotate" type="button" aria-label={t("visualRotation", "旋转")} onPointerDown={(event) => startVisualTransform(event, "rotate")} />
-                {['nw', 'ne', 'sw', 'se'].map((corner) => <button key={corner} className={`visual-transform-handle is-${corner}`} type="button" aria-label={t("visualScale", "缩放")} onPointerDown={(event) => startVisualTransform(event, "scale")} />)}
+                {['nw', 'ne', 'sw', 'se'].map((corner) => <button key={corner} className={`visual-transform-handle is-${corner}`} type="button" aria-label={t("visualScale", "缩放")} onPointerDown={(event) => startVisualTransform(event, `scale-${corner}`)} />)}
               </div>
             ) : null}
             {previewTransition?.next?.src && trackVisibility.image ? (

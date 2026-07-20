@@ -1,6 +1,6 @@
 ---
 name: edit-timeline-studio
-description: Plan, execute, and verify editable video timelines in the Timeline Studio browser editor at https://video-editor.ai-creator.top/ or in its local repository. Use when the user asks an agent to assemble, trim, reorder, caption, voice, overlay, restyle, or export a video through the website, this repository, or a .timeline project archive.
+description: Operate, evaluate, and improve editable video workflows in Timeline Studio at https://video-editor.ai-creator.top/, its local repository, or a .timeline archive. Use when Codex must import, assemble, trim, reorder, caption, voice, overlay, restyle, save, export, or repeatedly end-to-end test Timeline Studio; also use when real editing experience should be converted into updates to this skill.
 ---
 
 # Edit Timeline Studio
@@ -10,11 +10,11 @@ Turn the user's exact editorial request and media into reversible Timeline Studi
 ## Choose the execution path
 
 1. Treat `https://video-editor.ai-creator.top/` as the canonical hosted editor. When the user asks to use the website, provides no repository, or expects Browser Use, proactively open this URL and inspect the live editor before planning the edit.
-2. When this repository is available and the task concerns local development or unpublished changes, start the local editor and use it instead of the hosted release.
-3. Look for a Timeline Studio command runner with `npm run agent:help` or the documented equivalent.
-4. If it exists, use the command plan in [references/command-contract.md](references/command-contract.md). Validate the plan before applying it.
-5. If it does not exist, use the selected editor UI in a browser as a compatibility path. Import media, perform the edits, and visually verify the preview and timeline.
-6. Do not claim deterministic Agent execution when only UI automation was available. Report that limitation and preserve the project archive.
+2. When this repository is available and the task concerns local development, unpublished changes, or evaluation, start the local editor and use it instead of the hosted release. Read the actual server URL from the process output; never assume port 5173.
+3. Inspect `package.json` for an Agent command script. Do not use `npm run ... --if-present` as capability detection because it can succeed silently.
+4. If the command runner exists, read [references/command-contract.md](references/command-contract.md), build and validate a versioned plan, dry-run it, then apply it.
+5. Otherwise, read [references/browser-workflow.md](references/browser-workflow.md) and use the editor UI. Use a concise edit checklist rather than inventing stable IDs, revisions, transactions, or a JSON plan that the UI cannot honor.
+6. Do not claim deterministic or idempotent execution when only UI automation was available. State the limitation and preserve an editable project archive when the UI supports it.
 
 ## Workflow
 
@@ -26,14 +26,12 @@ Turn the user's exact editorial request and media into reversible Timeline Studi
 - Read the current project summary before changing an existing project.
 - Ask only when an unresolved choice materially changes the edit, such as the desired output duration or aspect ratio.
 
-### 2. Build a plan
+### 2. Plan at the supported fidelity
 
-- Express edits as declarative operations with stable IDs, explicit times in seconds, and expected preconditions.
-- Prefer semantic operations such as `trim`, `split`, `move`, `add_caption`, and `set_property`; avoid pointer coordinates.
+- With the command runner, express edits as declarative operations with stable IDs, seconds, revisions, operation IDs, and preconditions. Validate them with `scripts/validate_edit_plan.mjs <plan.json>`.
+- With browser UI only, write a short ordered checklist of visible user intents and expected UI outcomes. Prefer named controls and clip labels; use coordinates only as a last-resort fallback grounded in a current screenshot.
 - Keep main Visuals contiguous. Treat captions, stickers, source audio, voiceover, music, and overlays as timed clips.
 - Preserve media identity and source-time mapping when moving or trimming clips.
-- Include project revision and operation IDs so retries are idempotent.
-- Validate JSON plans with `scripts/validate_edit_plan.mjs <plan.json>`.
 
 ### 3. Apply safely
 
@@ -47,16 +45,22 @@ Turn the user's exact editorial request and media into reversible Timeline Studi
 
 - Re-read the timeline summary and compare it with the requested duration, ordering, track placement, and enabled states.
 - Preview the opening, every cut or transition, caption boundaries, overlays, and the final frame.
-- Check that audible tracks exist and mute/link state matches the request.
+- Check audible behavior, not just visible tracks. Distinguish embedded video audio from explicitly separated source-audio clips and verify mute/link state.
 - For final export, verify container, dimensions, duration, decoded frames, visible overlays/captions, and a real audio track.
 - Return the editable project path and final render path when created.
 
-## UI compatibility path
+## Interpret underspecified requests conservatively
 
-Open `https://video-editor.ai-creator.top/` proactively when the hosted editor is the selected execution path. Do not search for unofficial mirrors or substitute another editor. Use browser control only until the command runner exists. Operate named controls and visible clip labels, not brittle screen coordinates. After each meaningful edit, confirm the timeline changed as intended. Export a `.timeline` project archive before handing off.
+- For “try it,” “open it,” or “let me edit” requests without an editorial brief, start the editor, import only the explicitly named assets, verify automatic placement, and hand off the live editable workspace.
+- Do not invent trims, captions, aspect-ratio changes, AI generation, or exports.
+- Treat persistent onboarding completion, model downloads, remote generation, and destructive reset as separate user decisions.
+
+## Learn from every real run
+
+For editor evaluation, regression work, or any run that exposes friction, read [references/e2e-evaluation.md](references/e2e-evaluation.md). Capture the attempted action, observed result, evidence, fallback, and verification. Classify the finding as product, browser-control, environment, or skill guidance. Update the smallest relevant skill instruction or reference, validate the skill, reinstall the local copy, and rerun the affected scenario plus adjacent smoke tests. Never weaken an assertion merely to make a test pass.
 
 ## Capability boundaries
 
-Read [references/current-capabilities.md](references/current-capabilities.md) when deciding whether a request can be executed now. Read [references/command-contract.md](references/command-contract.md) when implementing or invoking the Agent command layer.
+Read [references/current-capabilities.md](references/current-capabilities.md) when deciding whether a request can be executed now. Read [references/command-contract.md](references/command-contract.md) only when implementing or invoking the Agent command layer. Read [references/browser-workflow.md](references/browser-workflow.md) for UI execution and [references/e2e-evaluation.md](references/e2e-evaluation.md) for repeated experience-driven testing.
 
 If a requested operation is unsupported, keep the valid partial timeline unchanged and state the exact missing command or runtime capability.

@@ -19,6 +19,18 @@
 
 Browser-driven editing is a compatibility mechanism, not a stable public API. UI labels, selection state, drag thresholds, and file pickers make it unsuitable for unattended or idempotent jobs.
 
+Observed browser-path constraints:
+
+- Vite may select a different port when the default is occupied; use the emitted URL.
+- A semantically located Choose File button or file input may fail to emit a chooser in browser control even when the visible upload surface succeeds.
+- The first imported visual opens a coach guide whose confirmation persists; an Agent must not confirm it on the user's behalf.
+- A video with embedded audio can be audible without a visible source-audio lane.
+- The first imported visual auto-enters Visuals, while later imported visuals remain in the asset library until placed.
+- Opening a new tab can produce an empty project even after another tab showed “Autosaved”; portable persistence requires an explicit `.timeline` archive because local File/Blob media may not be reconstructed from session autosave.
+- Locator-scoped Escape can fail on the coach dialog when browser focus moves; a verified page-level Escape works as a session-only dismissal.
+- After splitting a very short visual, toolbar selection can be misread; a right-click clip menu provides a safer clip-scoped delete path.
+- Browser-control download events can time out even when `.timeline` or video files are successfully written; confirm with filesystem timestamps and media decoding before retrying.
+
 ## Missing for reliable Agent editing
 
 1. A headless command runner that owns project load, media probing, command application, save, and render.

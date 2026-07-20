@@ -66,6 +66,9 @@ import { createVisualOverlaySegment, getVisualOverlayPreset, updateVisualOverlay
 
 export function App() {
   const [uiLanguage, setUiLanguage] = useState(() => getStoredLanguage());
+  const [mobilePanel, setMobilePanel] = useState("");
+  const [mobilePanelClosing, setMobilePanelClosing] = useState(false);
+  const mobilePanelTimerRef = useRef(null);
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [exportSettings, setExportSettings] = useState({ resolution: "1080", frameRate: 30, codec: "h264", quality: "high" });
   const [captionVoiceFocusRequest, setCaptionVoiceFocusRequest] = useState(0);
@@ -74,6 +77,20 @@ export function App() {
   const [showFirstVisualGuide, setShowFirstVisualGuide] = useState(false);
   const firstVisualGuideShownRef = useRef(false);
   const timelineImportRestoreRef = useRef(false);
+  const changeMobilePanel = (nextPanel) => {
+    if (mobilePanelTimerRef.current) window.clearTimeout(mobilePanelTimerRef.current);
+    if (!nextPanel && mobilePanel) {
+      setMobilePanelClosing(true);
+      mobilePanelTimerRef.current = window.setTimeout(() => {
+        setMobilePanel("");
+        setMobilePanelClosing(false);
+        mobilePanelTimerRef.current = null;
+      }, 170);
+      return;
+    }
+    setMobilePanelClosing(false);
+    setMobilePanel(nextPanel);
+  };
   const [introClosing, setIntroClosing] = useState(false);
   const {
     captionPlacement, captionPosition, captionSegments, captionSize, captionStyle,
@@ -710,7 +727,7 @@ export function App() {
   });
 
   return (
-    <main className="app-shell" lang={activeLanguage} onDragOver={(event) => {
+    <main className={`app-shell ${mobilePanel ? `mobile-panel-${mobilePanel}` : ""} ${mobilePanelClosing ? "is-mobile-panel-closing" : ""}`} lang={activeLanguage} onDragOver={(event) => {
       if (event.dataTransfer?.types?.includes("Files")) event.preventDefault();
     }} onDrop={async (event) => {
       const files = Array.from(event.dataTransfer?.files ?? []);
@@ -794,6 +811,7 @@ export function App() {
           toggleCaptionSegmentHidden, toggleVisionOption, trOption, updateCaptionSegmentText,
           updateScript, userAssets, visionJob,
           selectedVisualSegment, visualLocalTime, updateSelectedVisualEffects,
+          mobilePanel, setMobilePanel: changeMobilePanel,
         }} />
 
         <PreviewStage
@@ -1104,6 +1122,8 @@ export function App() {
         musicDuration={musicDuration}
         startMusicMove={startMusicMove}
       />
+
+      {mobilePanel ? <button className="mobile-sheet-backdrop" type="button" aria-label={t("close", "关闭")} onClick={() => changeMobilePanel("")} /> : null}
 
       <AssetDragPreview preview={assetDragPreview} t={t} />
       <ExportProgressOverlay exporting={exporting} percent={exportPercent} phase={exportPhase} elapsedSeconds={exportElapsedSeconds} t={t} />

@@ -11,6 +11,23 @@ function resolveLinkedAssetId(visualSegments, sourceAudioAssetId) {
   return assetIds.length === 1 ? assetIds[0] : "";
 }
 
+export function getSourceAudioAssetId(source = {}) {
+  return source.assetId || source.id || "";
+}
+
+export function attachSourceAudioOffset(visualSegments = [], source = {}, sourceAudioOffset = 0) {
+  const assetId = getSourceAudioAssetId(source);
+  const clipId = source.id || "";
+  const offset = Math.max(0, Number(sourceAudioOffset) || 0);
+  if (!assetId && !clipId) return visualSegments;
+  return visualSegments.map((segment) => {
+    if (segment.type !== "video") return segment;
+    const matchesAsset = Boolean(assetId && segment.assetId === assetId);
+    const matchesUnboundClip = Boolean(clipId && !segment.assetId && segment.id === clipId);
+    return matchesAsset || matchesUnboundClip ? { ...segment, sourceAudioOffset: offset } : segment;
+  });
+}
+
 export function getLinkedSourceAudioSegments(visualSegments = [], sourceAudioAssetId = "", sourceAudioDuration = 0) {
   const hasMappedOffsets = visualSegments.some((segment) => segment.type === "video" && Number.isFinite(segment.sourceAudioOffset));
   const linkedAssetId = resolveLinkedAssetId(visualSegments, sourceAudioAssetId);

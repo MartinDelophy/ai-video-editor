@@ -39,6 +39,9 @@ The first visual may open a shortcuts coach guide. Do not click an action that p
 - Separating audio creates derived source-audio clips and mutes embedded playback to prevent doubling.
 - Deleting a separated piece does not imply that the original visual has lost its embedded audio.
 - Verify audible playback, clip mute state, separation state, and exported audio instead of treating lane visibility as proof.
+- When separating audio from a trimmed video clip, verify immediately that the project duration is unchanged and the visible source-audio piece matches the clip's timeline duration. The piece must resolve the visual clip's source start and source duration, not expose the full original media range.
+- Generate captions from the selected mapped source-audio piece so transcription uses its source start, duration, and timeline start. Stop if separation expands the project or the caption source falls outside the visual clip.
+- If export with a separated source track remains at the first frame for several progress checks without errors, preserve the `.timeline` archive and classify it as a product defect. After captions are safely stored, removing the derived source track is a valid recovery only when the video is configured to resume its embedded audio; verify the final file is audible.
 
 ## Handoff
 

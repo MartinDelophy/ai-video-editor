@@ -811,7 +811,7 @@ export function App() {
           toggleCaptionSegmentHidden, toggleVisionOption, trOption, updateCaptionSegmentText,
           updateScript, userAssets, visionJob,
           selectedVisualSegment, visualLocalTime, updateSelectedVisualEffects,
-          mobilePanel, setMobilePanel: changeMobilePanel,
+          mobilePanel, setMobilePanel: changeMobilePanel, applyAssetToTrack,
         }} />
 
         <PreviewStage
@@ -856,6 +856,11 @@ export function App() {
           fileInputRef={fileInputRef}
           selectedFilter={activePreviewFilter}
           fitMode={fitMode}
+          ratioId={ratioId}
+          setRatioId={(nextRatioId) => {
+            setRatioId(nextRatioId);
+            setFitModeFromUser("contain");
+          }}
           visualObjectFit={previewVisualObjectFit}
           visualObjectPosition={previewVisualObjectPosition}
           visionOverlayBoxes={previewVisionOverlayBoxes}
@@ -1039,6 +1044,11 @@ export function App() {
         selectedTrack={selectedTrack}
         setSelectedTrack={setSelectedTrack}
         setActiveTool={setActiveTool}
+        openMobileMediaPicker={() => {
+          setActiveTool("media");
+          setMediaTab("upload");
+          changeMobilePanel("tools");
+        }}
         requestCaptionVoiceFocus={() => setCaptionVoiceFocusRequest((request) => request + 1)}
         trackVisibility={trackVisibility}
         toggleTrackVisibility={toggleTrackVisibility}
@@ -1123,6 +1133,16 @@ export function App() {
         startMusicMove={startMusicMove}
       />
 
+      {mobilePanel ? (
+        <header className="mobile-sheet-nav">
+          <strong>{t(activeTool)}</strong>
+          <div role="tablist" aria-label={t("mobilePanelView")}>
+            <button className={mobilePanel === "tools" ? "is-active" : ""} type="button" role="tab" aria-selected={mobilePanel === "tools"} onClick={() => changeMobilePanel("tools")}>{t("mobileDrawerTools")}</button>
+            <button className={mobilePanel === "inspector" ? "is-active" : ""} type="button" role="tab" aria-selected={mobilePanel === "inspector"} onClick={() => changeMobilePanel("inspector")}>{t("properties")}</button>
+            <button className="mobile-sheet-close" type="button" aria-label={t("close", "关闭")} onClick={() => changeMobilePanel("")}>×</button>
+          </div>
+        </header>
+      ) : null}
       {mobilePanel ? <button className="mobile-sheet-backdrop" type="button" aria-label={t("close", "关闭")} onClick={() => changeMobilePanel("")} /> : null}
 
       <AssetDragPreview preview={assetDragPreview} t={t} />

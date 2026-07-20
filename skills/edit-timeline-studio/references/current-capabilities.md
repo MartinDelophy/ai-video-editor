@@ -30,6 +30,8 @@ Observed browser-path constraints:
 - Locator-scoped Escape can fail on the coach dialog when browser focus moves; a verified page-level Escape works as a session-only dismissal.
 - After splitting a very short visual, toolbar selection can be misread; a right-click clip menu provides a safer clip-scoped delete path.
 - Browser-control download events can time out even when `.timeline` or video files are successfully written; confirm with filesystem timestamps and media decoding before retrying.
+- The local repository now resolves a timeline video clip's `assetId` when separating source audio, so trimmed clips retain their source start/duration and do not expand the project. Keep a regression for both timeline-clip and asset-library extraction entry points.
+- A reloaded project with a separated source track was observed to stall offline export at frame 1/479 without a console error. Preserve the project artifact and treat this as an export product defect; an embedded-audio export completed after removing the derived track.
 
 ## Missing for reliable Agent editing
 

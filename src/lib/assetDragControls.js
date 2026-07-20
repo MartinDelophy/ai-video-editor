@@ -85,7 +85,9 @@ export function createAssetDragControls(deps) {
   const handleAssetClick = (event, asset) => {
     if (deps.suppressAssetClickRef.current === asset.id) { deps.suppressAssetClickRef.current = ""; event.preventDefault(); event.stopPropagation(); return; }
     deps.setSelectedLibraryAssetId(asset.id);
-    deps.notify("素材已选中，请拖到对应轨道使用");
+    deps.notify(window.matchMedia?.("(max-width: 760px)").matches
+      ? deps.t?.("mobileAssetChooseDestination", "素材已选中，请选择添加位置")
+      : deps.t?.("assetSelectedDragHint", "素材已选中，请拖到对应轨道使用"));
   };
   const handleStickerClick = (event, sticker) => {
     if (deps.suppressAssetClickRef.current === sticker.id) { deps.suppressAssetClickRef.current = ""; event.preventDefault(); event.stopPropagation(); return; }

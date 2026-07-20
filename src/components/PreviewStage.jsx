@@ -23,6 +23,7 @@ import { IconButton } from "./ui.jsx";
 import { getVisualOverlayPixelBox, snapVisualOverlayTransform } from "../lib/visualOverlayTimeline.js";
 import { getAnchoredResize } from "../lib/anchoredResize.js";
 import { getVisualFitRect } from "../lib/visualGeometry.js";
+import { RATIO_OPTIONS } from "../config/editor.js";
 
 export function PreviewStage({
   t,
@@ -43,6 +44,8 @@ export function PreviewStage({
   fileInputRef,
   selectedFilter,
   fitMode,
+  ratioId,
+  setRatioId,
   visualObjectFit,
   visualObjectPosition,
   visionOverlayBoxes = [],
@@ -93,6 +96,9 @@ export function PreviewStage({
   const lastReportedVideoTimeRef = useRef(-Infinity);
   const [isFocusPreviewOpen, setIsFocusPreviewOpen] = useState(false);
   const [focusPreviewFrameSize, setFocusPreviewFrameSize] = useState({ width: 0, height: 0 });
+  const [previewRatioWidth, previewRatioHeight] = String(previewRatio).split("/").map((value) => Number(value.trim()));
+  const previewRatioValue = previewRatioWidth > 0 && previewRatioHeight > 0 ? previewRatioWidth / previewRatioHeight : 16 / 9;
+  const focusPreviewOrientation = previewRatioValue > 1.1 ? "landscape" : previewRatioValue < 0.9 ? "portrait" : "square";
   const visibleStickers = stickers;
   const hasStickerOverlay = visibleStickers.some((sticker) => sticker?.src || sticker?.text);
   const hasPreviewContent = Boolean(previewVisualSrc || hasStickerOverlay);
@@ -361,31 +367,30 @@ export function PreviewStage({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isFocusPreviewOpen]);
 
-  useEffect(() => {
-    if (!isFocusPreviewOpen) return undefined;
-    const shell = previewShellRef.current;
-    if (!shell) return undefined;
-    const [ratioWidth, ratioHeight] = String(previewRatio).split("/").map(Number);
-    const ratio = ratioWidth > 0 && ratioHeight > 0 ? ratioWidth / ratioHeight : 16 / 9;
-    const update = () => {
-      const style = getComputedStyle(shell);
-      const availableWidth = Math.max(1, shell.clientWidth - parseFloat(style.paddingLeft || 0) - parseFloat(style.paddingRight || 0));
-      const availableHeight = Math.max(1, shell.clientHeight - parseFloat(style.paddingTop || 0) - parseFloat(style.paddingBottom || 0));
-      const width = Math.max(1, Math.floor(Math.min(availableWidth, availableHeight * ratio)));
-      const height = Math.max(1, Math.floor(width / ratio));
-      setFocusPreviewFrameSize((old) => old.width === width && old.height === height ? old : { width, height });
-    };
-    update();
-    const observer = new ResizeObserver(update);
-    observer.observe(shell);
-    return () => observer.disconnect();
-  }, [isFocusPreviewOpen, previewRatio, previewShellRef]);
-
   const previewStage = (
-    <section className={`preview-stage ${isFocusPreviewOpen ? "is-focus-preview" : ""}`} role={isFocusPreviewOpen ? "dialog" : undefined} aria-modal={isFocusPreviewOpen ? "true" : undefined} aria-label={isFocusPreviewOpen ? t("focusPreviewTitle", "大画布编辑") : undefined}>
+    <section
+      className={`preview-stage ${isFocusPreviewOpen ? `is-focus-preview is-focus-${focusPreviewOrientation}` : ""}`}
+      style={isFocusPreviewOpen ? { "--focus-preview-ratio": previewRatioValue } : undefined}
+      role={isFocusPreviewOpen ? "dialog" : undefined}
+      aria-modal={isFocusPreviewOpen ? "true" : undefined}
+      aria-label={isFocusPreviewOpen ? t("focusPreviewTitle", "大画布编辑") : undefined}
+    >
       {isFocusPreviewOpen ? <header className="focus-preview-header">
         <div><strong>{t("focusPreviewTitle", "大画布编辑")}</strong><span>{t("focusPreviewHint", "点击画面元素进行移动、缩放和旋转")}</span></div>
-        <IconButton label={t("closeFocusPreview", "关闭大画布预览")} onClick={() => setIsFocusPreviewOpen(false)}><X size={20} /></IconButton>
+        <button
+          className="focus-preview-close"
+          type="button"
+          aria-label={t("closeFocusPreview", "关闭大画布预览")}
+          title={t("closeFocusPreview", "关闭大画布预览")}
+          onPointerDown={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            setIsFocusPreviewOpen(false);
+          }}
+          onClick={(event) => event.stopPropagation()}
+        >
+          <X size={22} />
+        </button>
       </header> : null}
       <div
         ref={previewShellRef}
@@ -622,7 +627,7 @@ export function PreviewStage({
             </IconButton>
           </div>
           <button
-            className="fit-button"
+            className="fit-button desktop-fit-button"
             type="button"
             onClick={() => {
               setFitMode((mode) => (mode === "contain" ? "cover" : "contain"));
@@ -631,6 +636,12 @@ export function PreviewStage({
           >
             {fitMode === "contain" ? t("fit") : t("cover")} <CaretDown size={14} />
           </button>
+          <label className="mobile-ratio-select" aria-label={t("canvasRatio", "画布比例")}>
+            <select value={ratioId} onChange={(event) => setRatioId?.(event.target.value)}>
+              {RATIO_OPTIONS.map((option) => <option value={option.id} key={option.id}>{option.label}</option>)}
+            </select>
+            <CaretDown size={14} />
+          </label>
           <IconButton label={isFocusPreviewOpen ? t("closeFocusPreview", "关闭大画布预览") : t("fullscreenPreview")} onClick={() => setIsFocusPreviewOpen((open) => !open)}>
             <FrameCorners size={19} />
           </IconButton>

@@ -97,8 +97,12 @@ export function MediaPanel({
   draggedAssetId,
   handleAssetPointerDown,
   handleAssetClick,
+  applyAssetToTrack,
+  closeMobilePanel,
+  mobilePanelOpen,
 }) {
   const assets = mediaTab === "library" ? builtInAssets : userAssets;
+  const selectedAsset = [...userAssets, ...builtInAssets].find((asset) => asset.id === selectedLibraryAssetId) ?? null;
   const assetIntentTimerRef = useRef(null);
   const [previewAsset, setPreviewAsset] = useState(null);
 
@@ -113,7 +117,13 @@ export function MediaPanel({
 
   const openAssetPreview = (event, asset) => {
     handleAssetClick(event, asset);
+    if (window.matchMedia?.("(max-width: 760px)").matches) return;
     if (!event.defaultPrevented) setPreviewAsset(asset);
+  };
+  const addSelectedAsset = async (track) => {
+    if (!selectedAsset) return;
+    await applyAssetToTrack?.(selectedAsset, track);
+    closeMobilePanel?.();
   };
   const renderAssetList = (items, { deletable = false } = {}) => (
     <div className={`asset-list ${mediaTab === "upload" ? "upload-assets" : ""}`}>
@@ -228,6 +238,23 @@ export function MediaPanel({
       ) : (
         renderAssetList(assets, { deletable: mediaTab === "mine" })
       )}
+
+      {selectedAsset && mobilePanelOpen ? createPortal((
+        <div className="mobile-asset-actions" aria-label={t("mobileAssetActions")}>
+          <span><strong>{selectedAsset.name}</strong><small>{t("mobileAssetSelected")}</small></span>
+          {selectedAsset.type === "audio" ? (
+            <div>
+              <button type="button" className="is-secondary" onClick={() => void addSelectedAsset("music")}>{t("mobileAddToMusic")}</button>
+              <button type="button" onClick={() => void addSelectedAsset("audio")}>{t("mobileAddToVoice")}</button>
+            </div>
+          ) : (
+            <div>
+              <button type="button" className="is-secondary" onClick={() => void addSelectedAsset("overlay")}>{t("dropAsOverlay")}</button>
+              <button type="button" onClick={() => void addSelectedAsset("image")}>{t("mobileAddToMainTrack")}</button>
+            </div>
+          )}
+        </div>
+      ), document.body) : null}
 
       {previewAsset ? createPortal(
         <AssetPreviewDialog asset={previewAsset} t={t} onClose={() => setPreviewAsset(null)} />,
@@ -562,9 +589,6 @@ export function ToolPanel(props) {
   if (activeTool === "smart") {
     return (
       <div className="tool-panel smart-hub-panel">
-        <header className="smart-mobile-header">
-          <strong>{t("smartTools")}</strong>
-        </header>
         <div className="smart-hub-grid" role="tablist" aria-label={t("smartTools")}>
           {[
             ["auto-edit", Scissors, t("smartAutoEdit"), t("smartAutoEditHint")],

@@ -129,6 +129,7 @@ export function Timeline({
   selectedTrack,
   setSelectedTrack,
   setActiveTool,
+  openMobileMediaPicker,
   requestCaptionVoiceFocus,
   trackVisibility,
   toggleTrackVisibility,
@@ -1035,6 +1036,20 @@ export function Timeline({
             >
               {assetDropTargetTrack === "image" || assetDropTargetTrack === "overlay" ? (
                 <div className="track-drop-hint">{assetDropTargetTrack === "overlay" ? t("dropAsOverlay", "作为画中画") : t("appendAfter", "添加到后面")}</div>
+              ) : null}
+              {!imageSrc ? (
+                <button
+                  className="mobile-empty-visual-entry"
+                  type="button"
+                  aria-label={t("mobileAddMedia", "添加素材")}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    openMobileMediaPicker?.();
+                  }}
+                >
+                  <PlusCircle size={20} weight="bold" />
+                  <span>{t("mobileAddMedia", "添加素材")}</span>
+                </button>
               ) : null}
               {imageSrc
                 ? displayedVisualSegments.map((segment, index) => {

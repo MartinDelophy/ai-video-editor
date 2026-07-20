@@ -1,5 +1,4 @@
 import { TOOL_RAIL } from "../config/editor.js";
-import { SlidersHorizontal } from "@phosphor-icons/react";
 import { MediaPanel, ToolPanel } from "./panels.jsx";
 
 export function EditorSidebar({ model: d }) {
@@ -22,22 +21,9 @@ export function EditorSidebar({ model: d }) {
             <span>{d.t(id, label)}</span>
           </button>
         ))}
-        <button
-          className={`rail-tool mobile-inspector-tool ${d.mobilePanel === "inspector" ? "is-active" : ""}`}
-          type="button"
-          aria-expanded={d.mobilePanel === "inspector"}
-          onClick={() => {
-            if (window.matchMedia?.("(max-width: 760px)").matches) {
-              d.setMobilePanel?.(d.mobilePanel === "inspector" ? "" : "inspector");
-            }
-          }}
-        >
-          <SlidersHorizontal size={23} />
-          <span>{d.t("properties", "属性")}</span>
-        </button>
       </aside>
 
-      <aside className="media-panel">
+      <aside className={`media-panel ${d.mobilePanel === "tools" && d.selectedLibraryAssetId ? "has-mobile-asset-actions" : ""}`}>
         {d.activeTool === "media" ? (
           <MediaPanel
             t={d.t}
@@ -64,6 +50,9 @@ export function EditorSidebar({ model: d }) {
             draggedAssetId={d.draggedAssetId}
             handleAssetPointerDown={d.handleAssetPointerDown}
             handleAssetClick={d.handleAssetClick}
+            applyAssetToTrack={d.applyAssetToTrack}
+            closeMobilePanel={() => d.setMobilePanel?.("")}
+            mobilePanelOpen={d.mobilePanel === "tools"}
           />
         ) : (
           <ToolPanel

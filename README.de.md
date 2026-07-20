@@ -4,7 +4,7 @@
 
 Timeline Studio ist ein lokaler KI-Videoeditor für den Browser. Er verbindet eine mehrspurige Timeline im CapCut-Stil mit KI-Sprachausgabe, automatischen Untertiteln, Bildanalyse, sprechenden Avataren und deterministischem Offline-Export.
 
-[Editor öffnen](https://video-editor.ai-creator.top/) · [Demo ansehen](https://youtu.be/mUXduGpBmwE) · [Hugging Face Space](https://huggingface.co/spaces/haixin/timeline-studio)
+[Editor öffnen](https://video-editor.ai-creator.top/) · [Demo ansehen](https://www.youtube.com/watch?v=chdRPG2ndMs) · [Hugging Face Space](https://huggingface.co/spaces/haixin/timeline-studio)
 
 ![Timeline-Studio-Editor](docs/screenshots/editor-timeline.png)
 
@@ -17,6 +17,18 @@ Timeline Studio ist ein lokaler KI-Videoeditor für den Browser. Er verbindet ei
 - Mehrspurbearbeitung mit Overlays, Masken, Filtern, Animationen und Keyframes.
 - MP4/WebM-Export im Browser mit WebCodecs und Audiomischung.
 - Installierbare PWA, lokaler Modellcache und `.timeline`-Projektdateien.
+
+## Roadmap
+
+- **Jetzt:** Deterministischen Offline-Export stabilisieren, die Timeline zuverlässiger machen und Browser-End-to-End-Tests ausbauen.
+- **Als Nächstes:** Den versionierten Headless Command Runner für agentengesteuerte Bearbeitung veröffentlichen und wiederverwendbare Projektvorlagen leichter teilbar machen.
+- **Später:** Kollaborative Reviews, eine Plugin-Schnittstelle und weitere lokal verifizierte KI-Modelle ergänzen.
+
+Die Prioritäten werden in [GitHub Discussions](https://github.com/MartinDelophy/ai-video-editor/discussions) gemeinsam festgelegt.
+
+## Hilfe gesucht
+
+Wir suchen Beiträge zu Browser-Medien, WebCodecs, WebGPU/ONNX, Timeline-UX, Lokalisierung, Tests und Dokumentation. Melde reproduzierbare Fehler in [Issues](https://github.com/MartinDelophy/ai-video-editor/issues), teile Ideen in [Discussions](https://github.com/MartinDelophy/ai-video-editor/discussions) oder sende fokussierte Fixes, Tests, Übersetzungen und Beispiele.
 
 ## Schnellstart
 
@@ -40,4 +52,3 @@ npm run check
 ## Lizenz
 
 [MIT](LICENSE)
-

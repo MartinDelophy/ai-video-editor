@@ -562,6 +562,9 @@ export function ToolPanel(props) {
   if (activeTool === "smart") {
     return (
       <div className="tool-panel smart-hub-panel">
+        <header className="smart-mobile-header">
+          <strong>{t("smartTools")}</strong>
+        </header>
         <div className="smart-hub-grid" role="tablist" aria-label={t("smartTools")}>
           {[
             ["auto-edit", Scissors, t("smartAutoEdit"), t("smartAutoEditHint")],

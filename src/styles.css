@@ -3672,6 +3672,16 @@ button:disabled {
   font-size: 13px;
   font-weight: 760;
 }
+.caption-context-heading > span { display:flex; align-items:center; gap:7px; min-width:0; }
+.caption-import-button { margin-left:auto; display:inline-flex; align-items:center; gap:5px; border:1px solid rgba(109,225,255,.24); border-radius:7px; padding:5px 8px; color:#bcefff; background:rgba(40,174,215,.08); font-size:11px; cursor:pointer; }
+.caption-import-button:hover { border-color:rgba(109,225,255,.5); background:rgba(40,174,215,.15); }
+.caption-empty-import { display:inline-flex; align-items:center; justify-content:center; gap:6px; margin-top:4px; min-height:34px; padding:0 12px; border:1px solid rgba(86,232,216,.4); border-radius:8px; color:#d9fffa; background:rgba(38,195,181,.12); font-size:12px; font-weight:700; cursor:pointer; }
+.caption-empty-import:hover { border-color:rgba(86,232,216,.72); background:rgba(38,195,181,.2); }
+.srt-import-backdrop { position:fixed; inset:0; z-index:140; display:grid; place-items:center; padding:24px; background:rgba(3,7,11,.78); backdrop-filter:blur(8px); }
+.srt-import-dialog { width:min(420px, 100%); padding:22px; border:1px solid rgba(116,220,255,.22); border-radius:14px; background:#10171f; box-shadow:0 24px 70px rgba(0,0,0,.5); }
+.srt-import-dialog > strong { display:block; color:#f2f8fb; font-size:17px; }
+.srt-import-dialog > p { margin:10px 0 20px; color:#9aabb6; font-size:13px; line-height:1.55; }
+.srt-import-dialog > div { display:flex; justify-content:flex-end; gap:9px; }
 
 .caption-context-list {
   display: grid;

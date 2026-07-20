@@ -9,6 +9,7 @@ import {
   Scissors,
   Sparkle,
   Trash,
+  UploadSimple,
   Waveform,
   X,
 } from "@phosphor-icons/react";
@@ -20,6 +21,7 @@ import { LIVE_PORTRAIT_WEB_MODEL } from "../config/livePortrait.js";
 import { probeLivePortraitWebEnvironment } from "../lib/livePortraitWeb.js";
 import { getCaptionVoiceSegment } from "../lib/captionVoice.js";
 import { normalizeVisualKeyframes } from "../lib/visualEffects.js";
+import { MAX_SRT_FILE_BYTES, parseSrt } from "../lib/subtitles.js";
 import { HistoryPanel, MyVoicesPanel, SmartVisionPanel, VisualEffectsPanel, VoiceSynthesisPanel } from "./panels.jsx";
 
 function AutoEditReviewDialog({ t, autoEdit }) {
@@ -113,7 +115,10 @@ function CaptionContextPanel({
   generateCaptionsFromSourceAudio,
   isGeneratingCaptions,
   automaticCaptionProgress,
+  importCaptionSegments,
 }) {
+  const srtInputRef = useRef(null);
+  const [pendingSrt, setPendingSrt] = useState(null);
   const selectedIndex = Math.max(
     0,
     captionSegments.findIndex((segment) => segment.id === selectedCaptionSegment?.id),
@@ -121,6 +126,25 @@ function CaptionContextPanel({
   const selectedStart = captionSegments.length
     ? getSegmentStartTime(captionSegments, selectedIndex, captionTargetDuration)
     : 0;
+
+  async function handleSrtFile(file) {
+    if (!file) return;
+    try {
+      if (file.size > MAX_SRT_FILE_BYTES) throw new Error(t("srtFileTooLarge"));
+      const result = parseSrt(await file.text());
+      if (!result.captions.length) throw new Error(t("srtNoValidCaptions"));
+      if (captionSegments.length) setPendingSrt(result);
+      else importCaptionSegments(result.captions, "replace", result.skipped);
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : t("srtImportFailed"));
+    }
+  }
+
+  function applyPendingSrt(mode) {
+    if (!pendingSrt) return;
+    importCaptionSegments(pendingSrt.captions, mode, pendingSrt.skipped);
+    setPendingSrt(null);
+  }
 
   return (
     <div className="caption-context-panel">
@@ -147,6 +171,9 @@ function CaptionContextPanel({
           <ClosedCaptioning size={28} weight="duotone" />
           <strong>{t("noCaptionSegments")}</strong>
           <span>{t("captionEmptyHint", "字幕片段可拖动到字幕轨道，并在这里同步编辑。")}</span>
+          <button className="caption-empty-import" type="button" onClick={() => srtInputRef.current?.click()}>
+            <UploadSimple size={15} />{t("importSrt")}
+          </button>
         </div>
       )}
 
@@ -192,9 +219,35 @@ function CaptionContextPanel({
       ) : null}
 
       <div className="caption-context-heading">
-        <ListBullets size={16} />
-        <span>{t("captionList", "字幕列表")}</span>
+        <span><ListBullets size={16} />{t("captionList", "字幕列表")}</span>
+        <button className="caption-import-button" type="button" onClick={() => srtInputRef.current?.click()}>
+          <UploadSimple size={14} />{t("importSrt")}
+        </button>
+        <input
+          ref={srtInputRef}
+          className="sr-only"
+          type="file"
+          accept=".srt,application/x-subrip,text/plain"
+          data-testid="srt-file-input"
+          onChange={(event) => {
+            handleSrtFile(event.target.files?.[0]);
+            event.target.value = "";
+          }}
+        />
       </div>
+      {pendingSrt ? createPortal(
+        <div className="srt-import-backdrop" role="presentation">
+          <section className="srt-import-dialog" role="dialog" aria-modal="true" aria-label={t("srtConflictTitle")}>
+            <strong>{t("srtConflictTitle")}</strong>
+            <p>{t("srtConflictDescription").replace("{count}", pendingSrt.captions.length)}</p>
+            <div>
+              <button className="panel-secondary" type="button" onClick={() => setPendingSrt(null)}>{t("cancel")}</button>
+              <button className="panel-secondary" type="button" onClick={() => applyPendingSrt("append")}>{t("appendSrt")}</button>
+              <button className="auto-edit-apply" type="button" onClick={() => applyPendingSrt("replace")}>{t("replaceSrt")}</button>
+            </div>
+          </section>
+        </div>, document.body,
+      ) : null}
       <div className="caption-context-list">
         {captionSegments.length ? (
           captionSegments.map((segment, index) => (
@@ -409,6 +462,7 @@ export function VoicePanel({
   updateCaptionSegmentText,
   toggleCaptionSegmentHidden,
   deleteCaptionSegment,
+  importCaptionSegments,
   seekTo,
   sourceAudioBlob,
   sourceAudioLinked,
@@ -601,6 +655,7 @@ export function VoicePanel({
             updateCaptionSegmentText={updateCaptionSegmentText}
             toggleCaptionSegmentHidden={toggleCaptionSegmentHidden}
             deleteCaptionSegment={deleteCaptionSegment}
+            importCaptionSegments={importCaptionSegments}
             seekTo={seekTo}
             sourceAudioBlob={sourceAudioBlob}
             generateCaptionsFromSourceAudio={generateCaptionsFromSourceAudio}

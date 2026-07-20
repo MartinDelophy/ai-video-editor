@@ -384,6 +384,20 @@ const PICTURE_IN_PICTURE_COPY = {
   vi: { pictureInPicture: "Hình trong hình", overlayTrack: "Lớp phủ", dropAsOverlay: "Thêm làm lớp phủ", appendAfter: "Thêm vào cuối", dropSlot: "Vị trí thả", layoutPresets: "Bố cục mẫu", moveLayerUp: "Đưa lớp lên", moveLayerDown: "Đưa lớp xuống" },
 };
 
+const SRT_IMPORT_COPY = {
+  zh: { importSrt: "导入 SRT", srtConflictTitle: "如何导入这些字幕？", srtConflictDescription: "文件中有 {count} 条有效字幕。当前字幕轨已有内容，你可以替换或追加。", replaceSrt: "替换现有字幕", appendSrt: "追加到字幕轨", srtImportComplete: "已导入 {count} 条字幕，跳过 {skipped} 条", srtImportFailed: "SRT 字幕导入失败", srtFileTooLarge: "SRT 文件不能超过 5 MB", srtNoValidCaptions: "文件中没有可用的 SRT 字幕" },
+  en: { importSrt: "Import SRT", srtConflictTitle: "How should these captions be imported?", srtConflictDescription: "The file contains {count} valid captions. Replace the current caption track or append to it.", replaceSrt: "Replace captions", appendSrt: "Append to track", srtImportComplete: "Imported {count} captions; skipped {skipped}", srtImportFailed: "Could not import the SRT file", srtFileTooLarge: "The SRT file must be 5 MB or smaller", srtNoValidCaptions: "No valid SRT captions were found" },
+  ja: { importSrt: "SRTを読み込む", srtConflictTitle: "字幕をどのように読み込みますか？", srtConflictDescription: "有効な字幕が{count}件あります。現在の字幕を置き換えるか、追加してください。", replaceSrt: "字幕を置き換える", appendSrt: "トラックに追加", srtImportComplete: "字幕を{count}件読み込み、{skipped}件をスキップしました", srtImportFailed: "SRTを読み込めませんでした", srtFileTooLarge: "SRTファイルは5 MB以下にしてください", srtNoValidCaptions: "有効なSRT字幕がありません" },
+  ko: { importSrt: "SRT 가져오기", srtConflictTitle: "자막을 어떻게 가져올까요?", srtConflictDescription: "유효한 자막 {count}개가 있습니다. 현재 자막을 바꾸거나 트랙에 추가하세요.", replaceSrt: "기존 자막 바꾸기", appendSrt: "트랙에 추가", srtImportComplete: "자막 {count}개를 가져오고 {skipped}개를 건너뜀", srtImportFailed: "SRT를 가져올 수 없습니다", srtFileTooLarge: "SRT 파일은 5 MB 이하여야 합니다", srtNoValidCaptions: "유효한 SRT 자막이 없습니다" },
+  es: { importSrt: "Importar SRT", srtConflictTitle: "¿Cómo quieres importar los subtítulos?", srtConflictDescription: "El archivo contiene {count} subtítulos válidos. Reemplaza la pista actual o añádelos.", replaceSrt: "Reemplazar subtítulos", appendSrt: "Añadir a la pista", srtImportComplete: "Se importaron {count} subtítulos; se omitieron {skipped}", srtImportFailed: "No se pudo importar el SRT", srtFileTooLarge: "El archivo SRT debe tener 5 MB o menos", srtNoValidCaptions: "No se encontraron subtítulos SRT válidos" },
+  fr: { importSrt: "Importer un SRT", srtConflictTitle: "Comment importer ces sous-titres ?", srtConflictDescription: "Le fichier contient {count} sous-titres valides. Remplacez la piste actuelle ou ajoutez-les.", replaceSrt: "Remplacer les sous-titres", appendSrt: "Ajouter à la piste", srtImportComplete: "{count} sous-titres importés, {skipped} ignorés", srtImportFailed: "Impossible d’importer le SRT", srtFileTooLarge: "Le fichier SRT doit faire 5 Mo maximum", srtNoValidCaptions: "Aucun sous-titre SRT valide trouvé" },
+  de: { importSrt: "SRT importieren", srtConflictTitle: "Wie sollen die Untertitel importiert werden?", srtConflictDescription: "Die Datei enthält {count} gültige Untertitel. Aktuelle Spur ersetzen oder ergänzen.", replaceSrt: "Untertitel ersetzen", appendSrt: "Zur Spur hinzufügen", srtImportComplete: "{count} Untertitel importiert, {skipped} übersprungen", srtImportFailed: "SRT konnte nicht importiert werden", srtFileTooLarge: "Die SRT-Datei darf höchstens 5 MB groß sein", srtNoValidCaptions: "Keine gültigen SRT-Untertitel gefunden" },
+  pt: { importSrt: "Importar SRT", srtConflictTitle: "Como importar estas legendas?", srtConflictDescription: "O arquivo contém {count} legendas válidas. Substitua a faixa atual ou acrescente-as.", replaceSrt: "Substituir legendas", appendSrt: "Adicionar à faixa", srtImportComplete: "{count} legendas importadas; {skipped} ignoradas", srtImportFailed: "Não foi possível importar o SRT", srtFileTooLarge: "O arquivo SRT deve ter no máximo 5 MB", srtNoValidCaptions: "Nenhuma legenda SRT válida encontrada" },
+  th: { importSrt: "นำเข้า SRT", srtConflictTitle: "ต้องการนำเข้าคำบรรยายอย่างไร?", srtConflictDescription: "ไฟล์มีคำบรรยายที่ใช้ได้ {count} รายการ เลือกแทนที่หรือเพิ่มต่อท้ายแทร็กปัจจุบัน", replaceSrt: "แทนที่คำบรรยาย", appendSrt: "เพิ่มลงในแทร็ก", srtImportComplete: "นำเข้า {count} รายการ ข้าม {skipped} รายการ", srtImportFailed: "นำเข้า SRT ไม่สำเร็จ", srtFileTooLarge: "ไฟล์ SRT ต้องมีขนาดไม่เกิน 5 MB", srtNoValidCaptions: "ไม่พบคำบรรยาย SRT ที่ใช้ได้" },
+  vi: { importSrt: "Nhập SRT", srtConflictTitle: "Bạn muốn nhập phụ đề thế nào?", srtConflictDescription: "Tệp có {count} phụ đề hợp lệ. Hãy thay thế rãnh hiện tại hoặc nối thêm.", replaceSrt: "Thay phụ đề hiện có", appendSrt: "Nối vào rãnh", srtImportComplete: "Đã nhập {count} phụ đề; bỏ qua {skipped}", srtImportFailed: "Không thể nhập SRT", srtFileTooLarge: "Tệp SRT phải không quá 5 MB", srtNoValidCaptions: "Không tìm thấy phụ đề SRT hợp lệ" },
+  ru: { importSrt: "Импорт SRT", srtConflictTitle: "Как импортировать субтитры?", srtConflictDescription: "В файле {count} корректных субтитров. Замените текущую дорожку или добавьте их.", replaceSrt: "Заменить субтитры", appendSrt: "Добавить на дорожку", srtImportComplete: "Импортировано: {count}, пропущено: {skipped}", srtImportFailed: "Не удалось импортировать SRT", srtFileTooLarge: "Размер SRT-файла не должен превышать 5 МБ", srtNoValidCaptions: "Корректные субтитры SRT не найдены" },
+};
+
 export const UI_COPY = {
   zh: {
     ...SMART_WORKSPACE_COPY.zh,
@@ -413,6 +427,7 @@ export const UI_COPY = {
     ...CONTEXT_PANEL_COPY.zh,
     ...TTS_BACKEND_COPY.zh,
     ...CAPTION_WORKSPACE_COPY.zh,
+    ...SRT_IMPORT_COPY.zh,
     ...RESOURCE_LINK_COPY.zh,
     languageKicker: "AI Voice Studio",
     languageTitle: "选择界面语言",
@@ -809,6 +824,7 @@ export const UI_COPY = {
     ...CONTEXT_PANEL_COPY.en,
     ...TTS_BACKEND_COPY.en,
     ...CAPTION_WORKSPACE_COPY.en,
+    ...SRT_IMPORT_COPY.en,
     ...RESOURCE_LINK_COPY.en,
     languageKicker: "AI Voice Studio",
     languageTitle: "Choose Interface Language",
@@ -1198,6 +1214,7 @@ export const UI_COPY = {
     ...CONTEXT_PANEL_COPY.ja,
     ...TTS_BACKEND_COPY.ja,
     ...CAPTION_WORKSPACE_COPY.ja,
+    ...SRT_IMPORT_COPY.ja,
     ...RESOURCE_LINK_COPY.ja,
     ...PICTURE_IN_PICTURE_COPY.ja,
     languageTitle: "表示言語を選択",
@@ -1285,6 +1302,7 @@ Object.assign(UI_COPY, {
     ...CONTEXT_PANEL_COPY.ko,
     ...TTS_BACKEND_COPY.ko,
     ...CAPTION_WORKSPACE_COPY.ko,
+    ...SRT_IMPORT_COPY.ko,
     ...RESOURCE_LINK_COPY.ko,
     ...PICTURE_IN_PICTURE_COPY.ko,
     languageTitle: "인터페이스 언어 선택",
@@ -1348,6 +1366,7 @@ Object.assign(UI_COPY, {
     ...CONTEXT_PANEL_COPY.es,
     ...TTS_BACKEND_COPY.es,
     ...CAPTION_WORKSPACE_COPY.es,
+    ...SRT_IMPORT_COPY.es,
     ...RESOURCE_LINK_COPY.es,
     ...PICTURE_IN_PICTURE_COPY.es,
     languageTitle: "Elige el idioma",
@@ -1411,6 +1430,7 @@ Object.assign(UI_COPY, {
     ...CONTEXT_PANEL_COPY.fr,
     ...TTS_BACKEND_COPY.fr,
     ...CAPTION_WORKSPACE_COPY.fr,
+    ...SRT_IMPORT_COPY.fr,
     ...RESOURCE_LINK_COPY.fr,
     ...PICTURE_IN_PICTURE_COPY.fr,
     languageTitle: "Choisir la langue",
@@ -1474,6 +1494,7 @@ Object.assign(UI_COPY, {
     ...CONTEXT_PANEL_COPY.de,
     ...TTS_BACKEND_COPY.de,
     ...CAPTION_WORKSPACE_COPY.de,
+    ...SRT_IMPORT_COPY.de,
     ...RESOURCE_LINK_COPY.de,
     ...PICTURE_IN_PICTURE_COPY.de,
     languageTitle: "Sprache wählen",
@@ -1537,6 +1558,7 @@ Object.assign(UI_COPY, {
     ...CONTEXT_PANEL_COPY.pt,
     ...TTS_BACKEND_COPY.pt,
     ...CAPTION_WORKSPACE_COPY.pt,
+    ...SRT_IMPORT_COPY.pt,
     ...RESOURCE_LINK_COPY.pt,
     ...PICTURE_IN_PICTURE_COPY.pt,
     languageTitle: "Escolha o idioma",
@@ -1600,6 +1622,7 @@ Object.assign(UI_COPY, {
     ...CONTEXT_PANEL_COPY.th,
     ...TTS_BACKEND_COPY.th,
     ...CAPTION_WORKSPACE_COPY.th,
+    ...SRT_IMPORT_COPY.th,
     ...RESOURCE_LINK_COPY.th,
     ...PICTURE_IN_PICTURE_COPY.th,
     languageTitle: "เลือกภาษาอินเทอร์เฟซ",
@@ -1663,6 +1686,7 @@ Object.assign(UI_COPY, {
     ...CONTEXT_PANEL_COPY.vi,
     ...TTS_BACKEND_COPY.vi,
     ...CAPTION_WORKSPACE_COPY.vi,
+    ...SRT_IMPORT_COPY.vi,
     ...RESOURCE_LINK_COPY.vi,
     ...PICTURE_IN_PICTURE_COPY.vi,
     languageTitle: "Chọn ngôn ngữ giao diện",
@@ -1804,11 +1828,12 @@ export function createTranslator(languageId) {
   const copyLanguage = getCopyLanguage(languageId);
   const copy = UI_COPY[copyLanguage] ?? UI_COPY.en;
   const fallback = UI_COPY.en;
+  const srtImportCopy = SRT_IMPORT_COPY[languageId] ?? SRT_IMPORT_COPY.en;
   const exportCopy = EXPORT_RENDER_COPY[copyLanguage] ?? EXPORT_RENDER_COPY.en;
   const assetPreviewCopy = ASSET_PREVIEW_COPY[copyLanguage] ?? ASSET_PREVIEW_COPY.en;
   const assetDropCopy = ASSET_DROP_COPY[copyLanguage] ?? ASSET_DROP_COPY.en;
   const autoCaptionStatusCopy = AUTO_CAPTION_STATUS_COPY[copyLanguage] ?? AUTO_CAPTION_STATUS_COPY.en;
-  return (key, fallbackText) => exportCopy[key] ?? EXPORT_RENDER_COPY.en[key] ?? assetPreviewCopy[key] ?? ASSET_PREVIEW_COPY.en[key] ?? assetDropCopy[key] ?? ASSET_DROP_COPY.en[key] ?? autoCaptionStatusCopy[key] ?? AUTO_CAPTION_STATUS_COPY.en[key] ?? copy[key] ?? fallback[key] ?? UI_COPY.zh[key] ?? fallbackText ?? key;
+  return (key, fallbackText) => srtImportCopy[key] ?? exportCopy[key] ?? EXPORT_RENDER_COPY.en[key] ?? assetPreviewCopy[key] ?? ASSET_PREVIEW_COPY.en[key] ?? assetDropCopy[key] ?? ASSET_DROP_COPY.en[key] ?? autoCaptionStatusCopy[key] ?? AUTO_CAPTION_STATUS_COPY.en[key] ?? copy[key] ?? fallback[key] ?? UI_COPY.zh[key] ?? fallbackText ?? key;
 }
 
 export function translateOptionName(languageId, name) {

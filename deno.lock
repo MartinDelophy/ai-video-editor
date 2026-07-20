@@ -1,0 +1,44 @@
+{
+  "version": "5",
+  "remote": {
+    "https://edge.netlify.com/": "fd941d61d88673d5f28aab283fb86fcc50f08a3bc80ee5470498fcfa88c65cfb",
+    "https://edge.netlify.com/bootstrap/config.ts": "6a2ce0e544e15e8f8883a5c18da5948e37fd0f2619f68cb31f3af53c51817025",
+    "https://edge.netlify.com/bootstrap/context.ts": "e97240232121e2f369f6546ce961490f34d961ea1ea54be3ff09633e3f08373f",
+    "https://edge.netlify.com/bootstrap/cookie.ts": "8b0baae708989ca183c6f3b4ab3d029e6abcbc2e43f93edeb0ff447b3bbc3a05",
+    "https://edge.netlify.com/bootstrap/edge_function.ts": "b8253e86aa83c67341f5cfedeba5049d77fbf84dcab7eceff7566b7728ae9b39",
+    "https://edge.netlify.com/bootstrap/globals/types.ts": "eaa6148ded3121d8dee62dd91c86e7fe76601df0f3ca8d7962243a30f4c8935f"
+  },
+  "workspace": {
+    "packageJson": {
+      "dependencies": [
+        "npm:@diffusionstudio/vits-web@^1.0.3",
+        "npm:@eslint/js@^10.0.1",
+        "npm:@ffmpeg/core@~0.12.10",
+        "npm:@ffmpeg/ffmpeg@~0.12.15",
+        "npm:@ffmpeg/util@~0.12.2",
+        "npm:@huggingface/transformers@^3.8.1",
+        "npm:@mediabunny/aac-encoder@^1.50.8",
+        "npm:@phosphor-icons/react@^2.1.10",
+        "npm:@playwright/test@^1.56.1",
+        "npm:@vitejs/plugin-react@^5.0.4",
+        "npm:@vitest/coverage-v8@^4.1.10",
+        "npm:eslint-plugin-react-hooks@^7.1.1",
+        "npm:eslint-plugin-react-refresh@~0.5.3",
+        "npm:eslint@^10.7.0",
+        "npm:fflate@~0.8.3",
+        "npm:globals@^17.7.0",
+        "npm:hangul-romanization@^1.0.1",
+        "npm:kokoro-js@^1.2.1",
+        "npm:mediabunny@^1.50.8",
+        "npm:onnxruntime-web@^1.27.0",
+        "npm:pinyin-pro@^3.27.0",
+        "npm:prettier@^3.9.5",
+        "npm:react-dom@19.2.0",
+        "npm:react@19.2.0",
+        "npm:typescript@^7.0.2",
+        "npm:vite@^6.4.2",
+        "npm:vitest@^4.1.10"
+      ]
+    }
+  }
+}

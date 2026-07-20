@@ -25,3 +25,5 @@ This Space is the lightweight showcase for Timeline Studio, an MIT-licensed,
 local-first AI video editor. The full editor runs at
 [video-editor.ai-creator.top](https://video-editor.ai-creator.top/), and its
 source is available on [GitHub](https://github.com/MartinDelophy/ai-video-editor).
+
+If this project helps you, please consider giving it a ⭐ Star. If you encounter a problem, please [open an Issue](https://github.com/MartinDelophy/ai-video-editor/issues).

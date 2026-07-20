@@ -49,6 +49,10 @@ npm run build
 npm run check
 ```
 
+## การสนับสนุนและข้อเสนอแนะ
+
+หากโปรเจกต์นี้มีประโยชน์กับคุณ โปรดกด ⭐ Star หากพบปัญหา โปรด[เปิด Issue](https://github.com/MartinDelophy/ai-video-editor/issues)
+
 ## สัญญาอนุญาต
 
 [MIT](LICENSE)

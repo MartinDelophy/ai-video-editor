@@ -37,7 +37,10 @@ npm run build
 npm run check
 ```
 
+## Hỗ trợ và phản hồi
+
+Nếu dự án này hữu ích với bạn, hãy cân nhắc tặng dự án một ⭐ Star. Nếu gặp vấn đề, vui lòng [mở một Issue](https://github.com/MartinDelophy/ai-video-editor/issues).
+
 ## Giấy phép
 
 [MIT](LICENSE)
-

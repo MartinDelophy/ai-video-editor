@@ -97,6 +97,10 @@ The included [`netlify.toml`](netlify.toml) builds with `npm run build`, publish
 npx netlify-cli deploy --prod --dir=dist
 ```
 
+## Support and feedback
+
+If this project helps you, please consider giving it a ⭐ Star. If you encounter a problem, please [open an Issue](https://github.com/MartinDelophy/ai-video-editor/issues).
+
 ## License
 
 [MIT](LICENSE)

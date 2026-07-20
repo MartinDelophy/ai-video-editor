@@ -97,6 +97,10 @@ npm run check
 npx netlify-cli deploy --prod --dir=dist
 ```
 
+## 支持与反馈
+
+如果这个项目对你有帮助，欢迎点亮 ⭐ Star；遇到问题请[提交 Issue](https://github.com/MartinDelophy/ai-video-editor/issues)。
+
 ## License
 
 [MIT](LICENSE)

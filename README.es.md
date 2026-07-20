@@ -4,7 +4,7 @@
 
 Timeline Studio es un editor de vídeo con IA, local y ejecutado en el navegador. Combina una línea de tiempo multipista al estilo CapCut con locuciones de IA, subtítulos automáticos, herramientas de visión, avatares parlantes y exportación offline determinista.
 
-[Abrir el editor](https://video-editor.ai-creator.top/) · [Ver la demo](https://youtu.be/mUXduGpBmwE) · [Hugging Face Space](https://huggingface.co/spaces/haixin/timeline-studio)
+[Abrir el editor](https://video-editor.ai-creator.top/) · [Ver la demo](https://www.youtube.com/watch?v=chdRPG2ndMs) · [Hugging Face Space](https://huggingface.co/spaces/haixin/timeline-studio)
 
 ![Editor Timeline Studio](docs/screenshots/editor-timeline.png)
 
@@ -17,6 +17,18 @@ Timeline Studio es un editor de vídeo con IA, local y ejecutado en el navegador
 - Edición multipista con superposiciones, máscaras, filtros, animaciones y fotogramas clave.
 - Exportación MP4/WebM en el navegador con WebCodecs y mezcla de audio.
 - PWA instalable, caché local de modelos y archivos de proyecto `.timeline`.
+
+## Hoja de ruta
+
+- **Ahora:** reforzar la exportación offline determinista, mejorar la fiabilidad de la línea de tiempo y ampliar las pruebas de extremo a extremo en el navegador.
+- **Después:** publicar el ejecutor de comandos headless versionado para edición con agentes y facilitar el intercambio de plantillas reutilizables.
+- **Más adelante:** añadir revisión colaborativa, una interfaz de extensiones y más modelos de IA verificados localmente.
+
+Las prioridades se deciden en [GitHub Discussions](https://github.com/MartinDelophy/ai-video-editor/discussions).
+
+## Se busca ayuda
+
+Buscamos contribuciones sobre medios en el navegador, WebCodecs, WebGPU/ONNX, UX de la línea de tiempo, localización, pruebas y documentación. Informa de errores reproducibles en [Issues](https://github.com/MartinDelophy/ai-video-editor/issues), comparte ideas en [Discussions](https://github.com/MartinDelophy/ai-video-editor/discussions) o aporta correcciones, pruebas, traducciones y ejemplos concretos.
 
 ## Inicio rápido
 
@@ -40,4 +52,3 @@ npm run check
 ## Licencia
 
 [MIT](LICENSE)
-

@@ -1,4 +1,4 @@
 interface:
   display_name: "Timeline Studio Agent Editor"
-  short_description: "Plan, execute, and verify editable timeline video projects"
-  default_prompt: "Use $edit-timeline-studio to edit these media assets into a polished timeline project."
+  short_description: "Edit and repeatedly test Timeline Studio workflows"
+  default_prompt: "Use $edit-timeline-studio to edit these assets, verify the result end to end, and improve the workflow from observed friction."

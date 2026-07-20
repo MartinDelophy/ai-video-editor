@@ -1,4 +1,5 @@
 import { TOOL_RAIL } from "../config/editor.js";
+import { SlidersHorizontal } from "@phosphor-icons/react";
 import { MediaPanel, ToolPanel } from "./panels.jsx";
 
 export function EditorSidebar({ model: d }) {
@@ -10,12 +11,30 @@ export function EditorSidebar({ model: d }) {
             className={`rail-tool ${d.activeTool === id ? "is-active" : ""}`}
             type="button"
             key={id}
-            onClick={() => d.selectTool(id)}
+            onClick={() => {
+              d.selectTool(id);
+              if (window.matchMedia?.("(max-width: 760px)").matches) {
+                d.setMobilePanel?.(d.mobilePanel === "tools" && d.activeTool === id ? "" : "tools");
+              }
+            }}
           >
             <Icon size={23} />
             <span>{d.t(id, label)}</span>
           </button>
         ))}
+        <button
+          className={`rail-tool mobile-inspector-tool ${d.mobilePanel === "inspector" ? "is-active" : ""}`}
+          type="button"
+          aria-expanded={d.mobilePanel === "inspector"}
+          onClick={() => {
+            if (window.matchMedia?.("(max-width: 760px)").matches) {
+              d.setMobilePanel?.(d.mobilePanel === "inspector" ? "" : "inspector");
+            }
+          }}
+        >
+          <SlidersHorizontal size={23} />
+          <span>{d.t("properties", "属性")}</span>
+        </button>
       </aside>
 
       <aside className="media-panel">

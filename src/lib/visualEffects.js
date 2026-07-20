@@ -125,33 +125,46 @@ export function removeVisualPropertyKeyframe(keyframes = [], time, key) {
   });
 }
 
-export function snapVisualScaleToFrameEdges(transform = {}, frame = {}, thresholdPixels = 8) {
+export function snapVisualScaleToFrameEdges(transform = {}, frame = {}, thresholdPixels = 8, contentBox = frame) {
   const width = Math.max(1, Number(frame.width) || 1);
   const height = Math.max(1, Number(frame.height) || 1);
+  const boxWidth = Math.max(1, Number(contentBox?.width) || width);
+  const boxHeight = Math.max(1, Number(contentBox?.height) || height);
   const scale = Math.max(0.1, Number(transform.scale) || 1);
-  const centerX = 0.5 + (Number(transform.x) || 0) / 100;
-  const centerY = 0.5 + (Number(transform.y) || 0) / 100;
+  const centerX = width * (0.5 + (Number(transform.x) || 0) / 100);
+  const centerY = height * (0.5 + (Number(transform.y) || 0) / 100);
   const radians = (Number(transform.rotation) || 0) * Math.PI / 180;
   const cosine = Math.abs(Math.cos(radians));
   const sine = Math.abs(Math.sin(radians));
-  const horizontalScaleExtent = 0.5 * (cosine + (height / width) * sine);
-  const verticalScaleExtent = 0.5 * (cosine + (width / height) * sine);
-  const targets = [
-    { scale: centerX / horizontalScaleExtent, guide: "left", dimension: width },
-    { scale: (1 - centerX) / horizontalScaleExtent, guide: "right", dimension: width },
-    { scale: centerY / verticalScaleExtent, guide: "top", dimension: height },
-    { scale: (1 - centerY) / verticalScaleExtent, guide: "bottom", dimension: height },
-  ].filter((target) => Number.isFinite(target.scale) && target.scale >= 0.1 && target.scale <= 4);
+  const horizontalExtent = Math.max(0.5, (cosine * boxWidth + sine * boxHeight) / 2);
+  const verticalExtent = Math.max(0.5, (sine * boxWidth + cosine * boxHeight) / 2);
+  const divisions = [
+    { ratio: 0, xGuide: "left", yGuide: "top" },
+    { ratio: 0.25, xGuide: "quarter-x-1", yGuide: "quarter-y-1" },
+    { ratio: 0.5, xGuide: "center-x", yGuide: "center-y" },
+    { ratio: 0.75, xGuide: "quarter-x-3", yGuide: "quarter-y-3" },
+    { ratio: 1, xGuide: "right", yGuide: "bottom" },
+  ];
+  const targets = divisions.flatMap(({ ratio, xGuide, yGuide }) => {
+    const guideX = ratio * width;
+    const guideY = ratio * height;
+    return [
+      { scale: (centerX - guideX) / horizontalExtent, guide: xGuide, extent: horizontalExtent },
+      { scale: (guideX - centerX) / horizontalExtent, guide: xGuide, extent: horizontalExtent },
+      { scale: (centerY - guideY) / verticalExtent, guide: yGuide, extent: verticalExtent },
+      { scale: (guideY - centerY) / verticalExtent, guide: yGuide, extent: verticalExtent },
+    ];
+  }).filter((target) => Number.isFinite(target.scale) && target.scale >= 0.1 && target.scale <= 4);
   const nearest = targets.reduce((best, target) => {
-    const distance = Math.abs(scale - target.scale) * target.dimension * (target.dimension === width ? horizontalScaleExtent : verticalScaleExtent);
+    const distance = Math.abs(scale - target.scale) * target.extent;
     return distance < best.distance ? { ...target, distance } : best;
   }, { distance: Infinity });
   if (nearest.distance > Math.max(1, Number(thresholdPixels) || 8)) return { transform, guides: [] };
   const snappedScale = nearest.scale;
-  const guides = targets.filter((target) => {
-    const extent = target.dimension === width ? horizontalScaleExtent : verticalScaleExtent;
-    return Math.abs(snappedScale - target.scale) * target.dimension * extent <= 0.75;
-  }).map((target) => target.guide);
+  const guideOrder = ["left", "quarter-x-1", "center-x", "quarter-x-3", "right", "top", "quarter-y-1", "center-y", "quarter-y-3", "bottom"];
+  const guides = [...new Set(targets
+    .filter((target) => Math.abs(snappedScale - target.scale) * target.extent <= 0.75)
+    .map((target) => target.guide))].sort((left, right) => guideOrder.indexOf(left) - guideOrder.indexOf(right));
   return { transform: { ...transform, scale: snappedScale }, guides };
 }
 

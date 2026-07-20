@@ -15,6 +15,7 @@ export function useAudioTrackState() {
   const [musicDuration, setMusicDuration] = useState(0);
   const [musicStart, setMusicStart] = useState(0);
   const [musicPeaks, setMusicPeaks] = useState([]);
+  const [musicSegments, setMusicSegments] = useState([]);
   const [musicVolume, setMusicVolume] = useState(0.35);
   const [sourceAudioBlob, setSourceAudioBlob] = useState(null);
   const [sourceAudioUrl, setSourceAudioUrl] = useState("");
@@ -33,9 +34,9 @@ export function useAudioTrackState() {
 
   return {
     audioSegments, favoriteVoiceIds, historyItems, musicBlob, musicDuration, musicName,
-    musicPeaks, musicStart, musicUrl, musicVolume, recordedVoices, recordingElapsed, recordingState,
+    musicPeaks, musicSegments, musicStart, musicUrl, musicVolume, recordedVoices, recordingElapsed, recordingState,
     selectedAudioSegmentId, selectedVoiceId, setAudioSegments, setFavoriteVoiceIds,
-    setHistoryItems, setMusicBlob, setMusicDuration, setMusicName, setMusicPeaks,
+    setHistoryItems, setMusicBlob, setMusicDuration, setMusicName, setMusicPeaks, setMusicSegments,
     setMusicStart, setMusicUrl, setMusicVolume, setRecordedVoices, setRecordingElapsed,
     setRecordingState, setSelectedAudioSegmentId, setSelectedVoiceId, setSourceAudioBlob,
     setSourceAudioAssetId, setSourceAudioDuration, setSourceAudioLinked, setSourceAudioName, setSourceAudioPeaks, setSourceAudioStart,

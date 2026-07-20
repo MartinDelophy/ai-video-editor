@@ -209,6 +209,27 @@ function encodeAudioBufferAsWav(buffer) {
   return new Blob([output], { type: "audio/wav" });
 }
 
+export async function sliceAudioBlob(blob, start = 0, duration = Infinity) {
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContextClass) throw new Error("当前浏览器不支持 AudioContext，无法裁剪音频。");
+  const context = new AudioContextClass();
+  try {
+    const decoded = await context.decodeAudioData((await blob.arrayBuffer()).slice(0));
+    const safeStart = Math.max(0, Math.min(decoded.duration, Number(start) || 0));
+    const safeDuration = Math.max(0, Math.min(decoded.duration - safeStart, Number(duration) || decoded.duration));
+    if (safeStart <= 0.001 && safeDuration >= decoded.duration - 0.001) return blob;
+    const startFrame = Math.floor(safeStart * decoded.sampleRate);
+    const frameCount = Math.max(1, Math.floor(safeDuration * decoded.sampleRate));
+    const sliced = context.createBuffer(decoded.numberOfChannels, frameCount, decoded.sampleRate);
+    for (let channel = 0; channel < decoded.numberOfChannels; channel += 1) {
+      sliced.getChannelData(channel).set(decoded.getChannelData(channel).subarray(startFrame, startFrame + frameCount));
+    }
+    return encodeAudioBufferAsWav(sliced);
+  } finally {
+    await context.close().catch(() => {});
+  }
+}
+
 export async function concatenateAudioBlobs(blobs = []) {
   const sources = blobs.filter((blob) => blob instanceof Blob && blob.size > 0);
   if (!sources.length) throw new Error("没有可合并的音频");

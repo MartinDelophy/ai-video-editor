@@ -10,7 +10,11 @@ import {
 export function createAudioTrackActions(d) {
   function replaceAudio(blob, duration, nextPeaks, nextStatusText, options = {}) {
     const nextUrl = URL.createObjectURL(blob);
-    const nextDuration = duration || estimateDuration(options.script ?? d.script);
+    const decodedDuration = Number(duration);
+    const estimatedFallback = Number(estimateDuration(options.script ?? d.script));
+    const nextDuration = Number.isFinite(decodedDuration) && decodedDuration > 0
+      ? decodedDuration
+      : Number.isFinite(estimatedFallback) && estimatedFallback > 0 ? estimatedFallback : 0;
     const start = Math.max(0, options.start ?? d.currentTimeRef.current ?? 0);
     const id = crypto.randomUUID();
     const segment = {
@@ -19,7 +23,7 @@ export function createAudioTrackActions(d) {
       url: nextUrl,
       start,
       duration: nextDuration,
-      peaks: nextPeaks,
+      peaks: Array.isArray(nextPeaks) ? nextPeaks : [],
       volume: 1,
       fadeIn: 0,
       fadeOut: 0,
@@ -57,18 +61,27 @@ export function createAudioTrackActions(d) {
     d.notify(message);
   }
 
-  function replaceMusic(blob, duration, nextPeaks, nextName, message = "背景音乐已添加到时间线") {
+  function replaceMusic(blob, duration, nextPeaks, nextName, message = "背景音乐已添加到时间线", options = {}) {
+    // Replacing the source while the timeline is playing can leave React's
+    // playback state active after the old object URL has been revoked. The new
+    // audio element then mounts after the sync effect and never receives play().
+    // Stop the old element first so the next user play starts from a clean state.
+    d.musicRef.current?.pause();
+    d.setIsPlaying(false);
     if (d.musicUrlRef.current) URL.revokeObjectURL(d.musicUrlRef.current);
     const nextUrl = URL.createObjectURL(blob);
+    const nextDuration = Number.isFinite(Number(duration)) && Number(duration) > 0 ? Number(duration) : 0;
     d.musicUrlRef.current = nextUrl;
     d.setMusicBlob(blob);
     d.setMusicUrl(nextUrl);
     d.setMusicName(nextName);
-    d.setMusicDuration(duration || 0);
-    d.setMusicStart(0);
+    d.setMusicDuration(nextDuration);
+    const nextStart = Math.max(0, Number(options.start) || 0);
+    d.setMusicStart(nextStart);
     d.setMusicPeaks(nextPeaks);
+    d.setMusicSegments?.([{ id: crypto.randomUUID(), start: nextStart, duration: nextDuration, sourceStart: 0, peaks: nextPeaks }]);
     d.setSelectedTrack("music");
-    d.setActiveTool("audio");
+    if (options.focusAudio !== false) d.setActiveTool("audio");
     d.notify(message);
   }
 
@@ -143,6 +156,7 @@ export function createAudioTrackActions(d) {
     d.setMusicDuration(0);
     d.setMusicStart(0);
     d.setMusicPeaks([]);
+    d.setMusicSegments?.([]);
     d.setCurrentTime((time) => Math.min(time, Math.max(
       d.audioBlob ? d.audioDuration : 0,
       d.captionDuration,

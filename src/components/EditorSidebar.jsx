@@ -30,6 +30,15 @@ export function EditorSidebar({ model: d }) {
             handleFiles={d.handleFiles}
             imageSrc={d.imageSrc}
             builtInAssets={d.builtInAssets}
+            libraryType={d.libraryType}
+            libraryQuery={d.libraryQuery}
+            setLibraryQuery={d.setLibraryQuery}
+            selectLibraryType={d.selectLibraryType}
+            libraryStatus={d.libraryStatus}
+            libraryError={d.libraryError}
+            libraryProvider={d.libraryProvider}
+            assetDownloadStates={d.assetDownloadStates}
+            prefetchLibraryAsset={d.prefetchLibraryAsset}
             userAssets={d.userAssets}
             selectedLibraryAssetId={d.selectedLibraryAssetId}
             deleteUserAsset={d.deleteUserAsset}
@@ -86,6 +95,8 @@ export function EditorSidebar({ model: d }) {
             isGeneratingCaptions={d.status === "captioning"}
             automaticCaptionProgress={d.status === "captioning" ? d.progress : 0}
             separateSourceVocals={d.separateSourceVocals}
+            selectedAudioToolTarget={d.selectedAudioToolTarget}
+            separateSelectedAudioVocals={d.separateSelectedAudioVocals}
             vocalSeparationJob={d.vocalSeparationJob}
             hasVisual={Boolean(d.previewVisualSrc)}
             visualType={d.previewVisualType}

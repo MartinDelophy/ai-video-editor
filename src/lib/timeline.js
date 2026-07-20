@@ -30,6 +30,8 @@ export function getVisualAssetPayload(asset) {
     assetId: asset.assetId ?? asset.id ?? "",
     type: asset.type ?? "image",
     src: asset.src ?? "",
+    thumbnail: asset.thumbnail ?? "",
+    originalSrc: asset.originalSrc ?? "",
     name: asset.name ?? "",
     meta: asset.meta ?? "",
     blob: asset.blob ?? null,
@@ -39,6 +41,8 @@ export function getVisualAssetPayload(asset) {
     sourceDuration: Math.max(0, Number(asset.sourceDuration ?? asset.duration) || 0),
     playbackRate: Math.max(0.25, Math.min(4, Number(asset.playbackRate) || 1)),
     trackFrames: Array.isArray(asset.trackFrames) ? asset.trackFrames : [],
+    preparing: Boolean(asset.preparing),
+    prepareProgress: Math.max(0, Math.min(1, Number(asset.prepareProgress) || 0)),
   };
 }
 

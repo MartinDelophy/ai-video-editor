@@ -22,6 +22,7 @@ import { CaptionOverlay } from "./CaptionOverlay.jsx";
 import { IconButton } from "./ui.jsx";
 import { getVisualOverlayPixelBox, snapVisualOverlayTransform } from "../lib/visualOverlayTimeline.js";
 import { getAnchoredResize } from "../lib/anchoredResize.js";
+import { getVisualFitRect } from "../lib/visualGeometry.js";
 
 export function PreviewStage({
   t,
@@ -127,6 +128,25 @@ export function PreviewStage({
     transform: `translate(${visualTransform.x + visualAnimation.x}%, ${visualTransform.y + visualAnimation.y}%) scale(${visualTransform.scale * visualAnimation.scale}) rotate(${visualTransform.rotation}deg)`,
     opacity: visualTransform.opacity * visualAnimation.opacity,
   };
+  const visualContentBox = activeObjectFit === "contain"
+    ? getVisualFitRect(
+        { width: visualEffects?.width, height: visualEffects?.height },
+        { width: frameWidth, height: frameHeight },
+        "contain",
+      )
+    : { x: 0, y: 0, width: frameWidth, height: frameHeight };
+  const hasVisualContentBox = visualContentBox.width > 0 && visualContentBox.height > 0;
+  const transformBox = hasVisualContentBox
+    ? visualContentBox
+    : { x: 0, y: 0, width: frameWidth, height: frameHeight };
+  const visualTransformBoxStyle = {
+    left: `${transformBox.x + transformBox.width / 2 + (visualTransform.x + visualAnimation.x) / 100 * frameWidth}px`,
+    top: `${transformBox.y + transformBox.height / 2 + (visualTransform.y + visualAnimation.y) / 100 * frameHeight}px`,
+    width: `${transformBox.width}px`,
+    height: `${transformBox.height}px`,
+    transform: `translate(-50%, -50%) scale(${visualTransform.scale * visualAnimation.scale}) rotate(${visualTransform.rotation}deg)`,
+    opacity: visualTransform.opacity * visualAnimation.opacity,
+  };
   const visualMaskStyle = {
     clipPath: ["rectangle", "rounded"].includes(visualMask.type) && !usesAlphaMask
       ? `inset(${maskInsets.top}% ${maskInsets.right}% ${maskInsets.bottom}% ${maskInsets.left}%${visualMask.type === "rounded" ? ` round ${roundedRadius}px` : ""})`
@@ -227,10 +247,10 @@ export function PreviewStage({
       });
       if (mode.startsWith("scale-")) {
         const handle = mode.slice(6);
-        let candidate = getAnchoredResize({ handle, pointer: { x: moveEvent.clientX, y: moveEvent.clientY }, frame: rect, box: { width: rect.width, height: rect.height }, transform: initial });
+        let candidate = getAnchoredResize({ handle, pointer: { x: moveEvent.clientX, y: moveEvent.clientY }, frame: rect, box: { width: transformBox.width, height: transformBox.height }, transform: initial });
         candidate = { ...candidate, scale: Math.max(0.1, Math.min(4, candidate.scale)) };
-        const snapped = snapVisualScaleToFrameEdges(candidate, { width: rect.width, height: rect.height });
-        candidate = getAnchoredResize({ handle, pointer: { x: moveEvent.clientX, y: moveEvent.clientY }, frame: rect, box: { width: rect.width, height: rect.height }, transform: initial, scale: snapped.transform.scale });
+        const snapped = snapVisualScaleToFrameEdges(candidate, { width: rect.width, height: rect.height }, 8, transformBox);
+        candidate = getAnchoredResize({ handle, pointer: { x: moveEvent.clientX, y: moveEvent.clientY }, frame: rect, box: { width: transformBox.width, height: transformBox.height }, transform: initial, scale: snapped.transform.scale });
         setOverlaySnapGuides(snapped.guides);
         onUpdateVisualTransform({ ...candidate, x: round(candidate.x), y: round(candidate.y), scale: round(candidate.scale) });
       }
@@ -450,7 +470,7 @@ export function PreviewStage({
               </div>
             ) : null}
             {renderedVisualSrc && trackVisibility.image && visualTransformEditable && (!visualMask.type || visualMask.type === "none") ? (
-              <div className="visual-transform-box" style={visualTransformStyle} onPointerDown={(event) => startVisualTransform(event, "move")}>
+              <div className="visual-transform-box" style={visualTransformBoxStyle} onPointerDown={(event) => startVisualTransform(event, "move")}>
                 <span className="visual-transform-label">{t("visualBasic", "画面")}</span>
                 <button className="visual-transform-rotate" type="button" aria-label={t("visualRotation", "旋转")} onPointerDown={(event) => startVisualTransform(event, "rotate")} />
                 {['nw', 'ne', 'sw', 'se'].map((corner) => <button key={corner} className={`visual-transform-handle is-${corner}`} type="button" aria-label={t("visualScale", "缩放")} onPointerDown={(event) => startVisualTransform(event, `scale-${corner}`)} />)}

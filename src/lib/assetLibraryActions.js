@@ -1,11 +1,21 @@
 import { decodeWaveform } from "./media.js";
 
 export function createAssetLibraryActions(deps) {
-  async function selectAsset(asset) {
+  async function selectAsset(asset, options = {}) {
     if (asset.type === "audio") {
       if (!asset.blob) return void deps.notify("当前音频素材不可用，请重新上传");
-      const decoded = asset.peaks?.length ? { duration: asset.duration, peaks: asset.peaks } : await decodeWaveform(asset.blob, 96);
-      deps.replaceMusic(asset.blob, decoded.duration, decoded.peaks, asset.name);
+      const hasValidDuration = Number.isFinite(Number(asset.duration)) && Number(asset.duration) > 0;
+      const decoded = asset.peaks?.length && hasValidDuration
+        ? { duration: Number(asset.duration), peaks: asset.peaks }
+        : await decodeWaveform(asset.blob, 96);
+      deps.replaceMusic(
+        asset.blob,
+        decoded.duration,
+        decoded.peaks,
+        asset.name,
+        undefined,
+        { focusAudio: options.focusAudio !== false },
+      );
       return;
     }
     deps.replaceVisualTimeline(asset, deps.getVisualDurationForAsset(asset));

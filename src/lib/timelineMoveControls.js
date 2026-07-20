@@ -11,8 +11,9 @@ export function createTimelineMoveControls(d) {
     if (!(clipDuration > 0) || d.trackLocks[track]) return void d.notify(`${isSource ? "视频原声" : "音乐"}轨已锁定，无法移动`);
     const rect = d.trackScrollRef.current?.getBoundingClientRect(); const duration = d.timelineDurationRef.current || 10;
     if (!rect) return;
-    event.preventDefault(); event.stopPropagation(); d.setSelectedTrack(track); d.setActiveTool("audio");
+    event.preventDefault(); event.stopPropagation(); d.setSelectedTrack(track);
     const startX = event.clientX; let moved = false; let latest = start;
+    const originalMusicSegments = !isSource && Array.isArray(d.musicSegments) ? d.musicSegments : [];
     const snapPoints = collectTimelineSnapPoints(d, { track, id: track });
     const move = (e) => {
       if (!moved && Math.abs(e.clientX - startX) < 4) return;
@@ -22,11 +23,18 @@ export function createTimelineMoveControls(d) {
       latest = Math.max(0, Math.min(MAX_TIMELINE_DURATION_SECONDS - clipDuration, snapped.start));
       d.setSnapGuide?.(snapped.guide);
       if (isSource) { d.setSourceAudioLinked(false); d.setSourceAudioStart(latest); }
-      else d.setMusicStart(latest);
+      else {
+        d.setMusicStart(latest);
+        if (originalMusicSegments.length) d.setMusicSegments?.(originalMusicSegments.map((segment) => ({ ...segment, start: segment.start + latest - start })));
+      }
       d.setTimelineHorizon((value) => Math.max(value, Math.ceil((latest + clipDuration + 5) / 10) * 10));
     };
     const cleanup = () => { removeEventListener("pointermove", move); removeEventListener("pointerup", up); removeEventListener("pointercancel", cleanup); d.setSnapGuide?.(null); };
-    const up = () => { cleanup(); if (moved) { d.seekTo(latest); d.notify(`${isSource ? "视频原声" : "音乐"}片段位置已调整`); } };
+    const up = () => { cleanup(); if (moved) {
+      d.suppressTimelineClipClickRef.current = track;
+      setTimeout(() => { if (d.suppressTimelineClipClickRef.current === track) d.suppressTimelineClipClickRef.current = ""; }, 160);
+      d.seekTo(latest); d.notify(`${isSource ? "视频原声" : "音乐"}片段位置已调整`);
+    } };
     addEventListener("pointermove", move, { passive: false }); addEventListener("pointerup", up); addEventListener("pointercancel", cleanup);
   };
   const startAudioSegmentMove = (event, id = "") => {
@@ -57,7 +65,11 @@ export function createTimelineMoveControls(d) {
       d.setTimelineHorizon((value) => Math.max(value, Math.ceil((latest + segment.duration + 5) / 10) * 10));
     };
     const cleanup = () => { removeEventListener("pointermove", move); removeEventListener("pointerup", up); removeEventListener("pointercancel", cleanup); d.setSnapGuide?.(null); };
-    const up = () => { cleanup(); if (moved) { d.seekTo(latest); d.notify(d.t("audioClipMoved")); } };
+    const up = () => { cleanup(); if (moved) {
+      d.suppressTimelineClipClickRef.current = segment.id;
+      setTimeout(() => { if (d.suppressTimelineClipClickRef.current === segment.id) d.suppressTimelineClipClickRef.current = ""; }, 160);
+      d.seekTo(latest); d.notify(d.t("audioClipMoved"));
+    } };
     addEventListener("pointermove", move, { passive: false }); addEventListener("pointerup", up); addEventListener("pointercancel", cleanup);
   };
   const startStickerSegmentMove = (event, id = "") => {

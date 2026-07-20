@@ -23,6 +23,31 @@ function createDeps(overrides = {}) {
 }
 
 describe("timeline playhead seeking", () => {
+  it("starts voice and music together when visibility defaults are absent", async () => {
+    const voice = { currentTime: 0, paused: true, playbackRate: 1, volume: 1, play: vi.fn(() => Promise.resolve()), pause: vi.fn() };
+    const music = { currentTime: 0, paused: true, playbackRate: 1, play: vi.fn(() => Promise.resolve()), pause: vi.fn() };
+    const voiceSegment = { id: "voice-1", start: 0, duration: 8, volume: 1 };
+    const deps = createDeps({
+      isPlaying: false,
+      canPreview: true,
+      estimatedDuration: 8,
+      trackVisibility: {},
+      audioSegments: [voiceSegment],
+      audioSegmentRefs: { current: new Map([[voiceSegment.id, voice]]) },
+      musicRef: { current: music },
+      musicUrl: "blob:music",
+      musicDuration: 8,
+      notify: vi.fn(),
+      previewVisualType: "image",
+      visualSegments: [],
+      visualTimeline: [],
+    });
+    createPlaybackControls(deps).handlePlayToggle();
+    expect(voice.play).toHaveBeenCalledOnce();
+    expect(music.play).toHaveBeenCalledOnce();
+    expect(deps.setIsPlaying).toHaveBeenCalledWith(true);
+  });
+
   it("pauses playback immediately on pointer-down before any move", () => {
     const pointerListeners = new Map();
     vi.stubGlobal("addEventListener", vi.fn((type, listener) => pointerListeners.set(type, listener)));

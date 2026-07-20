@@ -25,6 +25,10 @@ import { getTimelineProjectDuration } from "../lib/timelineScale.js";
 import { getActiveVisualOverlays } from "../lib/visualOverlayTimeline.js";
 
 export function useTimelineModel(d) {
+  const finiteDuration = (value) => {
+    const duration = Number(value);
+    return Number.isFinite(duration) && duration > 0 ? duration : 0;
+  };
   const selectedVoice = useMemo(
     () => VOICES.find((voice) => voice.id === d.selectedVoiceId) ?? VOICES[0],
     [d.selectedVoiceId],
@@ -62,7 +66,7 @@ export function useTimelineModel(d) {
     [d.captionSegments],
   );
   const voiceTrackDuration = useMemo(
-    () => getTimedSegmentsEnd(d.audioSegments),
+    () => finiteDuration(getTimedSegmentsEnd(d.audioSegments)),
     [d.audioSegments],
   );
   const captionTargetDuration = voiceTrackDuration;
@@ -70,27 +74,27 @@ export function useTimelineModel(d) {
     () => getCaptionTimeline(d.captionSegments, captionTargetDuration),
     [d.captionSegments, captionTargetDuration],
   );
-  const captionDuration = captionTimeline.at(-1)?.end ?? 0;
+  const captionDuration = finiteDuration(captionTimeline.at(-1)?.end);
   const visualTimeline = useMemo(
     () => getVisualSegmentTimeline(d.visualSegments),
     [d.visualSegments],
   );
   const stickerDuration = useMemo(
-    () => getTimedSegmentsEnd(d.stickerSegments),
+    () => finiteDuration(getTimedSegmentsEnd(d.stickerSegments)),
     [d.stickerSegments],
   );
   const visualOverlayDuration = useMemo(
-    () => getTimedSegmentsEnd(d.visualOverlaySegments),
+    () => finiteDuration(getTimedSegmentsEnd(d.visualOverlaySegments)),
     [d.visualOverlaySegments],
   );
   const estimatedDuration = useMemo(() => Math.max(
     voiceTrackDuration,
     captionDuration,
-    d.sourceAudioBlob ? (d.sourceAudioTimelineEnd ?? d.sourceAudioStart + d.sourceAudioDuration) : 0,
-    d.musicBlob ? d.musicStart + d.musicDuration : 0,
+    d.sourceAudioBlob ? finiteDuration(d.sourceAudioTimelineEnd ?? Number(d.sourceAudioStart) + Number(d.sourceAudioDuration)) : 0,
+    d.musicBlob ? finiteDuration(Number(d.musicStart) + Number(d.musicDuration)) : 0,
     stickerDuration,
     visualOverlayDuration,
-    d.imageSrc ? d.imageDuration : 0,
+    d.imageSrc ? finiteDuration(d.imageDuration) : 0,
   ), [
     voiceTrackDuration, captionDuration, d.imageDuration, d.imageSrc, d.musicBlob,
     d.musicDuration, d.musicStart, d.sourceAudioBlob, d.sourceAudioDuration,

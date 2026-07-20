@@ -3,6 +3,30 @@ import { describe, expect, it, vi } from "vitest";
 import { createTimelineCutActions } from "./timelineCutActions.js";
 
 describe("timeline cut actions", () => {
+  it("cuts music at the playhead and preserves waveform and source offsets", () => {
+    let musicSegments = [];
+    const notify = vi.fn();
+    const actions = createTimelineCutActions({
+      currentTime: 6,
+      musicBlob: new Blob(["music"]),
+      musicDuration: 10,
+      musicPeaks: [0.1, 0.2, 0.3, 0.4],
+      musicSegments,
+      musicStart: 2,
+      notify,
+      selectedTrack: "music",
+      setMusicSegments: (segments) => { musicSegments = segments; },
+      trackLocks: {},
+    });
+
+    actions.handleCutTrack();
+
+    expect(musicSegments).toHaveLength(2);
+    expect(musicSegments[0]).toMatchObject({ start: 2, duration: 4, sourceStart: 0, peaks: [0.1, 0.2] });
+    expect(musicSegments[1]).toMatchObject({ start: 6, duration: 6, sourceStart: 4, peaks: [0.3, 0.4] });
+    expect(notify).toHaveBeenCalledWith("已在播放头位置切开音乐片段");
+  });
+
   it("cuts a selected voiceover at the playhead and offsets the second source", () => {
     const source = {
       id: "voice-original",

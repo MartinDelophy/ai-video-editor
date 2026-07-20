@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { getLinkedSourceAudioEnd, getLinkedSourceAudioSegments, getLinkedSourceAudioState, shouldMuteEmbeddedVideoAudio } from "./sourceAudioSync.js";
+import {
+  attachSourceAudioOffset,
+  getLinkedSourceAudioEnd,
+  getLinkedSourceAudioSegments,
+  getLinkedSourceAudioState,
+  getSourceAudioAssetId,
+  shouldMuteEmbeddedVideoAudio,
+} from "./sourceAudioSync.js";
 
 describe("linked source audio", () => {
   const visualSegments = [
@@ -53,5 +60,27 @@ describe("linked source audio", () => {
     expect(shouldMuteEmbeddedVideoAudio({ ...clip, sourceAudioDisabled: true })).toBe(true);
     expect(shouldMuteEmbeddedVideoAudio(clip, { sourceAudioBlob: new Blob(), sourceAudioAssetId: "video-1" })).toBe(true);
     expect(shouldMuteEmbeddedVideoAudio(clip, { sourceAudioBlob: new Blob(), sourceAudioAssetId: "another-video" })).toBe(false);
+  });
+
+  it("uses the underlying asset id when audio is separated from a trimmed timeline clip", () => {
+    const clip = {
+      id: "clip-1", assetId: "asset-video", type: "video",
+      duration: 15.94, sourceStart: 0.83, sourceDuration: 15.94,
+    };
+    expect(getSourceAudioAssetId(clip)).toBe("asset-video");
+    const linkedVisuals = attachSourceAudioOffset([clip], clip, 0);
+    expect(linkedVisuals[0]).toMatchObject({ assetId: "asset-video", sourceAudioOffset: 0 });
+    expect(getLinkedSourceAudioSegments(linkedVisuals, "asset-video", 17.94)).toEqual([{
+      id: "clip-1", assetId: "asset-video", start: 0,
+      duration: 15.94, sourceStart: 0.83, sourceDuration: 15.94, playbackRate: 1,
+    }]);
+    expect(getLinkedSourceAudioEnd(getLinkedSourceAudioSegments(linkedVisuals, "asset-video", 17.94))).toBe(15.94);
+  });
+
+  it("still links extraction started from a library asset", () => {
+    const asset = { id: "asset-video", type: "video" };
+    const clips = [{ id: "clip-1", assetId: "asset-video", type: "video", duration: 4, sourceStart: 0, sourceDuration: 4 }];
+    expect(getSourceAudioAssetId(asset)).toBe("asset-video");
+    expect(attachSourceAudioOffset(clips, asset, 6)[0]).toMatchObject({ sourceAudioOffset: 6 });
   });
 });

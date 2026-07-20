@@ -11,6 +11,7 @@ export const APP_LANGUAGES = [
   { id: "pt", name: "Portuguese", nativeName: "Português", hint: "Portuguese" },
   { id: "th", name: "Thai", nativeName: "ไทย", hint: "Thai" },
   { id: "vi", name: "Vietnamese", nativeName: "Tiếng Việt", hint: "Vietnamese" },
+  { id: "ru", name: "Russian", nativeName: "Русский", hint: "Russian" },
 ];
 
 const EXPORT_RENDER_COPY = {
@@ -1714,6 +1715,7 @@ export const LANGUAGE_FALLBACKS = {
   pt: "en",
   th: "en",
   vi: "en",
+  ru: "en",
 };
 
 export function getStoredLanguage() {

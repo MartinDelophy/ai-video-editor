@@ -4,7 +4,7 @@
 
 Timeline Studio — локальный ИИ-видеоредактор, работающий в браузере. Он объединяет многодорожечную временную шкалу в стиле CapCut, ИИ-озвучивание, автоматические субтитры, инструменты компьютерного зрения, говорящие аватары и детерминированный офлайн-экспорт.
 
-[Открыть редактор](https://video-editor.ai-creator.top/) · [Посмотреть демо](https://youtu.be/mUXduGpBmwE) · [Hugging Face Space](https://huggingface.co/spaces/haixin/timeline-studio)
+[Открыть редактор](https://video-editor.ai-creator.top/) · [Посмотреть демо](https://www.youtube.com/watch?v=chdRPG2ndMs) · [Hugging Face Space](https://huggingface.co/spaces/haixin/timeline-studio)
 
 ![Редактор Timeline Studio](docs/screenshots/editor-timeline.png)
 
@@ -17,6 +17,18 @@ Timeline Studio — локальный ИИ-видеоредактор, рабо
 - Многодорожечный монтаж с наложениями, масками, фильтрами, анимацией и ключевыми кадрами.
 - Экспорт MP4/WebM в браузере с WebCodecs и сведением звука.
 - Устанавливаемое PWA, локальный кэш моделей и проекты `.timeline`.
+
+## Дорожная карта
+
+- **Сейчас:** повысить надёжность детерминированного офлайн-экспорта и временной шкалы, расширить сквозные браузерные тесты.
+- **Далее:** выпустить версионируемый headless-обработчик команд для монтажа с агентами и упростить обмен шаблонами проектов.
+- **Позже:** добавить совместное рецензирование, интерфейс расширений и больше локально проверенных ИИ-моделей.
+
+Приоритеты обсуждаются в [GitHub Discussions](https://github.com/MartinDelophy/ai-video-editor/discussions).
+
+## Нужна помощь
+
+Приветствуются вклады в браузерные медиа, WebCodecs, WebGPU/ONNX, UX временной шкалы, локализацию, тесты и документацию. Сообщайте о воспроизводимых ошибках в [Issues](https://github.com/MartinDelophy/ai-video-editor/issues), делитесь идеями в [Discussions](https://github.com/MartinDelophy/ai-video-editor/discussions) или присылайте небольшие исправления, тесты, переводы и примеры.
 
 ## Быстрый старт
 
@@ -40,4 +52,3 @@ npm run check
 ## Лицензия
 
 [MIT](LICENSE)
-

@@ -8,7 +8,7 @@
 
 Timeline Studio 是一个本地优先、直接运行在浏览器中的 AI 视频编辑器。它把接近剪映/CapCut 的多轨时间线，与浏览器 AI 配音、自动字幕、智能画面、数字人和确定性离线导出结合在一起。
 
-[打开在线编辑器](https://video-editor.ai-creator.top/) · [观看演示](https://youtu.be/mUXduGpBmwE) · [Hugging Face Space](https://huggingface.co/spaces/haixin/timeline-studio)
+[打开在线编辑器](https://video-editor.ai-creator.top/) · [观看演示](https://www.youtube.com/watch?v=chdRPG2ndMs) · [Hugging Face Space](https://huggingface.co/spaces/haixin/timeline-studio)
 
 ![Timeline Studio 编辑器](docs/screenshots/editor-timeline.png)
 
@@ -45,6 +45,22 @@ Timeline Studio 是一个本地优先、直接运行在浏览器中的 AI 视频
 - 始终保留可编辑的 `.timeline` 项目，而不是只交付不可逆的视频成片。
 
 当前 Skill 会明确说明能力边界：现阶段已经可以通过浏览器驱动编辑；Skill 中的版本化无头命令协议是下一阶段自动化层，不会把尚未实现的 CLI 描述成现成功能。
+
+## 路线图
+
+- **当前：** 加固确定性离线导出、提高时间线编辑可靠性，并扩充浏览器端到端测试。
+- **下一步：** 发布供 Agent 驱动剪辑使用的版本化无头命令执行器，并让可复用项目模板更易分享。
+- **未来：** 增加协作审阅流程、插件扩展能力，以及更多经过本地验证的 AI 模型。
+
+路线图优先级会在 [GitHub Discussions](https://github.com/MartinDelophy/ai-video-editor/discussions) 中共同讨论。欢迎提交功能建议和真实工作流反馈。
+
+## 期待你的参与
+
+我们正在寻找对浏览器媒体、WebCodecs、WebGPU/ONNX、时间线交互、本地化、测试或文档感兴趣的贡献者。
+
+- 体验[在线编辑器](https://video-editor.ai-creator.top/)，并在 [Issues](https://github.com/MartinDelophy/ai-video-editor/issues) 中提交可复现的问题。
+- 加入 [Discussions](https://github.com/MartinDelophy/ai-video-editor/discussions)，提出功能建议、分享作品或帮助确定路线图优先级。
+- 尤其欢迎聚焦的小型修复、测试、翻译、文档和示例项目贡献。
 
 ## 快速启动
 

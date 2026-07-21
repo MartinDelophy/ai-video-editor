@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "timeline-studio",
+  "displayName": "Timeline Studio",
+  "version": "0.1.0",
+  "description": "Operate, evaluate, and improve editable video workflows in Timeline Studio while preserving the editable timeline as the source of truth.",
+  "author": {
+    "name": "MartinDelophy",
+    "url": "https://github.com/MartinDelophy"
+  },
+  "homepage": "https://video-editor.ai-creator.top/",
+  "repository": "https://github.com/MartinDelophy/ai-video-editor",
+  "license": "MIT",
+  "keywords": [
+    "video-editing",
+    "timeline",
+    "captions",
+    "voiceover",
+    "media"
+  ]
+}

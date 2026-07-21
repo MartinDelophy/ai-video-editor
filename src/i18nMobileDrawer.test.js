@@ -13,6 +13,16 @@ describe("mobile drawer translations", () => {
       expect(t("mobileAddToMainTrack")).not.toBe("mobileAddToMainTrack");
       expect(t("mobileAddToVoice")).not.toBe("mobileAddToVoice");
       expect(t("mobileAddToMusic")).not.toBe("mobileAddToMusic");
+      expect(t("mobileClipEdit")).not.toBe("mobileClipEdit");
+      expect(t("mobileClipAudio")).not.toBe("mobileClipAudio");
+      expect(t("mobileClipCaptions")).not.toBe("mobileClipCaptions");
+      expect(t("mobileClipSeparate")).not.toBe("mobileClipSeparate");
+      expect(t("mobileClipSplit")).not.toBe("mobileClipSplit");
+      expect(t("mobileClipCopy")).not.toBe("mobileClipCopy");
+      expect(t("mobileClipDelete")).not.toBe("mobileClipDelete");
+      expect(t("addSticker")).not.toBe("addSticker");
+      expect(t("mobileStickerActions")).not.toBe("mobileStickerActions");
+      expect(t("mobileStickerCancel")).not.toBe("mobileStickerCancel");
     });
   });
 

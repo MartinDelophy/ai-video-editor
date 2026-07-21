@@ -26,6 +26,7 @@ import {
 } from "./visualEffects.js";
 import { resolveVisualClipAnimation } from "./visualClipAnimations.js";
 import { getStickerRenderGeometry } from "./stickerGeometry.js";
+import { createPitchPreservedAudioBuffer } from "./pitchPreservingTimeStretch.js";
 
 export function getAudioRecordingFormat() {
   if (typeof MediaRecorder === "undefined") {
@@ -796,6 +797,7 @@ export async function exportBrowserVideo({
   musicBlob,
   musicVolume = 0.35,
   musicStart = 0,
+  musicSegments = [],
   text,
   captionSegments,
   duration,
@@ -924,7 +926,13 @@ export async function exportBrowserVideo({
       : sourceAudioBlob
         ? [{ blob: sourceAudioBlob, volume: sourceAudioVolume, role: "source", start: Math.max(0, sourceAudioStart || 0) }]
         : []),
-    musicBlob ? { blob: musicBlob, volume: musicVolume, role: "music", start: Math.max(0, musicStart || 0) } : null,
+    ...(musicBlob ? (musicSegments.length ? musicSegments.map((segment) => ({
+      blob: musicBlob, volume: segment.volume ?? musicVolume, role: "music",
+      start: Math.max(0, segment.start || 0), sourceOffset: Math.max(0, segment.sourceStart || 0),
+      sourceDuration: Math.max(0, segment.sourceDuration || (segment.duration || 0) * normalizeVisualPlaybackRate(segment.playbackRate)),
+      playbackRate: normalizeVisualPlaybackRate(segment.playbackRate), outputDuration: Math.max(0, segment.duration || 0),
+      fadeIn: Math.max(0, segment.fadeIn || 0), fadeOut: Math.max(0, segment.fadeOut || 0),
+    })) : [{ blob: musicBlob, volume: musicVolume, role: "music", start: Math.max(0, musicStart || 0) }]) : []),
   ].filter(Boolean);
 
   if (audioInputs.length) {
@@ -949,13 +957,22 @@ export async function exportBrowserVideo({
           Number(input.sourceDuration) || decoded.duration - sourceOffset,
           decoded.duration - sourceOffset,
         ));
+        const outputDuration = Number(input.outputDuration) || sourceDuration / playbackRate;
+        const preservePitch = Math.abs(playbackRate - 1) > 0.0001;
+        const prepared = preservePitch
+          ? createPitchPreservedAudioBuffer(audioContext, decoded, {
+              sourceOffset,
+              sourceDuration,
+              playbackRate,
+            })
+          : decoded;
         return {
           ...input,
-          decoded,
-          playbackRate,
-          sourceOffset,
-          sourceDuration,
-          outputDuration: Number(input.outputDuration) || sourceDuration / playbackRate,
+          decoded: prepared,
+          playbackRate: 1,
+          sourceOffset: preservePitch ? 0 : sourceOffset,
+          sourceDuration: preservePitch ? outputDuration : sourceDuration,
+          outputDuration,
         };
       }),
     );

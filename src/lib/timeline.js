@@ -84,13 +84,37 @@ export function getTimedSegmentsEnd(segments) {
   );
 }
 
-export function packTimedSegmentsIntoLanes(segments) {
+export function normalizeTimedSegmentIds(segments, prefix = "segment") {
+  const seen = new Set();
+  let changed = false;
+  const normalized = segments.map((segment) => {
+    const id = String(segment?.id || "");
+    if (id && !seen.has(id)) {
+      seen.add(id);
+      return segment;
+    }
+    const next = { ...segment, id: makeId(prefix) };
+    seen.add(next.id);
+    changed = true;
+    return next;
+  });
+  return changed ? normalized : segments;
+}
+
+export function packTimedSegmentsIntoLanes(segments, { preferredLaneKey = "" } = {}) {
   const lanes = [];
   [...segments].sort((a, b) => (a.start || 0) - (b.start || 0) || String(a.id).localeCompare(String(b.id))).forEach((segment) => {
-    const laneIndex = lanes.findIndex((lane) => {
+    const laneAccepts = (lane = []) => {
       const last = lane.at(-1);
       return !last || (last.start || 0) + (last.duration || 0) <= (segment.start || 0) + 0.001;
-    });
+    };
+    const preferredLane = preferredLaneKey && Number.isInteger(segment?.[preferredLaneKey])
+      ? Math.max(0, segment[preferredLaneKey])
+      : -1;
+    while (preferredLane >= lanes.length) lanes.push([]);
+    const laneIndex = preferredLane >= 0 && laneAccepts(lanes[preferredLane])
+      ? preferredLane
+      : lanes.findIndex(laneAccepts);
     if (laneIndex >= 0) lanes[laneIndex].push(segment);
     else lanes.push([segment]);
   });
@@ -310,6 +334,15 @@ export function formatTime(value) {
     2,
     "0",
   )}.${String(centiseconds).padStart(2, "0")}`;
+}
+
+export function formatCompactDuration(value) {
+  const seconds = Math.max(0, Number.isFinite(value) ? value : 0);
+  if (seconds < 10) return `${seconds.toFixed(1)}s`;
+  const roundedSeconds = Math.round(seconds);
+  if (roundedSeconds < 60) return `${roundedSeconds}s`;
+  const minutes = Math.floor(roundedSeconds / 60);
+  return `${minutes}:${String(roundedSeconds % 60).padStart(2, "0")}`;
 }
 
 export function formatClock(value) {

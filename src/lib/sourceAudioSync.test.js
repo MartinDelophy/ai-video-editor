@@ -7,6 +7,7 @@ import {
   getSourceAudioAssetId,
   shouldMuteEmbeddedVideoAudio,
 } from "./sourceAudioSync.js";
+import { updateVisualSegmentPlaybackRate } from "./visualEffects.js";
 
 describe("linked source audio", () => {
   const visualSegments = [
@@ -31,6 +32,17 @@ describe("linked source audio", () => {
     expect(getLinkedSourceAudioState(segments, 4)).toMatchObject({ active: true, sourceTime: 5, playbackRate: 1 });
   });
 
+  it("updates linked source-audio duration and rate when its video speed changes", () => {
+    const video = {
+      id: "speed-video", assetId: "video-speed", type: "video",
+      duration: 4, sourceStart: 0, sourceDuration: 4, sourceAudioOffset: 0, playbackRate: 1,
+    };
+    const fasterVideo = updateVisualSegmentPlaybackRate(video, 2);
+    expect(getLinkedSourceAudioSegments([fasterVideo], "video-speed", 4)).toMatchObject([{
+      id: "speed-video", duration: 2, sourceDuration: 4, playbackRate: 2,
+    }]);
+  });
+
   it("keeps source audio mappings for multiple imported video assets", () => {
     const clips = [
       { id: "first", assetId: "video-1", type: "video", duration: 4, sourceStart: 0, sourceDuration: 4, sourceAudioOffset: 0 },
@@ -43,6 +55,14 @@ describe("linked source audio", () => {
     ]);
     expect(getLinkedSourceAudioState(segments, 2)).toMatchObject({ active: true, sourceTime: 2 });
     expect(getLinkedSourceAudioState(segments, 5)).toMatchObject({ active: true, sourceTime: 5 });
+  });
+
+  it("does not recreate a removed mapped piece from the remaining shared audio blob", () => {
+    const clips = [
+      { id: "removed", assetId: "video-1", type: "video", duration: 2 },
+      { id: "remaining", assetId: "video-2", type: "video", duration: 2, sourceAudioOffset: 2 },
+    ];
+    expect(getLinkedSourceAudioSegments(clips, "", 4).map((segment) => segment.id)).toEqual(["remaining"]);
   });
 
   it("omits only the linked audio piece disabled on its visual clip", () => {

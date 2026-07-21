@@ -13,6 +13,17 @@ describe("timeline segment insertion", () => {
     expect(commitCaptionSegments.mock.calls[0][0][0]).toMatchObject({ start: 4.25, end: 6.05, text: "New caption" });
   });
 
+  it("adds a caption from the caption panel without depending on a stale selected track", () => {
+    const commitCaptionSegments = vi.fn();
+    const controls = createTimelineSegmentCountActions({
+      selectedTrack: "image", currentTime: 7.5, captionSegments: [], trackLocks: {},
+      commitCaptionSegments, notify: vi.fn(), t: (key) => key === "newCaptionDefault" ? "New caption" : key,
+    });
+    controls.handleAddCaptionSegment();
+    expect(commitCaptionSegments.mock.calls[0][0][0]).toMatchObject({ start: 7.5, end: 9.3, text: "New caption" });
+    expect(commitCaptionSegments.mock.calls[0][2]).toBe(0);
+  });
+
   it("splits the active visual and inserts the new clip at the playhead", () => {
     const commitVisualSegments = vi.fn();
     const source = { id: "visual-1", type: "image", src: "image.png", duration: 8 };

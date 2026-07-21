@@ -11,6 +11,15 @@ export function createTimelineSegmentCountActions(d) {
     const index = stickerIndex(); const next = d.stickerSegments.filter((_, position) => position !== index);
     d.commitStickerSegments(next, next.length ? "已删除当前贴纸片段" : "已删除最后一个贴纸片段", next[Math.max(0, index - 1)]?.id ?? "");
   };
+  const handleAddCaptionSegment = (requestedStart = null) => {
+    if (d.trackLocks.caption) return void d.notify(d.t?.("captionTrackLocked") ?? "字幕轨已锁定，无法新增字幕片段");
+    const insertionTime = Number.isFinite(requestedStart) ? requestedStart : d.currentTime;
+    const start = Math.max(0, Math.min(MAX_TIMELINE_DURATION_SECONDS - 0.45, insertionTime));
+    const segment = { id: makeId("caption"), text: d.t?.("newCaptionDefault") ?? "新的字幕片段", weight: 1, hidden: false,
+      start, end: Math.min(MAX_TIMELINE_DURATION_SECONDS, start + 1.8) };
+    const next = [...d.captionSegments, segment].sort((a, b) => (Number(a.start) || 0) - (Number(b.start) || 0));
+    d.commitCaptionSegments(next, Number.isFinite(requestedStart) ? "已在点击位置新增字幕片段" : "已在播放头位置新增字幕片段", next.findIndex((item) => item.id === segment.id));
+  };
   const handleAddSegment = (requestedStart = null) => {
     if (d.selectedTrack === "sticker") {
       if (d.trackLocks.sticker) return void d.notify("贴纸轨已锁定，无法新增贴纸片段");
@@ -56,12 +65,7 @@ export function createTimelineSegmentCountActions(d) {
       return void d.commitVisualSegments([...source, segment], "已在播放头位置新增视觉片段", source.length);
     }
     if (["audio", "source", "music"].includes(d.selectedTrack)) return void d.notify(d.selectedTrack === "music" ? "背景音乐暂不支持切片，请删除后重新上传" : d.selectedTrack === "source" ? "视频原声暂不支持切片，可删除后重新上传视频" : "音频片段由生成结果决定，请重新生成或复制 WAV");
-    const insertionTime = Number.isFinite(requestedStart) ? requestedStart : d.currentTime;
-    const start = Math.max(0, Math.min(MAX_TIMELINE_DURATION_SECONDS - 0.45, insertionTime));
-    const segment = { id: makeId("caption"), text: d.t?.("newCaptionDefault") ?? "新的字幕片段", weight: 1, hidden: false,
-      start, end: Math.min(MAX_TIMELINE_DURATION_SECONDS, start + 1.8) };
-    const next = [...d.captionSegments, segment].sort((a, b) => (Number(a.start) || 0) - (Number(b.start) || 0));
-    d.commitCaptionSegments(next, Number.isFinite(requestedStart) ? "已在点击位置新增字幕片段" : "已在播放头位置新增字幕片段", next.findIndex((item) => item.id === segment.id));
+    return handleAddCaptionSegment(requestedStart);
   };
   const handleRemoveSegment = () => {
     if (d.selectedTrack === "sticker") return void deleteSticker();
@@ -80,5 +84,5 @@ export function createTimelineSegmentCountActions(d) {
     if (!d.captionSegments.length) return void d.notify("当前没有字幕片段可删除");
     d.deleteCaptionSegment(d.selectedSegmentId);
   };
-  return { handleAddSegment, handleRemoveSegment };
+  return { handleAddCaptionSegment, handleAddSegment, handleRemoveSegment };
 }

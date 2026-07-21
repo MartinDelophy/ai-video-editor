@@ -5,6 +5,7 @@ import { getLinkedSourceAudioState } from "../lib/sourceAudioSync.js";
 export function syncTimelineAudioElement(media, { active, shouldPlay, expectedTime, playbackRate = 1 }) {
   if (!media) return;
   media.playbackRate = playbackRate;
+  if ("preservesPitch" in media) media.preservesPitch = true;
   if (!shouldPlay || !active) {
     if (!media.paused) media.pause();
     return;
@@ -28,8 +29,9 @@ export function syncVoiceAudioSegments({ segments, refs, timelineTime, isPlaying
       return;
     }
     const active = isTimelineTimeInsideTrack(timelineTime, segment.start, segment.duration);
-    const expected = Math.max(0, Number(segment.sourceStart) || 0) + getTimelineTrackLocalTime(timelineTime, segment.start, segment.duration);
-    syncTimelineAudioElement(audio, { active, shouldPlay: true, expectedTime: expected });
+    const playbackRate = Math.max(0.25, Math.min(4, Number(segment.playbackRate) || 1));
+    const expected = Math.max(0, Number(segment.sourceStart) || 0) + getTimelineTrackLocalTime(timelineTime, segment.start, segment.duration) * playbackRate;
+    syncTimelineAudioElement(audio, { active, shouldPlay: true, expectedTime: expected, playbackRate });
   });
 }
 
@@ -56,16 +58,20 @@ export function useMediaSync(d) {
   useEffect(() => { if (d.musicRef.current) d.musicRef.current.volume = d.musicVolume; }, [d.musicVolume, d.musicUrl]);
   useEffect(() => {
     const music = d.musicRef.current; if (!music || !d.musicUrl) return;
-    const active = isTimelineTimeInsideTrack(d.currentTime, d.musicStart, d.musicDuration);
-    const expected = getTimelineTrackLocalTime(d.currentTime, d.musicStart, d.musicDuration);
+    const segments = d.musicSegments?.length ? d.musicSegments : [{ start: d.musicStart, duration: d.musicDuration, sourceStart: 0, playbackRate: 1 }];
+    const segment = segments.find((item) => isTimelineTimeInsideTrack(d.currentTime, item.start, item.duration));
+    const active = Boolean(segment);
+    const playbackRate = Math.max(0.25, Math.min(4, Number(segment?.playbackRate) || 1));
+    const expected = segment ? Math.max(0, Number(segment.sourceStart) || 0) + getTimelineTrackLocalTime(d.currentTime, segment.start, segment.duration) * playbackRate : 0;
     const play = d.isPlaying && d.trackVisibility?.music !== false && active;
-    syncTimelineAudioElement(music, { active, shouldPlay: play, expectedTime: expected });
-  }, [d.currentTime, d.isPlaying, d.musicDuration, d.musicStart, d.musicUrl, d.trackVisibility.music]);
+    syncTimelineAudioElement(music, { active, shouldPlay: play, expectedTime: expected, playbackRate });
+  }, [d.currentTime, d.isPlaying, d.musicDuration, d.musicSegments, d.musicStart, d.musicUrl, d.trackVisibility.music]);
   useEffect(() => { d.currentTimeRef.current = d.currentTime; }, [d.currentTime]);
   useEffect(() => { d.setPreviewVideoMediaTime(d.previewVisualType === "video" ? Math.max(0, Number(d.previewVisualSegment?.sourceStart) || 0) : 0); }, [d.previewVisualSegment?.id, d.previewVisualSrc, d.previewVisualType]);
   useEffect(() => {
     const v = d.previewVideoRef.current; if (!v || d.previewVisualType !== "video") return;
     v.playbackRate = Math.max(0.25, Math.min(4, Number(d.previewVisualSegment?.playbackRate) || 1));
+    if ("preservesPitch" in v) v.preservesPitch = true;
   }, [d.previewVisualSegment?.playbackRate, d.previewVisualSrc, d.previewVisualType]);
   useEffect(() => {
     const v = d.previewVideoRef.current; if (!v || d.previewVisualType !== "video") return;
@@ -114,7 +120,13 @@ export function useMediaSync(d) {
     if (d.sourceAudioRef.current && clamped !== time) d.sourceAudioRef.current.currentTime = d.sourceAudioLinked && d.linkedSourceAudioSegments?.length
       ? getLinkedSourceAudioState(d.linkedSourceAudioSegments, clamped).sourceTime
       : getTimelineTrackLocalTime(clamped, d.sourceAudioStart, d.sourceAudioDuration);
-    if (d.musicRef.current && clamped !== time) d.musicRef.current.currentTime = getTimelineTrackLocalTime(clamped, d.musicStart, d.musicDuration);
+    if (d.musicRef.current && clamped !== time) {
+      const segment = d.musicSegments?.find((item) => isTimelineTimeInsideTrack(clamped, item.start, item.duration));
+      const playbackRate = Math.max(0.25, Math.min(4, Number(segment?.playbackRate) || 1));
+      d.musicRef.current.currentTime = segment
+        ? Math.max(0, Number(segment.sourceStart) || 0) + getTimelineTrackLocalTime(clamped, segment.start, segment.duration) * playbackRate
+        : getTimelineTrackLocalTime(clamped, d.musicStart, d.musicDuration);
+    }
     return clamped;
-  }); }, [d.linkedSourceAudioSegments, d.musicDuration, d.musicStart, d.sourceAudioDuration, d.sourceAudioLinked, d.sourceAudioStart, d.timelineDuration]);
+  }); }, [d.linkedSourceAudioSegments, d.musicDuration, d.musicSegments, d.musicStart, d.sourceAudioDuration, d.sourceAudioLinked, d.sourceAudioStart, d.timelineDuration]);
 }

@@ -12,6 +12,7 @@ const PINYIN_VOICES = {
   "zh_CN-xiao_ya-medium": "zh/zh_CN/xiao_ya/medium",
   "zh_CN-chaowen-medium": "zh/zh_CN/chaowen/medium",
 };
+export const isBuiltInPinyinVoice = (voiceId) => voiceId in PINYIN_VOICES;
 const PIPER_BASE = "https://huggingface.co/rhasspy/piper-voices/resolve/main";
 const INITIALS = ["zh", "ch", "sh", "b", "p", "m", "f", "d", "t", "n", "l", "g", "k", "h", "j", "q", "x", "r", "z", "c", "s", "y", "w"];
 const GROUP_END = new Set(["1", "2", "3", "4", "5", "。", ".", "？", "?", "！", "!", "—", "…", "、", "，", ",", "：", ":", "；", ";", " "]);
@@ -147,6 +148,7 @@ async function loadPinyinVoice(voiceId, onProgress) {
     await writePinyinCache(`${voiceName}-${voiceId}.onnx.json`, configBytes);
   }
   const model = await fetchArrayBufferWithProgress(`${voiceBase}/${voiceId}.onnx`, onProgress, voiceName);
+  onProgress?.({ phase: "initializing", loaded: model.byteLength, total: model.byteLength });
   if (globalThis.navigator?.gpu) {
     try {
       const session = await ort.InferenceSession.create(model, {
@@ -190,6 +192,7 @@ async function predictPinyinVoice(input, onProgress) {
   }
   let runtime = await pinyinRuntimePromises.get(input.voiceId);
   const feeds = createPinyinFeeds(input, runtime.config);
+  onProgress?.({ phase: "generating", backend: runtime.backend });
   let result;
   try {
     result = await runtime.session.run(feeds);

@@ -101,6 +101,8 @@ npx netlify-cli deploy --prod --dir=dist
 
 如果这个项目对你有帮助，欢迎点亮 ⭐ Star；遇到问题请[提交 Issue](https://github.com/MartinDelophy/ai-video-editor/issues)。
 
+欢迎加入我们的 [Discord 社区](https://discord.gg/uq2uvUTBr)，提问、分享反馈，并与其他用户和贡献者交流。
+
 ## License
 
 [MIT](LICENSE)

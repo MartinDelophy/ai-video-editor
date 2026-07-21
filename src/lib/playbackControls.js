@@ -13,6 +13,17 @@ export function createPlaybackControls(deps) {
         sourceTime: getTimelineTrackLocalTime(timelineTime, deps.sourceAudioStart, deps.sourceAudioDuration),
         playbackRate: 1,
       };
+  const getMusicState = (timelineTime) => {
+    const segments = deps.musicSegments?.length ? deps.musicSegments : [{ start: deps.musicStart, duration: deps.musicDuration, sourceStart: 0, playbackRate: 1 }];
+    const segment = segments.find((item) => isTimelineTimeInsideTrack(timelineTime, item.start, item.duration));
+    if (!segment) return { active: false, sourceTime: 0, playbackRate: 1 };
+    const playbackRate = Math.max(0.25, Math.min(4, Number(segment.playbackRate) || 1));
+    return {
+      active: true,
+      playbackRate,
+      sourceTime: Math.max(0, Number(segment.sourceStart) || 0) + getTimelineTrackLocalTime(timelineTime, segment.start, segment.duration) * playbackRate,
+    };
+  };
   const pauseTimelineMedia = () => {
     deps.audioSegmentRefs.current.forEach((audio) => audio.pause()); deps.sourceAudioRef.current?.pause();
     deps.musicRef.current?.pause(); deps.previewVideoRef.current?.pause();
@@ -22,10 +33,10 @@ export function createPlaybackControls(deps) {
     deps.currentTimeRef.current = clamped; deps.setCurrentTime(clamped);
     deps.audioSegments.forEach((segment) => {
       const audio = deps.audioSegmentRefs.current.get(segment.id);
-      if (audio) audio.currentTime = Math.max(0, Number(segment.sourceStart) || 0) + getTimelineTrackLocalTime(clamped, segment.start, segment.duration);
+      if (audio) audio.currentTime = Math.max(0, Number(segment.sourceStart) || 0) + getTimelineTrackLocalTime(clamped, segment.start, segment.duration) * Math.max(0.25, Math.min(4, Number(segment.playbackRate) || 1));
     });
     if (deps.sourceAudioRef.current) deps.sourceAudioRef.current.currentTime = getSourceState(clamped).sourceTime;
-    if (deps.musicRef.current) deps.musicRef.current.currentTime = getTimelineTrackLocalTime(clamped, deps.musicStart, deps.musicDuration);
+    if (deps.musicRef.current) deps.musicRef.current.currentTime = getMusicState(clamped).sourceTime;
   };
   const getTimelineTimeFromClientX = (clientX) => {
     const rect = deps.trackScrollRef.current?.getBoundingClientRect(); const duration = deps.timelineDurationRef.current;
@@ -56,22 +67,27 @@ export function createPlaybackControls(deps) {
     const playIf = (media, ready) => ready ? requestTimelineMediaPlay(media) : media?.pause();
     voices.forEach(({ segment, audio }) => {
       const active = isTimelineTimeInsideTrack(timelineTime, segment.start, segment.duration);
-      audio.currentTime = Math.max(0, Number(segment.sourceStart) || 0) + getTimelineTrackLocalTime(timelineTime, segment.start, segment.duration);
-      audio.volume = getAudioSegmentPreviewVolume(segment, timelineTime); audio.playbackRate = 1; playIf(audio, active);
+      const playbackRate = Math.max(0.25, Math.min(4, Number(segment.playbackRate) || 1));
+      audio.currentTime = Math.max(0, Number(segment.sourceStart) || 0) + getTimelineTrackLocalTime(timelineTime, segment.start, segment.duration) * playbackRate;
+      audio.volume = getAudioSegmentPreviewVolume(segment, timelineTime); audio.playbackRate = playbackRate;
+      if ("preservesPitch" in audio) audio.preservesPitch = true;
+      playIf(audio, active);
     });
     if (source && deps.sourceAudioUrl) {
       const sourceState = getSourceState(timelineTime);
       source.currentTime = sourceState.sourceTime;
       source.playbackRate = sourceState.playbackRate;
+      if ("preservesPitch" in source) source.preservesPitch = true;
       playIf(source, sourceState.active);
     }
-    if (music && deps.musicUrl) { const active = isTimelineTimeInsideTrack(timelineTime, deps.musicStart, deps.musicDuration); music.currentTime = getTimelineTrackLocalTime(timelineTime, deps.musicStart, deps.musicDuration); playIf(music, active); }
+    if (music && deps.musicUrl) { const state = getMusicState(timelineTime); music.currentTime = state.sourceTime; music.playbackRate = state.playbackRate; if ("preservesPitch" in music) music.preservesPitch = true; playIf(music, state.active); }
     if (video && deps.previewVisualType === "video") {
       const index = getVisualSegmentIndexAtTime(deps.visualSegments, timelineTime);
       const range = deps.visualTimeline[Math.max(0, index)] ?? deps.currentVisualRange;
       const local = range ? Math.max(0, timelineTime - range.start) : timelineTime;
       const segment = deps.visualSegments[Math.max(0, index)];
       video.playbackRate = normalizeVisualPlaybackRate(segment?.playbackRate);
+      if ("preservesPitch" in video) video.preservesPitch = true;
       const sourceTime = getVisualSourceTime(segment, local);
       video.currentTime = Math.min(sourceTime, video.duration || sourceTime); playIf(video, true);
     }

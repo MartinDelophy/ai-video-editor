@@ -10,4 +10,10 @@ describe("SRT import translations", () => {
     }
     expect(createTranslator("ru")("importSrt")).toBe("Импорт SRT");
   });
+
+  it("localizes the manual add-caption action in every supported language", () => {
+    for (const language of APP_LANGUAGES) {
+      expect(createTranslator(language.id)("addCaption"), language.id).not.toBe("addCaption");
+    }
+  });
 });

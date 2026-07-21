@@ -53,6 +53,8 @@ npm run check
 
 Se este projeto for útil para você, considere dar uma ⭐ Star. Se encontrar algum problema, [abra uma Issue](https://github.com/MartinDelophy/ai-video-editor/issues).
 
+Participe da nossa [comunidade no Discord](https://discord.gg/uq2uvUTBr) para tirar dúvidas, compartilhar feedback e conversar com outros usuários e colaboradores.
+
 ## Licença
 
 [MIT](LICENSE)

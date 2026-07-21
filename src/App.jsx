@@ -722,22 +722,22 @@ export function App() {
   };
 
   const { handleExportProject, handleImportProject, handleNewProject } = useProjectFiles({
-    audioBlob, audioDuration, captionPlacement, captionPosition, captionSegments, captionSize,
+    audioBlob, audioDuration, audioSegments, captionPlacement, captionPosition, captionSegments, captionSize,
     captionStyle, captionsEnabled, captionStyleFallback: captionStyle, clearAllVisionState,
     clearAudioTrack, clearImageTrack, clearMusicTrack, clearSourceAudioTrack, fitMode,
     imageUrlRefs, musicBlob, musicDuration, musicName, musicStart, musicVolume, notify, projectFileInputRef,
     ratioId, replaceAudio, replaceMusic, replaceSourceAudio, script, selectedFilterId,
     selectedStickerId, selectedTransitionId, selectedVoiceId, setCaptionPlacement,
     setCaptionPosition, setCaptionSegments, setCaptionSize, setCaptionStyle, setCaptionsEnabled,
-    setCurrentTime, setFitMode, setImageClipCount, setImageDuration, setMusicStart, setMusicVolume,
+    setAudioSegments, setCurrentTime, setFitMode, setImageClipCount, setImageDuration, setMusicStart, setMusicVolume,
     setRatioId, setScript, setSelectedFilterId, setSelectedSegmentId, setSelectedStickerId,
     setSelectedStickerSegmentId, setSelectedTransitionId, setSelectedVoiceId, setShowFileMenu,
-    setSourceAudioAssetId, setSourceAudioLinked, setSourceAudioVolume, setSpeed, setStickerSegments, setTimelineZoom, setTrackVisibility,
+    setSourceAudioAssetId, setSourceAudioLinked, setSourceAudioVolume, setSpeed, setStickerSegments, setTimelineZoom, setTrackLocks, setTrackVisibility,
     setTimelineHorizon,
     setVisualSegments, setVisualOverlaySegments, setSelectedVisualOverlayId, setVolume, setCurrentVisualAsset, sourceAudioBlob, sourceAudioDuration,
     markTimelineViewRestored: (hasContent) => { timelineImportRestoreRef.current = hasContent; },
     sourceAudioAssetId, sourceAudioLinked, sourceAudioName, sourceAudioStart, sourceAudioVolume, speed, stickerSegments,
-    timelineZoom, trackVisibility, visualSegments, visualOverlaySegments, volume,
+    timelineZoom, trackLocks, trackVisibility, visualSegments, visualOverlaySegments, volume,
   });
 
   const {

@@ -16,6 +16,9 @@
 - Browser-driven operation of the running editor
 - Import and export through visible file controls
 - Pure timeline helper functions in `src/lib/`
+- A versioned JSON command plan runner through `npm run agent -- inspect <project.timeline>` and `npm run agent -- run <plan.json>`
+- Transactional, revision-checked, idempotent, dry-run-safe edits for moving voiceover clips, updating caption text/timing, and unlinking or relinking caption audio
+- Portable `.timeline` output that preserves archived media entries while replacing only versioned project metadata
 
 Browser-driven editing is a compatibility mechanism, not a stable public API. UI labels, selection state, drag thresholds, and file pickers make it unsuitable for unattended or idempotent jobs.
 
@@ -35,10 +38,10 @@ Observed browser-path constraints:
 
 ## Missing for reliable Agent editing
 
-1. A headless command runner that owns project load, media probing, command application, save, and render.
-2. A versioned command schema with stable asset/clip/track IDs and explicit time units.
-3. A serializable editor core independent of React setters, DOM nodes, Blob URLs, and browser-only refs.
-4. Transactional validation, revision preconditions, idempotency keys, structured errors, undo checkpoints, and dry-run diffs.
+1. Media probing and render support in the headless command runner (load, inspect, edit, and save are now available).
+2. Broader command coverage beyond the initial voiceover/caption operations.
+3. A fully serializable editor core independent of React setters, DOM nodes, Blob URLs, and browser-only refs; the first shared reducers now live in `src/lib/projectCommandEngine.js`.
+4. Persisted undo checkpoints and richer semantic diffs; transactions, revision preconditions, idempotency keys, structured errors, and summary dry-run diffs are available.
 5. Read tools at three levels: project summary, track/clip detail, and transcript/analysis detail.
 6. Progress events and cancellation for ASR, TTS, vision, avatar generation, and export.
 7. Deterministic media ingestion with content hashes and portable asset references.
@@ -46,10 +49,9 @@ Observed browser-path constraints:
 
 ## Recommended delivery order
 
-1. Extract `EditorProjectState` and pure reducers from the existing timeline action modules.
-2. Add read-only `project.inspect` and `project.diff` commands.
-3. Add core edit commands: import, append, trim, split, move, delete, caption, overlay, property, and track mute/visibility.
-4. Wrap command batches in history transactions and persist revision numbers.
-5. Add `project.open/save/render` to a local Node/browser-worker runner.
-6. Expose the same runner through CLI first; add MCP later as a thin transport adapter.
-7. Replace the Skill's UI compatibility path with the CLI while keeping the command contract unchanged.
+1. Extend the shared reducers with import, append, trim, split, delete, overlay, property, and track mute/visibility.
+2. Add track/clip/transcript inspection and richer `project.diff` output.
+3. Add persisted undo checkpoints around the existing command transaction.
+4. Add media probing and `project.render` to the local Node/browser-worker runner.
+5. Add MCP as a thin transport adapter over the same registry.
+6. Prefer the CLI from this Skill when an operation is supported, retaining browser control as the compatibility path.

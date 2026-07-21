@@ -382,15 +382,16 @@ export function App() {
   });
 
   const {
-    commitCaptionSegments, deleteCaptionSegment, handleCaptionPositionChange,
+    alignAudioCaptions, alignCaptionToAudio, commitCaptionSegments, deleteCaptionSegment, handleCaptionPositionChange,
+    linkAudioToCaption, linkCaptionAudio,
     startCaptionDrag, toggleCaptionSegmentHidden,
-    updateCaptionSegmentText, updateScript,
+    unlinkAudioCaptions, unlinkCaptionAudio, updateCaptionSegmentText, updateScript,
   } = createCaptionEditingActions({
     audioSegments, captionSegments, currentCaptionSegment, focusedSegmentIndex,
     notify, previewCanvasRef, previewVisionKey, previewVisionRecord, script,
     selectedSegmentId, setCaptionPlacement, setCaptionPosition, setCaptionSegments,
     setScript, setSelectedSegmentId, setSelectedTrack,
-    setVisionRecords, trackLocks,
+    setVisionRecords, t, trackLocks,
   });
   const importCaptionSegments = (importedSegments, mode, skipped = 0) => {
     const nextSegments = mode === "append"
@@ -1021,6 +1022,9 @@ export function App() {
           currentSegmentIndex={currentSegmentIndex}
           captionTargetDuration={captionTargetDuration}
           updateCaptionSegmentText={updateCaptionSegmentText}
+          alignCaptionToAudio={alignCaptionToAudio}
+          linkCaptionAudio={linkCaptionAudio}
+          unlinkCaptionAudio={unlinkCaptionAudio}
           toggleCaptionSegmentHidden={toggleCaptionSegmentHidden}
           deleteCaptionSegment={deleteCaptionSegment}
           importCaptionSegments={importCaptionSegments}
@@ -1108,6 +1112,12 @@ export function App() {
         openMobileTools={() => changeMobilePanel("tools")}
         openMobileFilePicker={() => fileInputRef.current?.click()}
         requestCaptionVoiceFocus={() => setCaptionVoiceFocusRequest((request) => request + 1)}
+        alignCaptionToAudio={alignCaptionToAudio}
+        linkCaptionAudio={linkCaptionAudio}
+        unlinkCaptionAudio={unlinkCaptionAudio}
+        alignAudioCaptions={alignAudioCaptions}
+        linkAudioToCaption={linkAudioToCaption}
+        unlinkAudioCaptions={unlinkAudioCaptions}
         trackVisibility={trackVisibility}
         toggleTrackVisibility={toggleTrackVisibility}
         trackLocks={trackLocks}

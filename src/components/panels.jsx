@@ -1361,6 +1361,7 @@ export function VoiceSynthesisPanel({
   volume,
   setVolume,
   status,
+  statusText,
   progressPercent,
   audioBlob,
   audioUrl,
@@ -1513,14 +1514,22 @@ export function VoiceSynthesisPanel({
       </div>
 
       {status === "generating" ? (
-        <div className="progress-track" aria-label={t("generationProgress")}>
-          <span style={{ width: `${progressPercent}%` }} />
+        <div className="voice-generation-loading" role="status" aria-live="polite">
+          <i className="voice-generation-spinner" aria-hidden="true" />
+          <div>
+            <strong>{statusText || t("generating")}</strong>
+            <span>{t("ttsFirstRunHint")}</span>
+          </div>
+          <em>{Math.round(progressPercent)}%</em>
+          <div className="progress-track" aria-label={t("generationProgress")}>
+            <span style={{ width: `${progressPercent}%` }} />
+          </div>
         </div>
       ) : null}
 
       <div className="voice-actions">
         <button className="generate-button" type="button" disabled={status === "generating" || !script.trim()} onClick={generateVoiceover}>
-          <Waveform size={18} weight="bold" />
+          {status === "generating" ? <i className="generate-button-spinner" aria-hidden="true" /> : <Waveform size={18} weight="bold" />}
           {status === "generating" ? t("generating") : audioBlob ? t("regenerateVoice") : t("generateVoice")}
         </button>
         <button className="secondary-download" type="button" disabled={!audioBlob} onClick={() => audioBlob && downloadBlob(audioBlob, "ai-voiceover.wav")}>

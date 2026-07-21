@@ -6,6 +6,7 @@ function makeMedia(overrides = {}) {
     currentTime: 0,
     paused: true,
     playbackRate: 1,
+    preservesPitch: true,
     play: vi.fn(() => Promise.resolve()),
     pause: vi.fn(),
     ...overrides,
@@ -38,6 +39,20 @@ describe("syncTimelineAudioElement", () => {
     });
     expect(media.currentTime).toBe(3);
     expect(media.play).toHaveBeenCalledOnce();
+  });
+
+  it("maps a sped-up voice to source time and native playback rate", () => {
+    const media = makeMedia({ paused: true });
+    syncVoiceAudioSegments({
+      segments: [{ id: "fast", start: 1, duration: 4, sourceStart: 0.5, playbackRate: 2 }],
+      refs: { current: new Map([["fast", media]]) },
+      timelineTime: 2.5,
+      isPlaying: true,
+      audible: true,
+    });
+    expect(media.currentTime).toBe(3.5);
+    expect(media.playbackRate).toBe(2);
+    expect(media.preservesPitch).toBe(true);
   });
 
   it("aligns once when native playback starts", () => {

@@ -23,6 +23,8 @@ export function createAudioTrackActions(d) {
       url: nextUrl,
       start,
       duration: nextDuration,
+      sourceDuration: nextDuration,
+      playbackRate: 1,
       peaks: Array.isArray(nextPeaks) ? nextPeaks : [],
       volume: 1,
       fadeIn: 0,
@@ -79,7 +81,7 @@ export function createAudioTrackActions(d) {
     const nextStart = Math.max(0, Number(options.start) || 0);
     d.setMusicStart(nextStart);
     d.setMusicPeaks(nextPeaks);
-    d.setMusicSegments?.([{ id: crypto.randomUUID(), start: nextStart, duration: nextDuration, sourceStart: 0, peaks: nextPeaks }]);
+    d.setMusicSegments?.([{ id: crypto.randomUUID(), start: nextStart, duration: nextDuration, sourceStart: 0, sourceDuration: nextDuration, playbackRate: 1, peaks: nextPeaks }]);
     d.setSelectedTrack("music");
     if (options.focusAudio !== false) d.setActiveTool("audio");
     d.notify(message);

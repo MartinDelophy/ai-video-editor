@@ -15,6 +15,37 @@ function installPointerListeners() {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("timeline drag playback behavior", () => {
+  it("rolls back a voiceover drag when a second touch turns the gesture into a mobile pinch", () => {
+    const listeners = installPointerListeners();
+    let audioSegments = [{ id: "voice-1", start: 1, duration: 2 }];
+    const setAudioSegments = vi.fn((update) => { audioSegments = update(audioSegments); });
+    const seekTo = vi.fn();
+    const controls = createTimelineMoveControls({
+      audioSegments,
+      captionSegments: [],
+      trackLocks: { audio: false },
+      trackScrollRef: {
+        current: {
+          classList: { contains: () => false },
+          getBoundingClientRect: () => ({ width: 200 }),
+        },
+      },
+      timelineDurationRef: { current: 10 },
+      setSelectedTrack: vi.fn(), setSelectedAudioSegmentId: vi.fn(), setAudioSegments,
+      setCaptionSegments: vi.fn(), setTimelineHorizon: vi.fn(), setSnapGuide: vi.fn(),
+      suppressTimelineClipClickRef: { current: "" }, seekTo, notify: vi.fn(),
+      pauseForTimelineEdit: vi.fn(), t: (key) => key,
+    });
+
+    controls.startAudioSegmentMove({ button: 0, clientX: 20, stopPropagation: vi.fn() }, "voice-1");
+    listeners.get("pointermove")({ clientX: 60, preventDefault: vi.fn() });
+    expect(audioSegments[0].start).not.toBe(1);
+
+    listeners.get("timeline-mobile-pinch-start")();
+    expect(audioSegments[0].start).toBe(1);
+    expect(seekTo).not.toHaveBeenCalled();
+  });
+
   it("reveals and commits a picture-in-picture target when a main visual is dragged downward", () => {
     const listeners = installPointerListeners();
     vi.stubGlobal("document", {
@@ -50,6 +81,7 @@ describe("timeline drag playback behavior", () => {
     const listeners = installPointerListeners();
     const pauseForTimelineEdit = vi.fn();
     const setStickerSegments = vi.fn();
+    const setStickerTimelineDrag = vi.fn();
     const controls = createTimelineMoveControls({
       stickerSegments: [{ id: "sticker-1", start: 1, duration: 2, stickerId: "spark" }],
       trackLocks: { sticker: false },
@@ -58,6 +90,7 @@ describe("timeline drag playback behavior", () => {
       estimatedDuration: 10,
       setSelectedTrack: vi.fn(), setActiveTool: vi.fn(), setSelectedStickerSegmentId: vi.fn(),
       setSelectedStickerId: vi.fn(), setStickerSegments, suppressTimelineClipClickRef: { current: "" },
+      setStickerTimelineDrag,
       seekTo: vi.fn(), notify: vi.fn(), pauseForTimelineEdit,
     });
     controls.startStickerSegmentMove({ button: 0, clientX: 20, clientY: 10, preventDefault: vi.fn(), stopPropagation: vi.fn() }, "sticker-1");
@@ -67,7 +100,38 @@ describe("timeline drag playback behavior", () => {
     listeners.get("pointermove")({ clientX: 30, clientY: 10, preventDefault: vi.fn() });
     listeners.get("pointermove")({ clientX: 35, clientY: 10, preventDefault: vi.fn() });
     expect(pauseForTimelineEdit).toHaveBeenCalledTimes(1);
-    expect(setStickerSegments).toHaveBeenCalled();
+    expect(setStickerSegments).not.toHaveBeenCalled();
+    expect(setStickerTimelineDrag).toHaveBeenCalledWith(expect.objectContaining({ segmentId: "sticker-1" }));
+  });
+
+  it("resizes either edge of a sticker clip while preserving the opposite edge", () => {
+    const listeners = installPointerListeners();
+    const stickerSegments = [{ id: "sticker-1", start: 2, duration: 3, stickerId: "spark" }];
+    const setStickerSegments = vi.fn();
+    const commitStickerSegments = vi.fn();
+    const controls = createTimelineMoveControls({
+      stickerSegments, estimatedDuration: 10, timelineDurationRef: { current: 10 },
+      trackLocks: { sticker: false }, trackScrollRef: { current: { getBoundingClientRect: () => ({ width: 200 }) } },
+      setSelectedTrack: vi.fn(), setActiveTool: vi.fn(), setSelectedStickerSegmentId: vi.fn(),
+      setSelectedStickerId: vi.fn(), setStickerSegments, commitStickerSegments, setTimelineHorizon: vi.fn(),
+      suppressTimelineClipClickRef: { current: "" }, notify: vi.fn(), pauseForTimelineEdit: vi.fn(),
+    });
+
+    controls.startStickerSegmentResize(
+      { button: 0, clientX: 40, clientY: 10, preventDefault: vi.fn(), stopPropagation: vi.fn() },
+      "sticker-1", "start",
+    );
+    listeners.get("pointermove")({ clientX: 60, clientY: 10, preventDefault: vi.fn() });
+    listeners.get("pointerup")();
+    expect(commitStickerSegments.mock.calls[0][0][0]).toMatchObject({ start: 3, duration: 2 });
+
+    controls.startStickerSegmentResize(
+      { button: 0, clientX: 100, clientY: 10, preventDefault: vi.fn(), stopPropagation: vi.fn() },
+      "sticker-1", "end",
+    );
+    listeners.get("pointermove")({ clientX: 120, clientY: 10, preventDefault: vi.fn() });
+    listeners.get("pointerup")();
+    expect(commitStickerSegments.mock.calls[1][0][0]).toMatchObject({ start: 2, duration: 4 });
   });
 
   it("pauses immediately when a caption clip is pressed", () => {

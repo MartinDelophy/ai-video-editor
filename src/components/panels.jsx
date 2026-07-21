@@ -482,6 +482,9 @@ export function ToolPanel(props) {
     setSelectedStickerId,
     handleStickerPointerDown,
     handleStickerClick,
+    confirmStickerSelection,
+    closeMobilePanel,
+    mobilePanelOpen,
     audioBlob,
     audioDuration,
     sourceAudioBlob,
@@ -784,6 +787,9 @@ export function ToolPanel(props) {
         t={t}
         onStickerPointerDown={handleStickerPointerDown}
         onStickerClick={handleStickerClick}
+        onStickerConfirm={confirmStickerSelection}
+        closeMobilePanel={closeMobilePanel}
+        mobilePanelOpen={mobilePanelOpen}
         onSelect={(id) => {
           setSelectedStickerId(id);
           notify(t("stickerApplied"));
@@ -1207,6 +1213,9 @@ function StickerPanel({
   t,
   onStickerPointerDown,
   onStickerClick,
+  onStickerConfirm,
+  closeMobilePanel,
+  mobilePanelOpen,
 }) {
   const [activeCategory, setActiveCategory] = useState("all");
   const [visibleCount, setVisibleCount] = useState(STICKER_PAGE_SIZE);
@@ -1222,6 +1231,7 @@ function StickerPanel({
   );
   const visibleStickers = filteredStickers.slice(0, visibleCount);
   const hasMore = visibleCount < filteredStickers.length;
+  const selectedSticker = stickerOptions.find((option) => option.id === selectedId) ?? null;
 
   useEffect(() => {
     setVisibleCount(STICKER_PAGE_SIZE);
@@ -1319,6 +1329,18 @@ function StickerPanel({
       ) : (
         <span className="sticker-load-sentinel" ref={loadMoreRef} aria-hidden="true" />
       )}
+      {selectedSticker && mobilePanelOpen ? createPortal((
+        <div className="mobile-sticker-actions" aria-label={t("mobileStickerActions")}>
+          <button type="button" className="is-secondary" onClick={() => {
+            onSelect(emptySticker.id);
+            closeMobilePanel?.();
+          }}>{t("mobileStickerCancel")}</button>
+          <button type="button" onClick={() => {
+            onStickerConfirm?.(selectedSticker);
+            closeMobilePanel?.();
+          }}>{t("addSticker")}</button>
+        </div>
+      ), document.body) : null}
     </div>
   );
 }

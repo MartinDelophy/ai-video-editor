@@ -48,6 +48,7 @@ export function createTimelineCutActions(d) {
     }
     const firstDuration = time - source.start;
     const secondDuration = source.duration - firstDuration;
+    const playbackRate = Math.max(0.25, Math.min(4, Number(source.playbackRate) || 1));
     const peakSplit = Math.max(1, Math.min((source.peaks?.length || 1) - 1, Math.round((firstDuration / source.duration) * (source.peaks?.length || 0))));
     const firstId = makeId("voice");
     const secondId = makeId("voice");
@@ -58,6 +59,7 @@ export function createTimelineCutActions(d) {
       id: firstId,
       url: firstUrl,
       duration: firstDuration,
+      sourceDuration: firstDuration * playbackRate,
       peaks: source.peaks?.slice(0, peakSplit) || [],
       fadeOut: 0,
     };
@@ -67,7 +69,8 @@ export function createTimelineCutActions(d) {
       url: secondUrl,
       start: time,
       duration: secondDuration,
-      sourceStart: Math.max(0, Number(source.sourceStart) || 0) + firstDuration,
+      sourceDuration: secondDuration * playbackRate,
+      sourceStart: Math.max(0, Number(source.sourceStart) || 0) + firstDuration * playbackRate,
       peaks: source.peaks?.slice(peakSplit) || [],
       fadeIn: 0,
     };
@@ -95,11 +98,15 @@ export function createTimelineCutActions(d) {
     if (!source) return void d.notify("请把播放头放在音乐片段中间再剪切");
     const firstDuration = d.currentTime - source.start;
     const secondDuration = source.duration - firstDuration;
+    const playbackRate = Math.max(0.25, Math.min(4, Number(source.playbackRate) || 1));
     const peakCount = source.peaks?.length || 0;
     const peakSplit = peakCount > 1 ? Math.max(1, Math.min(peakCount - 1, Math.round(firstDuration / source.duration * peakCount))) : 0;
-    const first = { ...source, id: makeId("music"), duration: firstDuration, peaks: peakCount ? source.peaks.slice(0, peakSplit) : [] };
+    const first = { ...source, id: makeId("music"), duration: firstDuration,
+      sourceDuration: firstDuration * playbackRate,
+      peaks: peakCount ? source.peaks.slice(0, peakSplit) : [] };
     const second = { ...source, id: makeId("music"), start: d.currentTime, duration: secondDuration,
-      sourceStart: Math.max(0, Number(source.sourceStart) || 0) + firstDuration,
+      sourceDuration: secondDuration * playbackRate,
+      sourceStart: Math.max(0, Number(source.sourceStart) || 0) + firstDuration * playbackRate,
       peaks: peakCount ? source.peaks.slice(peakSplit) : [] };
     const next = [...segments];
     next.splice(index, 1, first, second);

@@ -4,6 +4,10 @@ export function resolveVisualDropIntent({ track = "image" } = {}) {
   return track === "overlay" ? "overlay" : "image";
 }
 
+export function resolveStickerSelectionIntent({ isMobile = false } = {}) {
+  return isMobile ? "stage" : "add";
+}
+
 export function createAssetDragControls(deps) {
   const findAssetById = (id) => {
     if (!id) return null;
@@ -92,6 +96,12 @@ export function createAssetDragControls(deps) {
   const handleStickerClick = (event, sticker) => {
     if (deps.suppressAssetClickRef.current === sticker.id) { deps.suppressAssetClickRef.current = ""; event.preventDefault(); event.stopPropagation(); return; }
     deps.setSelectedStickerId(sticker.id);
+    if (resolveStickerSelectionIntent({ isMobile: window.matchMedia?.("(max-width: 760px)").matches })) return;
+    deps.addStickerAssetToTimeline(sticker, { startTime: deps.currentTime });
+  };
+  const confirmStickerSelection = (sticker) => {
+    if (!sticker?.src) return;
+    deps.setSelectedStickerId(sticker.id);
     deps.addStickerAssetToTimeline(sticker, { startTime: deps.currentTime });
   };
   const handleTrackAssetDragOver = (event, track) => {
@@ -109,6 +119,6 @@ export function createAssetDragControls(deps) {
     deps.setAssetDropPosition((current) => current.track === target ? { track: "", percent: 50 } : current);
   };
   return { canDropAssetOnTrack, findAssetById, getActiveDraggedAsset, getDraggedAsset, getTimelineDropPercent,
-    handleAssetClick, handleAssetDragEnd, handleAssetDragStart, handleAssetPointerDown, handleStickerClick,
+    confirmStickerSelection, handleAssetClick, handleAssetDragEnd, handleAssetDragStart, handleAssetPointerDown, handleStickerClick,
     handleTrackAssetDragLeave, handleTrackAssetDragOver, triggerAssetDropPulse };
 }

@@ -383,11 +383,13 @@ export function PreviewStage({
           aria-label={t("closeFocusPreview", "关闭大画布预览")}
           title={t("closeFocusPreview", "关闭大画布预览")}
           onPointerDown={(event) => {
+            event.stopPropagation();
+          }}
+          onClick={(event) => {
             event.preventDefault();
             event.stopPropagation();
             setIsFocusPreviewOpen(false);
           }}
-          onClick={(event) => event.stopPropagation()}
         >
           <X size={22} />
         </button>

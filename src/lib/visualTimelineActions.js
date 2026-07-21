@@ -121,7 +121,7 @@ export function createVisualTimelineActions(d) {
     if (!assetId) return;
     d.setVisualSegments((segments) => {
       const nextSegments = segments.map((segment) =>
-        segment.assetId === assetId
+        segment.assetId === assetId || (updates.src && segment.src === updates.src)
           ? {
               ...segment,
               ...updates,

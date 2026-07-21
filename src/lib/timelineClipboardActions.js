@@ -41,10 +41,16 @@ export function createTimelineClipboardActions(d) {
       if (d.sourceAudioLinked && d.selectedSourceAudioSegmentId && d.selectedSourceAudioSegmentId !== "source-audio") {
         const index = d.visualSegments.findIndex((segment) => segment.id === d.selectedSourceAudioSegmentId);
         if (index < 0) return void d.notify("当前没有选中的原声音频片段");
-        const next = d.visualSegments.map((segment, position) => position === index
-          ? { ...segment, sourceAudioDisabled: true }
-          : segment);
+        const next = d.visualSegments.map((segment, position) => {
+          if (position !== index) return segment;
+          const detached = { ...segment, sourceAudioDisabled: false };
+          delete detached.sourceAudioOffset;
+          return detached;
+        });
+        const hasRemainingLinkedAudio = (d.linkedSourceAudioSegments ?? [])
+          .some((segment) => segment.id !== d.selectedSourceAudioSegmentId);
         d.commitVisualSegments(next, "已删除当前原声音频片段", Math.max(0, index));
+        if (!hasRemainingLinkedAudio) d.clearSourceAudioTrack("");
         d.setSelectedSourceAudioSegmentId("");
         return;
       }
@@ -56,6 +62,7 @@ export function createTimelineClipboardActions(d) {
     d.clearImageTrack();
   };
   const handleDuplicateTrack = () => {
+    if (d.trackLocks[d.selectedTrack]) return void d.notify("当前轨道已锁定，无法复制");
     if (d.selectedTrack === "overlay") {
       const source = d.visualOverlaySegments.find((segment) => segment.id === d.selectedVisualOverlayId);
       if (!source) return void d.notify("请先选择一个画中画片段");

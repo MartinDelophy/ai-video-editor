@@ -27,6 +27,7 @@ import {
 } from "./timeline.js";
 import { resolveVisionAnalysisAtTime } from "./vision.js";
 import { getVisualSourceTime } from "./visualEffects.js";
+import { createPitchPreservedAudioBuffer } from "./pitchPreservingTimeStretch.js";
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 let aacFallbackRegistered = false;
@@ -88,11 +89,12 @@ export async function mixOfflineAudio({
   musicBlob = null,
   musicVolume = 0.35,
   musicStart = 0,
+  musicSegments = [],
 }) {
   const inputs = [
     ...voiceAudioSegments.filter((item) => item.blob).map((item) => ({
       blob: item.blob, start: Math.max(0, item.start || 0), volume: item.volume ?? 1,
-      sourceOffset: Math.max(0, item.sourceStart || 0), sourceDuration: Math.max(0, item.duration || 0), playbackRate: 1,
+      sourceOffset: Math.max(0, item.sourceStart || 0), sourceDuration: Math.max(0, item.sourceDuration || (item.duration || 0) * (Number(item.playbackRate) || 1)), playbackRate: clamp(Number(item.playbackRate) || 1, 0.25, 4),
       fadeIn: Math.max(0, item.fadeIn || 0), fadeOut: Math.max(0, item.fadeOut || 0),
     })),
     ...(sourceAudioBlob && sourceAudioSegments.length ? sourceAudioSegments.map((item) => ({
@@ -100,7 +102,11 @@ export async function mixOfflineAudio({
       sourceOffset: Math.max(0, item.sourceStart || 0), sourceDuration: Math.max(0, item.sourceDuration || 0),
       playbackRate: clamp(Number(item.playbackRate) || 1, 0.25, 4), fadeIn: 0, fadeOut: 0,
     })) : sourceAudioBlob ? [{ blob: sourceAudioBlob, start: Math.max(0, sourceAudioStart), volume: sourceAudioVolume, sourceOffset: 0, sourceDuration: 0, playbackRate: 1, fadeIn: 0, fadeOut: 0 }] : []),
-    ...(musicBlob ? [{ blob: musicBlob, start: Math.max(0, musicStart), volume: musicVolume, sourceOffset: 0, sourceDuration: 0, playbackRate: 1, fadeIn: 0, fadeOut: 0 }] : []),
+    ...(musicBlob ? (musicSegments.length ? musicSegments.map((item) => ({
+      blob: musicBlob, start: Math.max(0, item.start || 0), volume: item.volume ?? musicVolume,
+      sourceOffset: Math.max(0, item.sourceStart || 0), sourceDuration: Math.max(0, item.sourceDuration || (item.duration || 0) * (Number(item.playbackRate) || 1)),
+      playbackRate: clamp(Number(item.playbackRate) || 1, 0.25, 4), fadeIn: Math.max(0, item.fadeIn || 0), fadeOut: Math.max(0, item.fadeOut || 0),
+    })) : [{ blob: musicBlob, start: Math.max(0, musicStart), volume: musicVolume, sourceOffset: 0, sourceDuration: 0, playbackRate: 1, fadeIn: 0, fadeOut: 0 }]) : []),
   ];
   if (!inputs.length) return null;
   const decoded = await decodeAudioInputs(inputs);
@@ -111,12 +117,19 @@ export async function mixOfflineAudio({
   decoded.forEach((input) => {
     const source = context.createBufferSource();
     const gain = context.createGain();
-    source.buffer = input.decoded;
-    source.playbackRate.value = input.playbackRate;
     const offset = Math.min(input.decoded.duration, input.sourceOffset);
     const available = Math.max(0, input.decoded.duration - offset);
     const sourceDuration = Math.min(available, input.sourceDuration || available);
     const outputDuration = sourceDuration / input.playbackRate;
+    const preservePitch = Math.abs(input.playbackRate - 1) > 0.0001;
+    source.buffer = preservePitch
+      ? createPitchPreservedAudioBuffer(context, input.decoded, {
+          sourceOffset: offset,
+          sourceDuration,
+          playbackRate: input.playbackRate,
+        })
+      : input.decoded;
+    source.playbackRate.value = 1;
     gain.gain.setValueAtTime(input.volume, input.start);
     if (input.fadeIn > 0) {
       gain.gain.setValueAtTime(0, input.start);
@@ -128,7 +141,7 @@ export async function mixOfflineAudio({
       gain.gain.linearRampToValueAtTime(0, input.start + outputDuration);
     }
     source.connect(gain).connect(context.destination);
-    source.start(input.start, offset, sourceDuration);
+    source.start(input.start, preservePitch ? 0 : offset, preservePitch ? outputDuration : sourceDuration);
   });
   return context.startRendering();
 }

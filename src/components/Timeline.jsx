@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   ArrowClockwise,
   ArrowCounterClockwise,
+  ArrowLeft,
   ArrowsInLineHorizontal,
   ArrowsOutLineHorizontal,
   CopySimple,
@@ -32,14 +34,18 @@ import {
 } from "@phosphor-icons/react";
 
 import { IMAGE_SEGMENT_SECONDS, MAX_IMAGE_THUMBNAILS, TRANSITIONS } from "../config/editor.js";
-import { formatClock, formatTime, getSegmentStartTime, getVisualSegmentStartTime, packCaptionSegmentsIntoLanes, packTimedSegmentsIntoLanes } from "../lib/timeline.js";
+import { formatClock, formatCompactDuration, formatTime, getSegmentStartTime, getVisualSegmentStartTime, packCaptionSegmentsIntoLanes, packTimedSegmentsIntoLanes } from "../lib/timeline.js";
 import { sliceSourceAudioPeaks } from "../lib/sourceAudioSync.js";
 import { createMainVisualFromOverlay } from "../lib/visualOverlayTimeline.js";
+import { getMobileClipActionIds, getMobileClipPanel, resolveMobileClipActionTrack, shouldActivateToolRailForClip } from "../lib/mobileClipActions.js";
 import {
   clampTimelineZoom,
   getTimelineRulerTicks,
   getTimelineAutoFitZoom,
+  getMobilePinchAnchorScrollLeft,
+  getMobilePinchZoomState,
   getTimelineTrackWidthPercent,
+  getTimelineZoomForVisibleDuration,
   getTimelineZoomLabel,
 } from "../lib/timelineScale.js";
 import { IconButton, WaveformStrip } from "./ui.jsx";
@@ -111,6 +117,7 @@ function getImageTimelineThumbnailCount({ duration, timelineDuration, contentWid
 export function Timeline({
   t,
   trOption,
+  notify,
   undo,
   redo,
   handleDeleteTrack,
@@ -129,7 +136,9 @@ export function Timeline({
   selectedTrack,
   setSelectedTrack,
   setActiveTool,
-  openMobileMediaPicker,
+  openMobileInspector,
+  openMobileTools,
+  openMobileFilePicker,
   requestCaptionVoiceFocus,
   trackVisibility,
   toggleTrackVisibility,
@@ -156,6 +165,7 @@ export function Timeline({
   currentStickerSegment,
   selectedStickerSegmentId,
   setSelectedStickerSegmentId,
+  stickerTimelineDrag,
   imageSrc,
   displayedVisualSegments,
   setVisualSegments,
@@ -181,6 +191,7 @@ export function Timeline({
   startCaptionResize,
   startImageResize,
   startStickerSegmentMove,
+  startStickerSegmentResize,
   displayedCaptionSegments,
   displayedCaptionTimeline,
   currentCaptionSegment,
@@ -208,15 +219,18 @@ export function Timeline({
   startSourceAudioMove,
   musicBlob,
   musicSegments = [],
+  selectedMusicSegmentId,
+  setSelectedMusicSegmentId,
   musicPeaks,
   musicStartPercent,
   musicDuration,
   startMusicMove,
 }) {
   const [transitionEditor, setTransitionEditor] = useState(null);
-  const [musicClipSelected, setMusicClipSelected] = useState(false);
   const [overlayPromotionTarget, setOverlayPromotionTarget] = useState(null);
   const [sourceAudioExtractionPendingId, setSourceAudioExtractionPendingId] = useState("");
+  const [mobileClipActionsVisible, setMobileClipActionsVisible] = useState(false);
+  const [mobileClipActionTrack, setMobileClipActionTrack] = useState("");
 
   const clearClipSelections = (except = "") => {
     if (except !== "overlay") setSelectedVisualOverlayId?.("");
@@ -225,10 +239,115 @@ export function Timeline({
     if (except !== "caption") setSelectedSegmentId("");
     if (except !== "voice") setSelectedAudioSegmentId("");
     if (except !== "source") setSelectedSourceAudioSegmentId("");
-    if (except !== "music") setMusicClipSelected(false);
+    if (except !== "music") setSelectedMusicSegmentId?.("");
+  };
+  const selectedMobileClipTrack = resolveMobileClipActionTrack(mobileClipActionTrack, {
+    visual: Boolean(selectedVisualSegmentId),
+    overlay: Boolean(selectedVisualOverlayId),
+    sticker: Boolean(selectedStickerSegmentId),
+    caption: Boolean(selectedSegmentId),
+    source: Boolean(selectedSourceAudioSegmentId),
+    audio: Boolean(selectedAudioSegmentId),
+    music: Boolean(selectedMusicSegmentId),
+  });
+  const openSelectedClipInspector = () => {
+    if (!selectedMobileClipTrack) return;
+    const panel = getMobileClipPanel(selectedMobileClipTrack);
+    if (panel === "tools") {
+      closeMobileClipActions();
+      openTrackPanel(selectedMobileClipTrack);
+      openMobileTools?.();
+      return;
+    }
+    setSelectedTrack(selectedMobileClipTrack);
+    openMobileInspector?.(selectedMobileClipTrack);
+  };
+  const selectedMobileAudioSegment = selectedMobileClipTrack === "audio"
+    ? audioSegments.find((segment) => segment.id === selectedAudioSegmentId) ?? null
+    : selectedMobileClipTrack === "source"
+      ? linkedSourceAudioSegments.find((segment) => segment.id === selectedSourceAudioSegmentId) ?? null
+      : selectedMobileClipTrack === "music" && selectedMusicSegmentId
+        ? (musicSegments.find((segment) => segment.id === selectedMusicSegmentId) ?? { id: "music-audio", start: musicStartPercent / 100 * timelineDuration, sourceStart: 0, duration: musicDuration, peaks: musicPeaks })
+        : null;
+  const selectedMobileVisualSegment = selectedMobileClipTrack === "image"
+    ? displayedVisualSegments.find((segment) => segment.id === selectedVisualSegmentId) ?? null
+    : null;
+  const canExtractSelectedMobileSourceAudio = selectedMobileVisualSegment?.type === "video"
+    && !Number.isFinite(selectedMobileVisualSegment.sourceAudioOffset);
+  const mobileClipActionIds = getMobileClipActionIds(selectedMobileClipTrack, {
+    canExtractSourceAudio: canExtractSelectedMobileSourceAudio,
+  });
+  const closeMobileClipActions = () => {
+    setMobileClipActionsVisible(false);
+    setMobileClipActionTrack("");
+  };
+  const runMobileClipAction = (action) => {
+    closeMobileClipActions();
+    action?.();
+  };
+  const revealMobileClipActions = (track) => {
+    if (!window.matchMedia?.("(max-width: 760px)").matches) return;
+    if (track) setMobileClipActionTrack(track);
+    setMobileClipActionsVisible(true);
+  };
+  const activateAudioToolForClipSelection = () => {
+    const isMobile = window.matchMedia?.("(max-width: 760px)").matches ?? false;
+    if (shouldActivateToolRailForClip(isMobile)) setActiveTool("audio");
+  };
+  const activateStickerToolForClipSelection = () => {
+    const isMobile = window.matchMedia?.("(max-width: 760px)").matches ?? false;
+    if (shouldActivateToolRailForClip(isMobile)) setActiveTool("stickers");
+  };
+  const ensureMobileTimedClipVisible = (segmentId) => {
+    if (!segmentId || !window.matchMedia?.("(max-width: 760px)").matches) return;
+    window.requestAnimationFrame(() => {
+      const trackElement = trackScrollRef.current;
+      const scrollElement = trackElement?.parentElement;
+      if (!trackElement || !scrollElement) return;
+      const clipElement = Array.from(trackElement.querySelectorAll("[data-timeline-segment-id]"))
+        .find((element) => element.dataset.timelineSegmentId === String(segmentId));
+      if (!clipElement) return;
+      const viewportRect = scrollElement.getBoundingClientRect();
+      const clipRect = clipElement.getBoundingClientRect();
+      const padding = 10;
+      if (clipRect.width <= viewportRect.width - padding * 2) {
+        if (clipRect.right > viewportRect.right - padding) {
+          scrollElement.scrollLeft += clipRect.right - viewportRect.right + padding;
+        } else if (clipRect.left < viewportRect.left + padding) {
+          scrollElement.scrollLeft -= viewportRect.left + padding - clipRect.left;
+        }
+      }
+    });
+  };
+  const generateSelectedMobileAudioCaptions = () => {
+    if (!selectedMobileAudioSegment || !generateCaptionsFromAudioClip) return;
+    const blob = selectedMobileClipTrack === "music" ? musicBlob : selectedMobileClipTrack === "source" ? sourceAudioBlob : selectedMobileAudioSegment.blob;
+    if (!blob) return;
+    runMobileClipAction(() => generateCaptionsFromAudioClip({
+      blob,
+      start: selectedMobileAudioSegment.start || 0,
+      sourceStart: selectedMobileAudioSegment.sourceStart || 0,
+      duration: selectedMobileAudioSegment.duration,
+      append: selectedMobileClipTrack !== "source",
+    }));
+  };
+  const separateSelectedMobileAudio = () => {
+    if (!selectedMobileAudioSegment || !separateAudioClipVocals || !["audio", "music"].includes(selectedMobileClipTrack)) return;
+    const blob = selectedMobileClipTrack === "music" ? musicBlob : selectedMobileAudioSegment.blob;
+    if (!blob) return;
+    runMobileClipAction(() => separateAudioClipVocals({
+      blob,
+      name: selectedMobileClipTrack === "music" ? t("musicTrack") : selectedMobileAudioSegment.name,
+      start: selectedMobileAudioSegment.start || 0,
+      sourceStart: selectedMobileAudioSegment.sourceStart || 0,
+      duration: selectedMobileAudioSegment.duration,
+      segmentId: selectedMobileAudioSegment.id,
+      track: selectedMobileClipTrack,
+    }));
   };
 
   const updateJunctionTransition = (index, patch) => {
+    if (trackLocks.image) return void notify("图片轨已锁定，无法修改转场");
     setVisualSegments((items) => items.map((item, itemIndex) => itemIndex === index
       ? { ...item, transition: { id: item.transition?.id || "none", duration: item.transition?.duration || 0.5, ...patch } }
       : item));
@@ -244,7 +363,10 @@ export function Timeline({
   const packedAudioLanes = useMemo(() => packTimedSegmentsIntoLanes(audioSegments), [audioSegments]);
   const showVoiceTrack = audioSegments.length > 0 || draggedAssetType === "audio";
   const audioLanes = showVoiceTrack ? (audioSegments.length ? packedAudioLanes : [[]]) : [];
-  const stickerLanes = useMemo(() => packTimedSegmentsIntoLanes(stickerSegments), [stickerSegments]);
+  const stickerLanes = useMemo(
+    () => packTimedSegmentsIntoLanes(stickerSegments, { preferredLaneKey: "lane" }),
+    [stickerSegments],
+  );
   const showEmptyOverlayDropLane = !visualOverlaySegments.length && (
     draggedAssetType === "image" ||
     draggedAssetType === "video" ||
@@ -308,8 +430,23 @@ export function Timeline({
     setSelectedTrack(track);
     setActiveTool(trackTool(track));
   };
+  const handlePlayheadPointerDown = (event) => {
+    if (window.matchMedia?.("(max-width: 760px)").matches) {
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+    startTimelineSeek(event);
+  };
+  const handleTimelineSurfacePointerDown = (event) => {
+    if (window.matchMedia?.("(max-width: 760px)").matches) return;
+    startTimelineSeek(event);
+  };
   const selectContextTarget = (track, segmentId = "") => {
-    openTrackPanel(track);
+    const isMobileDirectClip = ["audio", "source", "music", "sticker"].includes(track)
+      && !shouldActivateToolRailForClip(window.matchMedia?.("(max-width: 760px)").matches ?? false);
+    if (isMobileDirectClip) setSelectedTrack(track);
+    else openTrackPanel(track);
     const selectionType = { image: "visual", overlay: "overlay", sticker: "sticker", caption: "caption", audio: "voice", source: "source", music: "music" }[track];
     clearClipSelections(selectionType);
     if (track === "image" && segmentId) setSelectedVisualSegmentId(segmentId);
@@ -318,11 +455,17 @@ export function Timeline({
     if (track === "caption" && segmentId) setSelectedSegmentId(segmentId);
     if (track === "audio" && segmentId) setSelectedAudioSegmentId(segmentId);
     if (track === "source" && segmentId) setSelectedSourceAudioSegmentId(segmentId);
-    if (track === "music" && segmentId) setMusicClipSelected(true);
+    if (track === "music" && segmentId) setSelectedMusicSegmentId?.(segmentId);
   };
   const showTrackContextMenu = (event, track, segmentId = "", visibilityKey = track) => {
     event.preventDefault(); event.stopPropagation();
     selectContextTarget(track, segmentId);
+    if (segmentId && window.matchMedia?.("(max-width: 760px)").matches) {
+      setContextMenu(null);
+      setMobileClipActionTrack(track);
+      setMobileClipActionsVisible(true);
+      return;
+    }
     const trackRect = trackScrollRef.current?.getBoundingClientRect();
     const targetTime = trackRect && timelineDuration > 0
       ? Math.max(0, Math.min(timelineDuration, ((event.clientX - trackRect.left) / trackRect.width) * timelineDuration))
@@ -388,6 +531,14 @@ export function Timeline({
   const pendingWheelDeltaRef = useRef(0);
   const pendingWheelAnchorRef = useRef(null);
   const timelineWheelHandlerRef = useRef(null);
+  const mobilePinchPointersRef = useRef(new Map());
+  const mobilePinchGestureRef = useRef(null);
+  const mobilePinchActiveRef = useRef(false);
+  const mobilePinchFrameRef = useRef(0);
+  const mobilePinchReleaseFrameRef = useRef(0);
+  const mobilePinchPendingDistanceRef = useRef(0);
+  const mobileTimelineStateRef = useRef(null);
+  mobileTimelineStateRef.current = { currentTime, isPlaying, seekTo, timelineDuration };
   useEffect(() => {
     const trackElement = trackScrollRef.current;
     const scrollElement = trackElement?.parentElement;
@@ -400,9 +551,24 @@ export function Timeline({
         rulerCanvasRef.current.style.transform = `translateX(${-scrollElement.scrollLeft}px)`;
       }
     };
+    const syncMobileTimelineTime = () => {
+      const state = mobileTimelineStateRef.current;
+      if (!window.matchMedia?.("(max-width: 760px)").matches || state?.isPlaying || state?.timelineDuration <= 0) {
+        return;
+      }
+      const trackRect = trackElement.getBoundingClientRect();
+      const scrollRect = scrollElement.getBoundingClientRect();
+      const fixedPlayheadX = scrollRect.left + scrollRect.width / 2;
+      const nextTime = Math.max(
+        0,
+        Math.min(state.timelineDuration, ((fixedPlayheadX - trackRect.left) / Math.max(trackRect.width, 1)) * state.timelineDuration),
+      );
+      if (Math.abs(nextTime - state.currentTime) > 0.01) state.seekTo(nextTime);
+    };
     const applyRulerViewportUpdate = () => {
       rulerViewportFrameRef.current = 0;
       syncRulerPosition();
+      syncMobileTimelineTime();
       const nextViewport = {
         scrollLeft: scrollElement.scrollLeft,
         viewportWidth: scrollElement.clientWidth,
@@ -418,7 +584,7 @@ export function Timeline({
     };
     const scheduleRulerViewportUpdate = () => {
       syncRulerPosition();
-      if (wheelZoomActiveRef.current) {
+      if (wheelZoomActiveRef.current || mobilePinchActiveRef.current) {
         return;
       }
       if (rulerViewportFrameRef.current) {
@@ -448,6 +614,13 @@ export function Timeline({
     };
   }, [trackScrollRef]);
   useEffect(() => {
+    if (!isPlaying || !window.matchMedia?.("(max-width: 760px)").matches || timelineDuration <= 0) return;
+    const trackElement = trackScrollRef.current;
+    const scrollElement = trackElement?.parentElement;
+    if (!trackElement || !scrollElement) return;
+    scrollElement.scrollLeft = (Math.max(0, Math.min(timelineDuration, currentTime)) / timelineDuration) * trackElement.clientWidth;
+  }, [currentTime, isPlaying, timelineDuration, trackScrollRef]);
+  useEffect(() => {
     const nextZoom = clampTimelineZoom(timelineZoom);
     if (Math.abs(nextZoom - timelineZoomRef.current) < 0.0008) {
       return;
@@ -455,6 +628,14 @@ export function Timeline({
     timelineZoomRef.current = nextZoom;
     setLocalTimelineZoom(nextZoom);
   }, [timelineZoom]);
+  useEffect(() => {
+    if (!window.matchMedia?.("(max-width: 760px)").matches || timelineDuration <= 0) return;
+    const minimumZoom = getTimelineZoomForVisibleDuration(timelineDuration);
+    if (timelineZoomRef.current >= minimumZoom - 0.0008) return;
+    timelineZoomRef.current = minimumZoom;
+    setLocalTimelineZoom(minimumZoom);
+    setTimelineZoom(minimumZoom);
+  }, [setTimelineZoom, timelineDuration]);
   useEffect(
     () => () => {
       if (wheelZoomFrameRef.current) {
@@ -466,6 +647,8 @@ export function Timeline({
     },
     [trackScrollRef],
   );
+  const isMobileTimelineViewport = window.matchMedia?.("(max-width: 760px)").matches;
+  const mobileTrackBaseWidth = window.matchMedia?.("(max-width: 390px)").matches ? 480 : 520;
   const secondsPerPixel =
     timelineDuration > 0 && rulerViewport.contentWidth > 0
       ? timelineDuration / rulerViewport.contentWidth
@@ -475,13 +658,28 @@ export function Timeline({
     timelineDuration,
     (rulerViewport.scrollLeft + rulerViewport.viewportWidth) * secondsPerPixel,
   );
+  const rulerScaleZoom = isMobileTimelineViewport
+    ? getTimelineZoomForVisibleDuration(timelineDuration)
+    : localTimelineZoom;
+  const mobileRulerMinimumMajorStep = isMobileTimelineViewport
+    ? (timelineDuration * 88) / mobileTrackBaseWidth
+    : 0;
   const rulerTicks = useMemo(
-    () => getTimelineRulerTicks(timelineDuration, localTimelineZoom, rulerVisibleStart, rulerVisibleEnd),
-    [timelineDuration, localTimelineZoom, rulerVisibleEnd, rulerVisibleStart],
+    () => getTimelineRulerTicks(
+      timelineDuration,
+      rulerScaleZoom,
+      rulerVisibleStart,
+      rulerVisibleEnd,
+      { minimumMajorStep: mobileRulerMinimumMajorStep },
+    ),
+    [timelineDuration, rulerScaleZoom, mobileRulerMinimumMajorStep, rulerVisibleEnd, rulerVisibleStart],
   );
   const zoomReadout = getTimelineZoomLabel(localTimelineZoom);
   const fitTimelineZoom = getTimelineAutoFitZoom(timelineDuration, 0.9);
-  const localTrackWidth = `${getTimelineTrackWidthPercent(timelineDuration, localTimelineZoom)}%`;
+  const localTrackWidthPercent = getTimelineTrackWidthPercent(timelineDuration, localTimelineZoom);
+  const localTrackWidth = isMobileTimelineViewport
+    ? `${mobileTrackBaseWidth * (localTrackWidthPercent / 100)}px`
+    : `${localTrackWidthPercent}%`;
   const commitTimelineZoom = (nextZoom, delay = 0) => {
     window.clearTimeout(commitZoomTimerRef.current);
     if (delay <= 0) {
@@ -521,28 +719,61 @@ export function Timeline({
     }
 
     const currentZoom = clampTimelineZoom(timelineZoomRef.current);
-    const nextZoom = clampTimelineZoom(
-      currentZoom * Math.exp(-wheelDelta * TIMELINE_WHEEL_ZOOM_SENSITIVITY),
-    );
+    let nextZoom;
+    let nextTrackWidth;
+    let nextTrackWidthPercent;
+    let nextScrollLeft;
 
-    if (Math.abs(nextZoom - currentZoom) < 0.0008) {
-      return;
+    if (anchor.isMobile) {
+      const renderedVisibleDuration = timelineDuration > 0
+        ? (timelineDuration * mobileTrackBaseWidth) / Math.max(anchor.trackWidth, 1)
+        : timelineDuration;
+      const renderedStartZoom = getTimelineZoomForVisibleDuration(renderedVisibleDuration);
+      const widthScale = Math.exp(-wheelDelta * TIMELINE_WHEEL_ZOOM_SENSITIVITY);
+      const mobileState = getMobilePinchZoomState({
+        timelineDuration,
+        minimumZoom: getTimelineZoomForVisibleDuration(timelineDuration),
+        startZoom: renderedStartZoom,
+        startDistance: 1,
+        distance: widthScale,
+        startTrackWidth: anchor.trackWidth,
+        baseTrackWidth: mobileTrackBaseWidth,
+      });
+      nextZoom = mobileState.nextZoom;
+      nextTrackWidth = mobileState.nextTrackWidth;
+      if (Math.abs(nextTrackWidth - anchor.trackWidth) < 0.01) return;
+    } else {
+      nextZoom = clampTimelineZoom(
+        currentZoom * Math.exp(-wheelDelta * TIMELINE_WHEEL_ZOOM_SENSITIVITY),
+      );
+      if (Math.abs(nextZoom - currentZoom) < 0.0008) return;
+      const currentTrackWidthPercent = getTimelineTrackWidthPercent(timelineDuration, currentZoom);
+      nextTrackWidthPercent = getTimelineTrackWidthPercent(timelineDuration, nextZoom);
+      nextTrackWidth =
+        anchor.trackWidth * (nextTrackWidthPercent / Math.max(currentTrackWidthPercent, 0.001));
+      nextScrollLeft =
+        anchor.trackContentStart +
+        anchor.pointerTrackRatio * nextTrackWidth -
+        anchor.pointerViewportX;
     }
-
-    const currentTrackWidthPercent = getTimelineTrackWidthPercent(timelineDuration, currentZoom);
-    const nextTrackWidthPercent = getTimelineTrackWidthPercent(timelineDuration, nextZoom);
-    const nextTrackWidth =
-      anchor.trackWidth * (nextTrackWidthPercent / Math.max(currentTrackWidthPercent, 0.001));
-    const nextScrollLeft =
-      anchor.trackContentStart +
-      anchor.pointerTrackRatio * nextTrackWidth -
-      anchor.pointerViewportX;
 
     wheelZoomActiveRef.current = true;
     timelineZoomRef.current = nextZoom;
     anchor.trackElement.classList.add("is-wheel-zooming");
-    anchor.trackElement.style.width = `${nextTrackWidthPercent}%`;
+    anchor.trackElement.style.width = anchor.isMobile ? `${nextTrackWidth}px` : `${nextTrackWidthPercent}%`;
     anchor.trackElement.style.setProperty("--timeline-zoom", String(nextZoom));
+    if (anchor.isMobile) {
+      const nextTrackRect = anchor.trackElement.getBoundingClientRect();
+      const viewportRect = anchor.scrollElement.getBoundingClientRect();
+      nextScrollLeft = getMobilePinchAnchorScrollLeft({
+        currentScrollLeft: anchor.scrollElement.scrollLeft,
+        trackLeft: nextTrackRect.left,
+        trackWidth: nextTrackRect.width,
+        viewportLeft: viewportRect.left,
+        viewportWidth: viewportRect.width,
+        anchorTimeRatio: anchor.anchorTimeRatio,
+      });
+    }
     anchor.scrollElement.scrollLeft = Math.max(0, nextScrollLeft);
     if (zoomReadoutRef.current) {
       zoomReadoutRef.current.textContent = getTimelineZoomLabel(nextZoom);
@@ -590,6 +821,8 @@ export function Timeline({
     const trackRect = trackElement.getBoundingClientRect();
     const scrollRect = scrollElement.getBoundingClientRect();
     const trackContentStart = trackRect.left - scrollRect.left + scrollElement.scrollLeft;
+    const isMobile = window.matchMedia?.("(max-width: 760px)").matches ?? false;
+    const fixedPlayheadX = scrollRect.left + scrollRect.width / 2;
     const pointerTrackRatio = Math.max(
       0,
       Math.min(1, (event.clientX - trackRect.left) / Math.max(trackRect.width, 1)),
@@ -612,6 +845,11 @@ export function Timeline({
       trackElement,
       trackContentStart,
       trackWidth: trackRect.width,
+      isMobile,
+      anchorTimeRatio: Math.max(
+        0,
+        Math.min(1, (fixedPlayheadX - trackRect.left) / Math.max(trackRect.width, 1)),
+      ),
     };
 
     if (!wheelZoomFrameRef.current) {
@@ -629,6 +867,189 @@ export function Timeline({
     scrollElement.addEventListener("wheel", handleWheel, { passive: false });
     return () => scrollElement.removeEventListener("wheel", handleWheel);
   }, [trackScrollRef]);
+  useEffect(() => {
+    const trackElement = trackScrollRef.current;
+    const scrollElement = trackElement?.parentElement;
+    if (!trackElement || !scrollElement) return undefined;
+    const pinchPointers = mobilePinchPointersRef.current;
+    let singleTouchPan = null;
+
+    const getPinchDistance = () => {
+      const points = Array.from(pinchPointers.values());
+      if (points.length < 2) return 0;
+      return Math.hypot(points[1].x - points[0].x, points[1].y - points[0].y);
+    };
+    const alignPinchAnchor = (anchorTimeRatio) => {
+      const trackRect = trackElement.getBoundingClientRect();
+      const scrollRect = scrollElement.getBoundingClientRect();
+      scrollElement.scrollLeft = getMobilePinchAnchorScrollLeft({
+        currentScrollLeft: scrollElement.scrollLeft,
+        trackLeft: trackRect.left,
+        trackWidth: trackRect.width,
+        viewportLeft: scrollRect.left,
+        viewportWidth: scrollRect.width,
+        anchorTimeRatio,
+      });
+    };
+    const applyPinchZoom = () => {
+      mobilePinchFrameRef.current = 0;
+      const gesture = mobilePinchGestureRef.current;
+      const distance = mobilePinchPendingDistanceRef.current;
+      if (!gesture || distance <= 0) return;
+      const { nextZoom, nextTrackWidth: nextWidth } = getMobilePinchZoomState({
+        timelineDuration,
+        minimumZoom: getTimelineZoomForVisibleDuration(timelineDuration),
+        startZoom: gesture.startZoom,
+        startDistance: gesture.startDistance,
+        distance,
+        startTrackWidth: gesture.startTrackWidth,
+        baseTrackWidth: mobileTrackBaseWidth,
+      });
+
+      gesture.nextZoom = nextZoom;
+      trackElement.style.width = `${nextWidth}px`;
+      trackElement.classList.add("is-pinching");
+      rulerCanvasRef.current?.classList.add("is-pinching");
+      if (rulerCanvasRef.current) rulerCanvasRef.current.style.width = `${nextWidth}px`;
+      alignPinchAnchor(gesture.anchorTimeRatio);
+      if (zoomReadoutRef.current) zoomReadoutRef.current.textContent = getTimelineZoomLabel(nextZoom);
+      rulerViewportSyncRef.current?.();
+    };
+    const finishPinch = () => {
+      const gesture = mobilePinchGestureRef.current;
+      if (!gesture) return;
+      if (mobilePinchFrameRef.current) {
+        window.cancelAnimationFrame(mobilePinchFrameRef.current);
+        mobilePinchFrameRef.current = 0;
+      }
+      const nextZoom = gesture.nextZoom ?? gesture.startZoom;
+      mobilePinchGestureRef.current = null;
+      timelineZoomRef.current = nextZoom;
+      setLocalTimelineZoom(nextZoom);
+      setTimelineZoom(nextZoom);
+      if (mobilePinchReleaseFrameRef.current) window.cancelAnimationFrame(mobilePinchReleaseFrameRef.current);
+      mobilePinchReleaseFrameRef.current = window.requestAnimationFrame(() => {
+        mobilePinchReleaseFrameRef.current = window.requestAnimationFrame(() => {
+          mobilePinchReleaseFrameRef.current = 0;
+          trackElement.classList.remove("is-pinching");
+          rulerCanvasRef.current?.classList.remove("is-pinching");
+          alignPinchAnchor(gesture.anchorTimeRatio);
+          const state = mobileTimelineStateRef.current;
+          if (Math.abs((state?.currentTime ?? gesture.anchorTime) - gesture.anchorTime) > 0.001) {
+            state?.seekTo(gesture.anchorTime);
+          }
+          mobilePinchActiveRef.current = false;
+          rulerViewportSyncRef.current?.();
+        });
+      });
+    };
+    const handlePointerDown = (event) => {
+      if (!window.matchMedia?.("(max-width: 760px)").matches || event.pointerType !== "touch") return;
+      pinchPointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+      if (pinchPointers.size === 1) {
+        singleTouchPan = {
+          pointerId: event.pointerId,
+          startX: event.clientX,
+          startY: event.clientY,
+          startScrollLeft: scrollElement.scrollLeft,
+          interactive: Boolean(event.target?.closest?.(TIMELINE_WHEEL_ZOOM_CONTENT_SELECTOR)),
+        };
+      }
+      if (pinchPointers.size !== 2) return;
+      singleTouchPan = null;
+      if (mobilePinchReleaseFrameRef.current) {
+        window.cancelAnimationFrame(mobilePinchReleaseFrameRef.current);
+        mobilePinchReleaseFrameRef.current = 0;
+      }
+      window.dispatchEvent(new CustomEvent("timeline-mobile-pinch-start"));
+      const state = mobileTimelineStateRef.current;
+      const startDistance = getPinchDistance();
+      // Freeze the exact rendered width before disabling transitions. A second
+      // pinch can begin while a button/release zoom transition is still in
+      // flight; using the stored zoom in that case makes the gesture start from
+      // a different scale than the pixels under the user's fingers.
+      const renderedTrackWidth = trackElement.getBoundingClientRect().width;
+      const renderedTrackRect = trackElement.getBoundingClientRect();
+      const renderedViewportRect = scrollElement.getBoundingClientRect();
+      const fixedPlayheadX = renderedViewportRect.left + renderedViewportRect.width / 2;
+      const renderedAnchorTimeRatio = Math.max(
+        0,
+        Math.min(1, (fixedPlayheadX - renderedTrackRect.left) / Math.max(renderedTrackWidth, 1)),
+      );
+      const renderedAnchorTime = renderedAnchorTimeRatio * Math.max(0, state?.timelineDuration || 0);
+      trackElement.style.width = `${renderedTrackWidth}px`;
+      trackElement.classList.add("is-pinching");
+      rulerCanvasRef.current?.classList.add("is-pinching");
+      if (rulerCanvasRef.current) rulerCanvasRef.current.style.width = `${renderedTrackWidth}px`;
+      const renderedVisibleDuration = timelineDuration > 0
+        ? (timelineDuration * mobileTrackBaseWidth) / Math.max(renderedTrackWidth, 1)
+        : timelineDuration;
+      const renderedStartZoom = getTimelineZoomForVisibleDuration(renderedVisibleDuration);
+      mobilePinchPendingDistanceRef.current = startDistance;
+      mobilePinchGestureRef.current = {
+        startDistance,
+        startZoom: renderedStartZoom,
+        startTrackWidth: renderedTrackWidth,
+        // Geometry is authoritative here. React time can be one animation frame
+        // behind a just-finished one-finger pan when the second finger lands.
+        anchorTime: renderedAnchorTime,
+        anchorTimeRatio: renderedAnchorTimeRatio,
+        nextZoom: renderedStartZoom,
+      };
+      if (Math.abs((state?.currentTime ?? renderedAnchorTime) - renderedAnchorTime) > 0.001) {
+        state?.seekTo(renderedAnchorTime);
+      }
+      mobilePinchActiveRef.current = true;
+      event.preventDefault();
+      event.stopPropagation();
+    };
+    const handlePointerMove = (event) => {
+      if (!pinchPointers.has(event.pointerId)) return;
+      pinchPointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+      if (!mobilePinchGestureRef.current) {
+        if (!singleTouchPan || singleTouchPan.pointerId !== event.pointerId || singleTouchPan.interactive) return;
+        const deltaX = event.clientX - singleTouchPan.startX;
+        const deltaY = event.clientY - singleTouchPan.startY;
+        if (Math.abs(deltaX) < 3 || Math.abs(deltaX) < Math.abs(deltaY)) return;
+        event.preventDefault();
+        event.stopPropagation();
+        scrollElement.scrollLeft = singleTouchPan.startScrollLeft - deltaX;
+        rulerViewportSyncRef.current?.();
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      mobilePinchPendingDistanceRef.current = getPinchDistance();
+      if (!mobilePinchFrameRef.current) mobilePinchFrameRef.current = window.requestAnimationFrame(applyPinchZoom);
+    };
+    const handlePointerEnd = (event) => {
+      if (!pinchPointers.has(event.pointerId)) return;
+      const wasPinching = Boolean(mobilePinchGestureRef.current);
+      if (wasPinching) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+      pinchPointers.delete(event.pointerId);
+      if (!wasPinching && singleTouchPan?.pointerId === event.pointerId) singleTouchPan = null;
+      if (wasPinching && pinchPointers.size === 0) finishPinch();
+    };
+
+    scrollElement.addEventListener("pointerdown", handlePointerDown, { capture: true });
+    window.addEventListener("pointermove", handlePointerMove, { capture: true, passive: false });
+    window.addEventListener("pointerup", handlePointerEnd, { capture: true });
+    window.addEventListener("pointercancel", handlePointerEnd, { capture: true });
+    return () => {
+      scrollElement.removeEventListener("pointerdown", handlePointerDown, { capture: true });
+      window.removeEventListener("pointermove", handlePointerMove, { capture: true });
+      window.removeEventListener("pointerup", handlePointerEnd, { capture: true });
+      window.removeEventListener("pointercancel", handlePointerEnd, { capture: true });
+      if (mobilePinchFrameRef.current) window.cancelAnimationFrame(mobilePinchFrameRef.current);
+      if (mobilePinchReleaseFrameRef.current) window.cancelAnimationFrame(mobilePinchReleaseFrameRef.current);
+      pinchPointers.clear();
+      mobilePinchGestureRef.current = null;
+      mobilePinchActiveRef.current = false;
+    };
+  }, [mobileTrackBaseWidth, setTimelineZoom, timelineDuration, trackScrollRef]);
   const renderAssetDropSlot = (track) =>
     assetDropTargetTrack === track ? (
       <div
@@ -679,6 +1100,7 @@ export function Timeline({
         onDragLeave={(event) => handleTrackAssetDragLeave(event, "sticker")}
         onDrop={(event) => handleTrackAssetDrop(event, "sticker")}
         data-asset-drop-track="sticker"
+        data-sticker-lane-index={laneIndex}
         onContextMenu={(event) => showTrackContextMenu(event, "sticker")}
       >
         {assetDropTargetTrack === "sticker" ? (
@@ -697,14 +1119,18 @@ export function Timeline({
                 <button
                   className={`sticker-segment ${
                     segment.id === currentStickerSegment?.id ? "is-current" : ""
-                  } ${segment.id === selectedStickerSegmentId ? "is-selected-segment" : ""}`}
+                  } ${segment.id === selectedStickerSegmentId ? "is-selected-segment" : ""} ${
+                    stickerTimelineDrag?.segmentId === segment.id ? "is-timeline-dragging" : ""
+                  }`}
                   type="button"
                   key={segment.id}
+                  data-timeline-segment-track="sticker"
+                  data-timeline-segment-id={segment.id}
                   style={{
                     "--sticker-left": `${segmentLeft}%`,
                     "--sticker-width": `${segmentWidth}%`,
                   }}
-                  onPointerDown={(event) => startStickerSegmentMove(event, segment.id)}
+                  onPointerDown={(event) => startStickerSegmentMove(event, segment.id, laneIndex)}
                   onContextMenu={(event) => showTrackContextMenu(event, "sticker", segment.id)}
                   onClick={(event) => {
                     event.stopPropagation();
@@ -712,17 +1138,34 @@ export function Timeline({
                       return;
                     }
                     setSelectedTrack("sticker");
-                    setActiveTool("stickers");
+                    activateStickerToolForClipSelection();
                     clearClipSelections("sticker");
                     setSelectedStickerSegmentId(segment.id);
                     seekTo(segment.start || 0);
+                    ensureMobileTimedClipVisible(segment.id);
+                    revealMobileClipActions("sticker");
                   }}
                 >
                   <img src={segment.src} alt="" draggable={false} />
                   <span>{segment.name}</span>
+                  <i className="sticker-resize-handle is-start" onPointerDown={(event) => startStickerSegmentResize(event, segment.id, "start")} />
+                  <i className="sticker-resize-handle is-end" onPointerDown={(event) => startStickerSegmentResize(event, segment.id, "end")} />
                 </button>
               );
             })}
+        {stickerTimelineDrag?.lane === laneIndex && timelineDuration > 0 ? (
+          <div
+            className="sticker-drop-preview"
+            data-testid="sticker-drop-preview"
+            style={{
+              "--sticker-drop-left": `${Math.max(0, Math.min(100, (stickerTimelineDrag.start / timelineDuration) * 100))}%`,
+              "--sticker-drop-width": `${Math.max(0.4, Math.min(100, (stickerTimelineDrag.duration / timelineDuration) * 100))}%`,
+            }}
+          >
+            {stickerTimelineDrag.src ? <img src={stickerTimelineDrag.src} alt="" /> : null}
+            <span>{stickerTimelineDrag.name || t("assetSticker")}</span>
+          </div>
+        ) : null}
         {renderAssetDropSlot("sticker")}
       </div>
     ) : null;
@@ -752,16 +1195,22 @@ export function Timeline({
           : 1;
         const startOverlayEdit = (event, mode) => {
           if (trackLocks.overlay || !setVisualOverlaySegments) return;
-          event.preventDefault(); event.stopPropagation();
+          const isMobileTouch = event.pointerType === "touch" && window.matchMedia?.("(max-width: 760px)").matches;
+          if (!isMobileTouch) event.preventDefault();
+          event.stopPropagation();
           clearClipSelections("overlay"); setSelectedVisualOverlayId?.(segment.id); setSelectedTrack("overlay");
           const track = event.currentTarget.closest(".visual-overlay-track");
           if (!track) return;
           const rect = track.getBoundingClientRect();
-          const startX = event.clientX; const initialStart = segment.start; const initialDuration = segment.duration;
+          const startX = event.clientX; const startY = event.clientY; const initialStart = segment.start; const initialDuration = segment.duration;
           let dragging = false; let promoteToMain = false; let mainInsertIndex = displayedVisualSegments.length;
           const move = (moveEvent) => {
-            if (!dragging && Math.abs(moveEvent.clientX - startX) < 4) return;
+            const deltaX = moveEvent.clientX - startX;
+            const deltaY = moveEvent.clientY - startY;
+            if (!dragging && isMobileTouch && Math.abs(deltaY) > Math.abs(deltaX)) return;
+            if (!dragging && Math.abs(deltaX) < 4) return;
             if (!dragging) { dragging = true; if (isPlaying) handlePlayToggle(); }
+            moveEvent.preventDefault();
             const mainTrack = mode === "move" ? document.elementFromPoint(moveEvent.clientX, moveEvent.clientY)?.closest?.('[data-asset-drop-track="image"]') : null;
             promoteToMain = Boolean(mainTrack);
             if (promoteToMain) {
@@ -776,7 +1225,7 @@ export function Timeline({
               setOverlayPromotionTarget(null);
             }
             if (promoteToMain) return;
-            const delta = (moveEvent.clientX - startX) / Math.max(1, rect.width) * timelineDuration;
+            const delta = deltaX / Math.max(1, rect.width) * timelineDuration;
             setVisualOverlaySegments((items) => items.map((item) => {
               if (item.id !== segment.id) return item;
               if (mode === "move") return { ...item, start: Math.max(0, Math.min(timelineDuration - initialDuration, initialStart + delta)) };
@@ -787,9 +1236,21 @@ export function Timeline({
               return { ...item, duration: Math.max(0.1, Math.min(timelineDuration - initialStart, initialDuration + delta)) };
             }));
           };
-          const end = () => {
-            window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", end);
+          const cleanup = () => {
+            window.removeEventListener("pointermove", move);
+            window.removeEventListener("pointerup", end);
+            window.removeEventListener("pointercancel", cancel);
             setOverlayPromotionTarget(null);
+          };
+          const cancel = () => {
+            cleanup();
+            if (!dragging || promoteToMain) return;
+            setVisualOverlaySegments((items) => items.map((item) => item.id === segment.id
+              ? { ...item, start: initialStart, duration: initialDuration }
+              : item));
+          };
+          const end = () => {
+            cleanup();
             if (!dragging || !promoteToMain) return;
             const promoted = createMainVisualFromOverlay(segment);
             if (!promoted) return;
@@ -803,7 +1264,9 @@ export function Timeline({
             setSelectedVisualSegmentId(promoted.id);
             setSelectedTrack("image");
           };
-          window.addEventListener("pointermove", move); window.addEventListener("pointerup", end, { once: true });
+          window.addEventListener("pointermove", move, { passive: false });
+          window.addEventListener("pointerup", end, { once: true });
+          window.addEventListener("pointercancel", cancel, { once: true });
         };
         return <div className={`visual-overlay-clip ${segment.type === "video" ? "is-video" : "is-image"} ${active ? "is-current" : ""} ${segment.id === selectedVisualOverlayId ? "is-selected-segment" : ""}`} role="button" tabIndex={0} key={segment.id} style={{ "--overlay-left": `${left}%`, "--overlay-width": `${width}%` }} onPointerDown={(event) => startOverlayEdit(event, "move")} onContextMenu={(event) => showTrackContextMenu(event, "overlay", segment.id)} onClick={(event) => {
           event.stopPropagation();
@@ -818,7 +1281,7 @@ export function Timeline({
                 : <video src={segment.src} muted playsInline preload="metadata" />
               : Array.from({ length: overlayImageCount }, (_, thumbnailIndex) => <img src={segment.src} alt="" draggable={false} key={`${segment.id}-overlay-image-${thumbnailIndex}`} />)}
           </div>
-          {segment.type === "video" ? <button className="clip-mute-toggle" type="button" aria-label={t(segment.muted ? "unmuteClip" : "muteClip", segment.muted ? "取消静音" : "静音")} title={t(segment.muted ? "unmuteClip" : "muteClip", segment.muted ? "取消静音" : "静音")} onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); setVisualOverlaySegments((items) => items.map((item) => item.id === segment.id ? { ...item, muted: !item.muted } : item)); }}>{segment.muted ? <SpeakerSlash size={13} /> : <SpeakerHigh size={13} />}</button> : null}
+          {segment.type === "video" ? <button className="clip-mute-toggle" type="button" aria-label={t(segment.muted ? "unmuteClip" : "muteClip", segment.muted ? "取消静音" : "静音")} title={t(segment.muted ? "unmuteClip" : "muteClip", segment.muted ? "取消静音" : "静音")} onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); if (trackLocks.overlay) return void notify("画中画轨已锁定，无法切换静音"); setVisualOverlaySegments((items) => items.map((item) => item.id === segment.id ? { ...item, muted: !item.muted } : item)); }}>{segment.muted ? <SpeakerSlash size={13} /> : <SpeakerHigh size={13} />}</button> : null}
           <span>{segment.name || t("overlayTrack", "Overlay")}</span>
           <i className="visual-overlay-resize is-start" onPointerDown={(event) => startOverlayEdit(event, "resize-start")} />
           <i className="visual-overlay-resize is-end" onPointerDown={(event) => startOverlayEdit(event, "resize-end")} />
@@ -842,7 +1305,17 @@ export function Timeline({
   };
 
   return (
-    <section className="timeline">
+    <section className="timeline" onPointerDownCapture={(event) => {
+      if (!window.matchMedia?.("(max-width: 760px)").matches || !(event.target instanceof Element)) return;
+      const pressedSegment = event.target.closest("[data-timeline-segment-track]");
+      if (pressedSegment?.dataset.timelineSegmentTrack) {
+        setMobileClipActionTrack(pressedSegment.dataset.timelineSegmentTrack);
+        setMobileClipActionsVisible(true);
+      } else if (event.target.closest(".track-scroll, .track-labels, .timeline-ruler-viewport")) {
+        setMobileClipActionsVisible(false);
+        setMobileClipActionTrack("");
+      }
+    }}>
       <div className="timeline-tools">
         <div className="timeline-icon-group">
           <IconButton label={t("undo")} onClick={undo}>
@@ -917,6 +1390,8 @@ export function Timeline({
         </div>
       </div>
 
+      <div className="mobile-fixed-playhead" aria-hidden="true" />
+
       <div className="timeline-board">
         <div className="track-labels-ruler-spacer" aria-hidden="true" />
         <div className="timeline-ruler-viewport">
@@ -925,7 +1400,7 @@ export function Timeline({
             className="timeline-ruler-canvas"
             style={{ width: localTrackWidth, transform: `translateX(${-rulerViewport.scrollLeft}px)` }}
           >
-            <div className="ruler" onPointerDown={startTimelineSeek}>
+            <div className="ruler" onPointerDown={handleTimelineSurfacePointerDown}>
               {rulerTicks.map((tick) => (
                 <span
                   className={`ruler-tick ${tick.isMajor ? "is-major" : "is-minor"}`}
@@ -939,7 +1414,7 @@ export function Timeline({
             <div
               className="playhead-ruler"
               style={{ left: `${playheadPercent}%` }}
-              onPointerDown={startTimelineSeek}
+              onPointerDown={handlePlayheadPointerDown}
             />
           </div>
         </div>
@@ -948,7 +1423,7 @@ export function Timeline({
             <div
               className={`${selectedTrack === track ? "is-selected" : ""} ${
                 !isRowVisible(visibilityKey) ? "is-track-disabled" : ""
-              }`}
+              } ${trackLocks[track] ? "is-track-locked" : ""}`}
               key={rowId}
               onContextMenu={(event) => showTrackContextMenu(event, track, "", visibilityKey)}
             >
@@ -965,6 +1440,7 @@ export function Timeline({
               <button
                 type="button"
                 aria-label={`${label} ${t("lock")}`}
+                aria-pressed={Boolean(trackLocks[track])}
                 onClick={(event) => {
                   event.stopPropagation();
                   toggleTrackLock(track);
@@ -992,7 +1468,7 @@ export function Timeline({
               ) {
                 return;
               }
-              startTimelineSeek(event);
+              handleTimelineSurfacePointerDown(event);
             }}
           >
             <div
@@ -1003,7 +1479,7 @@ export function Timeline({
               aria-valuemax={Math.round(timelineDuration)}
               aria-valuenow={Math.round(currentTime)}
               style={{ left: `${playheadPercent}%` }}
-              onPointerDown={startTimelineSeek}
+              onPointerDown={handlePlayheadPointerDown}
             />
             {snapGuide && timelineDuration > 0 ? (
               <div
@@ -1044,7 +1520,7 @@ export function Timeline({
                   aria-label={t("mobileAddMedia", "添加素材")}
                   onClick={(event) => {
                     event.stopPropagation();
-                    openMobileMediaPicker?.();
+                    openMobileFilePicker?.();
                   }}
                 >
                   <PlusCircle size={20} weight="bold" />
@@ -1156,6 +1632,7 @@ export function Timeline({
                             onPointerDown={(event) => event.stopPropagation()}
                             onClick={(event) => {
                               event.stopPropagation();
+                              if (trackLocks.image) return void notify("图片轨已锁定，无法切换静音");
                               setVisualSegments((items) => items.map((item) => item.id === segment.id ? { ...item, sourceAudioDisabled: !item.sourceAudioDisabled } : item));
                             }}
                           >
@@ -1370,6 +1847,8 @@ export function Timeline({
                 <div
                   className={`audio-clip is-source is-linked ${selectedSourceAudioSegmentId === segment.id ? "is-selected" : ""}`}
                   key={segment.id}
+                  data-timeline-segment-track="source"
+                  data-timeline-segment-id={segment.id}
                   style={{
                     width: `${timelineDuration > 0 ? Math.max(0.01, Math.min(100, (segment.duration / timelineDuration) * 100)) : 0}%`,
                     left: `${timelineDuration > 0 ? Math.max(0, Math.min(100, (segment.start / timelineDuration) * 100)) : 0}%`,
@@ -1380,17 +1859,21 @@ export function Timeline({
                     event.stopPropagation();
                     if (suppressTimelineClipClickRef.current === "source") return void (suppressTimelineClipClickRef.current = "");
                     setSelectedTrack("source");
-                    setActiveTool("audio");
+                    activateAudioToolForClipSelection();
                     clearClipSelections("source");
                     setSelectedSourceAudioSegmentId(segment.id);
+                    ensureMobileTimedClipVisible(segment.id);
+                    revealMobileClipActions("source");
                   }}
                 >
                   <WaveformStrip peaks={sliceSourceAudioPeaks(sourceAudioPeaks, segment, sourceAudioDuration)} active />
-                  <span className="audio-clip-duration">{formatTime(segment.duration)}</span>
+                  <span className="audio-clip-duration" data-compact-duration={formatCompactDuration(segment.duration)}>{formatTime(segment.duration)}</span>
                 </div>
               )) : sourceAudioBlob ? (
                 <div
                   className={`audio-clip is-source ${selectedSourceAudioSegmentId === "source-audio" ? "is-selected" : ""}`}
+                  data-timeline-segment-track="source"
+                  data-timeline-segment-id="source-audio"
                   style={{
                     width: `${sourceAudioClipPercent}%`,
                     marginLeft: `${sourceAudioStartPercent}%`,
@@ -1401,13 +1884,15 @@ export function Timeline({
                     event.stopPropagation();
                     if (suppressTimelineClipClickRef.current === "source") return void (suppressTimelineClipClickRef.current = "");
                     setSelectedTrack("source");
-                    setActiveTool("audio");
+                    activateAudioToolForClipSelection();
                     clearClipSelections("source");
                     setSelectedSourceAudioSegmentId("source-audio");
+                    ensureMobileTimedClipVisible("source-audio");
+                    revealMobileClipActions("source");
                   }}
                 >
                   <WaveformStrip peaks={sourceAudioPeaks} active />
-                  <span className="audio-clip-duration">{formatTime(sourceAudioDuration)}</span>
+                  <span className="audio-clip-duration" data-compact-duration={formatCompactDuration(sourceAudioDuration)}>{formatTime(sourceAudioDuration)}</span>
                 </div>
               ) : null}
             </button> : null}
@@ -1438,6 +1923,8 @@ export function Timeline({
                       <div
                         className={`audio-clip ${selectedAudioSegmentId === segment.id ? "is-selected" : ""}`}
                         key={segment.id}
+                        data-timeline-segment-track="audio"
+                        data-timeline-segment-id={segment.id}
                         style={{ left: `${left}%`, width: `${width}%` }}
                         onPointerDown={(event) => startAudioSegmentMove(event, segment.id)}
                         onContextMenu={(event) => showTrackContextMenu(event, "audio", segment.id)}
@@ -1445,14 +1932,16 @@ export function Timeline({
                           event.stopPropagation();
                           if (suppressTimelineClipClickRef.current === segment.id) return void (suppressTimelineClipClickRef.current = "");
                           setSelectedTrack("audio");
-                          setActiveTool("audio");
+                          activateAudioToolForClipSelection();
                           clearClipSelections("voice");
                           setSelectedAudioSegmentId(segment.id);
-                          seekTo(segment.start);
+                          if (window.matchMedia?.("(max-width: 760px)").matches) ensureMobileTimedClipVisible(segment.id);
+                          else seekTo(segment.start);
+                          revealMobileClipActions("audio");
                         }}
                       >
                         <WaveformStrip peaks={segment.peaks} active />
-                        <span className="audio-clip-duration">{formatTime(segment.duration)}</span>
+                        <span className="audio-clip-duration" data-compact-duration={formatCompactDuration(segment.duration)}>{formatTime(segment.duration)}</span>
                       </div>
                     );
                   })}
@@ -1467,7 +1956,7 @@ export function Timeline({
               type="button"
               onClick={() => {
                 setSelectedTrack("music");
-                setMusicClipSelected(false);
+                setSelectedMusicSegmentId?.("");
               }}
               onDragOver={(event) => handleTrackAssetDragOver(event, "music")}
               onDragLeave={(event) => handleTrackAssetDragLeave(event, "music")}
@@ -1480,9 +1969,9 @@ export function Timeline({
                 ) : null}
               {renderAssetDropSlot("music")}
               {musicBlob ? (musicSegments.length ? musicSegments : [{ id: "music-audio", start: musicStartPercent / 100 * timelineDuration, duration: musicDuration, peaks: musicPeaks }]).map((segment) => (
-                <div className={`audio-clip is-music ${musicClipSelected ? "is-selected" : ""}`} key={segment.id} style={{ width: `${timelineDuration > 0 ? segment.duration / timelineDuration * 100 : 0}%`, left: `${timelineDuration > 0 ? segment.start / timelineDuration * 100 : 0}%` }} onPointerDown={startMusicMove} onContextMenu={(event) => showTrackContextMenu(event, "music", segment.id)} onClick={(event) => { event.stopPropagation(); if (suppressTimelineClipClickRef.current === "music") return void (suppressTimelineClipClickRef.current = ""); setSelectedTrack("music"); setActiveTool("audio"); clearClipSelections("music"); setMusicClipSelected(true); }}>
+                <div className={`audio-clip is-music ${selectedMusicSegmentId === segment.id ? "is-selected" : ""}`} key={segment.id} data-timeline-segment-track="music" data-timeline-segment-id={segment.id} style={{ width: `${timelineDuration > 0 ? segment.duration / timelineDuration * 100 : 0}%`, left: `${timelineDuration > 0 ? segment.start / timelineDuration * 100 : 0}%` }} onPointerDown={startMusicMove} onContextMenu={(event) => showTrackContextMenu(event, "music", segment.id)} onClick={(event) => { event.stopPropagation(); if (suppressTimelineClipClickRef.current === "music") return void (suppressTimelineClipClickRef.current = ""); setSelectedTrack("music"); activateAudioToolForClipSelection(); clearClipSelections("music"); setSelectedMusicSegmentId?.(segment.id); ensureMobileTimedClipVisible(segment.id); revealMobileClipActions("music"); }}>
                   <WaveformStrip peaks={segment.peaks?.length ? segment.peaks : musicPeaks} active />
-                  <span className="audio-clip-duration">{formatTime(segment.duration)}</span>
+                  <span className="audio-clip-duration" data-compact-duration={formatCompactDuration(segment.duration)}>{formatTime(segment.duration)}</span>
                 </div>
               )) : null}
             </button> : null}
@@ -1513,6 +2002,22 @@ export function Timeline({
           <strong>{draggingCaptionSegment.text}</strong>
         </div>
       ) : null}
+      {mobileClipActionsVisible && selectedMobileClipTrack && typeof document !== "undefined" ? createPortal((
+        <nav className={`timeline-mobile-clip-actions ${mobileClipActionIds.length > 5 ? "is-scroll-actions" : ""}`} aria-label={t("clipActions")}>
+          {mobileClipActionIds.map((actionId) => {
+            if (actionId === "dismiss") return <button className="is-back" type="button" key={actionId} onClick={() => { closeMobileClipActions(); clearClipSelections(); }}><ArrowLeft size={21} /><span>{t("mobileClipDismiss")}</span></button>;
+            if (actionId === "edit") return <button type="button" key={actionId} onClick={openSelectedClipInspector}><SlidersHorizontal size={20} /><span>{t("mobileClipEdit")}</span></button>;
+            if (actionId === "properties") return <button type="button" key={actionId} onClick={openSelectedClipInspector}><SlidersHorizontal size={20} /><span>{t("properties")}</span></button>;
+            if (actionId === "audio") return <button type="button" key={actionId} onClick={openSelectedClipInspector}><SlidersHorizontal size={20} /><span>{t("mobileClipAudio")}</span></button>;
+            if (actionId === "split") return <button type="button" key={actionId} onClick={() => runMobileClipAction(handleCutTrack)}><Scissors size={20} /><span>{t("mobileClipSplit")}</span></button>;
+            if (actionId === "copy") return <button type="button" key={actionId} onClick={() => runMobileClipAction(handleDuplicateTrack)}><CopySimple size={20} /><span>{t("mobileClipCopy")}</span></button>;
+            if (actionId === "captions") return <button type="button" key={actionId} disabled={audioProcessingBusy || !selectedMobileAudioSegment} onClick={generateSelectedMobileAudioCaptions}><ClosedCaptioning size={20} /><span>{t("mobileClipCaptions")}</span></button>;
+            if (actionId === "separate") return <button type="button" key={actionId} disabled={audioProcessingBusy || !selectedMobileAudioSegment} onClick={separateSelectedMobileAudio}><Waveform size={20} /><span>{t("mobileClipSeparate")}</span></button>;
+            if (actionId === "extract-source-audio") return <button type="button" key={actionId} disabled={Boolean(sourceAudioExtractionPendingId) || !selectedMobileVisualSegment} onClick={() => void runSourceAudioExtraction(selectedMobileVisualSegment)}>{sourceAudioExtractionPendingId === selectedMobileVisualSegment?.id ? <CircleNotch className="spin" size={20} /> : <Waveform size={20} />}<span>{t(sourceAudioExtractionPendingId === selectedMobileVisualSegment?.id ? "separatingSourceAudio" : "separateSourceAudio", sourceAudioExtractionPendingId === selectedMobileVisualSegment?.id ? "正在分离音频…" : "分离音频")}</span></button>;
+            return <button className="is-danger" type="button" key={actionId} onClick={() => runMobileClipAction(handleDeleteTrack)}><Trash size={20} /><span>{t("mobileClipDelete")}</span></button>;
+          })}
+        </nav>
+      ), document.body) : null}
       {contextMenu ? (
         <div className="timeline-context-menu" role="menu" aria-label={t("timelineContextMenu")} style={{ left: contextMenu.x, top: contextMenu.y }} onPointerDown={(event) => event.stopPropagation()}>
           <div className="timeline-context-heading">{contextMenu.kind === "clip" ? t("clipActions") : t("trackActions")}<span>{t({ image: "imageTrack", overlay: "overlayTrack", caption: "caption", sticker: "stickerTrack", source: "sourceTrack", audio: "voiceTrack", music: "musicTrack" }[contextMenu.track], contextMenu.track)}</span></div>
@@ -1532,14 +2037,14 @@ export function Timeline({
                 </button>
               ) : null}
               {contextMenu.track === "image" && contextImageSegment?.type === "video" ? <>
-                <button type="button" role="menuitem" onClick={() => runContextAction(() => setVisualSegments((items) => items.map((item) => item.id === contextImageSegment.id ? { ...item, sourceAudioDisabled: !item.sourceAudioDisabled } : item)))}>{contextImageSegment.sourceAudioDisabled ? <SpeakerHigh size={16} /> : <SpeakerSlash size={16} />}{t(contextImageSegment.sourceAudioDisabled ? "unmuteClip" : "muteClip", contextImageSegment.sourceAudioDisabled ? "取消静音" : "静音")}</button>
+                <button type="button" role="menuitem" disabled={Boolean(trackLocks.image)} onClick={() => runContextAction(() => setVisualSegments((items) => items.map((item) => item.id === contextImageSegment.id ? { ...item, sourceAudioDisabled: !item.sourceAudioDisabled } : item)))}>{contextImageSegment.sourceAudioDisabled ? <SpeakerHigh size={16} /> : <SpeakerSlash size={16} />}{t(contextImageSegment.sourceAudioDisabled ? "unmuteClip" : "muteClip", contextImageSegment.sourceAudioDisabled ? "取消静音" : "静音")}</button>
                 <button type="button" role="menuitem" disabled={Boolean(sourceAudioExtractionPendingId)} onClick={() => void runSourceAudioExtraction(contextImageSegment)}>
                   {sourceAudioExtractionPendingId === contextImageSegment.id ? <CircleNotch size={16} /> : <Waveform size={16} />}
                   {t(sourceAudioExtractionPendingId === contextImageSegment.id ? "separatingSourceAudio" : "separateSourceAudio", sourceAudioExtractionPendingId === contextImageSegment.id ? "正在分离音频…" : "分离音频")}
                 </button>
               </> : null}
               {contextMenu.track === "overlay" && contextOverlaySegment?.type === "video" ? (
-                <button type="button" role="menuitem" onClick={() => runContextAction(() => setVisualOverlaySegments((items) => items.map((item) => item.id === contextOverlaySegment.id ? { ...item, muted: !item.muted } : item)))}>{contextOverlaySegment.muted ? <SpeakerHigh size={16} /> : <SpeakerSlash size={16} />}{t(contextOverlaySegment.muted ? "unmuteClip" : "muteClip", contextOverlaySegment.muted ? "取消静音" : "静音")}</button>
+                <button type="button" role="menuitem" disabled={Boolean(trackLocks.overlay)} onClick={() => runContextAction(() => setVisualOverlaySegments((items) => items.map((item) => item.id === contextOverlaySegment.id ? { ...item, muted: !item.muted } : item)))}>{contextOverlaySegment.muted ? <SpeakerHigh size={16} /> : <SpeakerSlash size={16} />}{t(contextOverlaySegment.muted ? "unmuteClip" : "muteClip", contextOverlaySegment.muted ? "取消静音" : "静音")}</button>
               ) : null}
               {contextMenu.track === "audio" && contextAudioSegment ? <>
                 <button type="button" role="menuitem" disabled={audioProcessingBusy} onClick={() => runContextAction(() => separateAudioClipVocals?.({ blob: contextAudioSegment.blob, name: contextAudioSegment.name, start: contextAudioSegment.start, sourceStart: contextAudioSegment.sourceStart || 0, duration: contextAudioSegment.duration, segmentId: contextAudioSegment.id, track: "audio" }))}><Waveform size={16} />{t("separateVocalsFromClip")}</button>

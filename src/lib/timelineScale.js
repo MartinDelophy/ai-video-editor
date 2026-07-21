@@ -86,6 +86,59 @@ export function getTimelineTrackWidthPercent(timelineDuration, zoom) {
   return Math.max(100, (timelineDuration / visibleDuration) * 100);
 }
 
+export function getMobilePinchZoomState({
+  timelineDuration,
+  minimumZoom = TIMELINE_MIN_ZOOM,
+  startZoom,
+  startDistance,
+  distance,
+  startTrackWidth,
+  baseTrackWidth = 0,
+}) {
+  const distanceScale = Math.max(0.01, distance) / Math.max(1, startDistance);
+  const startWidthPercent = getTimelineTrackWidthPercent(timelineDuration, startZoom);
+  const minimumWidthPercent = getTimelineTrackWidthPercent(timelineDuration, minimumZoom);
+  const maximumWidthPercent = getTimelineTrackWidthPercent(timelineDuration, TIMELINE_MAX_ZOOM);
+  const widthUnit = baseTrackWidth > 0
+    ? baseTrackWidth / 100
+    : startTrackWidth / Math.max(startWidthPercent, 0.001);
+  const minimumTrackWidth = widthUnit * minimumWidthPercent;
+  const maximumTrackWidth = widthUnit * maximumWidthPercent;
+  const nextTrackWidth = Math.max(
+    minimumTrackWidth,
+    Math.min(maximumTrackWidth, startTrackWidth * distanceScale),
+  );
+  const nextWidthPercent = nextTrackWidth / Math.max(widthUnit, 0.001);
+  const nextVisibleDuration = timelineDuration > 0
+    ? timelineDuration / Math.max(nextWidthPercent / 100, 1)
+    : getTimelineVisibleDuration(startZoom);
+  const isAtMinimumWidth = Math.abs(nextTrackWidth - minimumTrackWidth) < 0.000001;
+  const isAtMaximumWidth = Math.abs(nextTrackWidth - maximumTrackWidth) < 0.000001;
+  const nextZoom = isAtMinimumWidth
+    ? minimumZoom
+    : isAtMaximumWidth
+      ? TIMELINE_MAX_ZOOM
+      : Math.max(minimumZoom, getTimelineZoomForVisibleDuration(nextVisibleDuration));
+
+  return {
+    nextZoom,
+    nextTrackWidth,
+  };
+}
+
+export function getMobilePinchAnchorScrollLeft({
+  currentScrollLeft,
+  trackLeft,
+  trackWidth,
+  viewportLeft,
+  viewportWidth,
+  anchorTimeRatio,
+}) {
+  const fixedPlayheadX = viewportLeft + viewportWidth / 2;
+  const anchorX = trackLeft + anchorTimeRatio * trackWidth;
+  return currentScrollLeft + anchorX - fixedPlayheadX;
+}
+
 export function getTimelineRulerScale(visibleDuration) {
   if (visibleDuration <= 0.75) {
     return { minorStep: 1 / TIMELINE_FRAME_RATE, majorStep: 0.5, labelMode: "frames" };
@@ -114,13 +167,26 @@ export function getTimelineRulerScale(visibleDuration) {
   return { minorStep: 300, majorStep: 600, labelMode: "minutes" };
 }
 
-export function getTimelineRulerTicks(timelineDuration, zoom, visibleStart = 0, visibleEnd = timelineDuration) {
+const RULER_MAJOR_STEPS = [0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300, 600];
+
+export function getTimelineRulerTicks(
+  timelineDuration,
+  zoom,
+  visibleStart = 0,
+  visibleEnd = timelineDuration,
+  { minimumMajorStep = 0 } = {},
+) {
   if (timelineDuration <= 0) {
     return [];
   }
 
   const visibleDuration = getTimelineVisibleDuration(zoom);
-  const { minorStep, majorStep, labelMode } = getTimelineRulerScale(visibleDuration);
+  const scale = getTimelineRulerScale(visibleDuration);
+  const majorStep = RULER_MAJOR_STEPS.find((step) => step >= Math.max(scale.majorStep, minimumMajorStep))
+    ?? RULER_MAJOR_STEPS.at(-1);
+  const scaleWasRaised = majorStep > scale.majorStep;
+  const minorStep = scaleWasRaised ? majorStep / 4 : scale.minorStep;
+  const labelMode = scaleWasRaised && majorStep >= 1 ? "seconds" : scale.labelMode;
   const rangePadding = Math.max(visibleDuration * 0.35, majorStep);
   const rangeStart = Math.max(0, visibleStart - rangePadding);
   const rangeEnd = Math.min(timelineDuration, visibleEnd + rangePadding);

@@ -6,6 +6,7 @@ import {
   ImageSquare,
   ListBullets,
   PersonSimpleRun,
+  Plus,
   Scissors,
   Sparkle,
   Trash,
@@ -116,8 +117,10 @@ function CaptionContextPanel({
   isGeneratingCaptions,
   automaticCaptionProgress,
   importCaptionSegments,
+  addCaptionSegment,
 }) {
   const srtInputRef = useRef(null);
+  const focusNewCaptionRef = useRef(false);
   const [pendingSrt, setPendingSrt] = useState(null);
   const selectedIndex = Math.max(
     0,
@@ -126,6 +129,18 @@ function CaptionContextPanel({
   const selectedStart = captionSegments.length
     ? getSegmentStartTime(captionSegments, selectedIndex, captionTargetDuration)
     : 0;
+
+  useEffect(() => {
+    if (!focusNewCaptionRef.current || !selectedCaptionSegment) return;
+    focusNewCaptionRef.current = false;
+    const frame = requestAnimationFrame(() => document.getElementById("caption-context-input")?.focus());
+    return () => cancelAnimationFrame(frame);
+  }, [selectedCaptionSegment]);
+
+  function handleAddCaption() {
+    focusNewCaptionRef.current = true;
+    addCaptionSegment();
+  }
 
   async function handleSrtFile(file) {
     if (!file) return;
@@ -171,9 +186,14 @@ function CaptionContextPanel({
           <ClosedCaptioning size={28} weight="duotone" />
           <strong>{t("noCaptionSegments")}</strong>
           <span>{t("captionEmptyHint", "字幕片段可拖动到字幕轨道，并在这里同步编辑。")}</span>
-          <button className="caption-empty-import" type="button" onClick={() => srtInputRef.current?.click()}>
-            <UploadSimple size={15} />{t("importSrt")}
-          </button>
+          <div className="caption-empty-actions">
+            <button className="caption-add-button" type="button" onClick={handleAddCaption}>
+              <Plus size={16} weight="bold" />{t("addCaption")}
+            </button>
+            <button className="caption-empty-import" type="button" onClick={() => srtInputRef.current?.click()}>
+              <UploadSimple size={15} />{t("importSrt")}
+            </button>
+          </div>
         </div>
       )}
 
@@ -220,9 +240,16 @@ function CaptionContextPanel({
 
       <div className="caption-context-heading">
         <span><ListBullets size={16} />{t("captionList", "字幕列表")}</span>
-        <button className="caption-import-button" type="button" onClick={() => srtInputRef.current?.click()}>
-          <UploadSimple size={14} />{t("importSrt")}
-        </button>
+        {captionSegments.length ? (
+          <>
+            <button className="caption-add-inline" type="button" onClick={handleAddCaption}>
+              <Plus size={14} weight="bold" />{t("addCaption")}
+            </button>
+            <button className="caption-import-button" type="button" onClick={() => srtInputRef.current?.click()}>
+              <UploadSimple size={14} />{t("importSrt")}
+            </button>
+          </>
+        ) : null}
         <input
           ref={srtInputRef}
           className="sr-only"
@@ -275,33 +302,44 @@ function CaptionContextPanel({
 }
 
 function AudioClipContextPanel({ t, segment, updateAudioSegment, toggleAudioSegmentReverse, deleteAudioSegment, downloadBlob }) {
+  const isVoiceClip = segment.track === "audio";
+  const trackLabel = segment.track === "music" ? t("musicTrack") : segment.track === "source" ? t("sourceTrack") : t("voiceTrack");
   return (
     <div className="audio-clip-context-panel">
       <div className="avatar-context-hero">
         <span><Waveform size={22} weight="duotone" /></span>
-        <div><small>{t("voiceTrack")}</small><strong>{segment.name || t("audioClip")}</strong><em>{formatTime(segment.duration)}</em></div>
+        <div><small>{trackLabel}</small><strong>{segment.name || t("audioClip")}</strong><em>{formatTime(segment.duration)}</em></div>
       </div>
-      <label className="audio-property-row">
+      {segment.canChangeStart !== false ? <label className="audio-property-row">
         <span>{t("audioClipStart")}</span>
         <input type="number" min="0" step="0.1" value={Number(segment.start.toFixed(1))} onChange={(event) => updateAudioSegment(segment.id, { start: Math.max(0, Number(event.target.value) || 0) })} />
-      </label>
+      </label> : null}
       <label className="audio-property-slider">
         <span><b>{t("volume")}</b><em>{Math.round((segment.volume ?? 1) * 100)}%</em></span>
         <input type="range" min="0" max="1" step="0.01" value={segment.volume ?? 1} onChange={(event) => updateAudioSegment(segment.id, { volume: Number(event.target.value) })} />
       </label>
-      <label className="audio-property-slider">
+      {segment.canChangeSpeed !== false ? <div className="audio-property-slider">
+        <span><b>{t("visualSpeed")}</b><em>{(segment.playbackRate ?? 1).toFixed((segment.playbackRate ?? 1) % 1 ? 2 : 0)}×</em></span>
+        <div className="visual-speed-presets" aria-label={t("visualSpeed")}>
+          {[0.5, 1, 1.5, 2, 3, 4].map((rate) => (
+            <button type="button" className={Math.abs((segment.playbackRate ?? 1) - rate) < 0.001 ? "is-active" : ""} key={rate} onClick={() => updateAudioSegment(segment.id, { playbackRate: rate })}>{rate}×</button>
+          ))}
+        </div>
+        <input aria-label={t("visualSpeed")} type="range" min="0.25" max="4" step="0.05" value={segment.playbackRate ?? 1} onChange={(event) => updateAudioSegment(segment.id, { playbackRate: Number(event.target.value) })} />
+      </div> : null}
+      {isVoiceClip ? <label className="audio-property-slider">
         <span><b>{t("fadeIn")}</b><em>{(segment.fadeIn ?? 0).toFixed(1)}s</em></span>
         <input type="range" min="0" max={Math.min(3, segment.duration / 2)} step="0.1" value={segment.fadeIn ?? 0} onChange={(event) => updateAudioSegment(segment.id, { fadeIn: Number(event.target.value) })} />
-      </label>
-      <label className="audio-property-slider">
+      </label> : null}
+      {isVoiceClip ? <label className="audio-property-slider">
         <span><b>{t("fadeOut")}</b><em>{(segment.fadeOut ?? 0).toFixed(1)}s</em></span>
         <input type="range" min="0" max={Math.min(3, segment.duration / 2)} step="0.1" value={segment.fadeOut ?? 0} onChange={(event) => updateAudioSegment(segment.id, { fadeOut: Number(event.target.value) })} />
-      </label>
+      </label> : null}
       <div className="audio-context-actions">
-        <button className={`panel-secondary ${segment.reversed ? "is-active" : ""}`} type="button" disabled={segment.reversing} onClick={() => toggleAudioSegmentReverse(segment.id)}>
+        {isVoiceClip ? <button className={`panel-secondary ${segment.reversed ? "is-active" : ""}`} type="button" disabled={segment.reversing} onClick={() => toggleAudioSegmentReverse(segment.id)}>
           {segment.reversing ? t("audioReversing") : segment.reversed ? t("audioReverseRestore") : t("audioReverse")}
-        </button>
-        <button className="panel-secondary" type="button" onClick={() => downloadBlob(segment.blob, `${segment.name || "voiceover"}.wav`)}>{t("downloadAudioClip")}</button>
+        </button> : null}
+        <button className="panel-secondary" type="button" onClick={() => downloadBlob(segment.blob, `${segment.name || "audio"}.wav`)}>{t("downloadAudioClip")}</button>
         <button className="panel-secondary is-danger" type="button" onClick={() => deleteAudioSegment(segment.id)}><Trash size={15} />{t("deleteAudioClip")}</button>
       </div>
     </div>
@@ -463,6 +501,7 @@ export function VoicePanel({
   toggleCaptionSegmentHidden,
   deleteCaptionSegment,
   importCaptionSegments,
+  addCaptionSegment,
   seekTo,
   sourceAudioBlob,
   sourceAudioLinked,
@@ -489,6 +528,10 @@ export function VoicePanel({
   generateAvatarAcceptanceFrame,
   selectedTrack,
   selectedAudioSegment,
+  selectedTrackAudioSegment,
+  audioClipInspectorOpen = false,
+  updateSelectedTrackAudioSegment,
+  deleteSelectedTrackAudioSegment,
   updateAudioSegment,
   toggleAudioSegmentReverse,
   deleteAudioSegment,
@@ -515,7 +558,9 @@ export function VoicePanel({
   const isAvatarContext = isSmartContext && smartMode === "avatar" && avatarPanelOpen;
   const isSmartAutoContext = isSmartContext && smartMode === "auto-edit";
   const isSmartFrameContext = isSmartContext && smartMode === "smart-frame";
-  const isAudioClipContext = selectedTrack === "audio" && Boolean(selectedAudioSegment);
+  const audioPropertySegment = selectedTrack === "audio" ? selectedAudioSegment : selectedTrackAudioSegment;
+  const isAudioClipContext = Boolean(selectedTrack === "audio" && selectedAudioSegment)
+    || Boolean(audioClipInspectorOpen && ["source", "music"].includes(selectedTrack) && audioPropertySegment);
   const isVisualContext = !isSmartContext && selectedTrack === "image";
   const isStickerContext = selectedTrack === "sticker" && Boolean(selectedStickerSegment);
   const isOverlayContext = selectedTrack === "overlay" && Boolean(selectedVisualOverlay);
@@ -536,7 +581,7 @@ export function VoicePanel({
     : isAvatarContext
       ? t("avatarPortingStatus")
     : isAudioClipContext
-      ? `${formatTime(selectedAudioSegment.duration)} · ${selectedAudioSegment.start.toFixed(1)}s`
+      ? `${formatTime(audioPropertySegment.duration)} · ${audioPropertySegment.start.toFixed(1)}s`
     : statusText === "模型待命"
       ? t("modelReady")
     : statusText;
@@ -557,7 +602,7 @@ export function VoicePanel({
   }, [activeTool, smartMode]);
 
   return (
-    <aside ref={panelRef} className={`voice-panel ${isCaptionContext ? "is-caption-context" : ""} ${isAvatarContext ? "is-avatar-context" : ""} ${isAudioClipContext ? "is-audio-clip-context" : ""} ${isVisualContext ? "is-visual-context" : ""}`}>
+    <aside ref={panelRef} className={`voice-panel ${isCaptionContext ? "is-caption-context" : ""} ${isAvatarContext ? "is-avatar-context" : ""} ${isAudioClipContext ? "is-audio-clip-context" : ""} ${isStickerContext ? "is-sticker-context" : ""} ${isVisualContext ? "is-visual-context" : ""}`}>
       <div className="panel-title-row">
         <h1>{title}</h1>
         <span className={`status-pill ${isCaptionContext ? "done" : status}`}>
@@ -656,6 +701,7 @@ export function VoicePanel({
             toggleCaptionSegmentHidden={toggleCaptionSegmentHidden}
             deleteCaptionSegment={deleteCaptionSegment}
             importCaptionSegments={importCaptionSegments}
+            addCaptionSegment={addCaptionSegment}
             seekTo={seekTo}
             sourceAudioBlob={sourceAudioBlob}
             generateCaptionsFromSourceAudio={generateCaptionsFromSourceAudio}
@@ -701,7 +747,7 @@ export function VoicePanel({
 
         {isAvatarContext ? <AvatarContextPanel t={t} hasVisual={hasVisual} visualType={visualType} audioBlob={audioBlob} audioDuration={audioDuration} captionSegments={captionSegments} selectedVoice={selectedVoice} avatarJob={avatarJob} generateAvatarAcceptanceFrame={generateAvatarAcceptanceFrame} /> : null}
 
-        {isAudioClipContext ? <AudioClipContextPanel t={t} segment={selectedAudioSegment} updateAudioSegment={updateAudioSegment} toggleAudioSegmentReverse={toggleAudioSegmentReverse} deleteAudioSegment={deleteAudioSegment} downloadBlob={downloadBlob} /> : null}
+        {isAudioClipContext ? <AudioClipContextPanel t={t} segment={{ ...audioPropertySegment, id: audioPropertySegment.id || audioPropertySegment.segmentId }} updateAudioSegment={selectedTrack === "audio" ? updateAudioSegment : updateSelectedTrackAudioSegment} toggleAudioSegmentReverse={toggleAudioSegmentReverse} deleteAudioSegment={selectedTrack === "audio" ? deleteAudioSegment : deleteSelectedTrackAudioSegment} downloadBlob={downloadBlob} /> : null}
 
         {!isSmartContext && !isCaptionContext && !isAvatarContext && !isAudioClipContext && !isVisualContext && !isStickerContext && !isOverlayContext && voiceTab === "synthesis" ? (
           <VoiceSynthesisPanel

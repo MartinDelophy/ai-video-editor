@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { X } from "@phosphor-icons/react";
+import { getWaveformDisplayPeaks, isWaveformPlaceholder } from "../lib/waveform.js";
 
 export function IconButton({ label, children, active = false, disabled = false, onClick }) {
   return (
@@ -45,10 +46,11 @@ export function Popover({ children, onClose, className = "" }) {
 }
 
 export function WaveformStrip({ peaks, active = false, hidden = false }) {
-  const safePeaks = Array.isArray(peaks) ? peaks : [];
+  const safePeaks = getWaveformDisplayPeaks(peaks);
+  const placeholder = isWaveformPlaceholder(peaks);
   return (
     <div
-      className={`waveform-strip ${active ? "is-active" : ""} ${hidden ? "is-muted" : ""}`}
+      className={`waveform-strip ${active ? "is-active" : ""} ${hidden ? "is-muted" : ""} ${placeholder ? "is-placeholder" : ""}`}
       aria-hidden="true"
     >
       {safePeaks.map((peak, index) => (

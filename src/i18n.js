@@ -41,6 +41,20 @@ const MOBILE_DRAWER_COPY = {
   ru: { mobilePanelView: "Вид панели", mobileDrawerTools: "Инструменты", properties: "Свойства", mobileAddMedia: "Добавить медиа", mobileAssetActions: "Добавить медиа", mobileAssetSelected: "Выбранный материал", mobileAssetChooseDestination: "Выберите, куда его добавить", mobileAddToMainTrack: "На основную дорожку", mobileAddToVoice: "В озвучку", mobileAddToMusic: "В музыку" },
 };
 
+const MOBILE_CLIP_ACTION_COPY = {
+  zh: { mobileClipEdit: "编辑", mobileClipAudio: "音频", mobileClipCaptions: "字幕", mobileClipSeparate: "人声分离", mobileClipSplit: "分割", mobileClipCopy: "复制", mobileClipDelete: "删除", mobileClipDismiss: "返回" },
+  en: { mobileClipEdit: "Edit", mobileClipAudio: "Audio", mobileClipCaptions: "Captions", mobileClipSeparate: "Separate", mobileClipSplit: "Split", mobileClipCopy: "Copy", mobileClipDelete: "Delete", mobileClipDismiss: "Back" },
+  ja: { mobileClipEdit: "編集", mobileClipAudio: "音声", mobileClipCaptions: "字幕", mobileClipSeparate: "分離", mobileClipSplit: "分割", mobileClipCopy: "複製", mobileClipDelete: "削除", mobileClipDismiss: "戻る" },
+  ko: { mobileClipEdit: "편집", mobileClipAudio: "오디오", mobileClipCaptions: "자막", mobileClipSeparate: "분리", mobileClipSplit: "분할", mobileClipCopy: "복제", mobileClipDelete: "삭제", mobileClipDismiss: "뒤로" },
+  es: { mobileClipEdit: "Editar", mobileClipAudio: "Audio", mobileClipCaptions: "Subtítulos", mobileClipSeparate: "Separar", mobileClipSplit: "Dividir", mobileClipCopy: "Copiar", mobileClipDelete: "Eliminar", mobileClipDismiss: "Volver" },
+  fr: { mobileClipEdit: "Modifier", mobileClipAudio: "Audio", mobileClipCaptions: "Sous-titres", mobileClipSeparate: "Séparer", mobileClipSplit: "Scinder", mobileClipCopy: "Copier", mobileClipDelete: "Supprimer", mobileClipDismiss: "Retour" },
+  de: { mobileClipEdit: "Bearbeiten", mobileClipAudio: "Audio", mobileClipCaptions: "Untertitel", mobileClipSeparate: "Trennen", mobileClipSplit: "Teilen", mobileClipCopy: "Kopieren", mobileClipDelete: "Löschen", mobileClipDismiss: "Zurück" },
+  pt: { mobileClipEdit: "Editar", mobileClipAudio: "Áudio", mobileClipCaptions: "Legendas", mobileClipSeparate: "Separar", mobileClipSplit: "Dividir", mobileClipCopy: "Copiar", mobileClipDelete: "Excluir", mobileClipDismiss: "Voltar" },
+  th: { mobileClipEdit: "แก้ไข", mobileClipAudio: "เสียง", mobileClipCaptions: "คำบรรยาย", mobileClipSeparate: "แยกเสียง", mobileClipSplit: "แบ่ง", mobileClipCopy: "คัดลอก", mobileClipDelete: "ลบ", mobileClipDismiss: "กลับ" },
+  vi: { mobileClipEdit: "Sửa", mobileClipAudio: "Âm thanh", mobileClipCaptions: "Phụ đề", mobileClipSeparate: "Tách giọng", mobileClipSplit: "Tách", mobileClipCopy: "Sao chép", mobileClipDelete: "Xóa", mobileClipDismiss: "Quay lại" },
+  ru: { mobileClipEdit: "Изменить", mobileClipAudio: "Аудио", mobileClipCaptions: "Субтитры", mobileClipSeparate: "Разделить", mobileClipSplit: "Разделить", mobileClipCopy: "Копировать", mobileClipDelete: "Удалить", mobileClipDismiss: "Назад" },
+};
+
 const VISUAL_EDITOR_COPY = {
   zh: { visualSelectClip: "请先选择 Visuals 轨上的片段", visualKeyframes: "关键帧", visualFrames: "帧", visualScale: "缩放", visualPositionX: "水平位置", visualPositionY: "垂直位置", visualRotation: "旋转", visualOpacity: "不透明度", visualDeleteKeyframe: "删除当前位置关键帧", visualMask: "蒙版", visualMaskResize: "调整蒙版大小", visualClipScoped: "片段级", visualMaskNone: "无", visualMaskRectangle: "矩形", visualMaskRounded: "圆角", visualMaskCircle: "圆形", visualFeather: "羽化", visualHorizontal: "水平", visualVertical: "垂直", visualWidth: "宽度", visualHeight: "高度", visualDiameter: "直径", visualCornerRadius: "圆角半径", visualMaskNoneHint: "选择一种蒙版后显示对应参数", visualInvertMask: "反向蒙版", visualEffects: "画面效果" },
   en: { visualSelectClip: "Select a clip on the Visuals track", visualKeyframes: "Keyframes", visualFrames: "frames", visualScale: "Scale", visualPositionX: "Horizontal position", visualPositionY: "Vertical position", visualRotation: "Rotation", visualOpacity: "Opacity", visualDeleteKeyframe: "Delete keyframe at playhead", visualMask: "Mask", visualMaskResize: "Resize mask", visualClipScoped: "Clip", visualMaskNone: "None", visualMaskRectangle: "Rectangle", visualMaskRounded: "Rounded", visualMaskCircle: "Circle", visualFeather: "Feather", visualHorizontal: "Horizontal", visualVertical: "Vertical", visualWidth: "Width", visualHeight: "Height", visualDiameter: "Diameter", visualCornerRadius: "Corner radius", visualMaskNoneHint: "Choose a mask to show its parameters", visualInvertMask: "Invert mask", visualEffects: "Visual effects" },
@@ -324,17 +338,32 @@ const STICKER_EDITOR_COPY = {
   vi: { stickerProperties: "Thuộc tính nhãn dán", stickerHorizontalPosition: "Vị trí ngang", stickerVerticalPosition: "Vị trí dọc", stickerScale: "Tỷ lệ", stickerRotation: "Xoay", stickerOpacity: "Độ mờ", deleteSticker: "Xóa nhãn dán", stickerAddedToTrack: "Đã thêm nhãn dán vào rãnh" },
 };
 
+const MOBILE_STICKER_COPY = {
+  zh: { addSticker: "添加贴纸", mobileStickerCancel: "取消", mobileStickerActions: "贴纸选择操作" },
+  en: { addSticker: "Add sticker", mobileStickerCancel: "Cancel", mobileStickerActions: "Sticker selection actions" },
+  ja: { addSticker: "ステッカーを追加", mobileStickerCancel: "キャンセル", mobileStickerActions: "ステッカー選択操作" },
+  ko: { addSticker: "스티커 추가", mobileStickerCancel: "취소", mobileStickerActions: "스티커 선택 작업" },
+  es: { addSticker: "Añadir sticker", mobileStickerCancel: "Cancelar", mobileStickerActions: "Acciones de selección de sticker" },
+  fr: { addSticker: "Ajouter le sticker", mobileStickerCancel: "Annuler", mobileStickerActions: "Actions de sélection du sticker" },
+  de: { addSticker: "Sticker hinzufügen", mobileStickerCancel: "Abbrechen", mobileStickerActions: "Sticker-Auswahlaktionen" },
+  pt: { addSticker: "Adicionar sticker", mobileStickerCancel: "Cancelar", mobileStickerActions: "Ações de seleção de sticker" },
+  th: { addSticker: "เพิ่มสติกเกอร์", mobileStickerCancel: "ยกเลิก", mobileStickerActions: "การทำงานสำหรับเลือกสติกเกอร์" },
+  vi: { addSticker: "Thêm sticker", mobileStickerCancel: "Hủy", mobileStickerActions: "Thao tác chọn sticker" },
+  ru: { addSticker: "Добавить стикер", mobileStickerCancel: "Отмена", mobileStickerActions: "Действия с выбранным стикером" },
+};
+
 const CAPTION_DEFAULT_COPY = {
-  zh: { newCaptionDefault: "新的字幕片段" },
-  en: { newCaptionDefault: "New caption" },
-  ja: { newCaptionDefault: "新しい字幕" },
-  ko: { newCaptionDefault: "새 자막" },
-  es: { newCaptionDefault: "Nuevo subtítulo" },
-  fr: { newCaptionDefault: "Nouveau sous-titre" },
-  de: { newCaptionDefault: "Neue Untertitelzeile" },
-  pt: { newCaptionDefault: "Nova legenda" },
-  th: { newCaptionDefault: "คำบรรยายใหม่" },
-  vi: { newCaptionDefault: "Phụ đề mới" },
+  zh: { newCaptionDefault: "新的字幕片段", addCaption: "添加字幕", captionTrackLocked: "字幕轨已锁定，无法新增字幕片段" },
+  en: { newCaptionDefault: "New caption", addCaption: "Add caption", captionTrackLocked: "Unlock the caption track to add a caption" },
+  ja: { newCaptionDefault: "新しい字幕", addCaption: "字幕を追加", captionTrackLocked: "字幕を追加するには字幕トラックのロックを解除してください" },
+  ko: { newCaptionDefault: "새 자막", addCaption: "자막 추가", captionTrackLocked: "자막을 추가하려면 자막 트랙 잠금을 해제하세요" },
+  es: { newCaptionDefault: "Nuevo subtítulo", addCaption: "Añadir subtítulo", captionTrackLocked: "Desbloquea la pista de subtítulos para añadir uno" },
+  fr: { newCaptionDefault: "Nouveau sous-titre", addCaption: "Ajouter un sous-titre", captionTrackLocked: "Déverrouillez la piste de sous-titres pour en ajouter un" },
+  de: { newCaptionDefault: "Neue Untertitelzeile", addCaption: "Untertitel hinzufügen", captionTrackLocked: "Entsperre die Untertitelspur, um einen Untertitel hinzuzufügen" },
+  pt: { newCaptionDefault: "Nova legenda", addCaption: "Adicionar legenda", captionTrackLocked: "Desbloqueie a faixa de legendas para adicionar uma legenda" },
+  th: { newCaptionDefault: "คำบรรยายใหม่", addCaption: "เพิ่มคำบรรยาย", captionTrackLocked: "ปลดล็อกแทร็กคำบรรยายเพื่อเพิ่มคำบรรยาย" },
+  vi: { newCaptionDefault: "Phụ đề mới", addCaption: "Thêm phụ đề", captionTrackLocked: "Mở khóa rãnh phụ đề để thêm phụ đề" },
+  ru: { newCaptionDefault: "Новые субтитры", addCaption: "Добавить субтитры", captionTrackLocked: "Разблокируйте дорожку субтитров, чтобы добавить фрагмент" },
 };
 
 const SMART_WORKSPACE_COPY = {
@@ -1848,7 +1877,9 @@ export function createTranslator(languageId) {
   const assetDropCopy = ASSET_DROP_COPY[copyLanguage] ?? ASSET_DROP_COPY.en;
   const autoCaptionStatusCopy = AUTO_CAPTION_STATUS_COPY[copyLanguage] ?? AUTO_CAPTION_STATUS_COPY.en;
   const mobileDrawerCopy = MOBILE_DRAWER_COPY[languageId] ?? MOBILE_DRAWER_COPY.en;
-  return (key, fallbackText) => mobileDrawerCopy[key] ?? MOBILE_DRAWER_COPY.en[key] ?? srtImportCopy[key] ?? exportCopy[key] ?? EXPORT_RENDER_COPY.en[key] ?? assetPreviewCopy[key] ?? ASSET_PREVIEW_COPY.en[key] ?? assetDropCopy[key] ?? ASSET_DROP_COPY.en[key] ?? autoCaptionStatusCopy[key] ?? AUTO_CAPTION_STATUS_COPY.en[key] ?? copy[key] ?? fallback[key] ?? UI_COPY.zh[key] ?? fallbackText ?? key;
+  const mobileClipActionCopy = MOBILE_CLIP_ACTION_COPY[languageId] ?? MOBILE_CLIP_ACTION_COPY.en;
+  const mobileStickerCopy = MOBILE_STICKER_COPY[languageId] ?? MOBILE_STICKER_COPY.en;
+  return (key, fallbackText) => mobileStickerCopy[key] ?? MOBILE_STICKER_COPY.en[key] ?? mobileClipActionCopy[key] ?? MOBILE_CLIP_ACTION_COPY.en[key] ?? mobileDrawerCopy[key] ?? MOBILE_DRAWER_COPY.en[key] ?? srtImportCopy[key] ?? exportCopy[key] ?? EXPORT_RENDER_COPY.en[key] ?? assetPreviewCopy[key] ?? ASSET_PREVIEW_COPY.en[key] ?? assetDropCopy[key] ?? ASSET_DROP_COPY.en[key] ?? autoCaptionStatusCopy[key] ?? AUTO_CAPTION_STATUS_COPY.en[key] ?? copy[key] ?? fallback[key] ?? UI_COPY.zh[key] ?? fallbackText ?? key;
 }
 
 export function translateOptionName(languageId, name) {

@@ -1,13 +1,37 @@
 import { reverseAudioBlob } from "./media.js";
 
+export function normalizeAudioPlaybackRate(value) {
+  return Math.max(0.25, Math.min(4, Number(value) || 1));
+}
+
+export function updateAudioSegmentPlaybackRate(segment, value) {
+  const previousRate = normalizeAudioPlaybackRate(segment?.playbackRate);
+  const playbackRate = normalizeAudioPlaybackRate(value);
+  const sourceDuration = Math.max(0.01, Number(segment?.sourceDuration) || (Number(segment?.duration) || 0.01) * previousRate);
+  return {
+    ...segment,
+    playbackRate,
+    sourceDuration,
+    duration: sourceDuration / playbackRate,
+    fadeIn: Math.min(Number(segment?.fadeIn) || 0, sourceDuration / playbackRate / 2),
+    fadeOut: Math.min(Number(segment?.fadeOut) || 0, sourceDuration / playbackRate / 2),
+  };
+}
+
 export function createAudioClipActions(d) {
   const updateAudioSegment = (id, patch) => d.setAudioSegments((segments) => segments.map((segment) => {
     if (segment.id !== id) return segment;
-    const next = { ...segment, ...patch };
+    const next = Number.isFinite(patch.playbackRate)
+      ? { ...updateAudioSegmentPlaybackRate(segment, patch.playbackRate), ...patch, playbackRate: normalizeAudioPlaybackRate(patch.playbackRate) }
+      : { ...segment, ...patch };
     if (Number.isFinite(patch.start) && patch.start !== segment.start) {
       const delta = patch.start - segment.start;
       d.setCaptionSegments((captions) => captions.map((caption) => caption.audioSegmentId === id
         ? { ...caption, start: caption.start + delta, end: caption.end + delta } : caption));
+    }
+    if (Number.isFinite(patch.playbackRate) && next.duration !== segment.duration) {
+      d.setCaptionSegments((captions) => captions.map((caption) => caption.audioSegmentId === id
+        ? { ...caption, end: next.start + next.duration } : caption));
     }
     d.setTimelineHorizon((value) => Math.max(value, Math.ceil((next.start + next.duration + 5) / 10) * 10));
     return next;

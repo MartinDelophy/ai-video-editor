@@ -123,6 +123,130 @@ test("desktop timeline keeps its existing draggable playhead behavior", async ({
   await expect(page.locator(".mobile-fixed-playhead")).toBeHidden();
 });
 
+test("desktop trackpad zoom keeps ruler and track geometry synchronized before commit", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.addInitScript(() => localStorage.setItem("ai-voiceover-ui-language", "zh"));
+  await page.goto("/");
+  await page.locator('input[type="file"][multiple]').setInputFiles({
+    name: "desktop-wheel-fixture.png",
+    mimeType: "image/png",
+    buffer: ONE_PIXEL_PNG,
+  });
+  await page.keyboard.press("Escape");
+
+  const clip = page.locator(".image-clip");
+  await expect(clip).toBeVisible();
+  const box = await clip.boundingBox();
+  if (!box) throw new Error("Timeline clip is unavailable");
+
+  const readGeometry = () => page.evaluate(() => {
+    const track = document.querySelector(".track-scroll")?.getBoundingClientRect();
+    const ruler = document.querySelector(".timeline-ruler-canvas")?.getBoundingClientRect();
+    const trackPlayhead = document.querySelector(".playhead")?.getBoundingClientRect();
+    const rulerPlayhead = document.querySelector(".playhead-ruler")?.getBoundingClientRect();
+    return {
+      trackWidth: track?.width || 0,
+      rulerWidth: ruler?.width || 0,
+      trackPlayheadX: trackPlayhead?.left || 0,
+      rulerPlayheadX: rulerPlayhead?.left || 0,
+    };
+  });
+
+  const before = await readGeometry();
+  await clip.dispatchEvent("wheel", {
+    deltaY: -120,
+    deltaX: 0,
+    deltaMode: 0,
+    ctrlKey: true,
+    clientX: box.x + box.width / 2,
+    clientY: box.y + box.height / 2,
+    bubbles: true,
+    cancelable: true,
+  });
+  await page.waitForTimeout(32);
+  const during = await readGeometry();
+  await page.waitForTimeout(260);
+  const committed = await readGeometry();
+
+  expect(during.trackWidth).toBeGreaterThan(before.trackWidth);
+  expect(during.rulerWidth).toBeCloseTo(during.trackWidth, 0);
+  expect(during.rulerPlayheadX).toBeCloseTo(during.trackPlayheadX, 0);
+  expect(committed.rulerWidth).toBeCloseTo(committed.trackWidth, 0);
+  expect(committed.rulerPlayheadX).toBeCloseTo(committed.trackPlayheadX, 0);
+});
+
+test("desktop horizontal scrolling keeps the ruler playhead aligned on every scroll event", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.addInitScript(() => localStorage.setItem("ai-voiceover-ui-language", "zh"));
+  await page.goto("/");
+  await page.locator('input[type="file"][multiple]').setInputFiles({
+    name: "desktop-scroll-fixture.png",
+    mimeType: "image/png",
+    buffer: ONE_PIXEL_PNG,
+  });
+  await page.keyboard.press("Escape");
+  await expect(page.locator(".image-clip")).toBeVisible();
+
+  await page.getByRole("button", { name: "放大时间线" }).click();
+  await page.getByRole("button", { name: "放大时间线" }).click();
+  await page.getByRole("button", { name: "放大时间线" }).click();
+  await page.waitForTimeout(180);
+
+  const offsets = await page.locator(".tracks").evaluate((element) => {
+    const samples = [];
+    for (const ratio of [0.2, 0.5, 0.8, 0.35]) {
+      element.scrollLeft = (element.scrollWidth - element.clientWidth) * ratio;
+      element.dispatchEvent(new Event("scroll", { bubbles: true }));
+      const trackPlayhead = document.querySelector(".playhead")?.getBoundingClientRect();
+      const rulerPlayhead = document.querySelector(".playhead-ruler")?.getBoundingClientRect();
+      samples.push(Math.abs((trackPlayhead?.left || 0) - (rulerPlayhead?.left || 0)));
+    }
+    return samples;
+  });
+
+  for (const offset of offsets) expect(offset).toBeLessThanOrEqual(1);
+});
+
+test("desktop fast trackpad wheel scrolling advances ruler and tracks in the same frame", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.addInitScript(() => localStorage.setItem("ai-voiceover-ui-language", "zh"));
+  await page.goto("/");
+  await page.locator('input[type="file"][multiple]').setInputFiles({
+    name: "desktop-fast-scroll-fixture.png",
+    mimeType: "image/png",
+    buffer: ONE_PIXEL_PNG,
+  });
+  await page.keyboard.press("Escape");
+  const clip = page.locator(".image-clip");
+  await expect(clip).toBeVisible();
+  await page.getByRole("button", { name: "放大时间线" }).click();
+  await page.getByRole("button", { name: "放大时间线" }).click();
+  await page.getByRole("button", { name: "放大时间线" }).click();
+  await page.waitForTimeout(180);
+
+  const box = await clip.boundingBox();
+  if (!box) throw new Error("Timeline clip is unavailable");
+  const offsets = [];
+  for (const deltaX of [42, 88, 136, -54, 172, -96]) {
+    await clip.dispatchEvent("wheel", {
+      deltaX,
+      deltaY: 2,
+      deltaMode: 0,
+      clientX: box.x + Math.min(40, box.width / 2),
+      clientY: box.y + box.height / 2,
+      bubbles: true,
+      cancelable: true,
+    });
+    offsets.push(await page.evaluate(() => {
+      const trackPlayhead = document.querySelector(".playhead")?.getBoundingClientRect();
+      const rulerPlayhead = document.querySelector(".playhead-ruler")?.getBoundingClientRect();
+      return Math.abs((trackPlayhead?.left || 0) - (rulerPlayhead?.left || 0));
+    }));
+  }
+
+  for (const offset of offsets) expect(offset).toBeLessThanOrEqual(1);
+});
+
 test("mobile trackpad wheel zoom uses pixels and does not jump when committed", async ({ page }) => {
   await page.setViewportSize({ width: 412, height: 915 });
   await page.addInitScript(() => localStorage.setItem("ai-voiceover-ui-language", "zh"));

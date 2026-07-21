@@ -5,6 +5,7 @@
 [![Live Demo](https://img.shields.io/badge/Live_Demo-Timeline_Studio-35ead9?style=flat-square)](https://video-editor.ai-creator.top/)
 [![GitHub release](https://img.shields.io/github/v/release/MartinDelophy/ai-video-editor?style=flat-square)](https://github.com/MartinDelophy/ai-video-editor/releases)
 [![MIT License](https://img.shields.io/github/license/MartinDelophy/ai-video-editor?style=flat-square)](LICENSE)
+[![skills.sh](https://skills.sh/b/MartinDelophy/ai-video-editor)](https://skills.sh/MartinDelophy/ai-video-editor)
 
 Timeline Studio is a local-first AI video editor that runs in the browser. It combines a CapCut-style multi-track timeline with browser-side AI voiceovers, automatic captions, vision tools, talking-avatar generation, and deterministic offline export.
 
@@ -45,6 +46,28 @@ It helps an agent:
 - keep the editable `.timeline` project as the source of truth instead of returning only an opaque render.
 
 The current Skill is honest about its boundary: browser-driven editing is available today, while the versioned headless command runner described in its command contract is the next automation layer.
+
+Install through the public [skills.sh](https://skills.sh/MartinDelophy/ai-video-editor) directory (the current CLI requires Node.js 22.20.0 or later):
+
+```bash
+npx skills add MartinDelophy/ai-video-editor --skill edit-timeline-studio
+```
+
+Or install it with GitHub CLI 2.90.0 or later:
+
+```bash
+# Claude Code
+gh skill install MartinDelophy/ai-video-editor edit-timeline-studio --agent claude-code --scope user
+
+# Codex
+gh skill install MartinDelophy/ai-video-editor edit-timeline-studio --agent codex --scope user
+```
+
+To install the tested release instead of following the latest release, add `--pin v0.6.1`. Preview the Skill before installing with:
+
+```bash
+gh skill preview MartinDelophy/ai-video-editor edit-timeline-studio
+```
 
 ## Roadmap
 

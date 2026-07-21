@@ -5,6 +5,7 @@
 [![在线体验](https://img.shields.io/badge/在线体验-Timeline_Studio-35ead9?style=flat-square)](https://video-editor.ai-creator.top/)
 [![GitHub Release](https://img.shields.io/github/v/release/MartinDelophy/ai-video-editor?style=flat-square)](https://github.com/MartinDelophy/ai-video-editor/releases)
 [![MIT License](https://img.shields.io/github/license/MartinDelophy/ai-video-editor?style=flat-square)](LICENSE)
+[![skills.sh](https://skills.sh/b/MartinDelophy/ai-video-editor)](https://skills.sh/MartinDelophy/ai-video-editor)
 
 Timeline Studio 是一个本地优先、直接运行在浏览器中的 AI 视频编辑器。它把接近剪映/CapCut 的多轨时间线，与浏览器 AI 配音、自动字幕、智能画面、数字人和确定性离线导出结合在一起。
 
@@ -45,6 +46,28 @@ Timeline Studio 是一个本地优先、直接运行在浏览器中的 AI 视频
 - 始终保留可编辑的 `.timeline` 项目，而不是只交付不可逆的视频成片。
 
 当前 Skill 会明确说明能力边界：现阶段已经可以通过浏览器驱动编辑；Skill 中的版本化无头命令协议是下一阶段自动化层，不会把尚未实现的 CLI 描述成现成功能。
+
+通过公开的 [skills.sh](https://skills.sh/MartinDelophy/ai-video-editor) 目录安装（当前 CLI 要求 Node.js 22.20.0 或更高版本）：
+
+```bash
+npx skills add MartinDelophy/ai-video-editor --skill edit-timeline-studio
+```
+
+也可以使用 GitHub CLI 2.90.0 或更高版本安装：
+
+```bash
+# Claude Code
+gh skill install MartinDelophy/ai-video-editor edit-timeline-studio --agent claude-code --scope user
+
+# Codex
+gh skill install MartinDelophy/ai-video-editor edit-timeline-studio --agent codex --scope user
+```
+
+如需安装已经验证过的固定版本，而不是跟随最新 Release，请在命令末尾添加 `--pin v0.6.1`。安装前可以先预览 Skill：
+
+```bash
+gh skill preview MartinDelophy/ai-video-editor edit-timeline-studio
+```
 
 ## 路线图
 

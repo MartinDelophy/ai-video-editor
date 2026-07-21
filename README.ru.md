@@ -2,6 +2,8 @@
 
 [English](README.md) | [中文](README.zh-CN.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Español](README.es.md) | [Français](README.fr.md) | [Deutsch](README.de.md) | [Português](README.pt-BR.md) | [ไทย](README.th.md) | [Tiếng Việt](README.vi.md) | **Русский**
 
+[![skills.sh](https://skills.sh/b/MartinDelophy/ai-video-editor)](https://skills.sh/MartinDelophy/ai-video-editor)
+
 Timeline Studio — локальный ИИ-видеоредактор, работающий в браузере. Он объединяет многодорожечную временную шкалу в стиле CapCut, ИИ-озвучивание, автоматические субтитры, инструменты компьютерного зрения, говорящие аватары и детерминированный офлайн-экспорт.
 
 [Открыть редактор](https://video-editor.ai-creator.top/) · [Посмотреть демо](https://www.youtube.com/watch?v=chdRPG2ndMs) · [Hugging Face Space](https://huggingface.co/spaces/haixin/timeline-studio)
@@ -17,6 +19,26 @@ Timeline Studio — локальный ИИ-видеоредактор, рабо
 - Многодорожечный монтаж с наложениями, масками, фильтрами, анимацией и ключевыми кадрами.
 - Экспорт MP4/WebM в браузере с WebCodecs и сведением звука.
 - Устанавливаемое PWA, локальный кэш моделей и проекты `.timeline`.
+
+## Agent Skill
+
+Репозиторий содержит Agent Skill [`edit-timeline-studio`](skills/edit-timeline-studio/SKILL.md) для планирования, выполнения и проверки редактируемых видеотаймлайнов. Для установки требуется GitHub CLI 2.90.0 или новее.
+
+Для установки через [skills.sh](https://skills.sh/MartinDelophy/ai-video-editor) требуется Node.js 22.20.0 или новее.
+
+```bash
+npx skills add MartinDelophy/ai-video-editor --skill edit-timeline-studio
+```
+
+```bash
+# Claude Code
+gh skill install MartinDelophy/ai-video-editor edit-timeline-studio --agent claude-code --scope user
+
+# Codex
+gh skill install MartinDelophy/ai-video-editor edit-timeline-studio --agent codex --scope user
+```
+
+Добавьте `--pin v0.6.1`, чтобы установить проверенный релиз, а не автоматически следовать за последним. Перед установкой Skill можно просмотреть командой `gh skill preview MartinDelophy/ai-video-editor edit-timeline-studio`.
 
 ## Дорожная карта
 

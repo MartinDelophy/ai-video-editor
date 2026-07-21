@@ -34,7 +34,7 @@ Timeline Studio is a local-first AI video editor that runs in the browser. It co
 
 ## Agent Skill
 
-The repository includes [`edit-timeline-studio`](skills/edit-timeline-studio/SKILL.md), a Codex-compatible Skill for planning, executing, and verifying editable video timelines.
+The repository includes the [AI Video Editing Skill for Codex, Claude Code, Copilot and Gemini CLI](skills/edit-timeline-studio/README.md), backed by [`edit-timeline-studio`](skills/edit-timeline-studio/SKILL.md) for planning, executing, and verifying editable video timelines.
 
 It helps an agent:
 
@@ -45,7 +45,14 @@ It helps an agent:
 - verify track placement, transitions, captions, overlays, audible audio, and final export artifacts;
 - keep the editable `.timeline` project as the source of truth instead of returning only an opaque render.
 
-The current Skill is honest about its boundary: browser-driven editing is available today, while the versioned headless command runner described in its command contract is the next automation layer.
+The first versioned headless command runner is now available. It loads and inspects portable projects, validates revisioned JSON plans, applies supported operations transactionally, supports dry runs and idempotent operation IDs, and writes a new `.timeline` archive without rewriting its media files. Browser control remains the compatibility path for operations that are not in the command registry yet.
+
+```bash
+npm run agent -- inspect /absolute/path/project.timeline
+npm run agent -- run /absolute/path/edit-plan.json
+```
+
+The initial write registry supports `timed.move` for voiceover clips, `caption.update`, `caption.unlink_audio`, and `caption.link_audio`. See the [command contract](skills/edit-timeline-studio/references/command-contract.md) for the plan envelope.
 
 Install through the public [skills.sh](https://skills.sh/MartinDelophy/ai-video-editor) directory (the current CLI requires Node.js 22.20.0 or later):
 
@@ -71,8 +78,8 @@ gh skill preview MartinDelophy/ai-video-editor edit-timeline-studio
 
 ## Roadmap
 
-- **Now:** harden deterministic offline export, improve timeline editing reliability, and expand end-to-end browser tests.
-- **Next:** ship the versioned headless command runner for agent-driven editing and make reusable project templates easier to share.
+- **Now:** expand the versioned command registry, harden deterministic offline export, and improve timeline editing reliability.
+- **Next:** add media probing/render commands and expose the shared command engine through MCP.
 - **Later:** add collaborative review workflows, a plugin extension surface, and more locally verified AI models.
 
 Roadmap priorities are shaped in [GitHub Discussions](https://github.com/MartinDelophy/ai-video-editor/discussions). Feature requests and real-world workflow feedback are welcome.

@@ -1,9 +1,9 @@
 ---
 name: edit-timeline-studio
-description: Operate, evaluate, and improve editable video workflows in Timeline Studio at https://video-editor.ai-creator.top/, its local repository, or a .timeline archive. Use when Codex must import, assemble, trim, reorder, caption, voice, overlay, restyle, save, export, or repeatedly end-to-end test Timeline Studio; also use when real editing experience should be converted into updates to this skill.
+description: Create, edit, caption, voice, assemble, validate, and export editable video timelines with Timeline Studio. Use for automatic video editing, AI voiceover videos, subtitle generation, image-to-video assembly, short-form video production, deterministic local video rendering, .timeline project automation, or end-to-end editor evaluation in Codex, Claude Code, Copilot, and Gemini CLI.
 ---
 
-# Edit Timeline Studio
+# AI Video Editing with Timeline Studio
 
 Turn the user's exact editorial request and media into reversible Timeline Studio edits. Keep the editable timeline as the source of truth; never replace it with an opaque one-shot render.
 
@@ -62,5 +62,7 @@ For editor evaluation, regression work, or any run that exposes friction, read [
 ## Capability boundaries
 
 Read [references/current-capabilities.md](references/current-capabilities.md) when deciding whether a request can be executed now. Read [references/command-contract.md](references/command-contract.md) only when implementing or invoking the Agent command layer. Read [references/browser-workflow.md](references/browser-workflow.md) for UI execution and [references/e2e-evaluation.md](references/e2e-evaluation.md) for repeated experience-driven testing.
+
+For public explanations, route one question to one page: use [docs/agent-video-editing.md](docs/agent-video-editing.md) for what Timeline Studio is, [docs/codex-video-editing.md](docs/codex-video-editing.md) or [docs/claude-code-video-editing.md](docs/claude-code-video-editing.md) for installation and invocation, [docs/examples.md](docs/examples.md) for reproducible cases, [docs/command-reference.md](docs/command-reference.md) for runner syntax, and [docs/comparison.md](docs/comparison.md) for FFmpeg, CapCut, and Remotion comparisons. Do not load all public pages unless the user asks for a broad overview.
 
 If a requested operation is unsupported, keep the valid partial timeline unchanged and state the exact missing command or runtime capability.

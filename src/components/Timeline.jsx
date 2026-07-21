@@ -140,6 +140,12 @@ export function Timeline({
   openMobileTools,
   openMobileFilePicker,
   requestCaptionVoiceFocus,
+  alignCaptionToAudio,
+  linkCaptionAudio,
+  unlinkCaptionAudio,
+  alignAudioCaptions,
+  linkAudioToCaption,
+  unlinkAudioCaptions,
   trackVisibility,
   toggleTrackVisibility,
   trackLocks,
@@ -272,11 +278,37 @@ export function Timeline({
   const selectedMobileVisualSegment = selectedMobileClipTrack === "image"
     ? displayedVisualSegments.find((segment) => segment.id === selectedVisualSegmentId) ?? null
     : null;
+  const selectedMobileCaptionSegment = selectedMobileClipTrack === "caption"
+    ? displayedCaptionSegments.find((segment) => segment.id === selectedSegmentId) ?? null
+    : null;
+  const selectedMobileAudioHasLinkedCaption = selectedMobileClipTrack === "audio" && selectedMobileAudioSegment
+    ? displayedCaptionSegments.some((caption) => caption.audioSegmentId === selectedMobileAudioSegment.id)
+    : false;
+  const selectedMobileHasLinkedCaption = selectedMobileClipTrack === "caption"
+    ? Boolean(selectedMobileCaptionSegment?.audioSegmentId)
+    : selectedMobileAudioHasLinkedCaption;
   const canExtractSelectedMobileSourceAudio = selectedMobileVisualSegment?.type === "video"
     && !Number.isFinite(selectedMobileVisualSegment.sourceAudioOffset);
   const mobileClipActionIds = getMobileClipActionIds(selectedMobileClipTrack, {
     canExtractSourceAudio: canExtractSelectedMobileSourceAudio,
+    hasLinkedCaption: selectedMobileHasLinkedCaption,
   });
+  const toggleSelectedMobileCaptionAudioLink = () => {
+    if (selectedMobileClipTrack === "caption" && selectedMobileCaptionSegment) {
+      return selectedMobileCaptionSegment.audioSegmentId
+        ? unlinkCaptionAudio?.(selectedMobileCaptionSegment.id)
+        : linkCaptionAudio?.(selectedMobileCaptionSegment.id);
+    }
+    if (selectedMobileClipTrack === "audio" && selectedMobileAudioSegment) {
+      return selectedMobileAudioHasLinkedCaption
+        ? unlinkAudioCaptions?.(selectedMobileAudioSegment.id)
+        : linkAudioToCaption?.(selectedMobileAudioSegment.id);
+    }
+  };
+  const alignSelectedMobileCaptionAudio = () => {
+    if (selectedMobileClipTrack === "caption" && selectedMobileCaptionSegment) alignCaptionToAudio?.(selectedMobileCaptionSegment.id);
+    if (selectedMobileClipTrack === "audio" && selectedMobileAudioSegment) alignAudioCaptions?.(selectedMobileAudioSegment.id);
+  };
   const closeMobileClipActions = () => {
     setMobileClipActionsVisible(false);
     setMobileClipActionTrack("");
@@ -421,6 +453,12 @@ export function Timeline({
   const contextAudioSegment = contextMenu?.track === "audio" && contextMenu.segmentId
     ? audioSegments.find((segment) => segment.id === contextMenu.segmentId)
     : null;
+  const contextCaptionSegment = contextMenu?.track === "caption" && contextMenu.segmentId
+    ? displayedCaptionSegments.find((segment) => segment.id === contextMenu.segmentId)
+    : null;
+  const contextAudioHasLinkedCaption = contextAudioSegment
+    ? displayedCaptionSegments.some((caption) => caption.audioSegmentId === contextAudioSegment.id)
+    : false;
   const contextMusicSegment = contextMenu?.track === "music" && contextMenu.segmentId
     ? (musicSegments.length ? musicSegments : [{ id: "music-audio", start: musicStartPercent / 100 * timelineDuration, duration: musicDuration, peaks: musicPeaks }])
       .find((segment) => segment.id === contextMenu.segmentId)
@@ -642,6 +680,7 @@ export function Timeline({
         window.cancelAnimationFrame(wheelZoomFrameRef.current);
       }
       trackScrollRef.current?.classList.remove("is-wheel-zooming");
+      rulerCanvasRef.current?.classList.remove("is-wheel-zooming");
       wheelZoomActiveRef.current = false;
       window.clearTimeout(commitZoomTimerRef.current);
     },
@@ -760,7 +799,11 @@ export function Timeline({
     wheelZoomActiveRef.current = true;
     timelineZoomRef.current = nextZoom;
     anchor.trackElement.classList.add("is-wheel-zooming");
+    rulerCanvasRef.current?.classList.add("is-wheel-zooming");
     anchor.trackElement.style.width = anchor.isMobile ? `${nextTrackWidth}px` : `${nextTrackWidthPercent}%`;
+    if (rulerCanvasRef.current) {
+      rulerCanvasRef.current.style.width = anchor.isMobile ? `${nextTrackWidth}px` : `${nextTrackWidthPercent}%`;
+    }
     anchor.trackElement.style.setProperty("--timeline-zoom", String(nextZoom));
     if (anchor.isMobile) {
       const nextTrackRect = anchor.trackElement.getBoundingClientRect();
@@ -786,6 +829,7 @@ export function Timeline({
       setTimelineZoom(nextZoom);
       window.requestAnimationFrame(() => {
         anchor.trackElement.classList.remove("is-wheel-zooming");
+        rulerCanvasRef.current?.classList.remove("is-wheel-zooming");
         rulerViewportSyncRef.current?.();
       });
     }, TIMELINE_WHEEL_ZOOM_COMMIT_DELAY);
@@ -795,6 +839,22 @@ export function Timeline({
       event.target instanceof Element && event.target.closest(TIMELINE_WHEEL_ZOOM_CONTENT_SELECTOR),
     );
     const hasZoomModifier = event.ctrlKey || event.metaKey;
+    const trackElement = trackScrollRef.current;
+    const scrollElement = trackElement?.parentElement;
+
+    // Keep desktop trackpad momentum on the main thread so the independently
+    // rendered ruler and the scrolling clips advance in the same frame. Native
+    // compositor scrolling can otherwise move the track layer one or more
+    // frames ahead of the sticky ruler during a fast two-finger swipe.
+    if (!hasZoomModifier && Math.abs(event.deltaX) > Math.abs(event.deltaY)) {
+      if (!scrollElement) return;
+      const deltaModeMultiplier =
+        event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? scrollElement.clientWidth : 1;
+      event.preventDefault();
+      scrollElement.scrollLeft += event.deltaX * deltaModeMultiplier;
+      rulerViewportSyncRef.current?.();
+      return;
+    }
 
     if (!hasZoomModifier && !isOverTimelineContent) {
       if (!event.shiftKey && Math.abs(event.deltaY) >= Math.abs(event.deltaX)) {
@@ -807,12 +867,6 @@ export function Timeline({
       return;
     }
 
-    if (!hasZoomModifier && Math.abs(event.deltaX) > Math.abs(event.deltaY)) {
-      return;
-    }
-
-    const trackElement = trackScrollRef.current;
-    const scrollElement = trackElement?.parentElement;
     if (!trackElement || !scrollElement) {
       return;
     }
@@ -1398,7 +1452,7 @@ export function Timeline({
           <div
             ref={rulerCanvasRef}
             className="timeline-ruler-canvas"
-            style={{ width: localTrackWidth, transform: `translateX(${-rulerViewport.scrollLeft}px)` }}
+            style={{ width: localTrackWidth }}
           >
             <div className="ruler" onPointerDown={handleTimelineSurfacePointerDown}>
               {rulerTicks.map((tick) => (
@@ -2004,18 +2058,22 @@ export function Timeline({
       ) : null}
       {mobileClipActionsVisible && selectedMobileClipTrack && typeof document !== "undefined" ? createPortal((
         <nav className={`timeline-mobile-clip-actions ${mobileClipActionIds.length > 5 ? "is-scroll-actions" : ""}`} aria-label={t("clipActions")}>
-          {mobileClipActionIds.map((actionId) => {
-            if (actionId === "dismiss") return <button className="is-back" type="button" key={actionId} onClick={() => { closeMobileClipActions(); clearClipSelections(); }}><ArrowLeft size={21} /><span>{t("mobileClipDismiss")}</span></button>;
+          <button className="is-back" type="button" onClick={() => { closeMobileClipActions(); clearClipSelections(); }}><ArrowLeft size={21} /><span>{t("mobileClipDismiss")}</span></button>
+          <div className="timeline-mobile-clip-action-scroller">
+          {mobileClipActionIds.filter((actionId) => actionId !== "dismiss").map((actionId) => {
             if (actionId === "edit") return <button type="button" key={actionId} onClick={openSelectedClipInspector}><SlidersHorizontal size={20} /><span>{t("mobileClipEdit")}</span></button>;
             if (actionId === "properties") return <button type="button" key={actionId} onClick={openSelectedClipInspector}><SlidersHorizontal size={20} /><span>{t("properties")}</span></button>;
             if (actionId === "audio") return <button type="button" key={actionId} onClick={openSelectedClipInspector}><SlidersHorizontal size={20} /><span>{t("mobileClipAudio")}</span></button>;
             if (actionId === "split") return <button type="button" key={actionId} onClick={() => runMobileClipAction(handleCutTrack)}><Scissors size={20} /><span>{t("mobileClipSplit")}</span></button>;
             if (actionId === "copy") return <button type="button" key={actionId} onClick={() => runMobileClipAction(handleDuplicateTrack)}><CopySimple size={20} /><span>{t("mobileClipCopy")}</span></button>;
             if (actionId === "captions") return <button type="button" key={actionId} disabled={audioProcessingBusy || !selectedMobileAudioSegment} onClick={generateSelectedMobileAudioCaptions}><ClosedCaptioning size={20} /><span>{t("mobileClipCaptions")}</span></button>;
+            if (actionId === "caption-link") return <button type="button" key={actionId} onClick={toggleSelectedMobileCaptionAudioLink}>{selectedMobileHasLinkedCaption ? <LinkBreak size={20} /> : <LinkSimple size={20} />}<span>{t(selectedMobileHasLinkedCaption ? "captionUnlinkAudio" : "captionLinkAudio")}</span></button>;
+            if (actionId === "caption-align") return <button type="button" key={actionId} onClick={alignSelectedMobileCaptionAudio}><ArrowsInLineHorizontal size={20} /><span>{t("captionAlignToAudio")}</span></button>;
             if (actionId === "separate") return <button type="button" key={actionId} disabled={audioProcessingBusy || !selectedMobileAudioSegment} onClick={separateSelectedMobileAudio}><Waveform size={20} /><span>{t("mobileClipSeparate")}</span></button>;
             if (actionId === "extract-source-audio") return <button type="button" key={actionId} disabled={Boolean(sourceAudioExtractionPendingId) || !selectedMobileVisualSegment} onClick={() => void runSourceAudioExtraction(selectedMobileVisualSegment)}>{sourceAudioExtractionPendingId === selectedMobileVisualSegment?.id ? <CircleNotch className="spin" size={20} /> : <Waveform size={20} />}<span>{t(sourceAudioExtractionPendingId === selectedMobileVisualSegment?.id ? "separatingSourceAudio" : "separateSourceAudio", sourceAudioExtractionPendingId === selectedMobileVisualSegment?.id ? "正在分离音频…" : "分离音频")}</span></button>;
             return <button className="is-danger" type="button" key={actionId} onClick={() => runMobileClipAction(handleDeleteTrack)}><Trash size={20} /><span>{t("mobileClipDelete")}</span></button>;
           })}
+          </div>
         </nav>
       ), document.body) : null}
       {contextMenu ? (
@@ -2025,10 +2083,14 @@ export function Timeline({
           {contextMenu.kind === "clip" ? (
             <>
               {contextMenu.track === "caption" ? (
-                <button type="button" role="menuitem" onClick={() => runContextAction(() => {
+                <><button type="button" role="menuitem" onClick={() => runContextAction(() => {
                   openTrackPanel("caption");
                   requestCaptionVoiceFocus?.();
                 })}><Waveform size={16} />{t("aiVoice")}</button>
+                {contextCaptionSegment ? <>
+                  <button type="button" role="menuitem" onClick={() => runContextAction(() => contextCaptionSegment.audioSegmentId ? unlinkCaptionAudio?.(contextCaptionSegment.id) : linkCaptionAudio?.(contextCaptionSegment.id))}>{contextCaptionSegment.audioSegmentId ? <LinkBreak size={16} /> : <LinkSimple size={16} />}{t(contextCaptionSegment.audioSegmentId ? "captionUnlinkAudio" : "captionLinkAudio")}</button>
+                  {contextCaptionSegment.audioSegmentId ? <button type="button" role="menuitem" onClick={() => runContextAction(() => alignCaptionToAudio?.(contextCaptionSegment.id))}><ArrowsInLineHorizontal size={16} />{t("captionAlignToAudio")}</button> : null}
+                </> : null}</>
               ) : null}
               {contextMenu.track === "image" && builtInImageCaptionAvailable && contextImageSegment && contextImageSegment.type !== "video" ? (
                 <button className={imageCaptionPendingId === contextImageSegment.id ? "is-loading" : ""} type="button" role="menuitem" disabled={Boolean(imageCaptionPendingId)} onClick={() => runImageCaptionAction(contextImageSegment)}>
@@ -2047,6 +2109,8 @@ export function Timeline({
                 <button type="button" role="menuitem" disabled={Boolean(trackLocks.overlay)} onClick={() => runContextAction(() => setVisualOverlaySegments((items) => items.map((item) => item.id === contextOverlaySegment.id ? { ...item, muted: !item.muted } : item)))}>{contextOverlaySegment.muted ? <SpeakerHigh size={16} /> : <SpeakerSlash size={16} />}{t(contextOverlaySegment.muted ? "unmuteClip" : "muteClip", contextOverlaySegment.muted ? "取消静音" : "静音")}</button>
               ) : null}
               {contextMenu.track === "audio" && contextAudioSegment ? <>
+                <button type="button" role="menuitem" onClick={() => runContextAction(() => contextAudioHasLinkedCaption ? unlinkAudioCaptions?.(contextAudioSegment.id) : linkAudioToCaption?.(contextAudioSegment.id))}>{contextAudioHasLinkedCaption ? <LinkBreak size={16} /> : <LinkSimple size={16} />}{t(contextAudioHasLinkedCaption ? "captionUnlinkAudio" : "captionLinkAudio")}</button>
+                {contextAudioHasLinkedCaption ? <button type="button" role="menuitem" onClick={() => runContextAction(() => alignAudioCaptions?.(contextAudioSegment.id))}><ArrowsInLineHorizontal size={16} />{t("captionAlignToAudio")}</button> : null}
                 <button type="button" role="menuitem" disabled={audioProcessingBusy} onClick={() => runContextAction(() => separateAudioClipVocals?.({ blob: contextAudioSegment.blob, name: contextAudioSegment.name, start: contextAudioSegment.start, sourceStart: contextAudioSegment.sourceStart || 0, duration: contextAudioSegment.duration, segmentId: contextAudioSegment.id, track: "audio" }))}><Waveform size={16} />{t("separateVocalsFromClip")}</button>
                 <button type="button" role="menuitem" disabled={audioProcessingBusy} onClick={() => runContextAction(() => generateCaptionsFromAudioClip?.({ blob: contextAudioSegment.blob, start: contextAudioSegment.start, sourceStart: contextAudioSegment.sourceStart || 0, duration: contextAudioSegment.duration, append: true }))}><ClosedCaptioning size={16} />{t("generateCaptionsFromClip")}</button>
               </> : null}

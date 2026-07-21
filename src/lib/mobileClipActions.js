@@ -5,7 +5,9 @@ const SOURCE_AUDIO_CLIP_ACTIONS = ["dismiss", "audio", "split", "captions", "del
 const STICKER_CLIP_ACTIONS = ["dismiss", "properties", "copy", "delete"];
 
 export function getMobileClipActionIds(track, options = {}) {
-  if (track === "audio") return AUDIO_CLIP_ACTIONS;
+  const associationActions = ["caption-link", ...(options.hasLinkedCaption ? ["caption-align"] : [])];
+  if (track === "caption") return ["dismiss", "edit", "split", "copy", ...associationActions, "delete"];
+  if (track === "audio") return [...AUDIO_CLIP_ACTIONS.slice(0, -1), ...associationActions, "delete"];
   if (track === "music") return MUSIC_CLIP_ACTIONS;
   if (track === "source") return SOURCE_AUDIO_CLIP_ACTIONS;
   if (track === "sticker") return STICKER_CLIP_ACTIONS;

@@ -9,8 +9,17 @@ import {
 
 describe("mobile clip actions", () => {
   it("shows audio-specific actions for voiceover and music clips", () => {
-    expect(getMobileClipActionIds("audio")).toEqual(["dismiss", "edit", "split", "captions", "separate", "delete"]);
+    expect(getMobileClipActionIds("audio")).toEqual(["dismiss", "edit", "split", "captions", "separate", "caption-link", "delete"]);
     expect(getMobileClipActionIds("music")).toEqual(["dismiss", "audio", "split", "captions", "separate", "delete"]);
+  });
+
+  it("adds caption link controls for caption and linked voiceover clips", () => {
+    expect(getMobileClipActionIds("caption", { hasLinkedCaption: true })).toEqual([
+      "dismiss", "edit", "split", "copy", "caption-link", "caption-align", "delete",
+    ]);
+    expect(getMobileClipActionIds("audio", { hasLinkedCaption: true })).toEqual([
+      "dismiss", "edit", "split", "captions", "separate", "caption-link", "caption-align", "delete",
+    ]);
   });
 
   it("does not offer vocal separation for linked source-audio pieces", () => {

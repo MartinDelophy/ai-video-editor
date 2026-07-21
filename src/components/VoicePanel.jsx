@@ -4,6 +4,8 @@ import {
   Eye,
   EyeSlash,
   ImageSquare,
+  Link,
+  LinkBreak,
   ListBullets,
   PersonSimpleRun,
   Plus,
@@ -21,6 +23,7 @@ import { formatTime, getSegmentStartTime } from "../lib/timeline.js";
 import { LIVE_PORTRAIT_WEB_MODEL } from "../config/livePortrait.js";
 import { probeLivePortraitWebEnvironment } from "../lib/livePortraitWeb.js";
 import { getCaptionVoiceSegment } from "../lib/captionVoice.js";
+import { findCaptionAudioLinkTarget } from "../lib/captionEditingActions.js";
 import { normalizeVisualKeyframes } from "../lib/visualEffects.js";
 import { MAX_SRT_FILE_BYTES, parseSrt } from "../lib/subtitles.js";
 import { HistoryPanel, MyVoicesPanel, SmartVisionPanel, VisualEffectsPanel, VoiceSynthesisPanel } from "./panels.jsx";
@@ -118,6 +121,10 @@ function CaptionContextPanel({
   automaticCaptionProgress,
   importCaptionSegments,
   addCaptionSegment,
+  alignCaptionToAudio,
+  linkCaptionAudio,
+  unlinkCaptionAudio,
+  audioSegments,
 }) {
   const srtInputRef = useRef(null);
   const focusNewCaptionRef = useRef(false);
@@ -129,6 +136,8 @@ function CaptionContextPanel({
   const selectedStart = captionSegments.length
     ? getSegmentStartTime(captionSegments, selectedIndex, captionTargetDuration)
     : 0;
+  const linkedAudioSegment = audioSegments.find((segment) => segment.id === selectedCaptionSegment?.audioSegmentId);
+  const relinkTarget = findCaptionAudioLinkTarget(selectedCaptionSegment, audioSegments);
 
   useEffect(() => {
     if (!focusNewCaptionRef.current || !selectedCaptionSegment) return;
@@ -196,6 +205,28 @@ function CaptionContextPanel({
           </div>
         </div>
       )}
+
+      {selectedCaptionSegment ? (
+        <section className={`caption-audio-link ${linkedAudioSegment ? "is-linked" : ""}`} data-testid="caption-audio-link">
+          <div>
+            <span>{linkedAudioSegment ? <Link size={16} /> : <LinkBreak size={16} />}</span>
+            <div>
+              <strong>{linkedAudioSegment ? t("captionLinkedAudio") : t("captionAudioNotLinked")}</strong>
+              <em>{linkedAudioSegment
+                ? `${linkedAudioSegment.name || t("audioClip")} · ${formatTime(linkedAudioSegment.duration)}`
+                : relinkTarget ? t("captionAudioRelinkHint") : t("captionAudioUnavailable")}</em>
+            </div>
+          </div>
+          <div className="caption-audio-link-actions">
+            {linkedAudioSegment ? <>
+              <button type="button" onClick={() => alignCaptionToAudio(selectedCaptionSegment.id)}>{t("captionAlignToAudio")}</button>
+              <button type="button" className="is-unlink" onClick={() => unlinkCaptionAudio(selectedCaptionSegment.id)}>{t("captionUnlinkAudio")}</button>
+            </> : (
+              <button type="button" disabled={!relinkTarget} onClick={() => linkCaptionAudio(selectedCaptionSegment.id)}>{t("captionLinkAudio")}</button>
+            )}
+          </div>
+        </section>
+      ) : null}
 
       <div className="caption-context-actions">
         <button
@@ -550,6 +581,9 @@ export function VoicePanel({
   updateVisualOverlaySegment,
   deleteVisualOverlay,
   applyVisualOverlayPreset,
+  alignCaptionToAudio,
+  linkCaptionAudio,
+  unlinkCaptionAudio,
 }) {
   const [captionPanelTab, setCaptionPanelTab] = useState("caption");
   const panelRef = useRef(null);
@@ -565,6 +599,7 @@ export function VoicePanel({
   const isStickerContext = selectedTrack === "sticker" && Boolean(selectedStickerSegment);
   const isOverlayContext = selectedTrack === "overlay" && Boolean(selectedVisualOverlay);
   const selectedCaptionAudioSegment = getCaptionVoiceSegment(audioSegments, selectedCaptionSegment);
+  const localizedStatusText = statusText?.startsWith?.("tts") ? t(statusText) : statusText;
   const title = isSmartAutoContext ? t("smartAutoEdit") : isSmartFrameContext ? t("smartFrame") : isAvatarContext ? t("avatarTitle") : isOverlayContext ? t("pictureInPicture", "画中画") : isStickerContext ? t("stickerProperties") : isVisualContext ? t("visualPanelTitle") : isCaptionContext ? t("caption") : isAudioClipContext ? t("audioClipProperties") : t("aiVoice");
   const panelStatusText = isSmartAutoContext ? t(`autoEditStatus_${autoEdit?.support?.availability || "unknown"}`) : isSmartFrameContext ? (hasVisual ? t("smartVisualReady") : t("smartWaitingVisual")) : isCaptionContext
     ? captionSegments.length
@@ -584,7 +619,7 @@ export function VoicePanel({
       ? `${formatTime(audioPropertySegment.duration)} · ${audioPropertySegment.start.toFixed(1)}s`
     : statusText === "模型待命"
       ? t("modelReady")
-    : statusText;
+    : localizedStatusText;
 
   useEffect(() => {
     if (!captionVoiceFocusRequest || !isCaptionContext) return;
@@ -702,6 +737,10 @@ export function VoicePanel({
             deleteCaptionSegment={deleteCaptionSegment}
             importCaptionSegments={importCaptionSegments}
             addCaptionSegment={addCaptionSegment}
+            alignCaptionToAudio={alignCaptionToAudio}
+            linkCaptionAudio={linkCaptionAudio}
+            unlinkCaptionAudio={unlinkCaptionAudio}
+            audioSegments={audioSegments}
             seekTo={seekTo}
             sourceAudioBlob={sourceAudioBlob}
             generateCaptionsFromSourceAudio={generateCaptionsFromSourceAudio}
@@ -733,6 +772,7 @@ export function VoicePanel({
               volume={volume}
               setVolume={setVolume}
               status={status}
+              statusText={localizedStatusText}
               progressPercent={progressPercent}
               audioBlob={selectedCaptionAudioSegment?.blob ?? null}
               audioUrl={selectedCaptionAudioSegment?.url ?? ""}
@@ -766,6 +806,7 @@ export function VoicePanel({
             volume={volume}
             setVolume={setVolume}
             status={status}
+            statusText={localizedStatusText}
             progressPercent={progressPercent}
             audioBlob={audioBlob}
             audioUrl={audioUrl}

@@ -1,6 +1,6 @@
 {
   "name": "web-player",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "private": true,
   "description": "A local-first browser AI video editor for voiceovers, captions, talking avatars, and multi-track timeline export.",
   "license": "MIT",

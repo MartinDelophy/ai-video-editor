@@ -39,7 +39,7 @@ export function useFileUpload(deps) {
         video.onloadedmetadata = () => {
           const duration = Math.min(MAX_TIMELINE_DURATION_SECONDS, Math.max(0.5, video.duration || 1));
           const width = video.videoWidth || 0; const height = video.videoHeight || 0;
-          const patch = { meta: `${width || "?"} x ${height || "?"} · ${formatClock(duration)}`, duration, width, height, type: "video" };
+          const patch = { meta: `${width || "?"} x ${height || "?"} · ${formatClock(duration)}`, duration, width, height, type: "video", src: asset.src };
           update(asset.id, patch); deps.updateVisualAssetInTimeline(asset.id, patch);
           extractVideoTrackFrames(asset.src, { duration, width, height }).then((trackFrames) => {
             if (!trackFrames.length) return;

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   createCaptionSegments,
   createStickerSegment,
+  formatCompactDuration,
   getCaptionScript,
   getCaptionTimeline,
   getTimedSegmentIndexAtTime,
@@ -25,6 +26,12 @@ import {
 } from "./timelineScale.js";
 
 describe("timeline primitives", () => {
+  it("formats narrow mobile audio durations compactly", () => {
+    expect(formatCompactDuration(1)).toBe("1.0s");
+    expect(formatCompactDuration(12.4)).toBe("12s");
+    expect(formatCompactDuration(65)).toBe("1:05");
+  });
+
   it("computes a visual clip start without treating visual clips as captions", () => {
     const clips = [{ duration: 1.25 }, { duration: 2.5 }, { duration: 4 }];
     expect(getVisualSegmentStartTime(clips, 0)).toBe(0);

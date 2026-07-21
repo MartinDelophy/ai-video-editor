@@ -23,7 +23,7 @@ export function EditorSidebar({ model: d }) {
         ))}
       </aside>
 
-      <aside className={`media-panel ${d.mobilePanel === "tools" && d.selectedLibraryAssetId ? "has-mobile-asset-actions" : ""}`}>
+      <aside className={`media-panel ${d.mobilePanel === "tools" && d.selectedLibraryAssetId ? "has-mobile-asset-actions" : ""} ${d.mobilePanel === "tools" && d.activeTool === "stickers" && d.selectedStickerId && d.selectedStickerId !== "none" ? "has-mobile-sticker-actions" : ""}`}>
         {d.activeTool === "media" ? (
           <MediaPanel
             t={d.t}
@@ -90,6 +90,9 @@ export function EditorSidebar({ model: d }) {
             setSelectedStickerId={d.setSelectedStickerId}
             handleStickerPointerDown={d.handleAssetPointerDown}
             handleStickerClick={d.handleStickerClick}
+            confirmStickerSelection={d.confirmStickerSelection}
+            closeMobilePanel={() => d.setMobilePanel?.("")}
+            mobilePanelOpen={d.mobilePanel === "tools"}
             audioBlob={d.audioBlob}
             audioDuration={d.audioDuration}
             sourceAudioBlob={d.sourceAudioBlob}

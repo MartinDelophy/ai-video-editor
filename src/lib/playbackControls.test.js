@@ -23,6 +23,20 @@ function createDeps(overrides = {}) {
 }
 
 describe("timeline playhead seeking", () => {
+  it("preserves pitch while previewing a sped-up video", () => {
+    const video = { currentTime: 0, duration: 4, paused: true, playbackRate: 1, preservesPitch: false, play: vi.fn(() => Promise.resolve()), pause: vi.fn() };
+    const deps = createDeps({
+      isPlaying: false, canPreview: true, estimatedDuration: 2, notify: vi.fn(),
+      previewVideoRef: { current: video }, previewVisualType: "video",
+      visualSegments: [{ id: "video", type: "video", duration: 2, sourceStart: 0, sourceDuration: 4, playbackRate: 2 }],
+      visualTimeline: [{ start: 0, end: 2 }], currentVisualRange: { start: 0, end: 2 },
+    });
+
+    createPlaybackControls(deps).handlePlayToggle();
+    expect(video.playbackRate).toBe(2);
+    expect(video.preservesPitch).toBe(true);
+  });
+
   it("starts voice and music together when visibility defaults are absent", async () => {
     const voice = { currentTime: 0, paused: true, playbackRate: 1, volume: 1, play: vi.fn(() => Promise.resolve()), pause: vi.fn() };
     const music = { currentTime: 0, paused: true, playbackRate: 1, play: vi.fn(() => Promise.resolve()), pause: vi.fn() };
@@ -46,6 +60,30 @@ describe("timeline playhead seeking", () => {
     expect(voice.play).toHaveBeenCalledOnce();
     expect(music.play).toHaveBeenCalledOnce();
     expect(deps.setIsPlaying).toHaveBeenCalledWith(true);
+  });
+
+  it("maps a sped-up music clip to source time and preserves pitch", () => {
+    const music = { currentTime: 0, paused: true, playbackRate: 1, preservesPitch: false, play: vi.fn(() => Promise.resolve()), pause: vi.fn() };
+    const deps = createDeps({
+      isPlaying: false,
+      canPreview: true,
+      currentTimeRef: { current: 2 },
+      estimatedDuration: 4,
+      musicRef: { current: music },
+      musicUrl: "blob:music",
+      musicSegments: [{ id: "music-1", start: 1, duration: 2, sourceStart: 0.5, sourceDuration: 4, playbackRate: 2 }],
+      notify: vi.fn(),
+      previewVisualType: "image",
+      visualSegments: [],
+      visualTimeline: [],
+    });
+
+    createPlaybackControls(deps).handlePlayToggle();
+
+    expect(music.currentTime).toBeCloseTo(2.5, 5);
+    expect(music.playbackRate).toBe(2);
+    expect(music.preservesPitch).toBe(true);
+    expect(music.play).toHaveBeenCalledOnce();
   });
 
   it("pauses playback immediately on pointer-down before any move", () => {

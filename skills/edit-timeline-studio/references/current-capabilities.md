@@ -16,9 +16,10 @@
 - Browser-driven operation of the running editor
 - Import and export through visible file controls
 - Pure timeline helper functions in `src/lib/`
-- A versioned JSON command plan runner through `npm run agent -- inspect <project.timeline>` and `npm run agent -- run <plan.json>`
-- Transactional, revision-checked, idempotent, dry-run-safe edits for moving voiceover clips, updating caption text/timing, and unlinking or relinking caption audio
+- Versioned `project.inspect`, `track.inspect`, `clip.inspect`, `transcript.inspect`, field-level `project.diff`, and `project.run` commands, with legacy `inspect`/`run` aliases
+- Transactional, revision-checked, idempotent edits for probed and hashed visual/audio import to Visuals, Music, or the portable Voiceover slot; timed edits, captions, Visuals/Overlays, transitions, validated properties, track state, and ratio
 - Portable `.timeline` output that preserves archived media entries while replacing only versioned project metadata
+- Transactional local `project.render` for the portable Visuals + Voiceover + Music subset, with ffprobe verification and explicit rejection of unsupported composition features
 
 Browser-driven editing is a compatibility mechanism, not a stable public API. UI labels, selection state, drag thresholds, and file pickers make it unsuitable for unattended or idempotent jobs.
 
@@ -38,20 +39,20 @@ Observed browser-path constraints:
 
 ## Missing for reliable Agent editing
 
-1. Media probing and render support in the headless command runner (load, inspect, edit, and save are now available).
-2. Broader command coverage beyond the initial voiceover/caption operations.
+1. Full browser-renderer parity in the headless command runner; the first H.264/AAC Visuals + Voiceover + Music path and ffprobe-backed import probing are available.
+2. Broader command coverage for multi-asset Voiceover storage, generation, and render.
 3. A fully serializable editor core independent of React setters, DOM nodes, Blob URLs, and browser-only refs; the first shared reducers now live in `src/lib/projectCommandEngine.js`.
-4. Persisted undo checkpoints and richer semantic diffs; transactions, revision preconditions, idempotency keys, structured errors, and summary dry-run diffs are available.
-5. Read tools at three levels: project summary, track/clip detail, and transcript/analysis detail.
+4. Persisted undo checkpoints; transactions, revision preconditions, idempotency keys, structured errors, and field-level dry-run diffs are available.
+5. Richer non-caption analysis inspection; project, track, clip, and caption transcript reads are available.
 6. Progress events and cancellation for ASR, TTS, vision, avatar generation, and export.
-7. Deterministic media ingestion with content hashes and portable asset references.
-8. Agent-focused integration tests that apply a command plan, reopen the project, render, decode, and verify the result.
+7. Content-addressed deduplication and per-segment portable media references beyond the current hashed import paths and single Voiceover binary slot.
+8. Agent-focused integration tests that apply a command plan, reopen the project, exercise both the supported headless render subset and browser-render parity cases, decode, and verify the result.
 
 ## Recommended delivery order
 
-1. Extend the shared reducers with import, append, trim, split, delete, overlay, property, and track mute/visibility.
-2. Add track/clip/transcript inspection and richer `project.diff` output.
+1. Evolve the archive from one Voiceover binary slot to per-segment portable audio references.
+2. Add vision/ASR analysis-record inspection beyond serialized caption transcript data.
 3. Add persisted undo checkpoints around the existing command transaction.
-4. Add media probing and `project.render` to the local Node/browser-worker runner.
+4. Expand `project.render` with captions, stickers, overlays, transitions, effects, source audio, progress events, and cancellation diagnostics.
 5. Add MCP as a thin transport adapter over the same registry.
 6. Prefer the CLI from this Skill when an operation is supported, retaining browser control as the compatibility path.

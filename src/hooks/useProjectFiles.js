@@ -1,7 +1,7 @@
 import { useCallback, useRef } from "react";
 import { DEFAULT_SCRIPT, DEFAULT_TIMELINE_DURATION_SECONDS, RATIO_OPTIONS, VOICES } from "../config/editor.js";
 import { decodeWaveform, downloadBlob } from "../lib/media.js";
-import { createProjectArchive, readProjectArchive, readProjectFileAsText } from "../lib/projectArchive.js";
+import { createProjectArchive, readProjectArchive, readProjectFileAsText, resolveProjectVisualMedia } from "../lib/projectArchive.js";
 import { createCaptionSegments, getImageThumbnailCount, getVisualSegmentsTotal } from "../lib/timeline.js";
 
 export function useProjectFiles(deps) {
@@ -14,7 +14,7 @@ export function useProjectFiles(deps) {
       script: deps.script, commandState: commandStateRef.current, selectedVoiceId: deps.selectedVoiceId, speed: deps.speed, volume: deps.volume,
       ratioId: deps.ratioId, fitMode: deps.fitMode, captionPosition: deps.captionPosition,
       captionPlacement: deps.captionPlacement, captionSize: deps.captionSize, captionStyle: deps.captionStyle,
-      captionsEnabled: deps.captionsEnabled, captionSegments: deps.captionSegments, audioSegments, visualSegments, visualOverlaySegments,
+      captionsEnabled: deps.captionsEnabled, captionSegments: deps.captionSegments, audioSegments, musicSegments: deps.musicSegments, visualSegments, visualOverlaySegments,
       stickerSegments: deps.stickerSegments, selectedFilterId: deps.selectedFilterId,
       selectedTransitionId: deps.selectedTransitionId, selectedStickerId: deps.selectedStickerId,
       trackVisibility: deps.trackVisibility, trackLocks: deps.trackLocks, timelineZoom: deps.timelineZoom, audioDuration: deps.audioDuration,
@@ -80,13 +80,13 @@ export function useProjectFiles(deps) {
       deps.setSelectedFilterId(data.selectedFilterId || "none"); deps.setSelectedTransitionId(data.selectedTransitionId || "none");
       deps.setSelectedStickerId(data.selectedStickerId || "none"); deps.setStickerSegments(Array.isArray(data.stickerSegments) ? data.stickerSegments : []);
       const visuals = Array.isArray(data.visualSegments) ? data.visualSegments.map((segment) => {
-        const media = visualMedia.get(segment.id);
+        const media = resolveProjectVisualMedia(visualMedia, segment);
         return media?.blob ? { ...segment, src: URL.createObjectURL(media.blob), blob: media.blob } : segment?.src ? segment : null;
       }).filter(Boolean) : [];
       visuals.filter((segment) => segment.src?.startsWith("blob:")).forEach((segment) => deps.imageUrlRefs.current.add(segment.src));
       deps.setVisualSegments(visuals); deps.setImageDuration(getVisualSegmentsTotal(visuals));
       const overlays = Array.isArray(data.visualOverlaySegments) ? data.visualOverlaySegments.map((segment) => {
-        const media = visualMedia.get(segment.assetId) || visualMedia.get(segment.id);
+        const media = resolveProjectVisualMedia(visualMedia, segment);
         return media?.blob ? { ...segment, src: URL.createObjectURL(media.blob), blob: media.blob } : segment?.src ? segment : null;
       }).filter(Boolean) : [];
       deps.setVisualOverlaySegments(overlays); deps.setSelectedVisualOverlayId("");
@@ -99,7 +99,12 @@ export function useProjectFiles(deps) {
         } else deps.replaceAudio(audio, Number(data.audioDuration) || decoded.duration, decoded.peaks, "已恢复工程配音");
       } else deps.clearAudioTrack("");
       if (sourceAudio) { const decoded = await decodeWaveform(sourceAudio); deps.replaceSourceAudio(sourceAudio, Number(data.sourceAudioDuration) || decoded.duration, decoded.peaks, data.sourceAudioName || "source-audio", "", Number(data.sourceAudioStart) || 0, data.sourceAudioAssetId || "", { focusAudio: false }); } else deps.clearSourceAudioTrack("");
-      if (music) { const decoded = await decodeWaveform(music); deps.replaceMusic(music, Number(data.musicDuration) || decoded.duration, decoded.peaks, data.musicName || "background-music", ""); deps.setMusicStart(Math.max(0, Number(data.musicStart) || 0)); } else deps.clearMusicTrack("");
+      if (music) {
+        const decoded = await decodeWaveform(music);
+        deps.replaceMusic(music, Number(data.musicDuration) || decoded.duration, decoded.peaks, data.musicName || "background-music", "");
+        deps.setMusicStart(Math.max(0, Number(data.musicStart) || 0));
+        if (Array.isArray(data.musicSegments) && data.musicSegments.length) deps.setMusicSegments(data.musicSegments.map((segment) => ({ ...segment, peaks: decoded.peaks })));
+      } else deps.clearMusicTrack("");
       deps.setMusicVolume(Number(data.musicVolume) || 0.35); deps.setSourceAudioVolume(Number(data.sourceAudioVolume) || 1);
       deps.setSourceAudioAssetId(data.sourceAudioAssetId || ""); deps.setSourceAudioLinked(data.sourceAudioLinked !== false);
       deps.setCurrentTime(0); deps.clearAllVisionState(); deps.setShowFileMenu(false);

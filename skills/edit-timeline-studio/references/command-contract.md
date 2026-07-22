@@ -20,13 +20,14 @@ Use JSON as a transport-neutral plan. The CLI and a future MCP server should cal
     }
   ],
   "output": {
-    "project": "/absolute/path/project-edited.timeline",
-    "render": "/absolute/path/project-edited.mp4"
+    "project": "/absolute/path/project-edited.timeline"
   }
 }
 ```
 
 All times are finite seconds. IDs are stable across reads and writes. A repeated operation ID must return its prior result without applying twice.
+
+The standalone `validate_edit_plan.mjs` checks transport shape only. `project.diff` is the authoritative project-aware validation step: it uses the same registry and reducers as `project.run`, rejects unsupported operations, checks revision and clip/track preconditions, and never writes an archive.
 
 ## Minimum read commands
 
@@ -36,16 +37,26 @@ All times are finite seconds. IDs are stable across reads and writes. A repeated
 - `transcript.inspect`: timestamped words/segments and speakers
 - `project.diff`: predicted state changes, duration changes, and validation warnings
 
-## Minimum write operations
+## Implemented write operations
 
 - `asset.import`
 - `visual.append`, `visual.insert`, `visual.trim`, `visual.split`, `visual.reorder`
 - `overlay.add`, `timed.move`, `timed.resize`
 - `clip.delete`, `clip.set_property`, `clip.set_speed`, `clip.set_muted`
-- `caption.add`, `caption.update`, `caption.generate`
-- `audio.separate`, `voice.generate`, `music.add`
+- `caption.add`, `caption.update`, `caption.link_audio`, `caption.unlink_audio`
 - `transition.set`, `track.set_visibility`, `track.set_locked`
-- `project.set_ratio`, `project.save`, `project.render`
+- `project.set_ratio`
+
+Use [../docs/command-reference.md](../docs/command-reference.md) for required fields and current media-import limits. Do not invent operation types not listed there.
+
+## Planned operations
+
+- `caption.generate`
+- `audio.separate`, `voice.generate`, `music.add`
+- multi-file Voiceover media storage
+- richer `project.render` coverage, structured progress events, and cancellation reporting
+
+`project.render` is implemented as a separate versioned request rather than a write operation inside `project.run`. Its first deterministic local path renders the portable Visuals, Voiceover, and Music subset to H.264/AAC MP4 and rejects unsupported composition features. Until richer rendering and generation enter the shared services, use the browser workflow for captions, stickers, overlays, effects, ASR/TTS, and other AI generation.
 
 ## Result envelope
 
@@ -56,8 +67,7 @@ All times are finite seconds. IDs are stable across reads and writes. A repeated
   "appliedOperationIds": ["op-001"],
   "warnings": [],
   "artifacts": {
-    "project": "/absolute/path/project-edited.timeline",
-    "render": "/absolute/path/project-edited.mp4"
+    "project": "/absolute/path/project-edited.timeline"
   }
 }
 ```

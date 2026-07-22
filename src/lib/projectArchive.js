@@ -4,6 +4,10 @@ export const PROJECT_ARCHIVE_FORMAT = "timeline-studio-archive";
 export const PROJECT_ARCHIVE_VERSION = 2;
 const PROJECT_FILE = "project.json";
 
+export function resolveProjectVisualMedia(visualMedia, segment) {
+  return visualMedia.get(segment?.id) || visualMedia.get(segment?.archiveMediaId) || visualMedia.get(segment?.assetId) || null;
+}
+
 function readWithFileReader(file, mode) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();

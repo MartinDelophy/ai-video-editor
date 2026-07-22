@@ -12,7 +12,7 @@ Turn the user's exact editorial request and media into reversible Timeline Studi
 1. Treat `https://video-editor.ai-creator.top/` as the canonical hosted editor. When the user asks to use the website, provides no repository, or expects Browser Use, proactively open this URL and inspect the live editor before planning the edit.
 2. When this repository is available and the task concerns local development, unpublished changes, or evaluation, start the local editor and use it instead of the hosted release. Read the actual server URL from the process output; never assume port 5173.
 3. Inspect `package.json` for an Agent command script. Do not use `npm run ... --if-present` as capability detection because it can succeed silently.
-4. If the command runner exists, read [references/command-contract.md](references/command-contract.md), build and validate a versioned plan, dry-run it, then apply it.
+4. If the command runner exists, read [references/command-contract.md](references/command-contract.md), inspect the project, build a versioned plan, run the structural validator, and use `project.diff` as the authoritative semantic dry run before `project.run`.
 5. Otherwise, read [references/browser-workflow.md](references/browser-workflow.md) and use the editor UI. Use a concise edit checklist rather than inventing stable IDs, revisions, transactions, or a JSON plan that the UI cannot honor.
 6. Do not claim deterministic or idempotent execution when only UI automation was available. State the limitation and preserve an editable project archive when the UI supports it.
 
@@ -28,7 +28,7 @@ Turn the user's exact editorial request and media into reversible Timeline Studi
 
 ### 2. Plan at the supported fidelity
 
-- With the command runner, express edits as declarative operations with stable IDs, seconds, revisions, operation IDs, and preconditions. Validate them with `scripts/validate_edit_plan.mjs <plan.json>`.
+- With the command runner, express edits as declarative operations with stable IDs, seconds, revisions, operation IDs, and preconditions. Run `scripts/validate_edit_plan.mjs <plan.json>` for transport-shape errors, then run `npm run agent -- project.diff <plan.json>` to reject unsupported operations and invalid project-specific edits before applying anything.
 - With browser UI only, write a short ordered checklist of visible user intents and expected UI outcomes. Prefer named controls and clip labels; use coordinates only as a last-resort fallback grounded in a current screenshot.
 - Keep main Visuals contiguous. Treat captions, stickers, source audio, voiceover, music, and overlays as timed clips.
 - Preserve media identity and source-time mapping when moving or trimming clips.
@@ -40,6 +40,7 @@ Turn the user's exact editorial request and media into reversible Timeline Studi
 - Never silently substitute missing media, voices, models, fonts, or effects.
 - Keep every result undoable and editable in the normal UI.
 - Do not start a paid or remote generation job without a clear user request.
+- Do not put `output.render` in a command plan or claim that `project.run` renders video. Use the separate versioned `project.render` request for its documented portable subset, and use the browser editor for AI generation or unsupported composition features.
 
 ### 4. Verify the result
 
@@ -63,6 +64,6 @@ For editor evaluation, regression work, or any run that exposes friction, read [
 
 Read [references/current-capabilities.md](references/current-capabilities.md) when deciding whether a request can be executed now. Read [references/command-contract.md](references/command-contract.md) only when implementing or invoking the Agent command layer. Read [references/browser-workflow.md](references/browser-workflow.md) for UI execution and [references/e2e-evaluation.md](references/e2e-evaluation.md) for repeated experience-driven testing.
 
-For public explanations, route one question to one page: use [docs/agent-video-editing.md](docs/agent-video-editing.md) for what Timeline Studio is, [docs/codex-video-editing.md](docs/codex-video-editing.md) or [docs/claude-code-video-editing.md](docs/claude-code-video-editing.md) for installation and invocation, [docs/examples.md](docs/examples.md) for reproducible cases, [docs/command-reference.md](docs/command-reference.md) for runner syntax, and [docs/comparison.md](docs/comparison.md) for FFmpeg, CapCut, and Remotion comparisons. Do not load all public pages unless the user asks for a broad overview.
+For public explanations, route one question to one page: use [docs/agent-video-editing.md](docs/agent-video-editing.md) for what Timeline Studio is; the platform guide for [Codex](docs/codex-video-editing.md), [Claude Code](docs/claude-code-video-editing.md), [GitHub Copilot](docs/github-copilot-video-editing.md), or [Gemini CLI](docs/gemini-cli-video-editing.md) for discovery and invocation; [docs/examples.md](docs/examples.md) for reproducible cases; [docs/command-reference.md](docs/command-reference.md) for exact runner syntax; and [docs/comparison.md](docs/comparison.md) for FFmpeg, CapCut, and Remotion comparisons. Do not load all public pages unless the user asks for a broad overview.
 
 If a requested operation is unsupported, keep the valid partial timeline unchanged and state the exact missing command or runtime capability.

@@ -45,14 +45,19 @@ It helps an agent:
 - verify track placement, transitions, captions, overlays, audible audio, and final export artifacts;
 - keep the editable `.timeline` project as the source of truth instead of returning only an opaque render.
 
-The first versioned headless command runner is now available. It loads and inspects portable projects, validates revisioned JSON plans, applies supported operations transactionally, supports dry runs and idempotent operation IDs, and writes a new `.timeline` archive without rewriting its media files. Browser control remains the compatibility path for operations that are not in the command registry yet.
+The versioned headless command runner loads and inspects portable projects, validates revisioned JSON plans, applies supported operations transactionally, supports dry runs and idempotent operation IDs, and writes a new `.timeline` archive without rewriting its media files. It also renders the documented portable Visuals + Voiceover + Music subset to a verified H.264/AAC MP4. Browser control remains the compatibility path for richer compositions and operations that are not in the command registry yet.
 
 ```bash
-npm run agent -- inspect /absolute/path/project.timeline
-npm run agent -- run /absolute/path/edit-plan.json
+npm run agent -- project.inspect /absolute/path/project.timeline
+npm run agent -- track.inspect /absolute/path/project.timeline visuals
+npm run agent -- clip.inspect /absolute/path/project.timeline visual-123
+npm run agent -- transcript.inspect /absolute/path/project.timeline voice-123
+npm run agent -- project.diff /absolute/path/edit-plan.json
+npm run agent -- project.run /absolute/path/edit-plan.json
+npm run agent -- project.render /absolute/path/render-request.json
 ```
 
-The initial write registry supports `timed.move` for voiceover clips, `caption.update`, `caption.unlink_audio`, and `caption.link_audio`. See the [command contract](skills/edit-timeline-studio/references/command-contract.md) for the plan envelope.
+The legacy `inspect` and `run` aliases remain available. The write registry supports ffprobe-backed, hashed visual/audio import to Visuals, Music, or the portable Voiceover slot, plus transactional timed edits, captions, source-accurate Visuals/Overlays, transitions, validated properties, track state, and ratio changes. Read commands return project, track, clip, transcript, media-inventory, and field-level predicted diffs. See the [command contract](skills/edit-timeline-studio/references/command-contract.md) for the plan envelope.
 
 Install through the public [skills.sh](https://skills.sh/MartinDelophy/ai-video-editor) directory (the current CLI requires Node.js 22.20.0 or later):
 
@@ -79,7 +84,7 @@ gh skill preview MartinDelophy/ai-video-editor edit-timeline-studio
 ## Roadmap
 
 - **Now:** expand the versioned command registry, harden deterministic offline export, and improve timeline editing reliability.
-- **Next:** add media probing/render commands and expose the shared command engine through MCP.
+- **Next:** expand headless render parity and expose the shared command engine through MCP.
 - **Later:** add collaborative review workflows, a plugin extension surface, and more locally verified AI models.
 
 Roadmap priorities are shaped in [GitHub Discussions](https://github.com/MartinDelophy/ai-video-editor/discussions). Feature requests and real-world workflow feedback are welcome.

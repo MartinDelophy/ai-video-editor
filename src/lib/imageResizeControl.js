@@ -41,9 +41,10 @@ export function createImageResizeControl(d) {
         editingStarted = true;
         d.pauseForTimelineEdit?.();
       }
-      const pointerX = clientX - rect.left + scrollOffset;
+      const dragClientX = autoScroller.getDragClientX(clientX);
+      const pointerX = dragClientX - rect.left + scrollOffset;
       const raw = getTimelineDragTimeDelta({
-        clientX, startX: rect.left, scrollOffset, contentWidth: rect.width, timelineDuration,
+        clientX: dragClientX, startX: rect.left, scrollOffset, contentWidth: rect.width, timelineDuration,
       });
       const clamped = Math.max(0.5, Math.min(MAX_TIMELINE_DURATION_SECONDS, raw));
       const snap = snapPoints.map((point) => ({ ...point, distance: Math.abs(pointerX - (point.time / timelineDuration) * rect.width) }))

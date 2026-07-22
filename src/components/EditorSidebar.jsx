@@ -13,7 +13,8 @@ export function EditorSidebar({ model: d }) {
             onClick={() => {
               d.selectTool(id);
               if (window.matchMedia?.("(max-width: 760px)").matches) {
-                d.setMobilePanel?.(d.mobilePanel === "tools" && d.activeTool === id ? "" : "tools");
+                const defaultPanel = id === "caption" ? "inspector" : "tools";
+                d.setMobilePanel?.(d.mobilePanel === defaultPanel && d.activeTool === id ? "" : defaultPanel);
               }
             }}
           >

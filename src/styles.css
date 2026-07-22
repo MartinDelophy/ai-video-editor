@@ -6639,4 +6639,23 @@ button:disabled {
   .voice-panel .voice-tab-body p,
   .voice-panel .voice-tab-body label,
   .voice-panel .voice-tab-body button { font-size: 11px; }
+  .voice-panel.is-caption-context .caption-context-heading {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .voice-panel.is-caption-context .caption-context-heading > span {
+    grid-column: 1 / -1;
+    min-height: 24px;
+  }
+  .voice-panel.is-caption-context .caption-add-inline,
+  .voice-panel.is-caption-context .caption-import-button {
+    width: 100%;
+    min-height: 34px;
+    margin: 0;
+    padding: 0 9px;
+    justify-content: center;
+    line-height: 1;
+    white-space: nowrap;
+  }
 }

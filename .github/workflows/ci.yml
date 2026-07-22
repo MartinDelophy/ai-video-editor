@@ -18,6 +18,8 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      - name: Install media tooling
+        run: sudo apt-get update && sudo apt-get install --yes ffmpeg
       - run: npm ci
       - run: npm run lint
       - run: npm run typecheck

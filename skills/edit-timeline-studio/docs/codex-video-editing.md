@@ -17,8 +17,9 @@ save /projects/launch-v2.timeline, reopen it, and report the revision and track 
 For a supported headless edit, Codex creates a plan and executes:
 
 ```bash
-npm run agent -- run /projects/launch-v2-plan.json
-npm run agent -- inspect /projects/launch-v2.timeline
+npm run agent -- project.diff /projects/launch-v2-plan.json
+npm run agent -- project.run /projects/launch-v2-plan.json
+npm run agent -- project.inspect /projects/launch-v2.timeline
 ```
 
-For image import, TTS, automatic captions, effects, or rendering, Codex starts the local server, uses the editor in the in-app browser, exports a `.timeline`, reopens it, and validates visible clips and console errors. The browser remains a compatibility path until those operations enter the shared command registry.
+For supported local image, video, or audio import, Codex keeps the work on the command path and verifies the embedded archive media. It may use `project.render` for the documented portable Visuals + Voiceover + Music subset and must verify the resulting MP4. For TTS, automatic captions, effects, visible captions/stickers/overlays, separated source audio, or other unsupported render features, Codex starts the local server, uses the editor in the in-app browser, exports a `.timeline`, reopens it, and validates visible clips and console errors.

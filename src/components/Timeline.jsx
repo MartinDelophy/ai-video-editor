@@ -53,6 +53,7 @@ import {
   getMobilePinchZoomState,
   getTimelineTrackWidthPercent,
   getTimelineVisibleDuration,
+  getTimelineVisibleDurationForPixelScale,
   getTimelineZoomForVisibleDuration,
   getTimelineZoomLabel,
 } from "../lib/timelineScale.js";
@@ -592,7 +593,11 @@ export function Timeline({
   useEffect(() => {
     const startTrimScaleLock = (event) => {
       const pixelsPerSecond = Number(event.detail?.pixelsPerSecond) || 0;
-      const visibleDuration = Number(event.detail?.visibleDuration) || 0;
+      const isMobileTrimViewport = window.matchMedia?.("(max-width: 760px)").matches;
+      const mobileScaleBasisWidth = window.matchMedia?.("(max-width: 390px)").matches ? 480 : 520;
+      const visibleDuration = isMobileTrimViewport
+        ? getTimelineVisibleDurationForPixelScale(pixelsPerSecond, mobileScaleBasisWidth)
+        : Number(event.detail?.visibleDuration) || 0;
       if (!(pixelsPerSecond > 0) || !(visibleDuration > 0)) return;
       const lock = { pixelsPerSecond, visibleDuration };
       trimScaleLockRef.current = lock;
@@ -1391,7 +1396,8 @@ export function Timeline({
               setOverlayPromotionTarget(null);
             }
             if (promoteToMain) return;
-            const delta = getTimelineDragTimeDelta({ clientX: moveEvent.clientX, startX, scrollOffset, contentWidth, timelineDuration });
+            const dragClientX = autoScroller?.getDragClientX(moveEvent.clientX) ?? moveEvent.clientX;
+            const delta = getTimelineDragTimeDelta({ clientX: dragClientX, startX, scrollOffset, contentWidth, timelineDuration });
             setVisualOverlaySegments((items) => items.map((item) => {
               if (item.id !== segment.id) return item;
               if (mode === "move") return { ...item, start: Math.max(0, Math.min(timelineDuration - initialDuration, initialStart + delta)) };

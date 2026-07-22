@@ -173,7 +173,8 @@ export function createTimelineMoveControls(d) {
       if (!moved) d.pauseForTimelineEdit?.();
       moved = true; e.preventDefault();
       autoScroller?.update(e.clientX);
-      const delta = getTimelineDragTimeDelta({ clientX: e.clientX, startX, scrollOffset, contentWidth: rect.width, timelineDuration });
+      const dragClientX = autoScroller?.getDragClientX(e.clientX) ?? e.clientX;
+      const delta = getTimelineDragTimeDelta({ clientX: dragClientX, startX, scrollOffset, contentWidth: rect.width, timelineDuration });
       let nextStart = edge === "start"
         ? Math.max(0, Math.min(originalEnd - MIN_VISUAL_SEGMENT_SECONDS, originalStart + delta))
         : originalStart;

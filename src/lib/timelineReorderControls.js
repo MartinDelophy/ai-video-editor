@@ -147,7 +147,8 @@ export function createTimelineReorderControls(d) {
       if (!state.dragging && Math.abs(moveEvent.clientX - startX) < 3) return;
       if (!state.dragging) d.pauseForTimelineEdit?.();
       autoScroller?.update(moveEvent.clientX);
-      const delta = getTimelineDragTimeDelta({ clientX: moveEvent.clientX, startX, scrollOffset, contentWidth: trackWidth, timelineDuration: d.timelineDuration });
+      const dragClientX = autoScroller?.getDragClientX(moveEvent.clientX) ?? moveEvent.clientX;
+      const delta = getTimelineDragTimeDelta({ clientX: dragClientX, startX, scrollOffset, contentWidth: trackWidth, timelineDuration: d.timelineDuration });
       const minimumDuration = 0.2;
       let previewStart = edge === "start"
         ? Math.max(0, Math.min(state.originalEnd - minimumDuration, state.originalStart + delta))

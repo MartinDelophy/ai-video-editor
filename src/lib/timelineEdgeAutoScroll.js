@@ -29,6 +29,18 @@ export function getTrimScrollSettleStep(scrollLeft, nativeMaximum, maxStep = 6) 
   return Math.max(maximum, current - step);
 }
 
+export function getTimelineTrimDragClientX(clientX, rect, inset = 10) {
+  if (!rect || !Number.isFinite(clientX) || !(rect.width > 0)) return clientX;
+  const safeInset = Math.max(0, Math.min(rect.width / 2, Number(inset) || 0));
+  return Math.max(rect.left + safeInset, Math.min(rect.right - safeInset, clientX));
+}
+
+export function getMobileTrimReleaseScrollLeft(scrollLeft, trackWidth) {
+  const current = Math.max(0, Number(scrollLeft) || 0);
+  const width = Math.max(0, Number(trackWidth) || 0);
+  return width > 0 ? Math.min(current, width) : current;
+}
+
 export function getTimelineEdgeAutoScrollStep(clientX, rect, { threshold = 48, forwardMaxStep = 14, backwardMaxStep = 6 } = {}) {
   if (!rect || !Number.isFinite(clientX) || rect.width <= 0) return 0;
   const getStep = (distanceFromEdge, maxStep) => {
@@ -134,6 +146,11 @@ export function createTimelineEdgeAutoScroller({ trackElement, pointerType, time
     getScrollOffset() {
       return enabled ? logicalScrollOffset : 0;
     },
+    getDragClientX(clientX) {
+      return enabled
+        ? getTimelineTrimDragClientX(clientX, scrollElement.getBoundingClientRect())
+        : clientX;
+    },
     stop() {
       if (frameId) win.cancelAnimationFrame(frameId);
       frameId = 0;
@@ -143,6 +160,9 @@ export function createTimelineEdgeAutoScroller({ trackElement, pointerType, time
       trackElement?.classList?.remove("is-trimming");
       rulerElement?.classList?.remove("is-trimming");
       syncContentWidth();
+      if (isMobile) {
+        scrollElement.scrollLeft = getMobileTrimReleaseScrollLeft(scrollElement.scrollLeft, previousContentWidth);
+      }
       if (spacerElement) {
         let settleFrameId = 0;
         const removeSpacer = () => {

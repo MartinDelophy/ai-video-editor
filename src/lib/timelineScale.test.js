@@ -5,10 +5,17 @@ import {
   getMobilePinchZoomState,
   getTimelineRulerTicks,
   getTimelineTrackWidthPercent,
+  getTimelineVisibleDurationForPixelScale,
   getTimelineZoomForVisibleDuration,
 } from "./timelineScale.js";
 
 describe("timeline ruler density", () => {
+  it("keeps mobile trim release on the canonical track-width scale", () => {
+    const pixelsPerSecond = 65;
+    expect(getTimelineVisibleDurationForPixelScale(pixelsPerSecond, 520)).toBe(8);
+    expect(getTimelineVisibleDurationForPixelScale(pixelsPerSecond, 260)).toBe(4);
+  });
+
   it("raises mobile major tick spacing so short-timeline labels do not overlap", () => {
     const ticks = getTimelineRulerTicks(4, 3, 0, 4, { minimumMajorStep: 0.68 });
     const labels = ticks.filter((tick) => tick.isMajor).map((tick) => tick.label);

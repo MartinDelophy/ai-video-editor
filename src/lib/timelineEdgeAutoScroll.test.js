@@ -4,6 +4,8 @@ import {
   createTimelineEdgeAutoScroller,
   getTimelineDragTimeDelta,
   getTimelineEdgeAutoScrollStep,
+  getTimelineTrimDragClientX,
+  getMobileTrimReleaseScrollLeft,
   getTrimScrollSettleStep,
   getTrimTrailingSpacerGeometry,
   getTrimLockedTrackWidth,
@@ -40,6 +42,17 @@ describe("mobile timeline edge auto-scroll", () => {
     expect(getTrimScrollSettleStep(553, 550)).toBe(550);
   });
 
+  it("keeps desktop and mobile trim handles inside the visible viewport", () => {
+    expect(getTimelineTrimDragClientX(520, rect)).toBe(490);
+    expect(getTimelineTrimDragClientX(80, rect)).toBe(110);
+    expect(getTimelineTrimDragClientX(300, rect)).toBe(300);
+  });
+
+  it("prevents the mobile fixed playhead from ending beyond the project", () => {
+    expect(getMobileTrimReleaseScrollLeft(900, 700)).toBe(700);
+    expect(getMobileTrimReleaseScrollLeft(500, 700)).toBe(500);
+  });
+
   it("does not scroll inside the safe center region", () => {
     expect(getTimelineEdgeAutoScrollStep(300, rect)).toBe(0);
   });
@@ -52,7 +65,7 @@ describe("mobile timeline edge auto-scroll", () => {
     const track = {
       classList: makeClassList(trackClasses),
       closest: () => ({ querySelector: () => ruler }),
-      parentElement: { scrollLeft: 0 },
+      parentElement: { scrollLeft: 0, getBoundingClientRect: () => rect },
     };
     const scroller = createTimelineEdgeAutoScroller({
       trackElement: track,
@@ -89,12 +102,38 @@ describe("mobile timeline edge auto-scroll", () => {
     expect(scrollElement.scrollLeft).toBe(120);
   });
 
+  it("clamps only mobile release scrolling to the final track end", () => {
+    const createScroller = (isMobile, pointerType) => {
+      const scrollElement = {
+        clientWidth: 400,
+        scrollLeft: 900,
+        getBoundingClientRect: () => rect,
+      };
+      const track = {
+        classList: { add() {}, remove() {} },
+        closest: () => null,
+        getBoundingClientRect: () => ({ width: 700 }),
+        parentElement: scrollElement,
+      };
+      const scroller = createTimelineEdgeAutoScroller({
+        trackElement: track,
+        pointerType,
+        win: { matchMedia: () => ({ matches: isMobile }), requestAnimationFrame: () => 1, cancelAnimationFrame() {} },
+      });
+      scroller.stop();
+      return scrollElement.scrollLeft;
+    };
+
+    expect(createScroller(true, "touch")).toBe(700);
+    expect(createScroller(false, "mouse")).toBe(900);
+  });
+
   it("enables the same edge-scroll lifecycle for desktop mouse trimming", () => {
     const values = new Set();
     const track = {
       classList: { add: (value) => values.add(value), remove: (value) => values.delete(value) },
       closest: () => null,
-      parentElement: { scrollLeft: 0 },
+      parentElement: { scrollLeft: 0, getBoundingClientRect: () => rect },
     };
     const scroller = createTimelineEdgeAutoScroller({
       trackElement: track,
@@ -102,6 +141,7 @@ describe("mobile timeline edge auto-scroll", () => {
       win: { matchMedia: () => ({ matches: false }), requestAnimationFrame: () => 1, cancelAnimationFrame() {} },
     });
     expect(values.has("is-trimming")).toBe(true);
+    expect(scroller.getDragClientX(520)).toBe(490);
     scroller.stop();
     expect(values.has("is-trimming")).toBe(false);
   });

@@ -21,6 +21,21 @@ describe("timeline ruler density", () => {
 
     expect(ticks.filter((tick) => tick.isMajor).some((tick) => tick.label === "00:00.50")).toBe(true);
   });
+
+  it("keeps labeled ticks in view while trimming expands a long mobile project", () => {
+    const visibleDuration = 10;
+    const ticks = getTimelineRulerTicks(
+      100,
+      getTimelineZoomForVisibleDuration(visibleDuration),
+      41,
+      51,
+      { minimumMajorStep: (visibleDuration * 88) / 520 },
+    );
+    const visibleLabels = ticks.filter((tick) => tick.isMajor && tick.time >= 41 && tick.time <= 51);
+
+    expect(visibleLabels.length).toBeGreaterThanOrEqual(4);
+    expect(visibleLabels.every((tick) => tick.label)).toBe(true);
+  });
 });
 
 describe("mobile timeline pinch zoom", () => {

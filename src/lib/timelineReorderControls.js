@@ -1,6 +1,7 @@
 import { getVisualSegmentTimeline, materializeCaptionTimings, moveTimedCaptionSegment, reorderTimelineItems } from "./timeline.js";
 import { collectTimelineSnapPoints, findClosestTimelineSnap, snapTimelineRange } from "./timelineSnap.js";
 import { createVisualOverlaySegment } from "./visualOverlayTimeline.js";
+import { createTimelineEdgeAutoScroller, getTimelineDragTimeDelta } from "./timelineEdgeAutoScroll.js";
 
 export function createTimelineReorderControls(d) {
   const getTimelineReorderIndex = (track, x, y) => {
@@ -125,8 +126,14 @@ export function createTimelineReorderControls(d) {
     if (!caption || caption.id !== segmentId) return;
     d.setSelectedTrack("caption"); d.setSelectedSegmentId(segmentId);
     const trackElement = document.querySelector('[data-timeline-reorder-track="caption"]');
-    const trackWidth = Math.max(1, trackElement?.getBoundingClientRect().width || 1);
     const startX = event.clientX;
+    const autoScroller = createTimelineEdgeAutoScroller({
+      trackElement: d.trackScrollRef?.current,
+      pointerType: event.pointerType,
+      timelineDuration: d.timelineDuration,
+      onScrollFrame: (clientX, scrollOffset) => move({ clientX, preventDefault() {} }, scrollOffset),
+    });
+    const trackWidth = Math.max(1, trackElement?.getBoundingClientRect().width || 1);
     const snapPoints = collectTimelineSnapPoints(d, { track: "caption", id: segmentId });
     const initial = {
       track: "caption", mode: edge === "start" ? "resize-start" : "resize-end", segmentId,
@@ -134,12 +141,13 @@ export function createTimelineReorderControls(d) {
       previewStart: caption.start, previewEnd: caption.end, previewSegments: materialized, dragging: false,
     };
     d.timelineClipDragRef.current = initial; d.setTimelineClipDrag(initial);
-    const move = (moveEvent) => {
+    const move = (moveEvent, scrollOffset = autoScroller?.getScrollOffset() || 0) => {
       const state = d.timelineClipDragRef.current;
       if (!state || state.segmentId !== segmentId) return;
       if (!state.dragging && Math.abs(moveEvent.clientX - startX) < 3) return;
       if (!state.dragging) d.pauseForTimelineEdit?.();
-      const delta = ((moveEvent.clientX - startX) / trackWidth) * d.timelineDuration;
+      autoScroller?.update(moveEvent.clientX);
+      const delta = getTimelineDragTimeDelta({ clientX: moveEvent.clientX, startX, scrollOffset, contentWidth: trackWidth, timelineDuration: d.timelineDuration });
       const minimumDuration = 0.2;
       let previewStart = edge === "start"
         ? Math.max(0, Math.min(state.originalEnd - minimumDuration, state.originalStart + delta))
@@ -158,15 +166,22 @@ export function createTimelineReorderControls(d) {
       d.timelineClipDragRef.current = next; d.setTimelineClipDrag(next);
       d.setSnapGuide?.(snap ? { time: snap.time, label: `${snap.time.toFixed(2)}s` } : null);
     };
+    const cleanup = () => {
+      autoScroller.stop();
+      removeEventListener("pointermove", move); removeEventListener("pointerup", up); removeEventListener("pointercancel", cancel);
+    };
+    const cancel = () => {
+      cleanup(); d.timelineClipDragRef.current = null; d.setTimelineClipDrag(null); d.setSnapGuide?.(null);
+    };
     const up = () => {
-      removeEventListener("pointermove", move); removeEventListener("pointerup", up);
+      cleanup();
       const state = d.timelineClipDragRef.current; d.timelineClipDragRef.current = null; d.setTimelineClipDrag(null); d.setSnapGuide?.(null);
       if (!state?.dragging) return;
       d.suppressTimelineClipClickRef.current = segmentId;
       setTimeout(() => { if (d.suppressTimelineClipClickRef.current === segmentId) d.suppressTimelineClipClickRef.current = ""; }, 120);
       d.commitCaptionSegments(state.previewSegments, "已调整字幕片段时长", index);
     };
-    addEventListener("pointermove", move); addEventListener("pointerup", up, { once: true });
+    addEventListener("pointermove", move); addEventListener("pointerup", up, { once: true }); addEventListener("pointercancel", cancel, { once: true });
   };
   return { commitTimelineClipReorder, getTimelineReorderIndex, startCaptionResize, startTimelineClipDrag };
 }

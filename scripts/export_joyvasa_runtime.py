@@ -6,7 +6,7 @@ import argparse
 import hashlib
 import json
 import pickle
-from pathlib import Path
+from pathlib import Path, PosixPath
 
 import numpy as np
 import torch
@@ -32,7 +32,8 @@ def main() -> None:
     if sha256(args.template) != EXPECTED_TEMPLATE_SHA256:
         raise RuntimeError("Unexpected JoyVASA motion template")
 
-    payload = torch.load(args.checkpoint, map_location="cpu", weights_only=False)
+    torch.serialization.add_safe_globals([argparse.Namespace, PosixPath])
+    payload = torch.load(args.checkpoint, map_location="cpu", weights_only=True)
     # The pinned 3.6KB pickle was audited before use and contains only a dict,
     # NumPy ndarray reconstruction, ndarray, and dtype globals.
     with args.template.open("rb") as handle:

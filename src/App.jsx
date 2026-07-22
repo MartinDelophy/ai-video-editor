@@ -8,7 +8,12 @@ import { Topbar } from "./components/Topbar.jsx";
 import { AssetDragPreview, ExportProgressOverlay } from "./components/EditorOverlays.jsx";
 import { EditorSidebar } from "./components/EditorSidebar.jsx";
 import { FirstVisualGuide } from "./components/FirstVisualGuide.jsx";
-import { hasSeenFirstVisualGuide, markFirstVisualGuideSeen } from "./lib/firstVisualGuide.js";
+import {
+  canShowFirstVisualGuide,
+  FIRST_VISUAL_GUIDE_MOBILE_QUERY,
+  hasSeenFirstVisualGuide,
+  markFirstVisualGuideSeen,
+} from "./lib/firstVisualGuide.js";
 import { useExportElapsed } from "./hooks/useExportElapsed.js";
 import { usePreviewFrameSize } from "./hooks/usePreviewFrameSize.js";
 import { useEditorCatalog } from "./hooks/useEditorCatalog.js";
@@ -206,7 +211,12 @@ export function App() {
   };
   const shouldShowLanguageIntro = !uiLanguage;
   const requestFirstVisualGuide = () => {
-    if (firstVisualGuideShownRef.current || hasSeenFirstVisualGuide()) return;
+    const isMobile = window.matchMedia?.(FIRST_VISUAL_GUIDE_MOBILE_QUERY).matches ?? false;
+    if (!canShowFirstVisualGuide({
+      isMobile,
+      hasSeen: hasSeenFirstVisualGuide(),
+      shownThisSession: firstVisualGuideShownRef.current,
+    })) return;
     firstVisualGuideShownRef.current = true;
     setShowFirstVisualGuide(true);
   };
@@ -775,7 +785,7 @@ export function App() {
     setSelectedVisualSegmentId, setTimelineClipDrag, suppressTimelineClipClickRef,
     timelineClipDragRef, timelineDuration, trackLocks, visualSegments, pauseForTimelineEdit,
     stickerSegments, sourceAudioDuration, sourceAudioStart, musicDuration, musicStart, setSnapGuide,
-    visualOverlaySegments, setVisualOverlaySegments, setSelectedVisualOverlayId,
+    visualOverlaySegments, setVisualOverlaySegments, setSelectedVisualOverlayId, trackScrollRef,
   });
 
   return (

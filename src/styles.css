@@ -448,7 +448,7 @@ button:disabled {
   position: relative;
   z-index: 1;
   display: grid;
-  grid-template-columns: 90px minmax(250px, 0.66fr) minmax(520px, 1.62fr) minmax(300px, 0.78fr);
+  grid-template-columns: 90px minmax(250px, 0.76fr) minmax(520px, 1.38fr) minmax(300px, 0.86fr);
   grid-template-rows: minmax(0, 1fr);
   gap: 6px;
   min-height: 0;
@@ -458,7 +458,7 @@ button:disabled {
 }
 
 .editor-grid.is-compact-rail {
-  grid-template-columns: 50px minmax(250px, 0.66fr) minmax(520px, 1.62fr) minmax(300px, 0.78fr);
+  grid-template-columns: 50px minmax(250px, 0.76fr) minmax(520px, 1.38fr) minmax(300px, 0.86fr);
 }
 
 .language-intro {
@@ -5834,11 +5834,11 @@ button:disabled {
 
 @media (min-width: 1181px) and (max-width: 1600px) {
   .editor-grid {
-    grid-template-columns: 74px minmax(270px, 0.66fr) minmax(540px, 1.62fr) minmax(280px, 0.76fr);
+    grid-template-columns: 74px minmax(270px, 0.76fr) minmax(540px, 1.38fr) minmax(280px, 0.86fr);
   }
 
   .editor-grid.is-compact-rail {
-    grid-template-columns: 50px minmax(270px, 0.66fr) minmax(540px, 1.62fr) minmax(280px, 0.76fr);
+    grid-template-columns: 50px minmax(270px, 0.76fr) minmax(540px, 1.38fr) minmax(280px, 0.86fr);
   }
 
   .preview-stage {

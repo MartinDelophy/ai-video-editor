@@ -46,6 +46,12 @@ export function getTimelineZoomForVisibleDuration(visibleDuration) {
   return clampTimelineZoom((low + high) / 2);
 }
 
+export function getTimelineVisibleDurationForPixelScale(pixelsPerSecond, scaleBasisWidth) {
+  const scale = Math.max(0, Number(pixelsPerSecond) || 0);
+  const basis = Math.max(0, Number(scaleBasisWidth) || 0);
+  return scale > 0 ? basis / scale : 0;
+}
+
 export function getTimelineAutoFitZoom(contentDuration, fillRatio = 0.82) {
   const safeDuration = Math.max(0.5, Number(contentDuration) || 0.5);
   const safeFillRatio = Math.max(0.5, Math.min(0.9, Number(fillRatio) || 0.82));

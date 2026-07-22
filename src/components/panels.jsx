@@ -612,7 +612,7 @@ export function ToolPanel(props) {
 
   if (activeTool === "audio") {
     return (
-      <div className="tool-panel audio-tool-panel">
+      <div className="tool-panel audio-tool-panel mobile-panel-scroll-body">
         <h2>{t("audioPanel")}</h2>
         <button
           className="audio-entry-card"

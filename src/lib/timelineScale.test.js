@@ -5,10 +5,17 @@ import {
   getMobilePinchZoomState,
   getTimelineRulerTicks,
   getTimelineTrackWidthPercent,
+  getTimelineVisibleDurationForPixelScale,
   getTimelineZoomForVisibleDuration,
 } from "./timelineScale.js";
 
 describe("timeline ruler density", () => {
+  it("keeps mobile trim release on the canonical track-width scale", () => {
+    const pixelsPerSecond = 65;
+    expect(getTimelineVisibleDurationForPixelScale(pixelsPerSecond, 520)).toBe(8);
+    expect(getTimelineVisibleDurationForPixelScale(pixelsPerSecond, 260)).toBe(4);
+  });
+
   it("raises mobile major tick spacing so short-timeline labels do not overlap", () => {
     const ticks = getTimelineRulerTicks(4, 3, 0, 4, { minimumMajorStep: 0.68 });
     const labels = ticks.filter((tick) => tick.isMajor).map((tick) => tick.label);
@@ -20,6 +27,21 @@ describe("timeline ruler density", () => {
     const ticks = getTimelineRulerTicks(4, 3, 0, 4, { minimumMajorStep: 0.25 });
 
     expect(ticks.filter((tick) => tick.isMajor).some((tick) => tick.label === "00:00.50")).toBe(true);
+  });
+
+  it("keeps labeled ticks in view while trimming expands a long mobile project", () => {
+    const visibleDuration = 10;
+    const ticks = getTimelineRulerTicks(
+      100,
+      getTimelineZoomForVisibleDuration(visibleDuration),
+      41,
+      51,
+      { minimumMajorStep: (visibleDuration * 88) / 520 },
+    );
+    const visibleLabels = ticks.filter((tick) => tick.isMajor && tick.time >= 41 && tick.time <= 51);
+
+    expect(visibleLabels.length).toBeGreaterThanOrEqual(4);
+    expect(visibleLabels.every((tick) => tick.label)).toBe(true);
   });
 });
 

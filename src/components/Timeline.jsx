@@ -37,6 +37,13 @@ import { IMAGE_SEGMENT_SECONDS, MAX_IMAGE_THUMBNAILS, TRANSITIONS } from "../con
 import { formatClock, formatCompactDuration, formatTime, getSegmentStartTime, getVisualSegmentStartTime, packCaptionSegmentsIntoLanes, packTimedSegmentsIntoLanes } from "../lib/timeline.js";
 import { sliceSourceAudioPeaks } from "../lib/sourceAudioSync.js";
 import { createMainVisualFromOverlay } from "../lib/visualOverlayTimeline.js";
+import {
+  createTimelineEdgeAutoScroller,
+  getTimelineDragTimeDelta,
+  getTrimLockedTrackWidth,
+  TIMELINE_TRIM_SCALE_END_EVENT,
+  TIMELINE_TRIM_SCALE_START_EVENT,
+} from "../lib/timelineEdgeAutoScroll.js";
 import { getMobileClipActionIds, getMobileClipPanel, resolveMobileClipActionTrack, shouldActivateToolRailForClip } from "../lib/mobileClipActions.js";
 import {
   clampTimelineZoom,
@@ -45,6 +52,8 @@ import {
   getMobilePinchAnchorScrollLeft,
   getMobilePinchZoomState,
   getTimelineTrackWidthPercent,
+  getTimelineVisibleDuration,
+  getTimelineVisibleDurationForPixelScale,
   getTimelineZoomForVisibleDuration,
   getTimelineZoomLabel,
 } from "../lib/timelineScale.js";
@@ -558,6 +567,9 @@ export function Timeline({
     };
   }, [contextMenu]);
   const [localTimelineZoom, setLocalTimelineZoom] = useState(() => clampTimelineZoom(timelineZoom));
+  const [trimScaleLock, setTrimScaleLock] = useState(null);
+  const trimScaleLockRef = useRef(null);
+  const mobileRulerSchemeRef = useRef(null);
   const timelineZoomRef = useRef(timelineZoom);
   const wheelZoomFrameRef = useRef(0);
   const commitZoomTimerRef = useRef(0);
@@ -578,6 +590,40 @@ export function Timeline({
   const mobilePinchPendingDistanceRef = useRef(0);
   const mobileTimelineStateRef = useRef(null);
   mobileTimelineStateRef.current = { currentTime, isPlaying, seekTo, timelineDuration };
+  useEffect(() => {
+    const startTrimScaleLock = (event) => {
+      const pixelsPerSecond = Number(event.detail?.pixelsPerSecond) || 0;
+      const isMobileTrimViewport = window.matchMedia?.("(max-width: 760px)").matches;
+      const mobileScaleBasisWidth = window.matchMedia?.("(max-width: 390px)").matches ? 480 : 520;
+      const visibleDuration = isMobileTrimViewport
+        ? getTimelineVisibleDurationForPixelScale(pixelsPerSecond, mobileScaleBasisWidth)
+        : Number(event.detail?.visibleDuration) || 0;
+      if (!(pixelsPerSecond > 0) || !(visibleDuration > 0)) return;
+      const lock = { pixelsPerSecond, visibleDuration };
+      trimScaleLockRef.current = lock;
+      mobileRulerSchemeRef.current = null;
+      setTrimScaleLock(lock);
+      const nextZoom = getTimelineZoomForVisibleDuration(visibleDuration);
+      setLocalTimelineZoom(nextZoom);
+      setTimelineZoom(nextZoom);
+    };
+    const endTrimScaleLock = () => {
+      const lock = trimScaleLockRef.current;
+      if (lock?.visibleDuration > 0) {
+        const nextZoom = getTimelineZoomForVisibleDuration(lock.visibleDuration);
+        setLocalTimelineZoom(nextZoom);
+        setTimelineZoom(nextZoom);
+      }
+      trimScaleLockRef.current = null;
+      setTrimScaleLock(null);
+    };
+    window.addEventListener(TIMELINE_TRIM_SCALE_START_EVENT, startTrimScaleLock);
+    window.addEventListener(TIMELINE_TRIM_SCALE_END_EVENT, endTrimScaleLock);
+    return () => {
+      window.removeEventListener(TIMELINE_TRIM_SCALE_START_EVENT, startTrimScaleLock);
+      window.removeEventListener(TIMELINE_TRIM_SCALE_END_EVENT, endTrimScaleLock);
+    };
+  }, [setTimelineZoom]);
   useEffect(() => {
     const trackElement = trackScrollRef.current;
     const scrollElement = trackElement?.parentElement;
@@ -689,6 +735,18 @@ export function Timeline({
   );
   const isMobileTimelineViewport = window.matchMedia?.("(max-width: 760px)").matches;
   const mobileTrackBaseWidth = window.matchMedia?.("(max-width: 390px)").matches ? 480 : 520;
+  if (
+    isMobileTimelineViewport
+    && timelineDuration > 0
+    && (!mobileRulerSchemeRef.current || Math.abs(mobileRulerSchemeRef.current.timelineDuration - timelineDuration) > 0.001)
+  ) {
+    const stableVisibleDuration = getTimelineVisibleDuration(localTimelineZoom);
+    mobileRulerSchemeRef.current = {
+      timelineDuration,
+      scaleZoom: getTimelineZoomForVisibleDuration(stableVisibleDuration),
+      minimumMajorStep: (stableVisibleDuration * 88) / mobileTrackBaseWidth,
+    };
+  }
   const secondsPerPixel =
     timelineDuration > 0 && rulerViewport.contentWidth > 0
       ? timelineDuration / rulerViewport.contentWidth
@@ -699,10 +757,10 @@ export function Timeline({
     (rulerViewport.scrollLeft + rulerViewport.viewportWidth) * secondsPerPixel,
   );
   const rulerScaleZoom = isMobileTimelineViewport
-    ? getTimelineZoomForVisibleDuration(timelineDuration)
+    ? mobileRulerSchemeRef.current?.scaleZoom ?? getTimelineZoomForVisibleDuration(timelineDuration)
     : localTimelineZoom;
   const mobileRulerMinimumMajorStep = isMobileTimelineViewport
-    ? (timelineDuration * 88) / mobileTrackBaseWidth
+    ? mobileRulerSchemeRef.current?.minimumMajorStep ?? (timelineDuration * 88) / mobileTrackBaseWidth
     : 0;
   const rulerTicks = useMemo(
     () => getTimelineRulerTicks(
@@ -717,9 +775,11 @@ export function Timeline({
   const zoomReadout = getTimelineZoomLabel(localTimelineZoom);
   const fitTimelineZoom = getTimelineAutoFitZoom(timelineDuration, 0.9);
   const localTrackWidthPercent = getTimelineTrackWidthPercent(timelineDuration, localTimelineZoom);
-  const localTrackWidth = isMobileTimelineViewport
-    ? `${mobileTrackBaseWidth * (localTrackWidthPercent / 100)}px`
-    : `${localTrackWidthPercent}%`;
+  const localTrackWidth = trimScaleLock?.pixelsPerSecond > 0
+    ? `${getTrimLockedTrackWidth(timelineDuration, trimScaleLock.pixelsPerSecond)}px`
+    : isMobileTimelineViewport
+      ? `${mobileTrackBaseWidth * (localTrackWidthPercent / 100)}px`
+      : `${localTrackWidthPercent}%`;
   const commitTimelineZoom = (nextZoom, delay = 0) => {
     window.clearTimeout(commitZoomTimerRef.current);
     if (delay <= 0) {
@@ -1305,16 +1365,23 @@ export function Timeline({
           clearClipSelections("overlay"); setSelectedVisualOverlayId?.(segment.id); setSelectedTrack("overlay");
           const track = event.currentTarget.closest(".visual-overlay-track");
           if (!track) return;
-          const rect = track.getBoundingClientRect();
           const startX = event.clientX; const startY = event.clientY; const initialStart = segment.start; const initialDuration = segment.duration;
+          const autoScroller = createTimelineEdgeAutoScroller({
+            trackElement: trackScrollRef.current,
+            pointerType: mode === "move" ? "" : event.pointerType,
+            timelineDuration,
+            onScrollFrame: (clientX, scrollOffset) => move({ clientX, clientY: startY, preventDefault() {} }, scrollOffset),
+          });
+          const contentWidth = Math.max(1, track.getBoundingClientRect().width);
           let dragging = false; let promoteToMain = false; let mainInsertIndex = displayedVisualSegments.length;
-          const move = (moveEvent) => {
+          const move = (moveEvent, scrollOffset = autoScroller?.getScrollOffset() || 0) => {
             const deltaX = moveEvent.clientX - startX;
             const deltaY = moveEvent.clientY - startY;
             if (!dragging && isMobileTouch && Math.abs(deltaY) > Math.abs(deltaX)) return;
             if (!dragging && Math.abs(deltaX) < 4) return;
             if (!dragging) { dragging = true; if (isPlaying) handlePlayToggle(); }
             moveEvent.preventDefault();
+            autoScroller?.update(moveEvent.clientX);
             const mainTrack = mode === "move" ? document.elementFromPoint(moveEvent.clientX, moveEvent.clientY)?.closest?.('[data-asset-drop-track="image"]') : null;
             promoteToMain = Boolean(mainTrack);
             if (promoteToMain) {
@@ -1329,7 +1396,8 @@ export function Timeline({
               setOverlayPromotionTarget(null);
             }
             if (promoteToMain) return;
-            const delta = deltaX / Math.max(1, rect.width) * timelineDuration;
+            const dragClientX = autoScroller?.getDragClientX(moveEvent.clientX) ?? moveEvent.clientX;
+            const delta = getTimelineDragTimeDelta({ clientX: dragClientX, startX, scrollOffset, contentWidth, timelineDuration });
             setVisualOverlaySegments((items) => items.map((item) => {
               if (item.id !== segment.id) return item;
               if (mode === "move") return { ...item, start: Math.max(0, Math.min(timelineDuration - initialDuration, initialStart + delta)) };
@@ -1341,6 +1409,7 @@ export function Timeline({
             }));
           };
           const cleanup = () => {
+            autoScroller.stop();
             window.removeEventListener("pointermove", move);
             window.removeEventListener("pointerup", end);
             window.removeEventListener("pointercancel", cancel);

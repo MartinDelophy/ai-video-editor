@@ -8,10 +8,11 @@ Use it when a user asks an Agent to make a vertical short from images, synchroni
 
 - Inspect, dry-run, and transactionally modify a portable `.timeline` archive through a versioned JSON command plan.
 - Move voiceover clips; update caption text and timing; unlink or relink caption/audio pairs.
-- Use the browser compatibility path for visual import and assembly, AI speech, automatic captions, overlays, effects, and export while more commands move into the shared registry.
+- Import local visual or audio assets through the command runner with probing, SHA-256 integrity metadata, and portable archive embedding; use archived media for Visuals assembly and overlays.
+- Use the browser compatibility path for AI speech, automatic captions, effects, unsupported editor operations, and final video export while more commands move into the shared registry.
 - Preserve the editable project as the source of truth and verify the reopened result.
 
-The command runner currently edits existing projects; it does not yet perform headless media import, AI generation, or rendering. Those workflows remain available through the local or hosted browser editor.
+The command runner reads and writes `.timeline` projects, supports deterministic local media import, and can render its documented portable Visuals + Voiceover + Music subset to verified MP4. AI generation and richer composition rendering remain available through the local or hosted browser editor.
 
 ## Install
 
@@ -32,7 +33,7 @@ For repository development:
 git clone https://github.com/MartinDelophy/ai-video-editor.git
 cd ai-video-editor
 npm install
-npm run agent -- inspect /absolute/path/project.timeline
+npm run agent -- project.inspect /absolute/path/project.timeline
 npm run dev
 ```
 
@@ -41,6 +42,8 @@ npm run dev
 - [What Timeline Studio is and what it automates](docs/agent-video-editing.md)
 - [Use it from Codex](docs/codex-video-editing.md)
 - [Use it from Claude Code](docs/claude-code-video-editing.md)
+- [Use it from GitHub Copilot](docs/github-copilot-video-editing.md)
+- [Use it from Gemini CLI](docs/gemini-cli-video-editing.md)
 - [Five reproducible workflows](docs/examples.md)
 - [Command reference](docs/command-reference.md)
 - [Comparison with FFmpeg, CapCut, and Remotion](docs/comparison.md)

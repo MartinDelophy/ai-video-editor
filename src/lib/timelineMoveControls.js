@@ -1,5 +1,6 @@
 import { DEFAULT_STICKER_SEGMENT_SECONDS, MAX_TIMELINE_DURATION_SECONDS, MIN_VISUAL_SEGMENT_SECONDS } from "../config/editor.js";
 import { collectTimelineSnapPoints, findClosestTimelineSnap, snapTimelineRange } from "./timelineSnap.js";
+import { createTimelineEdgeAutoScroller, getTimelineDragTimeDelta } from "./timelineEdgeAutoScroll.js";
 
 export function createTimelineMoveControls(d) {
   const startSingleTrackMove = (event, track) => {
@@ -145,27 +146,35 @@ export function createTimelineMoveControls(d) {
     if (event.button !== 0) return;
     const segment = d.stickerSegments.find((item) => item.id === id); if (!segment) return;
     if (d.trackLocks.sticker) return void d.notify("贴纸轨已锁定，无法调整片段时长");
-    const rect = d.trackScrollRef.current?.getBoundingClientRect();
-    const timelineDuration = d.timelineDurationRef.current || Math.max(d.estimatedDuration, segment.start + segment.duration, 10);
-    if (!rect || timelineDuration <= 0) return;
     const isMobileTouch = event.pointerType === "touch" && globalThis.window?.matchMedia?.("(max-width: 760px)").matches;
     if (!isMobileTouch) event.preventDefault();
     event.stopPropagation();
     d.setSelectedTrack("sticker"); d.setActiveTool("stickers"); d.setSelectedStickerSegmentId(segment.id);
     if (segment.stickerId) d.setSelectedStickerId(segment.stickerId);
     const startX = event.clientX; const startY = event.clientY;
+    const timelineDuration = d.timelineDurationRef.current || Math.max(d.estimatedDuration, segment.start + segment.duration, 10);
+    const autoScroller = createTimelineEdgeAutoScroller({
+      trackElement: d.trackScrollRef.current,
+      pointerType: event.pointerType,
+      timelineDuration,
+      onScrollFrame: (clientX, scrollOffset) => move({ clientX, clientY: startY, preventDefault() {} }, scrollOffset),
+    });
+    const rect = d.trackScrollRef.current?.getBoundingClientRect();
+    if (!rect || timelineDuration <= 0) { autoScroller.stop(); return; }
     const originalStart = segment.start || 0; const originalDuration = Math.max(MIN_VISUAL_SEGMENT_SECONDS, segment.duration || DEFAULT_STICKER_SEGMENT_SECONDS);
     const originalEnd = originalStart + originalDuration;
     const snapPoints = collectTimelineSnapPoints(d, { track: "sticker", id: segment.id });
     let moved = false; let latestStart = originalStart; let latestDuration = originalDuration;
     const applyRange = (start, duration) => d.setStickerSegments((items) => items.map((item) => item.id === segment.id ? { ...item, start, duration } : item));
-    const move = (e) => {
+    const move = (e, scrollOffset = autoScroller?.getScrollOffset() || 0) => {
       const deltaX = e.clientX - startX; const deltaY = e.clientY - startY;
       if (!moved && isMobileTouch && Math.abs(deltaY) > Math.abs(deltaX)) return;
       if (!moved && Math.abs(deltaX) < 3) return;
       if (!moved) d.pauseForTimelineEdit?.();
       moved = true; e.preventDefault();
-      const delta = (deltaX / Math.max(rect.width, 1)) * timelineDuration;
+      autoScroller?.update(e.clientX);
+      const dragClientX = autoScroller?.getDragClientX(e.clientX) ?? e.clientX;
+      const delta = getTimelineDragTimeDelta({ clientX: dragClientX, startX, scrollOffset, contentWidth: rect.width, timelineDuration });
       let nextStart = edge === "start"
         ? Math.max(0, Math.min(originalEnd - MIN_VISUAL_SEGMENT_SECONDS, originalStart + delta))
         : originalStart;
@@ -183,7 +192,7 @@ export function createTimelineMoveControls(d) {
       d.setSnapGuide?.(snap ? { time: snap.time, label: `${snap.time.toFixed(2)}s` } : null);
       d.setTimelineHorizon((value) => Math.max(value, Math.ceil((nextEnd + 5) / 10) * 10));
     };
-    const cleanup = () => { removeEventListener("pointermove", move); removeEventListener("pointerup", up); removeEventListener("pointercancel", cancel); d.setSnapGuide?.(null); };
+    const cleanup = () => { autoScroller.stop(); removeEventListener("pointermove", move); removeEventListener("pointerup", up); removeEventListener("pointercancel", cancel); d.setSnapGuide?.(null); };
     const cancel = () => { cleanup(); if (moved) applyRange(originalStart, originalDuration); };
     const up = () => {
       cleanup(); if (!moved) return;

@@ -1,8 +1,8 @@
 """Export the pinned JoyVASA diffusion denoiser to a browser-oriented ONNX graph.
 
-The checkpoint pickle global list must be audited before running this script. The
-pinned checkpoint currently contains only argparse.Namespace, pathlib.PosixPath,
-collections.OrderedDict, and PyTorch tensor rebuild/storage globals.
+The checkpoint contains argparse.Namespace, pathlib.PosixPath, collections.OrderedDict,
+and PyTorch tensor rebuild/storage globals. The non-default classes are explicitly
+allowlisted via add_safe_globals; all others are rejected by weights_only=True.
 """
 
 from __future__ import annotations
@@ -11,7 +11,7 @@ import argparse
 import hashlib
 import json
 import sys
-from pathlib import Path
+from pathlib import Path, PosixPath
 
 import numpy as np
 import onnx
@@ -54,7 +54,8 @@ def main() -> None:
     dit_module.enc_dec_mask = cpu_enc_dec_mask
     DenoisingNetwork = dit_module.DenoisingNetwork
 
-    payload = torch.load(args.checkpoint, map_location="cpu", weights_only=False)
+    torch.serialization.add_safe_globals([argparse.Namespace, PosixPath])
+    payload = torch.load(args.checkpoint, map_location="cpu", weights_only=True)
     checkpoint_args = payload["args"]
     checkpoint_expected = {
         "n_diff_steps": 50,

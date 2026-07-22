@@ -12,7 +12,7 @@ import argparse
 import hashlib
 import json
 import sys
-from pathlib import Path
+from pathlib import Path, PosixPath
 
 import numpy as np
 import onnx
@@ -68,7 +68,8 @@ def main() -> None:
     sys.path.insert(0, str(args.source))
     from src.modules.hubert import HubertModel
 
-    payload = torch.load(args.checkpoint, map_location="cpu", weights_only=False)
+    torch.serialization.add_safe_globals([argparse.Namespace, PosixPath])
+    payload = torch.load(args.checkpoint, map_location="cpu", weights_only=True)
     config = HubertConfig.from_json_file(str(args.hubert_config))
     encoder = HubertModel(config).eval()
     encoder_prefix = "audio_encoder."

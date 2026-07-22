@@ -4401,6 +4401,8 @@ button:disabled {
 .ruler {
   position: relative;
   display: block;
+  width: 100%;
+  height: 100%;
   color: #7e8995;
   font-size: 12px;
   font-variant-numeric: tabular-nums;
@@ -4447,7 +4449,6 @@ button:disabled {
   top: 0;
   bottom: 0;
   width: 1px;
-  border-left: 1px solid rgba(255, 255, 255, 0.06);
   padding-left: 7px;
   color: #838f9b;
   line-height: 24px;
@@ -4455,17 +4456,25 @@ button:disabled {
   pointer-events: none;
 }
 
-.ruler-tick.is-major {
-  border-left-color: rgba(255, 255, 255, 0.12);
+.ruler-tick::before {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1px;
+  height: 7px;
+  background: rgba(186, 202, 211, 0.34);
+  content: "";
+}
+
+.ruler-tick.is-major::before {
+  width: 1.5px;
+  height: 12px;
+  background: rgba(218, 232, 238, 0.62);
 }
 
 .ruler-tick.is-minor {
-  top: 15px;
-  bottom: auto;
-  height: 8px;
   padding-left: 0;
   color: transparent;
-  border-left-color: rgba(255, 255, 255, 0.05);
 }
 
 .playhead {
@@ -6178,7 +6187,8 @@ button:disabled {
   .media-panel > .asset-list,
   .media-panel > .tool-panel,
   .voice-panel > .voice-tab-body {
-    flex: 1 1 auto;
+    flex: 1 1 0;
+    height: 0;
     min-height: 0;
     overflow-x: hidden;
     overflow-y: auto;
@@ -6261,6 +6271,11 @@ button:disabled {
     border-color: rgba(255, 255, 255, .13);
     color: #c5d1d6;
     background: rgba(255, 255, 255, .045);
+  }
+  .mobile-sticker-actions button:disabled {
+    border-color: rgba(255, 255, 255, .08);
+    color: #66747d;
+    background: rgba(255, 255, 255, .035);
   }
   .sticker-panel { padding: 0 10px 12px; }
   .sticker-panel h2 { margin: 0 0 8px; font-size: 13px; }
@@ -6414,6 +6429,7 @@ button:disabled {
   .timeline-ruler-viewport {
     padding-right: 0;
     padding-left: 0;
+    touch-action: none;
   }
   .track-scroll,
   .timeline-ruler-canvas {
@@ -6606,7 +6622,7 @@ button:disabled {
 
 @media (max-width: 760px) {
   .media-panel .tool-panel {
-    height: auto;
+    height: 0;
     min-height: 0;
     overflow-x: hidden;
     overflow-y: auto;

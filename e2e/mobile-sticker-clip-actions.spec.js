@@ -1,5 +1,24 @@
 import { expect, test } from "@playwright/test";
 
+test("mobile sticker drawer always shows cancel and add actions", async ({ page }) => {
+  await page.setViewportSize({ width: 412, height: 915 });
+  await page.addInitScript(() => {
+    localStorage.clear();
+    localStorage.setItem("ai-voiceover-ui-language", "zh");
+  });
+  await page.goto("/");
+
+  await page.locator(".tool-rail").getByRole("button", { name: "贴纸" }).click();
+
+  const actions = page.locator(".mobile-sticker-actions");
+  await expect(actions).toBeVisible();
+  await expect(actions.getByRole("button", { name: "取消" })).toBeVisible();
+  await expect(actions.getByRole("button", { name: "添加贴纸" })).toBeDisabled();
+
+  await page.getByRole("button", { name: "热度火焰" }).click();
+  await expect(actions.getByRole("button", { name: "添加贴纸" })).toBeEnabled();
+});
+
 test("mobile sticker clip exposes direct properties, copy, and delete actions", async ({ page }) => {
   await page.setViewportSize({ width: 412, height: 915 });
   await page.addInitScript(() => {

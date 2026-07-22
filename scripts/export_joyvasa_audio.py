@@ -68,7 +68,8 @@ def main() -> None:
     sys.path.insert(0, str(args.source))
     from src.modules.hubert import HubertModel
 
-    payload = torch.load(args.checkpoint, map_location="cpu", weights_only=False)
+    from safetensors.torch import load_file as _safe_load_file
+    payload = {"model": _safe_load_file(str(args.checkpoint))}
     config = HubertConfig.from_json_file(str(args.hubert_config))
     encoder = HubertModel(config).eval()
     encoder_prefix = "audio_encoder."

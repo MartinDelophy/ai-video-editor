@@ -51,6 +51,7 @@ export function createTimelineEdgeAutoScroller({ trackElement, pointerType, time
     (pointerType === "touch" && isMobile)
     || (["mouse", "pen"].includes(pointerType) && !isMobile)
   );
+  const usesDesktopTrailingSpacer = enabled && !isMobile;
   const rulerElement = enabled ? trackElement.closest?.(".timeline-board")?.querySelector?.(".timeline-ruler-canvas") : null;
   if (enabled) {
     trackElement.classList?.add("is-trimming");
@@ -79,7 +80,7 @@ export function createTimelineEdgeAutoScroller({ trackElement, pointerType, time
     spacerElement.style.width = `${geometry.width}px`;
   };
 
-  if (enabled && scrollElement?.ownerDocument?.createElement) {
+  if (usesDesktopTrailingSpacer && scrollElement?.ownerDocument?.createElement) {
     const previousSpacer = scrollElement.querySelector?.("[data-timeline-trim-scroll-spacer]");
     previousSpacer?.__timelineTrimCleanup?.();
     previousSpacer?.remove?.();

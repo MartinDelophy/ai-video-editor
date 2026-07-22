@@ -66,6 +66,29 @@ describe("mobile timeline edge auto-scroll", () => {
     expect(rulerClasses.has("is-trimming")).toBe(false);
   });
 
+  it("never creates or settles a desktop trailing spacer on mobile", () => {
+    let appended = 0;
+    const scrollElement = {
+      clientWidth: 400,
+      scrollLeft: 120,
+      ownerDocument: { createElement: () => ({}) },
+      appendChild: () => { appended += 1; },
+    };
+    const track = {
+      classList: { add() {}, remove() {} },
+      closest: () => null,
+      parentElement: scrollElement,
+    };
+    const scroller = createTimelineEdgeAutoScroller({
+      trackElement: track,
+      pointerType: "touch",
+      win: { matchMedia: () => ({ matches: true }), requestAnimationFrame: () => 1, cancelAnimationFrame() {} },
+    });
+    scroller.stop();
+    expect(appended).toBe(0);
+    expect(scrollElement.scrollLeft).toBe(120);
+  });
+
   it("enables the same edge-scroll lifecycle for desktop mouse trimming", () => {
     const values = new Set();
     const track = {

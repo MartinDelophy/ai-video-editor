@@ -564,6 +564,7 @@ export function Timeline({
   const rulerViewportFrameRef = useRef(0);
   const wheelZoomActiveRef = useRef(false);
   const rulerViewportSyncRef = useRef(null);
+  const rulerViewportRef = useRef(null);
   const rulerCanvasRef = useRef(null);
   const zoomReadoutRef = useRef(null);
   const pendingWheelDeltaRef = useRef(0);
@@ -1104,6 +1105,55 @@ export function Timeline({
       mobilePinchActiveRef.current = false;
     };
   }, [mobileTrackBaseWidth, setTimelineZoom, timelineDuration, trackScrollRef]);
+  useEffect(() => {
+    const rulerViewport = rulerViewportRef.current;
+    const scrollElement = trackScrollRef.current?.parentElement;
+    if (!rulerViewport || !scrollElement) return undefined;
+
+    let gesture = null;
+    const handlePointerDown = (event) => {
+      if (!window.matchMedia?.("(max-width: 760px)").matches || event.pointerType !== "touch") return;
+      gesture = {
+        pointerId: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+        startScrollLeft: scrollElement.scrollLeft,
+        scrolling: false,
+      };
+    };
+    const handlePointerMove = (event) => {
+      if (!gesture || gesture.pointerId !== event.pointerId) return;
+      const deltaX = event.clientX - gesture.startX;
+      const deltaY = event.clientY - gesture.startY;
+      if (!gesture.scrolling) {
+        if (Math.abs(deltaX) < 3 || Math.abs(deltaX) < Math.abs(deltaY)) return;
+        gesture.scrolling = true;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      scrollElement.scrollLeft = gesture.startScrollLeft - deltaX;
+      rulerViewportSyncRef.current?.();
+    };
+    const handlePointerEnd = (event) => {
+      if (gesture?.pointerId !== event.pointerId) return;
+      if (gesture.scrolling) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+      gesture = null;
+    };
+
+    rulerViewport.addEventListener("pointerdown", handlePointerDown, { capture: true });
+    window.addEventListener("pointermove", handlePointerMove, { capture: true, passive: false });
+    window.addEventListener("pointerup", handlePointerEnd, { capture: true });
+    window.addEventListener("pointercancel", handlePointerEnd, { capture: true });
+    return () => {
+      rulerViewport.removeEventListener("pointerdown", handlePointerDown, { capture: true });
+      window.removeEventListener("pointermove", handlePointerMove, { capture: true });
+      window.removeEventListener("pointerup", handlePointerEnd, { capture: true });
+      window.removeEventListener("pointercancel", handlePointerEnd, { capture: true });
+    };
+  }, [trackScrollRef]);
   const renderAssetDropSlot = (track) =>
     assetDropTargetTrack === track ? (
       <div
@@ -1448,13 +1498,16 @@ export function Timeline({
 
       <div className="timeline-board">
         <div className="track-labels-ruler-spacer" aria-hidden="true" />
-        <div className="timeline-ruler-viewport">
+        <div ref={rulerViewportRef} className="timeline-ruler-viewport">
           <div
             ref={rulerCanvasRef}
             className="timeline-ruler-canvas"
             style={{ width: localTrackWidth }}
           >
-            <div className="ruler" onPointerDown={handleTimelineSurfacePointerDown}>
+            <div className="ruler" onPointerDown={(event) => {
+              if (window.matchMedia?.("(max-width: 760px)").matches && event.pointerType === "touch") return;
+              handleTimelineSurfacePointerDown(event);
+            }}>
               {rulerTicks.map((tick) => (
                 <span
                   className={`ruler-tick ${tick.isMajor ? "is-major" : "is-minor"}`}

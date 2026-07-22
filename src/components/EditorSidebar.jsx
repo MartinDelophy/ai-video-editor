@@ -23,7 +23,7 @@ export function EditorSidebar({ model: d }) {
         ))}
       </aside>
 
-      <aside className={`media-panel ${d.mobilePanel === "tools" && d.selectedLibraryAssetId ? "has-mobile-asset-actions" : ""} ${d.mobilePanel === "tools" && d.activeTool === "stickers" && d.selectedStickerId && d.selectedStickerId !== "none" ? "has-mobile-sticker-actions" : ""}`}>
+      <aside className={`media-panel ${d.mobilePanel === "tools" && d.selectedLibraryAssetId ? "has-mobile-asset-actions" : ""} ${d.mobilePanel === "tools" && d.activeTool === "stickers" ? "has-mobile-sticker-actions" : ""}`}>
         {d.activeTool === "media" ? (
           <MediaPanel
             t={d.t}

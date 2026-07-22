@@ -1329,13 +1329,14 @@ function StickerPanel({
       ) : (
         <span className="sticker-load-sentinel" ref={loadMoreRef} aria-hidden="true" />
       )}
-      {selectedSticker && mobilePanelOpen ? createPortal((
+      {mobilePanelOpen ? createPortal((
         <div className="mobile-sticker-actions" aria-label={t("mobileStickerActions")}>
           <button type="button" className="is-secondary" onClick={() => {
             onSelect(emptySticker.id);
             closeMobilePanel?.();
           }}>{t("mobileStickerCancel")}</button>
-          <button type="button" onClick={() => {
+          <button type="button" disabled={!selectedSticker} onClick={() => {
+            if (!selectedSticker) return;
             onStickerConfirm?.(selectedSticker);
             closeMobilePanel?.();
           }}>{t("addSticker")}</button>

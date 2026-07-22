@@ -53,6 +53,39 @@ async function readTimelineState(page) {
   });
 }
 
+test("mobile ruler drag scrolls the shared timeline while desktop behavior stays separate", async ({ page }) => {
+  await page.setViewportSize({ width: 412, height: 915 });
+  await page.addInitScript(() => localStorage.setItem("ai-voiceover-ui-language", "zh"));
+  await page.goto("/");
+  await page.locator('input[type="file"][multiple]').setInputFiles({
+    name: "ruler-scroll-fixture.png",
+    mimeType: "image/png",
+    buffer: ONE_PIXEL_PNG,
+  });
+  await page.keyboard.press("Escape");
+  await expect(page.locator(".image-clip")).toBeVisible();
+
+  const ruler = page.locator(".timeline-ruler-viewport");
+  const rulerBox = await ruler.boundingBox();
+  if (!rulerBox) throw new Error("Timeline ruler is not visible");
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 1 });
+  const y = rulerBox.y + rulerBox.height / 2;
+  const startX = rulerBox.x + rulerBox.width * 0.72;
+  const endX = rulerBox.x + rulerBox.width * 0.28;
+  const touch = (x) => [{ id: 1, x, y, radiusX: 6, radiusY: 6, force: 1 }];
+
+  const before = await readTimelineState(page);
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: touch(startX) });
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: touch(endX) });
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+  await expect.poll(async () => (await readTimelineState(page)).scrollLeft).toBeGreaterThan(before.scrollLeft + 20);
+
+  const after = await readTimelineState(page);
+  expect(after.currentTime).toBeGreaterThan(before.currentTime);
+  await expect(page.locator(".mobile-fixed-playhead")).toBeVisible();
+});
+
 test("mobile pinch zoom keeps the visible frame and ruler scale stable on release", async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 412, height: 915 });
   await page.addInitScript(() => localStorage.setItem("ai-voiceover-ui-language", "zh"));

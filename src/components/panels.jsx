@@ -1422,7 +1422,7 @@ export function VoiceSynthesisPanel({
             {voiceFilter === "all" ? t("allVoices") : voiceFilter} <CaretDown size={14} />
           </button>
           {showVoiceFilter ? (
-            <Popover onClose={() => setShowVoiceFilter(false)}>
+            <Popover closeLabel={t("close")} onClose={() => setShowVoiceFilter(false)}>
               <div className="menu-list">
                 {["all", ...voiceLanguages].map((filter) => (
                   <button

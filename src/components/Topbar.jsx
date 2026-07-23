@@ -67,7 +67,7 @@ export function Topbar({
                 {t("fileMenu")} <CaretDown size={13} />
               </button>
               {showFileMenu ? (
-                <Popover className="project-file-popover" onClose={() => setShowFileMenu(false)}>
+                <Popover className="project-file-popover" closeLabel={t("close")} onClose={() => setShowFileMenu(false)}>
                   <div className="file-menu-card">
                     <div className="file-menu-heading">
                       <span>{t("projectMenuHeading")}</span>
@@ -127,7 +127,7 @@ export function Topbar({
             {ratio.label} <CaretDown size={14} />
           </button>
           {showRatioMenu ? (
-            <Popover onClose={() => setShowRatioMenu(false)}>
+            <Popover closeLabel={t("close")} onClose={() => setShowRatioMenu(false)}>
               <div className="menu-list">
                 {RATIO_OPTIONS.map((option) => (
                   <button
@@ -164,7 +164,7 @@ export function Topbar({
             {!exporting ? <CaretDown size={13} weight="bold" /> : null}
           </button>
           {showExportMenu ? (
-            <Popover className="export-settings-popover" onClose={() => setShowExportMenu(false)}>
+            <Popover className="export-settings-popover" closeLabel={t("close")} onClose={() => setShowExportMenu(false)}>
               <div className="export-settings-card">
                 <div className="export-settings-heading"><div><strong>{t("videoExport")}</strong><small>{t("videoExportHint")}</small></div><span>{exportSettings.codec === "h264" ? "MP4" : "WebM"}</span></div>
                 <div className="export-setting-field">
@@ -189,7 +189,7 @@ export function Topbar({
             <GearSix size={19} />
           </IconButton>
           {showSettings ? (
-            <Popover onClose={() => setShowSettings(false)}>
+            <Popover closeLabel={t("close")} onClose={() => setShowSettings(false)}>
               <div className="settings-panel">
                 <strong>{t("exportSettings")}</strong>
                 <label>

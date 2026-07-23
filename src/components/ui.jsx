@@ -17,7 +17,7 @@ export function IconButton({ label, children, active = false, disabled = false, 
   );
 }
 
-export function Popover({ children, onClose, className = "" }) {
+export function Popover({ children, onClose, closeLabel = "Close", className = "" }) {
   const popoverRef = useRef(null);
 
   useEffect(() => {
@@ -37,7 +37,7 @@ export function Popover({ children, onClose, className = "" }) {
 
   return (
     <div ref={popoverRef} className={`popover ${className}`.trim()} role="dialog">
-      <button className="popover-close" type="button" aria-label="关闭" onClick={onClose}>
+      <button className="popover-close" type="button" aria-label={closeLabel} onClick={onClose}>
         <X size={14} />
       </button>
       {children}

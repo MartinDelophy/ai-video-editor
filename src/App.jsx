@@ -146,7 +146,7 @@ export function App() {
     voiceFilter, voiceTab,
   } = useEditorUiState();
   const [userAssets, setUserAssets] = useState([]);
-  const { notify, toast } = useToast();
+  const { notify, toast } = useToast(2600, uiLanguage || "zh");
   const [previewVideoMediaTime, setPreviewVideoMediaTime] = useState(0);
   const [visionRecords, setVisionRecords] = useState({});
   const [visionJob, setVisionJob] = useState({

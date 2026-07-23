@@ -184,7 +184,7 @@ button:disabled {
 }
 .file-menu-copy { display: grid; gap: 3px; min-width: 0; }
 .file-menu-copy strong { color: #eaf4f7; font-size: 13px; font-weight: 650; }
-.file-menu-copy small { color: #84929d; font-size: 11px; white-space: nowrap; }
+.file-menu-copy small { color: #84929d; font-size: 11px; line-height: 1.35; white-space: normal; }
 .file-menu-format {
   align-self: start;
   margin-top: 3px;

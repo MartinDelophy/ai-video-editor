@@ -1895,7 +1895,7 @@ export function Timeline({
                     key={`junction-${segment.id}`}
                     type="button"
                     aria-label={`${t("transition")}: ${trOption(TRANSITIONS.find((item) => item.id === transition.id)?.name || "无转场")}`}
-                    title="设置转场"
+                    title={t("transitionSettings")}
                     style={{ left: `${((range?.end || 0) / Math.max(0.01, timelineDuration)) * 100}%` }}
                     onPointerDown={(event) => event.stopPropagation()}
                     onClick={(event) => {

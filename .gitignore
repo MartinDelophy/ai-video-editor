@@ -8,6 +8,9 @@ test-results/
 playwright-report/
 blob-report/
 
+# AI model weights are hosted externally and downloaded at runtime
+public/models/
+
 # local QA captures and generated media
 qa/
 design-qa.md

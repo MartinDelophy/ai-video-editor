@@ -210,7 +210,7 @@ export function MediaPanel({
             ref={fileInputRef}
             className="sr-only"
             type="file"
-            accept="image/png,image/jpeg,image/webp,video/mp4,video/webm,video/quicktime,audio/mpeg,audio/wav,audio/mp4,audio/aac,audio/ogg"
+            accept="image/png,image/jpeg,image/webp,video/mp4,video/webm,video/quicktime,video/x-matroska,.mkv,.mka,audio/mpeg,audio/wav,audio/mp4,audio/aac,audio/ogg,audio/flac,.ac3"
             multiple
             onChange={(event) => {
               handleFiles(event.target.files);

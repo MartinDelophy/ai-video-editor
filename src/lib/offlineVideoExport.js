@@ -6,12 +6,14 @@ import {
   CanvasSink,
   CanvasSource,
   Input,
+  MovOutputFormat,
   Mp4OutputFormat,
   Output,
   WebMOutputFormat,
 } from "mediabunny";
 import { registerAacEncoder } from "@mediabunny/aac-encoder";
 
+import { throwIfExportAborted } from "./exportCancellation.js";
 import {
   createTemporalMaskCache,
   drawPreviewFrame,
@@ -32,21 +34,23 @@ import { createPitchPreservedAudioBuffer } from "./pitchPreservingTimeStretch.js
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 let aacFallbackRegistered = false;
 
-export function createOfflineFramePlan(duration, frameRate) {
+export function createOfflineFramePlan(duration, frameRate, keyFrameInterval = 2) {
   const fps = clamp(Math.round(Number(frameRate) || 30), 24, 60);
   const safeDuration = Math.max(1 / fps, Number(duration) || 0);
   const frameCount = Math.max(1, Math.ceil(safeDuration * fps));
+  const keyFrameEvery = Math.max(1, Math.round(fps * clamp(Number(keyFrameInterval) || 2, 0.25, 10)));
   return Array.from({ length: frameCount }, (_, index) => ({
     index,
     timestamp: index / fps,
     duration: 1 / fps,
-    keyFrame: index % (fps * 2) === 0,
+    keyFrame: index % keyFrameEvery === 0,
   }));
 }
 
 export function getOfflineExportCodec(settings = {}) {
   if (settings.codec === "vp8") return { video: "vp8", audio: "opus", extension: "webm", mimeType: "video/webm" };
   if (settings.codec === "vp9") return { video: "vp9", audio: "opus", extension: "webm", mimeType: "video/webm" };
+  if (settings.codec === "h264-mov") return { video: "avc", audio: "aac", extension: "mov", mimeType: "video/quicktime", label: "MOV" };
   return { video: "avc", audio: "aac", extension: "mp4", mimeType: "video/mp4" };
 }
 
@@ -90,6 +94,7 @@ export async function mixOfflineAudio({
   musicVolume = 0.35,
   musicStart = 0,
   musicSegments = [],
+  timelineOffset = 0,
 }) {
   const inputs = [
     ...voiceAudioSegments.filter((item) => item.blob).map((item) => ({
@@ -114,45 +119,66 @@ export async function mixOfflineAudio({
   const OfflineContextClass = window.OfflineAudioContext || window.webkitOfflineAudioContext;
   if (!OfflineContextClass) throw new Error("当前浏览器不支持离线音频混合。");
   const context = new OfflineContextClass(2, Math.ceil(Math.max(0.01, duration) * sampleRate), sampleRate);
+  const rangeStart = Math.max(0, Number(timelineOffset) || 0);
+  const rangeEnd = rangeStart + Math.max(0.01, duration);
   decoded.forEach((input) => {
+    const playbackRate = clamp(Number(input.playbackRate) || 1, 0.25, 4);
+    const originalOffset = Math.min(input.decoded.duration, input.sourceOffset);
+    const available = Math.max(0, input.decoded.duration - originalOffset);
+    const originalSourceDuration = Math.min(available, input.sourceDuration || available);
+    const originalOutputDuration = originalSourceDuration / playbackRate;
+    const visibleStart = Math.max(input.start, rangeStart);
+    const visibleEnd = Math.min(input.start + originalOutputDuration, rangeEnd);
+    if (visibleEnd <= visibleStart) return;
+    const trimOutput = visibleStart - input.start;
+    const outputDuration = visibleEnd - visibleStart;
+    const offset = originalOffset + trimOutput * playbackRate;
+    const sourceDuration = Math.min(input.decoded.duration - offset, outputDuration * playbackRate);
+    if (!(sourceDuration > 0)) return;
     const source = context.createBufferSource();
     const gain = context.createGain();
-    const offset = Math.min(input.decoded.duration, input.sourceOffset);
-    const available = Math.max(0, input.decoded.duration - offset);
-    const sourceDuration = Math.min(available, input.sourceDuration || available);
-    const outputDuration = sourceDuration / input.playbackRate;
-    const preservePitch = Math.abs(input.playbackRate - 1) > 0.0001;
+    const preservePitch = Math.abs(playbackRate - 1) > 0.0001;
     source.buffer = preservePitch
       ? createPitchPreservedAudioBuffer(context, input.decoded, {
           sourceOffset: offset,
           sourceDuration,
-          playbackRate: input.playbackRate,
+          playbackRate,
         })
       : input.decoded;
     source.playbackRate.value = 1;
-    gain.gain.setValueAtTime(input.volume, input.start);
-    if (input.fadeIn > 0) {
-      gain.gain.setValueAtTime(0, input.start);
-      gain.gain.linearRampToValueAtTime(input.volume, input.start + Math.min(input.fadeIn, outputDuration));
+    const outputStart = visibleStart - rangeStart;
+    const fadeInRemaining = Math.max(0, input.fadeIn - trimOutput);
+    const originalOutputEnd = input.start + originalOutputDuration;
+    const fadeOutStart = originalOutputEnd - input.fadeOut;
+    gain.gain.setValueAtTime(input.volume, outputStart);
+    if (fadeInRemaining > 0) {
+      gain.gain.setValueAtTime(input.volume * clamp(trimOutput / input.fadeIn, 0, 1), outputStart);
+      gain.gain.linearRampToValueAtTime(input.volume, outputStart + Math.min(fadeInRemaining, outputDuration));
     }
-    if (input.fadeOut > 0) {
-      const fadeStart = input.start + Math.max(0, outputDuration - input.fadeOut);
-      gain.gain.setValueAtTime(input.volume, fadeStart);
-      gain.gain.linearRampToValueAtTime(0, input.start + outputDuration);
+    if (input.fadeOut > 0 && visibleEnd > fadeOutStart) {
+      const localFadeStart = Math.max(outputStart, fadeOutStart - rangeStart);
+      gain.gain.setValueAtTime(input.volume, localFadeStart);
+      gain.gain.linearRampToValueAtTime(
+        input.volume * clamp((originalOutputEnd - visibleEnd) / input.fadeOut, 0, 1),
+        outputStart + outputDuration,
+      );
     }
     source.connect(gain).connect(context.destination);
-    source.start(input.start, preservePitch ? 0 : offset, preservePitch ? outputDuration : sourceDuration);
+    source.start(outputStart, preservePitch ? 0 : offset, preservePitch ? outputDuration : sourceDuration);
   });
   return context.startRendering();
 }
 
 async function prepareComposition(options) {
+  throwIfExportAborted(options.signal);
   const segments = options.visualSegments.some((segment) => segment.src)
     ? options.visualSegments.filter((segment) => segment.src)
     : [{ id: "offline-visual", src: options.imageSrc, type: options.visualType, duration: options.duration }];
   const timeline = getVisualSegmentTimeline(segments);
   const items = await Promise.all(segments.map(async (segment, index) => {
+    throwIfExportAborted(options.signal);
     const visual = segment.type === "video" ? await loadVideo(segment.src) : await loadImage(segment.src);
+    throwIfExportAborted(options.signal);
     const cutoutVisual = segment.type === "image" && segment.vision?.options?.removeBackground && segment.vision?.cutoutUrl
       ? await loadImage(segment.vision.cutoutUrl).catch(() => null) : null;
     const maskUrls = segment.type === "video" && segment.vision?.options?.removeBackground
@@ -160,7 +186,7 @@ async function prepareComposition(options) {
     let sequentialFrames = null;
     if (segment.type === "video" && options.framePlan?.length) {
       try {
-        const blob = segment.blob instanceof Blob ? segment.blob : await fetch(segment.src).then((response) => {
+        const blob = segment.blob instanceof Blob ? segment.blob : await fetch(segment.src, { signal: options.signal }).then((response) => {
           if (!response.ok) throw new Error(`Unable to read video source (${response.status})`);
           return response.blob();
         });
@@ -190,6 +216,7 @@ async function prepareComposition(options) {
       decodeMode: segment.type === "video" ? (sequentialFrames ? "sequential-webcodecs" : "precise-seek") : "static-image",
     };
   }));
+  throwIfExportAborted(options.signal);
   const stickerSources = [...new Set([
     ...options.stickerSegments.map((item) => item.src).filter(Boolean),
     ...(options.sticker?.src ? [options.sticker.src] : []),
@@ -199,6 +226,7 @@ async function prepareComposition(options) {
     segment,
     visual: segment.type === "video" ? await loadVideo(segment.src) : await loadImage(segment.src),
   })));
+  throwIfExportAborted(options.signal);
   return { segments, timeline, items, stickerImages, overlayItems };
 }
 
@@ -231,7 +259,7 @@ async function renderCompositionAt(context, canvas, prepared, options, time) {
   const next = transitionProgress > 0 ? prepared.items[index + 1] : null;
   if (next?.segment.type === "video") await seekVideoFrame(next.visual, getVisualSourceTime(next.segment, transitionProgress * transitionDuration));
   const captionSegments = options.captionSegments?.length ? options.captionSegments : createCaptionSegments(options.text);
-  const captionIndex = getSegmentIndexAtTime(captionSegments, time, 0);
+  const captionIndex = getSegmentIndexAtTime(captionSegments, time, options.captionTargetDuration || 0);
   const caption = captionIndex >= 0 && !captionSegments[captionIndex]?.hidden ? captionSegments[captionIndex].text : "";
   const stickers = getOfflineStickersAtTime(options.stickerSegments, options.sticker, time);
   const activeOverlaySegments = getOfflineVisualOverlaysAtTime(prepared.overlayItems.map((item) => item.segment), time);
@@ -259,6 +287,7 @@ async function renderCompositionAt(context, canvas, prepared, options, time) {
 }
 
 export async function exportOfflineVideo(options) {
+  throwIfExportAborted(options.signal);
   if (typeof VideoEncoder === "undefined") throw new Error("当前浏览器不支持 WebCodecs 离线编码。");
   const settings = options.exportSettings || {};
   const width = Math.max(2, Math.round(Number(settings.width) || options.ratio.width));
@@ -273,41 +302,60 @@ export async function exportOfflineVideo(options) {
   const context = canvas.getContext("2d", { alpha: false, desynchronized: false });
   if (!context) throw new Error("无法创建离线导出画布。");
   options.onProgress?.({ progress: 4, phaseKey: "exportOfflinePreparing" });
-  const frames = createOfflineFramePlan(options.duration, settings.frameRate);
-  const preparedPromise = prepareComposition({ ...options, framePlan: frames });
+  const frames = createOfflineFramePlan(options.duration, settings.frameRate, settings.keyFrameInterval);
+  const timelineOffset = Math.max(0, Number(options.timelineOffset) || 0);
+  const compositionFrames = frames.map((frame) => ({ ...frame, timestamp: frame.timestamp + timelineOffset }));
+  const preparedPromise = prepareComposition({ ...options, framePlan: compositionFrames });
   const audioPromise = mixOfflineAudio({ ...options, duration: frames.length * frames[0].duration });
   const [prepared, audioBuffer] = await Promise.all([preparedPromise, audioPromise]);
+  throwIfExportAborted(options.signal);
   const target = new BufferTarget();
-  const output = new Output({ format: codec.extension === "mp4" ? new Mp4OutputFormat({ fastStart: "in-memory" }) : new WebMOutputFormat(), target });
+  const outputFormat = codec.extension === "mp4"
+    ? new Mp4OutputFormat({ fastStart: "in-memory" })
+    : codec.extension === "mov"
+      ? new MovOutputFormat({ fastStart: "in-memory" })
+      : new WebMOutputFormat();
+  const output = new Output({ format: outputFormat, target });
   let encoderConfig = null;
   const videoSource = new CanvasSource(canvas, {
     codec: codec.video,
-    bitrate: Math.max(2_000_000, Number(settings.videoBitsPerSecond) || 12_000_000),
-    keyFrameInterval: 2,
-    latencyMode: "quality",
+    bitrate: Math.max(1_000_000, Number(settings.videoBitsPerSecond) || 12_000_000),
+    keyFrameInterval: Math.max(0.25, Number(settings.keyFrameInterval) || 2),
+    latencyMode: "realtime",
     onEncoderConfig: (config) => { encoderConfig = config; },
   });
-  output.addVideoTrack(videoSource, { frameRate: frames.length / Math.max(options.duration, 1 / frames[0].duration) });
+  output.addVideoTrack(videoSource, { frameRate: frames.length / Math.max(options.duration, frames[0].duration) });
   let audioSource = null;
+  const audioBitrate = Math.max(96_000, Number(settings.audioBitsPerSecond) || 192_000);
   if (audioBuffer) {
-    audioSource = new AudioBufferSource({ codec: codec.audio, bitrate: codec.audio === "aac" ? 256_000 : 192_000 });
+    audioSource = new AudioBufferSource({
+      codec: codec.audio,
+      bitrate: audioBitrate,
+    });
     output.addAudioTrack(audioSource);
   }
-  await output.start();
-  if (audioSource) await audioSource.add(audioBuffer);
+  const abortOutput = () => { output.cancel().catch(() => {}); };
+  options.signal?.addEventListener("abort", abortOutput, { once: true });
   try {
+    throwIfExportAborted(options.signal);
+    await output.start();
+    if (audioSource) await audioSource.add(audioBuffer);
     for (const frame of frames) {
-      await renderCompositionAt(context, canvas, prepared, options, frame.timestamp);
+      throwIfExportAborted(options.signal);
+      await renderCompositionAt(context, canvas, prepared, options, frame.timestamp + timelineOffset);
+      throwIfExportAborted(options.signal);
       await videoSource.add(frame.timestamp, frame.duration, { keyFrame: frame.keyFrame });
       if (frame.index % Math.max(1, Math.round(frames.length / 100)) === 0) {
         options.onProgress?.({ progress: 10 + Math.round((frame.index / frames.length) * 84), phaseKey: "exportOfflineRendering", phaseParams: { current: frame.index + 1, total: frames.length } });
       }
     }
+    throwIfExportAborted(options.signal);
     await output.finalize();
   } catch (error) {
     await output.cancel().catch(() => {});
     throw error;
   } finally {
+    options.signal?.removeEventListener("abort", abortOutput);
     prepared.items.forEach((item) => {
       item.temporalMaskCache?.dispose();
       if (item.segment.type === "video") { item.visual.removeAttribute("src"); item.visual.load(); }
@@ -316,12 +364,14 @@ export async function exportOfflineVideo(options) {
       if (item.segment.type === "video") { item.visual.removeAttribute("src"); item.visual.load(); }
     });
   }
+  throwIfExportAborted(options.signal);
   options.onProgress?.({ progress: 98, phaseKey: "exportVerifyFile" });
   return {
     blob: new Blob([target.buffer], { type: codec.mimeType }), extension: codec.extension,
-    label: codec.extension === "mp4" ? "MP4" : "WebM", mimeType: codec.mimeType,
+    label: codec.label || (codec.extension === "mp4" ? "MP4" : "WebM"), mimeType: codec.mimeType,
     nativeMp4: codec.extension === "mp4", diagnostics: {
       width, height, frameCount: frames.length, frameRate: settings.frameRate, encoderConfig,
+      audioBitrate: audioSource ? audioBitrate : null,
       videoDecodeModes: prepared.items.map((item) => item.decodeMode),
     },
   };

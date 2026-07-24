@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { generateFrameCaptions, getAdaptiveSceneThreshold, getAspectRatioLabel, getAutoEditLanguage, normalizeClipCaptionTimings, normalizeGeneratedCaptions, selectCandidatesBySegment, selectChangedFrames } from "./autoEdit.js";
+import { generateFrameCaptions, getAdaptiveSceneThreshold, getAspectRatioLabel, getAutoEditLanguage, getAutoEditPromptLanguage, normalizeClipCaptionTimings, normalizeGeneratedCaptions, probeBuiltInAI, selectCandidatesBySegment, selectChangedFrames } from "./autoEdit.js";
 
 describe("auto edit", () => {
   it("keeps scene changes and clip boundaries", () => {
@@ -36,6 +36,45 @@ describe("auto edit", () => {
     expect(getAutoEditLanguage("zh")).toBe("zh-CN");
     expect(getAutoEditLanguage("pt")).toBe("pt-BR");
     expect(getAutoEditLanguage("ko")).toBe("ko");
+    expect(getAutoEditPromptLanguage("zh")).toBe("en");
+    expect(getAutoEditPromptLanguage("ja")).toBe("ja");
+  });
+  it("translates Prompt API fallback output into the selected language", async () => {
+    const session = { prompt: vi.fn().mockResolvedValue('{"captions":[{"text":"A red lantern"}]}') };
+    const translator = { translate: vi.fn().mockResolvedValue("一盏红灯笼") };
+    const result = await generateFrameCaptions({
+      frames: [{ segmentId: "clip-a", segmentStart: 0, segmentEnd: 2, time: 0, blob: {} }],
+      duration: 2,
+      language: "zh",
+      session,
+      translator,
+    });
+    expect(result[0].text).toBe("一盏红灯笼");
+    expect(translator.translate).toHaveBeenCalledWith("A red lantern");
+  });
+  it("reports translated languages as available when both local APIs are ready", async () => {
+    vi.stubGlobal("window", {
+      LanguageModel: { availability: vi.fn().mockResolvedValue("available") },
+      Translator: { availability: vi.fn().mockResolvedValue("available") },
+    });
+    await expect(probeBuiltInAI("zh")).resolves.toMatchObject({
+      availability: "available",
+      language: "zh-CN",
+      promptLanguage: "en",
+    });
+    expect(window.Translator.availability).toHaveBeenCalledWith({ sourceLanguage: "en", targetLanguage: "zh" });
+    vi.unstubAllGlobals();
+  });
+  it("does not require translation for a Prompt API native language", async () => {
+    vi.stubGlobal("window", {
+      LanguageModel: { availability: vi.fn().mockResolvedValue("available") },
+    });
+    await expect(probeBuiltInAI("ja")).resolves.toMatchObject({
+      availability: "available",
+      language: "ja",
+      promptLanguage: "ja",
+    });
+    vi.unstubAllGlobals();
   });
   it("labels common source aspect ratios", () => {
     expect(getAspectRatioLabel(1080, 1920)).toBe("9:16");

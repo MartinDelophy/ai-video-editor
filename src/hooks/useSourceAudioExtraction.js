@@ -5,9 +5,10 @@ import { attachSourceAudioOffset, getSourceAudioAssetId } from "../lib/sourceAud
 export function useSourceAudioExtraction(d) {
   return useCallback(async (asset, timelineStart = 0, options = {}) => {
     if (!asset?.blob) { d.notify("当前视频素材缺少原文件，无法分离原声"); return false; }
-    d.setStatus("generating"); d.setStatusText("加载 FFmpeg WASM 分离视频原声"); d.setProgress(12);
+    d.setStatus("generating"); d.setStatusText(asset.compatibilityAudioBlob ? d.t("mediaCompatibilityProcessing") : "加载 FFmpeg WASM 分离视频原声"); d.setProgress(12);
     try {
-      const extractedBlob = await extractAudioFromVideo(asset.blob, asset.name); d.setStatusText("解析视频原声波形"); d.setProgress(78);
+      const extractedBlob = asset.compatibilityAudioBlob instanceof Blob ? asset.compatibilityAudioBlob : await extractAudioFromVideo(asset.blob, asset.name);
+      d.setStatusText("解析视频原声波形"); d.setProgress(78);
       const extracted = await decodeWaveform(extractedBlob, 96); if (!extracted.duration) throw new Error("视频没有可识别的音频轨");
       const shouldAppend = options.append === true && d.sourceAudioBlob instanceof Blob;
       const sourceAudioOffset = shouldAppend ? Math.max(0, Number(d.sourceAudioDuration) || 0) : 0;

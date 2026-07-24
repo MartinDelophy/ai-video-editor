@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   createOfflineFramePlan,
+  exportOfflineVideo,
   getOfflineExportCodec,
   getOfflineStickersAtTime,
   getOfflineVisualOverlaysAtTime,
@@ -9,6 +10,12 @@ import {
 import { getVisualDimensions } from "./media.js";
 
 describe("offline video export", () => {
+  it("stops before allocating encoder resources when export is already canceled", async () => {
+    const controller = new AbortController();
+    controller.abort();
+    await expect(exportOfflineVideo({ signal: controller.signal })).rejects.toMatchObject({ name: "AbortError" });
+  });
+
   it("creates deterministic frame timestamps without wall-clock drift", () => {
     const frames = createOfflineFramePlan(1, 30);
     expect(frames).toHaveLength(30);
@@ -21,8 +28,19 @@ describe("offline video export", () => {
     expect(frames.filter((frame) => frame.keyFrame).map((frame) => frame.index)).toEqual([0, 60, 120]);
   });
 
+  it("uses the selected keyframe interval", () => {
+    const frames = createOfflineFramePlan(3.1, 30, 1);
+    expect(frames.filter((frame) => frame.keyFrame).map((frame) => frame.index)).toEqual([0, 30, 60, 90]);
+  });
+
   it("maps codecs directly to their final container without a lossy intermediate", () => {
     expect(getOfflineExportCodec({ codec: "h264" })).toMatchObject({ video: "avc", audio: "aac", extension: "mp4" });
+    expect(getOfflineExportCodec({ codec: "h264-mov" })).toMatchObject({
+      video: "avc",
+      audio: "aac",
+      extension: "mov",
+      mimeType: "video/quicktime",
+    });
     expect(getOfflineExportCodec({ codec: "vp9" })).toMatchObject({ video: "vp9", audio: "opus", extension: "webm" });
   });
 

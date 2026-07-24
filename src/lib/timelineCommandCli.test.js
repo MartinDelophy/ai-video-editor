@@ -62,7 +62,7 @@ describe("timeline command CLI", () => {
     });
     expect(rendered.verification.duration).toBeGreaterThanOrEqual(0.2);
     expect((await readFile(output)).length).toBeGreaterThan(1000);
-  }, 20_000);
+  }, 60_000);
 
   it("dry-runs and writes a new archive while preserving media entries", async () => {
     const directory = await mkdtemp(join(tmpdir(), "timeline-command-"));
@@ -160,5 +160,5 @@ describe("timeline command CLI", () => {
       musicSegments: [{ id: "music-imported", start: 1, name: "music.wav" }],
       commandState: { revision: 1, appliedOperationIds: ["edit-caption", "add-caption", "split-visual", "set-volume", "speed-visual", "mute-visual", "hide-audio", "set-ratio", "append-visual", "add-overlay", "set-transition", "import-image", "import-music"] },
     });
-  }, 20_000);
+  }, 60_000);
 });

@@ -426,8 +426,9 @@ button:disabled {
 .timeline-mobile-clip-actions { display: none; }
 .mobile-fixed-playhead { display: none; }
 
-.export-settings-popover { width: 360px; padding: 0; overflow: hidden; }
-.export-settings-card { display: grid; gap: 14px; padding: 18px; }
+.export-settings-popover { display: flex; flex-direction: column; width: 400px; max-height: calc(100dvh - 70px); padding: 0; overflow: hidden; }
+.export-settings-card { display: grid; min-height: 0; gap: 12px; padding: 18px 18px 12px; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; }
+.export-settings-footer { flex: 0 0 auto; padding: 8px 18px 18px; background: linear-gradient(180deg, rgba(16,19,25,.88), #101319 35%); }
 .export-settings-heading { display: flex; align-items: flex-start; justify-content: space-between; padding-right: 24px; }
 .export-settings-heading div { display: grid; gap: 4px; }
 .export-settings-heading strong { color: #f4fbfc; font-size: 16px; }
@@ -435,13 +436,13 @@ button:disabled {
 .export-settings-heading > span { border: 1px solid rgba(69,245,228,.22); border-radius: 5px; padding: 3px 7px; color: #45e8d8; background: rgba(69,245,228,.08); font-size: 10px; font-weight: 750; }
 .export-setting-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .export-setting-field { display: grid; gap: 7px; color: #aebbc3; font-size: 12px; }
-.export-setting-field select { width: 100%; height: 36px; border: 1px solid rgba(255,255,255,.1); border-radius: 7px; padding: 0 10px; color: #eaf5f6; outline: 0; background: #20252d; }
-.export-setting-field select:focus { border-color: rgba(69,245,228,.48); }
-.export-quality-options { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
-.export-quality-options button { height: 34px; border: 1px solid rgba(255,255,255,.09); border-radius: 7px; color: #abb6bf; background: rgba(255,255,255,.04); cursor: pointer; }
-.export-quality-options button.is-selected { border-color: rgba(69,245,228,.45); color: #eafffd; background: rgba(69,245,228,.12); }
+.export-setting-field select, .export-setting-field input { width: 100%; height: 36px; border: 1px solid rgba(255,255,255,.1); border-radius: 7px; padding: 0 10px; color: #eaf5f6; outline: 0; background: #20252d; }
+.export-setting-field select:focus, .export-setting-field input:focus { border-color: rgba(69,245,228,.48); }
+.export-setting-field select:disabled { color: #657078; background: #171b21; cursor: not-allowed; }
+.export-technical-summary { display: flex; flex-wrap: wrap; gap: 5px; }
+.export-technical-summary span { padding: 4px 7px; border: 1px solid rgba(69,245,228,.12); border-radius: 5px; color: #9fb7b7; background: rgba(69,245,228,.045); font-size: 10px; font-variant-numeric: tabular-nums; }
 .export-settings-note { padding: 9px 10px; border-radius: 7px; background: rgba(255,255,255,.035); }
-.export-confirm-button { display: flex; align-items: center; justify-content: center; gap: 7px; height: 40px; border: 0; border-radius: 7px; color: #061313; font-size: 13px; font-weight: 800; background: linear-gradient(135deg, #45f5e4, #26cfc0); cursor: pointer; }
+.export-confirm-button { display: flex; align-items: center; justify-content: center; gap: 7px; width: 100%; height: 40px; border: 0; border-radius: 7px; color: #061313; font-size: 13px; font-weight: 800; background: linear-gradient(135deg, #45f5e4, #26cfc0); cursor: pointer; }
 .export-confirm-button:disabled { color: #758086; background: rgba(255,255,255,.07); cursor: not-allowed; }
 
 .editor-grid {
@@ -1574,6 +1575,7 @@ button:disabled {
 .auto-edit-status-card > div { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .auto-edit-status-card > div > span { color: #c1cdd2; font-size: 12px; }
 .auto-edit-status-card p { margin: 0; }
+.auto-edit-status-card progress { width: 100%; height: 5px; accent-color: #35ead9; }
 .auto-edit-status-card .auto-edit-warning { color: #d8b96e; }
 .auto-edit-availability { color: #82919b; font-size: 10px; }
 .auto-edit-availability.is-available { color: #35ead9; }
@@ -5757,6 +5759,29 @@ button:disabled {
   white-space: nowrap;
 }
 
+.export-progress-cancel {
+  width: 100%;
+  min-height: 38px;
+  margin-top: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  color: #dce5e9;
+  background: rgba(255, 255, 255, 0.06);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.export-progress-cancel:hover:not(:disabled) {
+  border-color: rgba(53, 234, 217, 0.45);
+  color: #fff;
+  background: rgba(53, 234, 217, 0.1);
+}
+
+.export-progress-cancel:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
 .remaster-progress-overlay {
   position: fixed;
   inset: 0;
@@ -5986,6 +6011,12 @@ button:disabled {
   .topbar .project-file-popover { right: 10px; left: 10px; }
   .file-menu-card,
   .export-settings-popover { width: 100%; }
+  .topbar .export-settings-popover { overflow: hidden; }
+  .export-settings-card { gap: 11px; padding: 14px; }
+  .export-settings-footer { padding: 8px 14px 14px; }
+  .export-settings-card .export-setting-field { gap: 5px; font-size: 11px; }
+  .export-settings-card .export-setting-field select,
+  .export-settings-card .export-setting-field input { height: 34px; font-size: 11px; }
   .file-menu-action { min-height: 60px; }
 
   .editor-grid,

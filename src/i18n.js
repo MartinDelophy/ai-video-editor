@@ -1,5 +1,19 @@
 import { I18N_COMPLETION_COPY } from "./i18nCompletion.js";
 
+const MEDIA_COMPATIBILITY_COPY = {
+  zh: { mediaCompatibilityProcessing: "正在分析并兼容处理该媒体…", mediaCompatibilityReady: "兼容媒体已准备完成", mediaCompatibilityFailed: "兼容处理失败", mediaCompatibilityFailedHint: "无法读取该媒体，请尝试转换为 MP4/H.264/AAC" },
+  en: { mediaCompatibilityProcessing: "Analyzing and preparing compatible media…", mediaCompatibilityReady: "Compatible media is ready", mediaCompatibilityFailed: "Compatibility processing failed", mediaCompatibilityFailedHint: "This media could not be read. Try MP4 with H.264/AAC." },
+  ja: { mediaCompatibilityProcessing: "メディアを解析し互換処理しています…", mediaCompatibilityReady: "互換メディアの準備が完了しました", mediaCompatibilityFailed: "互換処理に失敗しました", mediaCompatibilityFailedHint: "メディアを読み込めません。MP4/H.264/AAC をお試しください。" },
+  ko: { mediaCompatibilityProcessing: "미디어를 분석하고 호환 처리하는 중…", mediaCompatibilityReady: "호환 미디어가 준비되었습니다", mediaCompatibilityFailed: "호환 처리에 실패했습니다", mediaCompatibilityFailedHint: "미디어를 읽을 수 없습니다. MP4/H.264/AAC를 사용해 보세요." },
+  es: { mediaCompatibilityProcessing: "Analizando y preparando contenido compatible…", mediaCompatibilityReady: "El contenido compatible está listo", mediaCompatibilityFailed: "Error de compatibilidad", mediaCompatibilityFailedHint: "No se pudo leer el archivo. Prueba MP4 con H.264/AAC." },
+  fr: { mediaCompatibilityProcessing: "Analyse et préparation du média compatible…", mediaCompatibilityReady: "Le média compatible est prêt", mediaCompatibilityFailed: "Échec du traitement de compatibilité", mediaCompatibilityFailedHint: "Impossible de lire ce média. Essayez un MP4 H.264/AAC." },
+  de: { mediaCompatibilityProcessing: "Medium wird analysiert und kompatibel aufbereitet…", mediaCompatibilityReady: "Kompatibles Medium ist bereit", mediaCompatibilityFailed: "Kompatibilitätsverarbeitung fehlgeschlagen", mediaCompatibilityFailedHint: "Medium konnte nicht gelesen werden. Versuche MP4 mit H.264/AAC." },
+  pt: { mediaCompatibilityProcessing: "Analisando e preparando mídia compatível…", mediaCompatibilityReady: "A mídia compatível está pronta", mediaCompatibilityFailed: "Falha no processamento de compatibilidade", mediaCompatibilityFailedHint: "Não foi possível ler a mídia. Tente MP4 com H.264/AAC." },
+  th: { mediaCompatibilityProcessing: "กำลังวิเคราะห์และเตรียมสื่อให้เข้ากันได้…", mediaCompatibilityReady: "สื่อที่เข้ากันได้พร้อมแล้ว", mediaCompatibilityFailed: "ประมวลผลความเข้ากันได้ไม่สำเร็จ", mediaCompatibilityFailedHint: "ไม่สามารถอ่านสื่อนี้ได้ โปรดลอง MP4 แบบ H.264/AAC" },
+  vi: { mediaCompatibilityProcessing: "Đang phân tích và chuẩn bị nội dung tương thích…", mediaCompatibilityReady: "Nội dung tương thích đã sẵn sàng", mediaCompatibilityFailed: "Xử lý tương thích thất bại", mediaCompatibilityFailedHint: "Không thể đọc nội dung này. Hãy thử MP4 H.264/AAC." },
+  ru: { mediaCompatibilityProcessing: "Анализ и подготовка совместимого медиа…", mediaCompatibilityReady: "Совместимое медиа готово", mediaCompatibilityFailed: "Ошибка обработки совместимости", mediaCompatibilityFailedHint: "Не удалось прочитать медиа. Попробуйте MP4 с H.264/AAC." },
+};
+
 export const LANGUAGE_STORAGE_KEY = "ai-voiceover-ui-language";
 
 export const APP_LANGUAGES = [
@@ -17,8 +31,8 @@ export const APP_LANGUAGES = [
 ];
 
 const EXPORT_RENDER_COPY = {
-  zh: { exportPreparing: "准备导出", exportRecordingStream: "录制 {format} 视频流", exportEmbeddedAudio: "准备视频内嵌音频 {current}/{total}", exportOfflinePreparing: "准备离线渲染", exportOfflineRendering: "离线渲染 {current}/{total}", exportVerifyFile: "验证导出文件", exportPrepareVisuals: "准备导出画面", exportPrepareTracks: "准备画布与轨道", exportMixAudio: "解码并混合音频轨", exportStartRecording: "开始录制视频流", exportRecording: "录制视频流", exportPackageFile: "封装导出文件", exportCompatibility: "切换兼容导出模式", exportSaveFile: "保存 {format} 文件", exportComplete: "导出完成", exportFailed: "导出失败" },
-  en: { exportPreparing: "Preparing export", exportRecordingStream: "Recording {format} video stream", exportEmbeddedAudio: "Preparing embedded video audio {current}/{total}", exportOfflinePreparing: "Preparing offline render", exportOfflineRendering: "Offline rendering {current}/{total}", exportVerifyFile: "Verifying exported file", exportPrepareVisuals: "Preparing visuals", exportPrepareTracks: "Preparing canvas and tracks", exportMixAudio: "Decoding and mixing audio tracks", exportStartRecording: "Starting video stream recording", exportRecording: "Recording video stream", exportPackageFile: "Packaging export file", exportCompatibility: "Switching to compatibility export", exportSaveFile: "Saving {format} file", exportComplete: "Export complete", exportFailed: "Export failed" },
+  zh: { exportPreparing: "准备导出", exportRecordingStream: "录制 {format} 视频流", exportEmbeddedAudio: "准备视频内嵌音频 {current}/{total}", exportOfflinePreparing: "准备离线渲染", exportOfflineRendering: "离线渲染 {current}/{total}", exportVerifyFile: "验证导出文件", exportPrepareVisuals: "准备导出画面", exportPrepareTracks: "准备画布与轨道", exportMixAudio: "解码并混合音频轨", exportStartRecording: "开始录制视频流", exportRecording: "录制视频流", exportPackageFile: "封装导出文件", exportCompatibility: "切换兼容导出模式", exportSaveFile: "保存 {format} 文件", exportComplete: "导出完成", exportFailed: "导出失败", exportVisualRequired: "请先上传或选择图片/视频素材再导出", exportDeterministicFailed: "当前设置无法使用精确离线导出，请切换为自动或兼容模式。", exportVideoComplete: "{format} 视频已导出", exportFfmpegLoading: "加载 FFmpeg 兼容转码器", exportFfmpegTranscoding: "正在转码 MP4", exportWebmFallbackSaving: "保存 WebM 兼容文件", exportWebmFallbackComplete: "WebM 兼容文件已导出", exportWebmFallbackNotice: "MP4 转码失败，已导出 WebM 兼容文件" },
+  en: { exportPreparing: "Preparing export", exportRecordingStream: "Recording {format} video stream", exportEmbeddedAudio: "Preparing embedded video audio {current}/{total}", exportOfflinePreparing: "Preparing offline render", exportOfflineRendering: "Offline rendering {current}/{total}", exportVerifyFile: "Verifying exported file", exportPrepareVisuals: "Preparing visuals", exportPrepareTracks: "Preparing canvas and tracks", exportMixAudio: "Decoding and mixing audio tracks", exportStartRecording: "Starting video stream recording", exportRecording: "Recording video stream", exportPackageFile: "Packaging export file", exportCompatibility: "Switching to compatibility export", exportSaveFile: "Saving {format} file", exportComplete: "Export complete", exportFailed: "Export failed", exportVisualRequired: "Add an image or video before exporting", exportDeterministicFailed: "These settings cannot use deterministic offline export. Switch to Auto or Compatible.", exportVideoComplete: "{format} video exported", exportFfmpegLoading: "Loading the FFmpeg compatibility transcoder", exportFfmpegTranscoding: "Transcoding MP4", exportWebmFallbackSaving: "Saving a compatible WebM file", exportWebmFallbackComplete: "Compatible WebM file exported", exportWebmFallbackNotice: "MP4 transcoding failed; a compatible WebM file was exported" },
   ja: { exportPreparing: "書き出しを準備中", exportRecordingStream: "{format} 動画ストリームを録画中", exportEmbeddedAudio: "動画内音声を準備中 {current}/{total}", exportOfflinePreparing: "オフラインレンダリングを準備中", exportOfflineRendering: "オフラインレンダリング {current}/{total}", exportVerifyFile: "書き出しファイルを確認中", exportPrepareVisuals: "映像を準備中", exportPrepareTracks: "キャンバスとトラックを準備中", exportMixAudio: "音声トラックをデコード・ミックス中", exportStartRecording: "動画ストリーム録画を開始中", exportRecording: "動画ストリームを録画中", exportPackageFile: "書き出しファイルを作成中", exportCompatibility: "互換書き出しに切り替え中", exportSaveFile: "{format} ファイルを保存中", exportComplete: "書き出し完了", exportFailed: "書き出し失敗" },
   ko: { exportPreparing: "내보내기 준비 중", exportRecordingStream: "{format} 비디오 스트림 녹화 중", exportEmbeddedAudio: "비디오 내장 오디오 준비 중 {current}/{total}", exportOfflinePreparing: "오프라인 렌더링 준비 중", exportOfflineRendering: "오프라인 렌더링 {current}/{total}", exportVerifyFile: "내보낸 파일 확인 중", exportPrepareVisuals: "화면 준비 중", exportPrepareTracks: "캔버스와 트랙 준비 중", exportMixAudio: "오디오 트랙 디코딩 및 믹싱 중", exportStartRecording: "비디오 스트림 녹화 시작 중", exportRecording: "비디오 스트림 녹화 중", exportPackageFile: "내보내기 파일 패키징 중", exportCompatibility: "호환 내보내기로 전환 중", exportSaveFile: "{format} 파일 저장 중", exportComplete: "내보내기 완료", exportFailed: "내보내기 실패" },
   es: { exportPreparing: "Preparando exportación", exportRecordingStream: "Grabando flujo de vídeo {format}", exportEmbeddedAudio: "Preparando audio integrado {current}/{total}", exportOfflinePreparing: "Preparando renderizado sin conexión", exportOfflineRendering: "Renderizado sin conexión {current}/{total}", exportVerifyFile: "Verificando archivo exportado", exportPrepareVisuals: "Preparando imagen", exportPrepareTracks: "Preparando lienzo y pistas", exportMixAudio: "Decodificando y mezclando audio", exportStartRecording: "Iniciando grabación del flujo", exportRecording: "Grabando flujo de vídeo", exportPackageFile: "Empaquetando archivo exportado", exportCompatibility: "Cambiando a exportación compatible", exportSaveFile: "Guardando archivo {format}", exportComplete: "Exportación completada", exportFailed: "Error de exportación" },
@@ -27,6 +41,227 @@ const EXPORT_RENDER_COPY = {
   pt: { exportPreparing: "Preparando exportação", exportRecordingStream: "Gravando fluxo de vídeo {format}", exportEmbeddedAudio: "Preparando áudio incorporado {current}/{total}", exportOfflinePreparing: "Preparando renderização offline", exportOfflineRendering: "Renderização offline {current}/{total}", exportVerifyFile: "Verificando arquivo exportado", exportPrepareVisuals: "Preparando imagens", exportPrepareTracks: "Preparando tela e faixas", exportMixAudio: "Decodificando e mixando áudio", exportStartRecording: "Iniciando gravação do vídeo", exportRecording: "Gravando fluxo de vídeo", exportPackageFile: "Empacotando arquivo exportado", exportCompatibility: "Alternando para exportação compatível", exportSaveFile: "Salvando arquivo {format}", exportComplete: "Exportação concluída", exportFailed: "Falha na exportação" },
   th: { exportPreparing: "กำลังเตรียมส่งออก", exportRecordingStream: "กำลังบันทึกสตรีมวิดีโอ {format}", exportEmbeddedAudio: "กำลังเตรียมเสียงในวิดีโอ {current}/{total}", exportOfflinePreparing: "กำลังเตรียมเรนเดอร์ออฟไลน์", exportOfflineRendering: "เรนเดอร์ออฟไลน์ {current}/{total}", exportVerifyFile: "กำลังตรวจสอบไฟล์ส่งออก", exportPrepareVisuals: "กำลังเตรียมภาพ", exportPrepareTracks: "กำลังเตรียมแคนวาสและแทร็ก", exportMixAudio: "กำลังถอดรหัสและผสมเสียง", exportStartRecording: "กำลังเริ่มบันทึกวิดีโอ", exportRecording: "กำลังบันทึกสตรีมวิดีโอ", exportPackageFile: "กำลังจัดแพ็กไฟล์ส่งออก", exportCompatibility: "กำลังสลับเป็นโหมดส่งออกที่เข้ากันได้", exportSaveFile: "กำลังบันทึกไฟล์ {format}", exportComplete: "ส่งออกเสร็จแล้ว", exportFailed: "ส่งออกไม่สำเร็จ" },
   vi: { exportPreparing: "Đang chuẩn bị xuất", exportRecordingStream: "Đang ghi luồng video {format}", exportEmbeddedAudio: "Đang chuẩn bị âm thanh nhúng {current}/{total}", exportOfflinePreparing: "Đang chuẩn bị kết xuất ngoại tuyến", exportOfflineRendering: "Kết xuất ngoại tuyến {current}/{total}", exportVerifyFile: "Đang xác minh tệp xuất", exportPrepareVisuals: "Đang chuẩn bị hình ảnh", exportPrepareTracks: "Đang chuẩn bị khung vẽ và rãnh", exportMixAudio: "Đang giải mã và trộn âm thanh", exportStartRecording: "Đang bắt đầu ghi video", exportRecording: "Đang ghi luồng video", exportPackageFile: "Đang đóng gói tệp xuất", exportCompatibility: "Đang chuyển sang xuất tương thích", exportSaveFile: "Đang lưu tệp {format}", exportComplete: "Xuất hoàn tất", exportFailed: "Xuất thất bại" },
+};
+
+const EXPORT_OPTIONS_COPY = {
+  zh: {
+    exportSaveSrt: "保存 SRT 字幕文件", exportVideoAndSrtComplete: "{format} 视频和 SRT 字幕已导出",
+    exportFileName: "文件名", exportCaptionDelivery: "字幕交付", exportCaptionsBurned: "烧录进画面", exportCaptionsNone: "不导出字幕", exportCaptionsBurnedSrt: "烧录并附带 SRT",
+    exportFormat: "导出格式",
+    exportPipeline: "导出策略",
+    exportPipelineAuto: "自动（推荐）",
+    exportPipelineAutoHint: "优先使用逐帧精确导出；不可用时自动切换实时兼容导出。",
+    exportPipelineDeterministic: "精确离线",
+    exportPipelineDeterministicHint: "按时间戳逐帧渲染，不自动降级；适合最终成片。",
+    exportPipelineCompatible: "实时兼容",
+    exportPipelineCompatibleHint: "按时间线时长实时录制，适合 WebCodecs 支持不完整的设备。",
+    exportAudio: "音频",
+    exportAudioMix: "混合全部启用轨道",
+    exportAudioNone: "静音",
+    exportAudioBitrate: "音频码率",
+    exportRuntimeChecking: "正在检查当前编码设置",
+    exportRuntimeReady: "当前浏览器支持",
+    exportRuntimeUnavailable: "当前浏览器不支持此策略",
+    exportEstimatedFrames: "约 {count} 帧",
+    exportCancel: "取消导出",
+    exportCanceling: "正在取消…",
+    exportCanceled: "导出已取消",
+    exportRange: "导出范围", exportRangeFull: "完整时间线", exportRangeCustom: "自定义范围",
+    exportRangeStart: "开始时间（秒）", exportRangeEnd: "结束时间（秒）", exportRangeDuration: "成片 {duration} 秒", exportRangeInvalid: "结束时间必须晚于开始时间",
+    exportVideoBitrate: "视频码率", exportBitrateAuto: "自动", exportBitrateCustom: "手动", exportCustomBitrate: "手动码率（Mbps）", exportKeyFrameInterval: "关键帧间隔",
+  },
+  en: {
+    exportSaveSrt: "Saving SRT caption file", exportVideoAndSrtComplete: "{format} video and SRT captions exported",
+    exportFileName: "File name", exportCaptionDelivery: "Caption delivery", exportCaptionsBurned: "Burn into video", exportCaptionsNone: "No captions", exportCaptionsBurnedSrt: "Burn in + SRT file",
+    exportFormat: "Export format",
+    exportPipeline: "Export strategy",
+    exportPipelineAuto: "Auto (recommended)",
+    exportPipelineAutoHint: "Uses deterministic frame rendering first, then falls back to real-time compatibility export.",
+    exportPipelineDeterministic: "Deterministic offline",
+    exportPipelineDeterministicHint: "Renders exact timeline timestamps without fallback; best for final delivery.",
+    exportPipelineCompatible: "Real-time compatible",
+    exportPipelineCompatibleHint: "Records in timeline time for devices with incomplete WebCodecs support.",
+    exportAudio: "Audio",
+    exportAudioMix: "Mix enabled tracks",
+    exportAudioNone: "Muted",
+    exportAudioBitrate: "Audio bitrate",
+    exportRuntimeChecking: "Checking the selected encoding settings",
+    exportRuntimeReady: "Supported by this browser",
+    exportRuntimeUnavailable: "This browser does not support the selected strategy",
+    exportEstimatedFrames: "About {count} frames",
+    exportCancel: "Cancel export",
+    exportCanceling: "Canceling…",
+    exportCanceled: "Export canceled",
+    exportRange: "Export range", exportRangeFull: "Full timeline", exportRangeCustom: "Custom range",
+    exportRangeStart: "Start time (sec)", exportRangeEnd: "End time (sec)", exportRangeDuration: "{duration}s output", exportRangeInvalid: "End time must be later than start time",
+    exportVideoBitrate: "Video bitrate", exportBitrateAuto: "Auto", exportBitrateCustom: "Manual", exportCustomBitrate: "Manual bitrate (Mbps)", exportKeyFrameInterval: "Keyframe interval",
+  },
+  ja: {
+    exportSaveSrt: "SRT 字幕ファイルを保存中", exportVideoAndSrtComplete: "{format} 動画と SRT 字幕を書き出しました",
+    exportFileName: "ファイル名", exportCaptionDelivery: "字幕の出力", exportCaptionsBurned: "映像に焼き込む", exportCaptionsNone: "字幕なし", exportCaptionsBurnedSrt: "焼き込み + SRT",
+    exportFormat: "書き出し形式", exportPipeline: "書き出し方式", exportPipelineAuto: "自動（推奨）",
+    exportPipelineAutoHint: "まず正確なフレーム書き出しを使用し、利用できない場合はリアルタイム互換書き出しに切り替えます。",
+    exportPipelineDeterministic: "正確なオフライン", exportPipelineDeterministicHint: "タイムスタンプどおりに各フレームを描画し、自動的に切り替えません。最終書き出しに適しています。",
+    exportPipelineCompatible: "リアルタイム互換", exportPipelineCompatibleHint: "WebCodecs の対応が不完全な端末向けに、タイムラインと同じ時間で録画します。",
+    exportAudio: "音声", exportAudioMix: "有効なトラックをミックス", exportAudioNone: "ミュート", exportAudioBitrate: "音声ビットレート",
+    exportRuntimeChecking: "選択したエンコード設定を確認中", exportRuntimeReady: "このブラウザーで利用可能", exportRuntimeUnavailable: "このブラウザーは選択した方式に対応していません",
+    exportEstimatedFrames: "約 {count} フレーム", exportCancel: "書き出しをキャンセル", exportCanceling: "キャンセル中…", exportCanceled: "書き出しをキャンセルしました",
+    exportRange: "書き出し範囲", exportRangeFull: "タイムライン全体", exportRangeCustom: "カスタム範囲", exportRangeStart: "開始時間（秒）", exportRangeEnd: "終了時間（秒）", exportRangeDuration: "出力 {duration} 秒", exportRangeInvalid: "終了時間は開始時間より後にしてください", exportVideoBitrate: "映像ビットレート", exportBitrateAuto: "自動", exportBitrateCustom: "手動", exportCustomBitrate: "手動ビットレート（Mbps）", exportKeyFrameInterval: "キーフレーム間隔",
+  },
+  ko: {
+    exportSaveSrt: "SRT 자막 파일 저장 중", exportVideoAndSrtComplete: "{format} 비디오와 SRT 자막을 내보냈습니다",
+    exportFileName: "파일 이름", exportCaptionDelivery: "자막 제공 방식", exportCaptionsBurned: "영상에 삽입", exportCaptionsNone: "자막 없음", exportCaptionsBurnedSrt: "영상 삽입 + SRT",
+    exportFormat: "내보내기 형식", exportPipeline: "내보내기 방식", exportPipelineAuto: "자동(권장)",
+    exportPipelineAutoHint: "정확한 프레임 렌더링을 먼저 사용하고, 사용할 수 없으면 실시간 호환 내보내기로 전환합니다.",
+    exportPipelineDeterministic: "정확한 오프라인", exportPipelineDeterministicHint: "타임스탬프별로 프레임을 렌더링하며 자동 전환하지 않습니다. 최종 결과물에 적합합니다.",
+    exportPipelineCompatible: "실시간 호환", exportPipelineCompatibleHint: "WebCodecs 지원이 불완전한 기기에서 타임라인 시간에 맞춰 녹화합니다.",
+    exportAudio: "오디오", exportAudioMix: "활성화된 트랙 믹스", exportAudioNone: "음소거", exportAudioBitrate: "오디오 비트레이트",
+    exportRuntimeChecking: "선택한 인코딩 설정 확인 중", exportRuntimeReady: "현재 브라우저에서 지원됨", exportRuntimeUnavailable: "현재 브라우저는 선택한 방식을 지원하지 않습니다",
+    exportEstimatedFrames: "약 {count}프레임", exportCancel: "내보내기 취소", exportCanceling: "취소 중…", exportCanceled: "내보내기가 취소되었습니다",
+    exportRange: "내보내기 범위", exportRangeFull: "전체 타임라인", exportRangeCustom: "사용자 지정 범위", exportRangeStart: "시작 시간(초)", exportRangeEnd: "종료 시간(초)", exportRangeDuration: "결과물 {duration}초", exportRangeInvalid: "종료 시간은 시작 시간보다 늦어야 합니다", exportVideoBitrate: "비디오 비트레이트", exportBitrateAuto: "자동", exportBitrateCustom: "수동", exportCustomBitrate: "수동 비트레이트(Mbps)", exportKeyFrameInterval: "키프레임 간격",
+  },
+  es: {
+    exportSaveSrt: "Guardando archivo de subtítulos SRT", exportVideoAndSrtComplete: "Vídeo {format} y subtítulos SRT exportados",
+    exportFileName: "Nombre del archivo", exportCaptionDelivery: "Entrega de subtítulos", exportCaptionsBurned: "Integrar en el vídeo", exportCaptionsNone: "Sin subtítulos", exportCaptionsBurnedSrt: "Integrados + archivo SRT",
+    exportFormat: "Formato de exportación", exportPipeline: "Estrategia de exportación", exportPipelineAuto: "Automática (recomendada)",
+    exportPipelineAutoHint: "Primero renderiza fotogramas exactos y cambia a la exportación compatible en tiempo real si no está disponible.",
+    exportPipelineDeterministic: "Sin conexión y exacta", exportPipelineDeterministicHint: "Renderiza cada marca de tiempo sin cambiar de modo; ideal para la entrega final.",
+    exportPipelineCompatible: "Compatible en tiempo real", exportPipelineCompatibleHint: "Graba siguiendo la duración de la línea de tiempo en dispositivos con compatibilidad WebCodecs incompleta.",
+    exportAudio: "Sonido", exportAudioMix: "Mezclar pistas activas", exportAudioNone: "Silenciado", exportAudioBitrate: "Tasa de bits de audio",
+    exportRuntimeChecking: "Comprobando los ajustes de codificación", exportRuntimeReady: "Compatible con este navegador", exportRuntimeUnavailable: "Este navegador no admite la estrategia seleccionada",
+    exportEstimatedFrames: "Aprox. {count} fotogramas", exportCancel: "Cancelar exportación", exportCanceling: "Cancelando…", exportCanceled: "Exportación cancelada",
+    exportRange: "Rango de exportación", exportRangeFull: "Línea de tiempo completa", exportRangeCustom: "Rango personalizado", exportRangeStart: "Inicio (s)", exportRangeEnd: "Fin (s)", exportRangeDuration: "Salida de {duration} s", exportRangeInvalid: "El final debe ser posterior al inicio", exportVideoBitrate: "Tasa de bits de vídeo", exportBitrateAuto: "Automática", exportBitrateCustom: "Personalizada", exportCustomBitrate: "Tasa manual (Mbps)", exportKeyFrameInterval: "Intervalo de fotogramas clave",
+  },
+  fr: {
+    exportSaveSrt: "Enregistrement du fichier de sous-titres SRT", exportVideoAndSrtComplete: "Vidéo {format} et sous-titres SRT exportés",
+    exportFileName: "Nom du fichier", exportCaptionDelivery: "Livraison des sous-titres", exportCaptionsBurned: "Incruster dans la vidéo", exportCaptionsNone: "Sans sous-titres", exportCaptionsBurnedSrt: "Incrustés + fichier SRT",
+    exportFormat: "Format d’export", exportPipeline: "Stratégie d’export", exportPipelineAuto: "Automatique (recommandé)",
+    exportPipelineAutoHint: "Utilise d’abord le rendu image par image, puis passe à l’export compatible en temps réel si nécessaire.",
+    exportPipelineDeterministic: "Hors ligne précis", exportPipelineDeterministicHint: "Rend chaque horodatage sans repli automatique, idéal pour la livraison finale.",
+    exportPipelineCompatible: "Compatible en temps réel", exportPipelineCompatibleHint: "Enregistre selon la durée de la timeline sur les appareils où WebCodecs est incomplet.",
+    exportAudio: "Son", exportAudioMix: "Mixer les pistes actives", exportAudioNone: "Muet", exportAudioBitrate: "Débit audio",
+    exportRuntimeChecking: "Vérification des réglages d’encodage", exportRuntimeReady: "Pris en charge par ce navigateur", exportRuntimeUnavailable: "Ce navigateur ne prend pas en charge la stratégie choisie",
+    exportEstimatedFrames: "Environ {count} images", exportCancel: "Annuler l’export", exportCanceling: "Annulation…", exportCanceled: "Export annulé",
+    exportRange: "Plage d’export", exportRangeFull: "Timeline complète", exportRangeCustom: "Plage personnalisée", exportRangeStart: "Début (s)", exportRangeEnd: "Fin (s)", exportRangeDuration: "Sortie de {duration} s", exportRangeInvalid: "La fin doit être postérieure au début", exportVideoBitrate: "Débit vidéo", exportBitrateAuto: "Automatique", exportBitrateCustom: "Manuel", exportCustomBitrate: "Débit manuel (Mbit/s)", exportKeyFrameInterval: "Intervalle d’images clés",
+  },
+  de: {
+    exportSaveSrt: "SRT-Untertiteldatei wird gespeichert", exportVideoAndSrtComplete: "{format}-Video und SRT-Untertitel exportiert",
+    exportFileName: "Dateiname", exportCaptionDelivery: "Untertitelausgabe", exportCaptionsBurned: "In Video einbrennen", exportCaptionsNone: "Keine Untertitel", exportCaptionsBurnedSrt: "Einbrennen + SRT-Datei",
+    exportFormat: "Exportformat", exportPipeline: "Exportstrategie", exportPipelineAuto: "Automatisch (empfohlen)",
+    exportPipelineAutoHint: "Verwendet zuerst exaktes Frame-Rendering und wechselt bei Bedarf zum kompatiblen Echtzeitexport.",
+    exportPipelineDeterministic: "Exakt offline", exportPipelineDeterministicHint: "Rendert jeden Zeitstempel ohne automatischen Wechsel; ideal für die finale Ausgabe.",
+    exportPipelineCompatible: "Echtzeit-kompatibel", exportPipelineCompatibleHint: "Zeichnet in Timeline-Echtzeit auf Geräten mit unvollständiger WebCodecs-Unterstützung auf.",
+    exportAudio: "Ton", exportAudioMix: "Aktive Spuren mischen", exportAudioNone: "Stumm", exportAudioBitrate: "Audio-Bitrate",
+    exportRuntimeChecking: "Kodierungseinstellungen werden geprüft", exportRuntimeReady: "Von diesem Browser unterstützt", exportRuntimeUnavailable: "Dieser Browser unterstützt die gewählte Strategie nicht",
+    exportEstimatedFrames: "Ca. {count} Frames", exportCancel: "Export abbrechen", exportCanceling: "Wird abgebrochen…", exportCanceled: "Export abgebrochen",
+    exportRange: "Exportbereich", exportRangeFull: "Gesamte Timeline", exportRangeCustom: "Eigener Bereich", exportRangeStart: "Startzeit (s)", exportRangeEnd: "Endzeit (s)", exportRangeDuration: "{duration} s Ausgabe", exportRangeInvalid: "Die Endzeit muss nach der Startzeit liegen", exportVideoBitrate: "Video-Bitrate", exportBitrateAuto: "Automatisch", exportBitrateCustom: "Manuell", exportCustomBitrate: "Manuelle Bitrate (Mbit/s)", exportKeyFrameInterval: "Keyframe-Intervall",
+  },
+  pt: {
+    exportSaveSrt: "Salvando arquivo de legendas SRT", exportVideoAndSrtComplete: "Vídeo {format} e legendas SRT exportados",
+    exportFileName: "Nome do arquivo", exportCaptionDelivery: "Entrega de legendas", exportCaptionsBurned: "Incorporar no vídeo", exportCaptionsNone: "Sem legendas", exportCaptionsBurnedSrt: "Incorporadas + arquivo SRT",
+    exportFormat: "Formato de exportação", exportPipeline: "Estratégia de exportação", exportPipelineAuto: "Automática (recomendada)",
+    exportPipelineAutoHint: "Usa primeiro a renderização exata de quadros e alterna para a exportação compatível em tempo real quando necessário.",
+    exportPipelineDeterministic: "Offline precisa", exportPipelineDeterministicHint: "Renderiza cada instante sem alternância automática; ideal para a entrega final.",
+    exportPipelineCompatible: "Compatível em tempo real", exportPipelineCompatibleHint: "Grava no tempo da linha do tempo em dispositivos com suporte incompleto a WebCodecs.",
+    exportAudio: "Áudio", exportAudioMix: "Mixar faixas ativas", exportAudioNone: "Sem áudio", exportAudioBitrate: "Taxa de bits do áudio",
+    exportRuntimeChecking: "Verificando as configurações de codificação", exportRuntimeReady: "Compatível com este navegador", exportRuntimeUnavailable: "Este navegador não suporta a estratégia selecionada",
+    exportEstimatedFrames: "Cerca de {count} quadros", exportCancel: "Cancelar exportação", exportCanceling: "Cancelando…", exportCanceled: "Exportação cancelada",
+    exportRange: "Intervalo de exportação", exportRangeFull: "Linha do tempo completa", exportRangeCustom: "Intervalo personalizado", exportRangeStart: "Início (s)", exportRangeEnd: "Fim (s)", exportRangeDuration: "Saída de {duration} s", exportRangeInvalid: "O fim deve ser posterior ao início", exportVideoBitrate: "Taxa de bits do vídeo", exportBitrateAuto: "Automática", exportBitrateCustom: "Personalizada", exportCustomBitrate: "Taxa manual (Mbps)", exportKeyFrameInterval: "Intervalo de quadro-chave",
+  },
+  th: {
+    exportSaveSrt: "กำลังบันทึกไฟล์คำบรรยาย SRT", exportVideoAndSrtComplete: "ส่งออกวิดีโอ {format} และคำบรรยาย SRT แล้ว",
+    exportFileName: "ชื่อไฟล์", exportCaptionDelivery: "การส่งออกคำบรรยาย", exportCaptionsBurned: "ฝังในวิดีโอ", exportCaptionsNone: "ไม่มีคำบรรยาย", exportCaptionsBurnedSrt: "ฝังในวิดีโอ + ไฟล์ SRT",
+    exportFormat: "รูปแบบการส่งออก", exportPipeline: "กลยุทธ์การส่งออก", exportPipelineAuto: "อัตโนมัติ (แนะนำ)",
+    exportPipelineAutoHint: "ใช้การเรนเดอร์ทีละเฟรมอย่างแม่นยำก่อน และสลับเป็นการส่งออกแบบเรียลไทม์ที่เข้ากันได้เมื่อจำเป็น",
+    exportPipelineDeterministic: "ออฟไลน์แบบแม่นยำ", exportPipelineDeterministicHint: "เรนเดอร์ตามเวลาแต่ละเฟรมโดยไม่สลับโหมดอัตโนมัติ เหมาะสำหรับไฟล์ฉบับสมบูรณ์",
+    exportPipelineCompatible: "เข้ากันได้แบบเรียลไทม์", exportPipelineCompatibleHint: "บันทึกตามเวลาของไทม์ไลน์บนอุปกรณ์ที่รองรับ WebCodecs ไม่สมบูรณ์",
+    exportAudio: "เสียง", exportAudioMix: "ผสมแทร็กที่เปิดใช้", exportAudioNone: "ปิดเสียง", exportAudioBitrate: "บิตเรตเสียง",
+    exportRuntimeChecking: "กำลังตรวจสอบการตั้งค่าการเข้ารหัส", exportRuntimeReady: "เบราว์เซอร์นี้รองรับ", exportRuntimeUnavailable: "เบราว์เซอร์นี้ไม่รองรับกลยุทธ์ที่เลือก",
+    exportEstimatedFrames: "ประมาณ {count} เฟรม", exportCancel: "ยกเลิกการส่งออก", exportCanceling: "กำลังยกเลิก…", exportCanceled: "ยกเลิกการส่งออกแล้ว",
+    exportRange: "ช่วงการส่งออก", exportRangeFull: "ไทม์ไลน์ทั้งหมด", exportRangeCustom: "ช่วงกำหนดเอง", exportRangeStart: "เวลาเริ่ม (วินาที)", exportRangeEnd: "เวลาสิ้นสุด (วินาที)", exportRangeDuration: "ไฟล์ยาว {duration} วินาที", exportRangeInvalid: "เวลาสิ้นสุดต้องอยู่หลังเวลาเริ่ม", exportVideoBitrate: "บิตเรตวิดีโอ", exportBitrateAuto: "อัตโนมัติ", exportBitrateCustom: "กำหนดเอง", exportCustomBitrate: "บิตเรตกำหนดเอง (Mbps)", exportKeyFrameInterval: "ช่วงคีย์เฟรม",
+  },
+  vi: {
+    exportSaveSrt: "Đang lưu tệp phụ đề SRT", exportVideoAndSrtComplete: "Đã xuất video {format} và phụ đề SRT",
+    exportFileName: "Tên tệp", exportCaptionDelivery: "Cách xuất phụ đề", exportCaptionsBurned: "Ghi vào video", exportCaptionsNone: "Không có phụ đề", exportCaptionsBurnedSrt: "Ghi vào video + tệp SRT",
+    exportFormat: "Định dạng xuất", exportPipeline: "Chiến lược xuất", exportPipelineAuto: "Tự động (khuyên dùng)",
+    exportPipelineAutoHint: "Ưu tiên kết xuất chính xác từng khung hình, sau đó chuyển sang xuất tương thích theo thời gian thực khi cần.",
+    exportPipelineDeterministic: "Ngoại tuyến chính xác", exportPipelineDeterministicHint: "Kết xuất từng mốc thời gian mà không tự chuyển chế độ; phù hợp cho bản xuất cuối.",
+    exportPipelineCompatible: "Tương thích thời gian thực", exportPipelineCompatibleHint: "Ghi theo thời lượng dòng thời gian trên thiết bị hỗ trợ WebCodecs chưa đầy đủ.",
+    exportAudio: "Âm thanh", exportAudioMix: "Trộn các rãnh đang bật", exportAudioNone: "Tắt tiếng", exportAudioBitrate: "Tốc độ bit âm thanh",
+    exportRuntimeChecking: "Đang kiểm tra thiết lập mã hóa", exportRuntimeReady: "Trình duyệt này hỗ trợ", exportRuntimeUnavailable: "Trình duyệt này không hỗ trợ chiến lược đã chọn",
+    exportEstimatedFrames: "Khoảng {count} khung hình", exportCancel: "Hủy xuất", exportCanceling: "Đang hủy…", exportCanceled: "Đã hủy xuất",
+    exportRange: "Phạm vi xuất", exportRangeFull: "Toàn bộ dòng thời gian", exportRangeCustom: "Phạm vi tùy chỉnh", exportRangeStart: "Bắt đầu (giây)", exportRangeEnd: "Kết thúc (giây)", exportRangeDuration: "Đầu ra {duration} giây", exportRangeInvalid: "Thời gian kết thúc phải sau thời gian bắt đầu", exportVideoBitrate: "Tốc độ bit video", exportBitrateAuto: "Tự động", exportBitrateCustom: "Thủ công", exportCustomBitrate: "Tốc độ bit thủ công (Mbps)", exportKeyFrameInterval: "Khoảng khung hình chính",
+  },
+  ru: {
+    exportSaveSrt: "Сохранение файла субтитров SRT", exportVideoAndSrtComplete: "Видео {format} и субтитры SRT экспортированы",
+    exportFileName: "Имя файла", exportCaptionDelivery: "Экспорт субтитров", exportCaptionsBurned: "Встроить в видео", exportCaptionsNone: "Без субтитров", exportCaptionsBurnedSrt: "Встроить + файл SRT",
+    exportFormat: "Формат экспорта", exportPipeline: "Стратегия экспорта", exportPipelineAuto: "Автоматически (рекомендуется)",
+    exportPipelineAutoHint: "Сначала выполняется точный покадровый рендеринг, а при необходимости — совместимый экспорт в реальном времени.",
+    exportPipelineDeterministic: "Точный офлайн", exportPipelineDeterministicHint: "Рендерит каждый временной штамп без автоматического переключения; подходит для финального файла.",
+    exportPipelineCompatible: "Совместимый в реальном времени", exportPipelineCompatibleHint: "Записывает по времени таймлайна на устройствах с неполной поддержкой WebCodecs.",
+    exportAudio: "Аудио", exportAudioMix: "Смешать активные дорожки", exportAudioNone: "Без звука", exportAudioBitrate: "Битрейт аудио",
+    exportRuntimeChecking: "Проверка настроек кодирования", exportRuntimeReady: "Поддерживается этим браузером", exportRuntimeUnavailable: "Этот браузер не поддерживает выбранную стратегию",
+    exportEstimatedFrames: "Около {count} кадров", exportCancel: "Отменить экспорт", exportCanceling: "Отмена…", exportCanceled: "Экспорт отменён",
+    exportRange: "Диапазон экспорта", exportRangeFull: "Весь таймлайн", exportRangeCustom: "Свой диапазон", exportRangeStart: "Начало (с)", exportRangeEnd: "Конец (с)", exportRangeDuration: "Результат {duration} с", exportRangeInvalid: "Конец должен быть позже начала", exportVideoBitrate: "Битрейт видео", exportBitrateAuto: "Авто", exportBitrateCustom: "Вручную", exportCustomBitrate: "Битрейт вручную (Мбит/с)", exportKeyFrameInterval: "Интервал ключевых кадров",
+  },
+};
+
+const EXPORT_EXTRA_STATUS_COPY = {
+  zh: {
+    exportVisualRequired: "请先上传或选择图片/视频素材再导出", exportDeterministicFailed: "当前设置无法使用精确离线导出，请切换为自动或兼容模式。",
+    exportVideoComplete: "{format} 视频已导出", exportFfmpegLoading: "加载 FFmpeg 兼容转码器", exportFfmpegTranscoding: "正在转码 MP4",
+    exportWebmFallbackSaving: "保存 WebM 兼容文件", exportWebmFallbackComplete: "WebM 兼容文件已导出", exportWebmFallbackNotice: "MP4 转码失败，已导出 WebM 兼容文件",
+  },
+  en: {
+    exportVisualRequired: "Add an image or video before exporting", exportDeterministicFailed: "These settings cannot use deterministic offline export. Switch to Auto or Compatible.",
+    exportVideoComplete: "{format} video exported", exportFfmpegLoading: "Loading the FFmpeg compatibility transcoder", exportFfmpegTranscoding: "Transcoding MP4",
+    exportWebmFallbackSaving: "Saving a compatible WebM file", exportWebmFallbackComplete: "Compatible WebM file exported", exportWebmFallbackNotice: "MP4 transcoding failed; a compatible WebM file was exported",
+  },
+  ja: {
+    exportVisualRequired: "書き出す前に画像または動画を追加してください", exportDeterministicFailed: "この設定では正確なオフライン書き出しを使用できません。自動または互換モードに切り替えてください。",
+    exportVideoComplete: "{format} 動画を書き出しました", exportFfmpegLoading: "FFmpeg 互換トランスコーダーを読み込み中", exportFfmpegTranscoding: "MP4 に変換中",
+    exportWebmFallbackSaving: "互換 WebM ファイルを保存中", exportWebmFallbackComplete: "互換 WebM ファイルを書き出しました", exportWebmFallbackNotice: "MP4 変換に失敗したため、互換 WebM ファイルを書き出しました",
+  },
+  ko: {
+    exportVisualRequired: "내보내기 전에 이미지 또는 비디오를 추가하세요", exportDeterministicFailed: "현재 설정으로 정확한 오프라인 내보내기를 사용할 수 없습니다. 자동 또는 호환 모드로 전환하세요.",
+    exportVideoComplete: "{format} 비디오를 내보냈습니다", exportFfmpegLoading: "FFmpeg 호환 트랜스코더 로드 중", exportFfmpegTranscoding: "MP4 변환 중",
+    exportWebmFallbackSaving: "호환 WebM 파일 저장 중", exportWebmFallbackComplete: "호환 WebM 파일을 내보냈습니다", exportWebmFallbackNotice: "MP4 변환에 실패하여 호환 WebM 파일을 내보냈습니다",
+  },
+  es: {
+    exportVisualRequired: "Añade una imagen o un vídeo antes de exportar", exportDeterministicFailed: "Estos ajustes no permiten la exportación exacta sin conexión. Cambia a Automática o Compatible.",
+    exportVideoComplete: "Vídeo {format} exportado", exportFfmpegLoading: "Cargando el transcodificador compatible FFmpeg", exportFfmpegTranscoding: "Transcodificando MP4",
+    exportWebmFallbackSaving: "Guardando archivo WebM compatible", exportWebmFallbackComplete: "Archivo WebM compatible exportado", exportWebmFallbackNotice: "Falló la transcodificación MP4; se exportó un archivo WebM compatible",
+  },
+  fr: {
+    exportVisualRequired: "Ajoutez une image ou une vidéo avant l’export", exportDeterministicFailed: "Ces réglages ne permettent pas l’export hors ligne précis. Choisissez Automatique ou Compatible.",
+    exportVideoComplete: "Vidéo {format} exportée", exportFfmpegLoading: "Chargement du transcodeur de compatibilité FFmpeg", exportFfmpegTranscoding: "Transcodage MP4",
+    exportWebmFallbackSaving: "Enregistrement du fichier WebM compatible", exportWebmFallbackComplete: "Fichier WebM compatible exporté", exportWebmFallbackNotice: "Le transcodage MP4 a échoué ; un fichier WebM compatible a été exporté",
+  },
+  de: {
+    exportVisualRequired: "Füge vor dem Export ein Bild oder Video hinzu", exportDeterministicFailed: "Mit diesen Einstellungen ist kein exakter Offlineexport möglich. Wähle Automatisch oder Kompatibel.",
+    exportVideoComplete: "{format}-Video exportiert", exportFfmpegLoading: "FFmpeg-Kompatibilitätstranscoder wird geladen", exportFfmpegTranscoding: "MP4 wird transkodiert",
+    exportWebmFallbackSaving: "Kompatible WebM-Datei wird gespeichert", exportWebmFallbackComplete: "Kompatible WebM-Datei exportiert", exportWebmFallbackNotice: "MP4-Transkodierung fehlgeschlagen; eine kompatible WebM-Datei wurde exportiert",
+  },
+  pt: {
+    exportVisualRequired: "Adicione uma imagem ou um vídeo antes de exportar", exportDeterministicFailed: "Estas configurações não permitem a exportação offline precisa. Mude para Automática ou Compatível.",
+    exportVideoComplete: "Vídeo {format} exportado", exportFfmpegLoading: "Carregando o transcodificador de compatibilidade FFmpeg", exportFfmpegTranscoding: "Transcodificando MP4",
+    exportWebmFallbackSaving: "Salvando arquivo WebM compatível", exportWebmFallbackComplete: "Arquivo WebM compatível exportado", exportWebmFallbackNotice: "A transcodificação MP4 falhou; um arquivo WebM compatível foi exportado",
+  },
+  th: {
+    exportVisualRequired: "เพิ่มรูปภาพหรือวิดีโอก่อนส่งออก", exportDeterministicFailed: "การตั้งค่านี้ไม่สามารถใช้การส่งออกออฟไลน์แบบแม่นยำได้ โปรดเลือกอัตโนมัติหรือโหมดเข้ากันได้",
+    exportVideoComplete: "ส่งออกวิดีโอ {format} แล้ว", exportFfmpegLoading: "กำลังโหลดตัวแปลง FFmpeg สำหรับความเข้ากันได้", exportFfmpegTranscoding: "กำลังแปลง MP4",
+    exportWebmFallbackSaving: "กำลังบันทึกไฟล์ WebM ที่เข้ากันได้", exportWebmFallbackComplete: "ส่งออกไฟล์ WebM ที่เข้ากันได้แล้ว", exportWebmFallbackNotice: "แปลง MP4 ไม่สำเร็จ จึงส่งออกไฟล์ WebM ที่เข้ากันได้แทน",
+  },
+  vi: {
+    exportVisualRequired: "Hãy thêm hình ảnh hoặc video trước khi xuất", exportDeterministicFailed: "Các thiết lập này không thể dùng chế độ ngoại tuyến chính xác. Hãy chuyển sang Tự động hoặc Tương thích.",
+    exportVideoComplete: "Đã xuất video {format}", exportFfmpegLoading: "Đang tải bộ chuyển mã tương thích FFmpeg", exportFfmpegTranscoding: "Đang chuyển mã MP4",
+    exportWebmFallbackSaving: "Đang lưu tệp WebM tương thích", exportWebmFallbackComplete: "Đã xuất tệp WebM tương thích", exportWebmFallbackNotice: "Chuyển mã MP4 thất bại; đã xuất tệp WebM tương thích",
+  },
+  ru: {
+    exportVisualRequired: "Добавьте изображение или видео перед экспортом", exportDeterministicFailed: "Эти настройки не поддерживают точный офлайн-экспорт. Выберите автоматический или совместимый режим.",
+    exportVideoComplete: "Видео {format} экспортировано", exportFfmpegLoading: "Загрузка совместимого транскодера FFmpeg", exportFfmpegTranscoding: "Транскодирование MP4",
+    exportWebmFallbackSaving: "Сохранение совместимого файла WebM", exportWebmFallbackComplete: "Совместимый файл WebM экспортирован", exportWebmFallbackNotice: "Транскодирование MP4 не удалось; экспортирован совместимый файл WebM",
+  },
 };
 
 const PROJECT_CHROME_COPY = {
@@ -425,8 +660,17 @@ const SMART_WORKSPACE_COPY = {
 };
 
 const AUTO_EDIT_COPY = {
-  zh: { smartAutoEditHint: "本地生成字幕", autoEditCreateTitle: "从画面生成时间轴字幕", autoEditCreateDesc: "检测镜头变化，抽取代表帧，并交给 Chrome 内置模型生成带时间的字幕。", autoEditBrowserModel: "Chrome 内置模型", autoEditPrivacyHint: "画面在设备本地处理，不上传到项目服务器。首次使用可能需要 Chrome 下载模型。", autoEditLanguageFallback: "Chrome 当前未正式支持中文 Prompt 输出，本次会生成英文字幕；生成后可在字幕轨继续编辑。", autoEditCheckSupport: "检测浏览器支持", autoEditStepScenes: "检测镜头", autoEditStepScenesHint: "按帧差筛选关键画面", autoEditStepCaptions: "理解画面", autoEditStepCaptionsHint: "本地多模态模型生成文案", autoEditStepTimeline: "写入时间轴", autoEditStepTimelineHint: "保留每条字幕的开始与结束时间", autoEditGenerate: "生成画面字幕", autoEditNeedsVisual: "请先添加图片或视频", autoEditFindingScenes: "正在检测镜头变化", autoEditWritingCaptions: "正在生成字幕", autoEditDownloadingModel: "正在下载浏览器模型", autoEditDone: "画面字幕已写入时间轴", autoEditUnavailable: "当前浏览器或设备不支持 Chrome 内置模型", autoEditFailed: "自动剪辑失败", autoEditStatus_unknown: "尚未检测", autoEditStatus_checking: "检测中", autoEditStatus_available: "可用", autoEditStatus_downloadable: "模型待下载", autoEditStatus_downloading: "下载中", autoEditStatus_unavailable: "不可用" },
-  en: { smartAutoEditHint: "Local captions", autoEditCreateTitle: "Create timed captions from visuals", autoEditCreateDesc: "Detect scene changes, sample representative frames, and use Chrome's built-in model to write timed captions.", autoEditBrowserModel: "Chrome built-in model", autoEditPrivacyHint: "Frames are processed on this device and are not sent to the project server. Chrome may download the model on first use.", autoEditLanguageFallback: "The current UI language is not officially supported by Chrome Prompt API output. Captions will be generated in English and remain editable.", autoEditCheckSupport: "Check browser support", autoEditStepScenes: "Detect scenes", autoEditStepScenesHint: "Select key visuals by frame difference", autoEditStepCaptions: "Understand visuals", autoEditStepCaptionsHint: "Generate copy with the local multimodal model", autoEditStepTimeline: "Write timeline", autoEditStepTimelineHint: "Keep caption start and end times", autoEditGenerate: "Generate visual captions", autoEditNeedsVisual: "Add an image or video first", autoEditFindingScenes: "Detecting scene changes", autoEditWritingCaptions: "Writing captions", autoEditDownloadingModel: "Downloading browser model", autoEditDone: "Visual captions added to the timeline", autoEditUnavailable: "Chrome built-in AI is unavailable on this browser or device", autoEditFailed: "Auto Edit failed", autoEditStatus_unknown: "Not checked", autoEditStatus_checking: "Checking", autoEditStatus_available: "Available", autoEditStatus_downloadable: "Model download needed", autoEditStatus_downloading: "Downloading", autoEditStatus_unavailable: "Unavailable" },
+  zh: { smartAutoEditHint: "本地生成字幕", autoEditCreateTitle: "从画面生成时间轴字幕", autoEditCreateDesc: "检测镜头变化，抽取代表帧，并交给 Chrome 内置模型生成带时间的字幕。", autoEditBrowserModel: "Chrome 内置模型", autoEditPrivacyHint: "画面在设备本地处理，不上传到项目服务器。首次使用可能需要 Chrome 下载模型。", autoEditLanguageFallback: "Chrome 当前未正式支持中文 Prompt 输出，本次会生成英文字幕；生成后可在字幕轨继续编辑。", autoEditCheckSupport: "检测浏览器支持", autoEditDownloadModel: "下载模型", autoEditStepScenes: "检测镜头", autoEditStepScenesHint: "按帧差筛选关键画面", autoEditStepCaptions: "理解画面", autoEditStepCaptionsHint: "本地多模态模型生成文案", autoEditStepTimeline: "写入时间轴", autoEditStepTimelineHint: "保留每条字幕的开始与结束时间", autoEditGenerate: "生成画面字幕", autoEditNeedsVisual: "请先添加图片或视频", autoEditFindingScenes: "正在检测镜头变化", autoEditWritingCaptions: "正在生成字幕", autoEditDownloadingModel: "正在下载浏览器模型", autoEditDone: "画面字幕已写入时间轴", autoEditUnavailable: "当前浏览器或设备不支持 Chrome 内置模型", autoEditFailed: "自动剪辑失败", autoEditStatus_unknown: "尚未检测", autoEditStatus_checking: "检测中", autoEditStatus_available: "可用", autoEditStatus_downloadable: "模型待下载", autoEditStatus_downloading: "下载中", autoEditStatus_unavailable: "不可用" },
+  en: { smartAutoEditHint: "Local captions", autoEditCreateTitle: "Create timed captions from visuals", autoEditCreateDesc: "Detect scene changes, sample representative frames, and use Chrome's built-in model to write timed captions.", autoEditBrowserModel: "Chrome built-in model", autoEditPrivacyHint: "Frames are processed on this device and are not sent to the project server. Chrome may download the model on first use.", autoEditLanguageFallback: "The current UI language is not officially supported by Chrome Prompt API output. Captions will be generated in English and remain editable.", autoEditCheckSupport: "Check browser support", autoEditDownloadModel: "Download model", autoEditStepScenes: "Detect scenes", autoEditStepScenesHint: "Select key visuals by frame difference", autoEditStepCaptions: "Understand visuals", autoEditStepCaptionsHint: "Generate copy with the local multimodal model", autoEditStepTimeline: "Write timeline", autoEditStepTimelineHint: "Keep caption start and end times", autoEditGenerate: "Generate visual captions", autoEditNeedsVisual: "Add an image or video first", autoEditFindingScenes: "Detecting scene changes", autoEditWritingCaptions: "Writing captions", autoEditDownloadingModel: "Downloading browser model", autoEditDone: "Visual captions added to the timeline", autoEditUnavailable: "Chrome built-in AI is unavailable on this browser or device", autoEditFailed: "Auto Edit failed", autoEditStatus_unknown: "Not checked", autoEditStatus_checking: "Checking", autoEditStatus_available: "Available", autoEditStatus_downloadable: "Model download needed", autoEditStatus_downloading: "Downloading", autoEditStatus_unavailable: "Unavailable" },
+  ja: { autoEditDownloadModel: "モデルをダウンロード" },
+  ko: { autoEditDownloadModel: "모델 다운로드" },
+  es: { autoEditDownloadModel: "Descargar modelo" },
+  fr: { autoEditDownloadModel: "Télécharger le modèle" },
+  de: { autoEditDownloadModel: "Modell herunterladen" },
+  pt: { autoEditDownloadModel: "Baixar modelo" },
+  th: { autoEditDownloadModel: "ดาวน์โหลดโมเดล" },
+  vi: { autoEditDownloadModel: "Tải mô hình" },
+  ru: { autoEditDownloadModel: "Скачать модель" },
 };
 
 const AUTO_EDIT_BUTTON_COPY = {
@@ -1918,6 +2162,8 @@ export function createTranslator(languageId) {
   const fallback = UI_COPY.en;
   const srtImportCopy = SRT_IMPORT_COPY[languageId] ?? SRT_IMPORT_COPY.en;
   const exportCopy = EXPORT_RENDER_COPY[copyLanguage] ?? EXPORT_RENDER_COPY.en;
+  const exportOptionsCopy = EXPORT_OPTIONS_COPY[languageId] ?? EXPORT_OPTIONS_COPY.en;
+  const exportExtraStatusCopy = EXPORT_EXTRA_STATUS_COPY[languageId] ?? EXPORT_EXTRA_STATUS_COPY.en;
   const assetPreviewCopy = ASSET_PREVIEW_COPY[copyLanguage] ?? ASSET_PREVIEW_COPY.en;
   const assetDropCopy = ASSET_DROP_COPY[copyLanguage] ?? ASSET_DROP_COPY.en;
   const autoCaptionStatusCopy = AUTO_CAPTION_STATUS_COPY[copyLanguage] ?? AUTO_CAPTION_STATUS_COPY.en;
@@ -1930,7 +2176,7 @@ export function createTranslator(languageId) {
   const projectChromeCopy = PROJECT_CHROME_COPY[languageId] ?? PROJECT_CHROME_COPY.en;
   const coreLabelCopy = CORE_LABEL_COPY[languageId] ?? CORE_LABEL_COPY.en;
   const specializedCopy = Object.assign({}, ...[
-    EXPORT_RENDER_COPY, PROJECT_CHROME_COPY, CORE_LABEL_COPY, MOBILE_DRAWER_COPY, MOBILE_CLIP_ACTION_COPY,
+    EXPORT_RENDER_COPY, MEDIA_COMPATIBILITY_COPY, PROJECT_CHROME_COPY, CORE_LABEL_COPY, MOBILE_DRAWER_COPY, MOBILE_CLIP_ACTION_COPY,
     VISUAL_EDITOR_COPY, TRANSITION_EDITOR_COPY, ASSET_PREVIEW_COPY, ASSET_DROP_COPY,
     AUTO_CAPTION_STATUS_COPY, VISUAL_PANEL_TITLE_COPY, VISUAL_MASK_SHAPE_COPY,
     VISUAL_KEYFRAME_ACTION_COPY, VISUAL_TAB_COPY, SOURCE_AUDIO_SYNC_COPY,
@@ -1943,7 +2189,7 @@ export function createTranslator(languageId) {
     AUTO_EDIT_RESULT_COPY, IMAGE_AI_CAPTION_COPY, PICTURE_IN_PICTURE_COPY,
     SRT_IMPORT_COPY,
   ].map((source) => source[languageId] ?? {}));
-  return (key, fallbackText) => coreLabelCopy[key] ?? specializedCopy[key] ?? projectChromeCopy[key] ?? PROJECT_CHROME_COPY.en[key] ?? captionAudioLinkCopy[key] ?? CAPTION_AUDIO_LINK_COPY.en[key] ?? ttsBackendCopy[key] ?? TTS_BACKEND_COPY.en[key] ?? mobileStickerCopy[key] ?? MOBILE_STICKER_COPY.en[key] ?? mobileClipActionCopy[key] ?? MOBILE_CLIP_ACTION_COPY.en[key] ?? mobileDrawerCopy[key] ?? MOBILE_DRAWER_COPY.en[key] ?? srtImportCopy[key] ?? exportCopy[key] ?? EXPORT_RENDER_COPY.en[key] ?? assetPreviewCopy[key] ?? ASSET_PREVIEW_COPY.en[key] ?? assetDropCopy[key] ?? ASSET_DROP_COPY.en[key] ?? autoCaptionStatusCopy[key] ?? AUTO_CAPTION_STATUS_COPY.en[key] ?? completionCopy[key] ?? copy[key] ?? fallback[key] ?? UI_COPY.zh[key] ?? fallbackText ?? key;
+  return (key, fallbackText) => coreLabelCopy[key] ?? specializedCopy[key] ?? exportOptionsCopy[key] ?? EXPORT_OPTIONS_COPY.en[key] ?? exportExtraStatusCopy[key] ?? EXPORT_EXTRA_STATUS_COPY.en[key] ?? projectChromeCopy[key] ?? PROJECT_CHROME_COPY.en[key] ?? captionAudioLinkCopy[key] ?? CAPTION_AUDIO_LINK_COPY.en[key] ?? ttsBackendCopy[key] ?? TTS_BACKEND_COPY.en[key] ?? mobileStickerCopy[key] ?? MOBILE_STICKER_COPY.en[key] ?? mobileClipActionCopy[key] ?? MOBILE_CLIP_ACTION_COPY.en[key] ?? mobileDrawerCopy[key] ?? MOBILE_DRAWER_COPY.en[key] ?? srtImportCopy[key] ?? exportCopy[key] ?? EXPORT_RENDER_COPY.en[key] ?? assetPreviewCopy[key] ?? ASSET_PREVIEW_COPY.en[key] ?? assetDropCopy[key] ?? ASSET_DROP_COPY.en[key] ?? autoCaptionStatusCopy[key] ?? AUTO_CAPTION_STATUS_COPY.en[key] ?? completionCopy[key] ?? copy[key] ?? fallback[key] ?? UI_COPY.zh[key] ?? fallbackText ?? key;
 }
 
 export function translateOptionName(languageId, name) {

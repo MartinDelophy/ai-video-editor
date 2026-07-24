@@ -14,6 +14,7 @@ export function useEditorRefs() {
     avatarTestImportedRef: useRef(false),
     currentTimeRef: useRef(0),
     draggedAssetIdRef: useRef(""),
+    exportAbortControllerRef: useRef(null),
     exportStartRef: useRef(0),
     fileInputRef: useRef(null),
     imageUrlRefs: useRef(new Set()),

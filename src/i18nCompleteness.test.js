@@ -8,7 +8,7 @@ function collectRuntimeTranslationKeys(directory, keys = new Set()) {
   for (const name of readdirSync(directory)) {
     const path = join(directory, name);
     const info = statSync(path);
-    if (info.isDirectory()) collectRuntimeTranslationKeys(path, keys);
+    if (info.isDirectory() && name !== "vendor") collectRuntimeTranslationKeys(path, keys);
     else if (/\.(?:js|jsx)$/.test(name) && !/\.test\.[^.]+$/.test(name) && name !== "i18nCompletion.js") {
       const source = readFileSync(path, "utf8");
       for (const match of source.matchAll(/\bt\(\s*["']([^"']+)["']/g)) keys.add(match[1]);

@@ -66,7 +66,13 @@ import { getImageThumbnailCount, getVisualSegmentsTotal, normalizeTimedSegmentId
 import { normalizeVisualTransform, removeVisualPropertyKeyframe, updateVisualSegmentPlaybackRate, upsertVisualKeyframe, upsertVisualPropertyKeyframe } from "./lib/visualEffects.js";
 import { getLinkedSourceAudioEnd, getLinkedSourceAudioSegments, shouldMuteEmbeddedVideoAudio } from "./lib/sourceAudioSync.js";
 import { getTimelineInitialContentZoom } from "./lib/timelineScale.js";
-import { getExportBitrate, getExportDimensions } from "./lib/exportSettings.js";
+import {
+  getExportContentDuration,
+  getExportDimensions,
+  getEffectiveExportBitrate,
+  loadExportSettings,
+  saveExportSettings,
+} from "./lib/exportSettings.js";
 import { createVisualOverlaySegment, getVisualOverlayPreset, updateVisualOverlayTransform } from "./lib/visualOverlayTimeline.js";
 import { getMobileClipPanelOrigin } from "./lib/mobileClipActions.js";
 
@@ -77,7 +83,10 @@ export function App() {
   const mobilePanelTimerRef = useRef(null);
   const [mobilePanelOrigin, setMobilePanelOrigin] = useState("");
   const [showExportMenu, setShowExportMenu] = useState(false);
-  const [exportSettings, setExportSettings] = useState({ resolution: "1080", frameRate: 30, codec: "h264", quality: "high" });
+  const [exportSettings, setExportSettings] = useState(() => loadExportSettings());
+  useEffect(() => {
+    saveExportSettings(exportSettings);
+  }, [exportSettings]);
   const [captionVoiceFocusRequest, setCaptionVoiceFocusRequest] = useState(0);
   const [selectedSourceAudioSegmentId, setSelectedSourceAudioSegmentId] = useState("");
   const [selectedMusicSegmentId, setSelectedMusicSegmentId] = useState("");
@@ -169,7 +178,7 @@ export function App() {
     assetDropPulseTimerRef, audioRef, audioSegmentRefs, audioUrlRef, autoRatioSourceKeyRef,
     avatarMotionCacheRef, avatarMotionWorkerRef, avatarRenderWorkerRef,
     avatarTestAudioImportedRef, avatarTestImportedRef, currentTimeRef, draggedAssetIdRef,
-    exportStartRef, fileInputRef, imageUrlRefs, musicRef, musicUrlRef, pointerAssetDragRef,
+    exportAbortControllerRef, exportStartRef, fileInputRef, imageUrlRefs, musicRef, musicUrlRef, pointerAssetDragRef,
     previewCanvasRef, previewShellRef, previewVideoRef, projectFileInputRef, sourceAudioRef,
     sourceAudioUrlRef, suppressAssetClickRef, suppressTimelineClipClickRef,
     timelineClipDragRef, timelineDurationRef, trackScrollRef, visionAbortControllerRef,
@@ -202,6 +211,12 @@ export function App() {
   });
   const activeLanguage = uiLanguage || "zh";
   const t = useMemo(() => createTranslator(activeLanguage), [activeLanguage]);
+  const handleCancelExport = () => {
+    const controller = exportAbortControllerRef.current;
+    if (!controller || controller.signal.aborted) return;
+    setExportPhase(t("exportCanceling"));
+    controller.abort();
+  };
   const trOption = (name, option) => {
     if (option?.kind === "stickerCategory") {
       return activeLanguage !== "zh" && option.nameEn ? option.nameEn : name;
@@ -675,7 +690,7 @@ export function App() {
 
   const extractVideoSourceAudio = useSourceAudioExtraction({
     clearSourceAudioTrack, notify, replaceSourceAudio, setProgress, setStatus, setStatusText,
-    setVisualSegments, sourceAudioBlob, sourceAudioDuration,
+    setVisualSegments, sourceAudioBlob, sourceAudioDuration, t,
   });
 
   const generateCaptionsFromSourceAudio = useAutoCaptions({
@@ -687,7 +702,7 @@ export function App() {
 
   const handleFiles = useFileUpload({
     appendVisualAssetToTimeline, imageUrlRefs, notify, setSelectedLibraryAssetId, setSelectedTrack, setUserAssets,
-    updateVisualAssetInTimeline, visualSegments,
+    updateVisualAssetInTimeline, visualSegments, t,
     onFirstVisualAutoAdded: requestFirstVisualGuide,
   });
 
@@ -764,9 +779,21 @@ export function App() {
     linkedSourceAudioSegments, sourceAudioDuration, sourceAudioLinked, sourceAudioStart, stickerSegments, timelineClipDrag,
     timelineDuration, visualSegments,
   });
+  const exportContentDuration = useMemo(() => getExportContentDuration({
+    visualDuration: imageDuration,
+    voiceDuration: voiceTrackDuration,
+    captionDuration,
+    sourceAudioDuration: sourceAudioBlob ? sourceAudioTimelineEnd : 0,
+    musicDuration: musicBlob ? musicTimelineEnd : 0,
+    stickerDuration,
+    overlaySegments: visualOverlaySegments,
+  }), [
+    captionDuration, imageDuration, musicBlob, musicTimelineEnd, sourceAudioBlob,
+    sourceAudioTimelineEnd, stickerDuration, visualOverlaySegments, voiceTrackDuration,
+  ]);
   const handleExportVideo = useVideoExport({
-    audioSegments, captionDuration, captionPlacement, captionPosition, captionSegments,
-    captionSize, captionStyle, captionsEnabled, exporting, exportStartRef, fitMode,
+    audioSegments, captionDuration, captionPlacement, captionPosition, captionSegments, captionTargetDuration,
+    captionSize, captionStyle, captionsEnabled, exporting, exportAbortControllerRef, exportStartRef, fitMode,
     imageDuration, imageSrc, musicBlob, musicDuration, musicSegments, musicStart, musicTimelineEnd, musicVolume, notify,
     previewFrameSize, ratio, renderedVisualSegments, script, selectedFilter,
     selectedSticker, selectedTransitionId, setExporting, setExportPhase,
@@ -775,7 +802,7 @@ export function App() {
     trackVisibility, visionRecords, visualType, voiceTrackDuration, volume, exportSettings: {
       ...exportSettings,
       ...getExportDimensions(ratio, Number(exportSettings.resolution)),
-      videoBitsPerSecond: getExportBitrate(Number(exportSettings.resolution), exportSettings.quality, exportSettings.frameRate),
+      videoBitsPerSecond: getEffectiveExportBitrate(exportSettings),
     },
     visualOverlaySegments, t,
   });
@@ -833,6 +860,7 @@ export function App() {
         setShowExportMenu={setShowExportMenu}
         exportSettings={exportSettings}
         setExportSettings={setExportSettings}
+        timelineDuration={exportContentDuration}
         showSettings={showSettings}
         setShowSettings={setShowSettings}
         activeLanguage={activeLanguage}
@@ -1230,7 +1258,15 @@ export function App() {
       {mobilePanel ? <button className="mobile-sheet-backdrop" type="button" aria-label={t("close", "关闭")} onClick={() => changeMobilePanel("")} /> : null}
 
       <AssetDragPreview preview={assetDragPreview} t={t} />
-      <ExportProgressOverlay exporting={exporting} percent={exportPercent} phase={exportPhase} elapsedSeconds={exportElapsedSeconds} t={t} />
+      <ExportProgressOverlay
+        exporting={exporting}
+        percent={exportPercent}
+        phase={exportPhase}
+        elapsedSeconds={exportElapsedSeconds}
+        onCancel={handleCancelExport}
+        canceling={exportPhase === t("exportCanceling")}
+        t={t}
+      />
       {showFirstVisualGuide && !shouldShowLanguageIntro ? (
         <FirstVisualGuide
           language={activeLanguage}

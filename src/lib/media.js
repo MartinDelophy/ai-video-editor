@@ -3,6 +3,7 @@ import ffmpegCoreWasmURL from "@ffmpeg/core/wasm?url";
 import ffmpegClassWorkerURL from "@ffmpeg/ffmpeg/worker?worker&url";
 
 import { AUDIO_RECORDING_FORMATS, EXPORT_RECORDING_FORMATS } from "../config/editor.js";
+import { throwIfExportAborted, waitForExportTimeout } from "./exportCancellation.js";
 import {
   createCaptionSegments,
   getSegmentIndexAtTime,
@@ -27,6 +28,7 @@ import {
 import { resolveVisualClipAnimation } from "./visualClipAnimations.js";
 import { getStickerRenderGeometry } from "./stickerGeometry.js";
 import { createPitchPreservedAudioBuffer } from "./pitchPreservingTimeStretch.js";
+import { emitMediaBackendDiagnostic, getMediaFileExtension, isLibavCompatibilityEnabled, MEDIA_BACKENDS } from "./mediaCompatibility.js";
 
 export function getAudioRecordingFormat() {
   if (typeof MediaRecorder === "undefined") {
@@ -46,6 +48,7 @@ let ffmpegTaskQueue = Promise.resolve();
 
 const VIDEO_TRACK_FRAME_MAX = 120;
 const VIDEO_TRACK_FRAME_HEIGHT = 90;
+const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 
 export function getVideoTrackSampleCount(duration, maxFrames = VIDEO_TRACK_FRAME_MAX) {
   const safeDuration = Math.max(0, Number.isFinite(duration) ? duration : 0);
@@ -143,7 +146,31 @@ export async function decodeWaveform(blob, barCount = 118) {
 
   try {
     const buffer = await blob.arrayBuffer();
-    const decoded = await audioContext.decodeAudioData(buffer.slice(0));
+    let decoded;
+    try {
+      decoded = await audioContext.decodeAudioData(buffer.slice(0));
+      emitMediaBackendDiagnostic({ phase: "ready", backend: MEDIA_BACKENDS.NATIVE, operation: "audio-decode" });
+    } catch (nativeError) {
+      let normalized = null;
+      let backend = MEDIA_BACKENDS.FFMPEG;
+      if (isLibavCompatibilityEnabled() && ["ac3", "mka", "mkv"].includes(getMediaFileExtension(blob))) {
+        try {
+          const { decodeAudioWithLibavWorker } = await import("./libavCompatibilityClient.js");
+          normalized = (await decodeAudioWithLibavWorker(blob)).blob;
+          backend = MEDIA_BACKENDS.LIBAV;
+        } catch (error) {
+          console.warn("libav.js audio decode failed; using FFmpeg.wasm", error);
+        }
+      }
+      emitMediaBackendDiagnostic({ phase: "fallback", backend, operation: "audio-decode" });
+      normalized ??= await transcodeAudioToWav(blob);
+      try {
+        decoded = await audioContext.decodeAudioData((await normalized.arrayBuffer()).slice(0));
+      } catch (fallbackError) {
+        fallbackError.cause = nativeError;
+        throw fallbackError;
+      }
+    }
     const channelData = decoded.getChannelData(0);
     const blockSize = Math.max(1, Math.floor(channelData.length / barCount));
     const peaks = Array.from({ length: barCount }, (_, index) => {
@@ -746,7 +773,18 @@ export function getSupportedRecordingFormat() {
   };
 }
 
-function createVideoRecorder(outputStream, { codec = "h264", videoBitsPerSecond = 12_000_000 } = {}) {
+function createVideoRecorder(outputStream, {
+  codec = "h264",
+  videoBitsPerSecond = 12_000_000,
+  audioBitsPerSecond = 192_000,
+  keyFrameInterval = 2,
+} = {}) {
+  const recorderOptions = (mimeType = "") => ({
+    ...(mimeType ? { mimeType } : {}),
+    videoBitsPerSecond,
+    audioBitsPerSecond,
+    videoKeyFrameIntervalDuration: Math.max(250, Number(keyFrameInterval) * 1000 || 2_000),
+  });
   const codecMatch = (format) => {
     const mime = format.mimeType.toLowerCase();
     if (codec === "vp9") return mime.includes("vp9");
@@ -765,7 +803,7 @@ function createVideoRecorder(outputStream, { codec = "h264", videoBitsPerSecond 
 
     try {
       return {
-        recorder: new MediaRecorder(outputStream, { mimeType: format.mimeType, videoBitsPerSecond }),
+        recorder: new MediaRecorder(outputStream, recorderOptions(format.mimeType)),
         format,
       };
     } catch (error) {
@@ -774,7 +812,7 @@ function createVideoRecorder(outputStream, { codec = "h264", videoBitsPerSecond 
   }
 
   return {
-    recorder: new MediaRecorder(outputStream, { videoBitsPerSecond }),
+    recorder: new MediaRecorder(outputStream, recorderOptions()),
     format: {
       mimeType: "",
       extension: "webm",
@@ -812,10 +850,15 @@ export async function exportBrowserVideo({
   captionReferenceSize,
   sticker,
   stickerSegments = [],
+  visualOverlaySegments = [],
   transitionId,
   exportSettings = {},
   onProgress,
+  signal,
+  timelineOffset = 0,
+  captionTargetDuration: providedCaptionTargetDuration = 0,
 }) {
+  throwIfExportAborted(signal);
   if (!window.MediaRecorder) {
     throw new Error("当前浏览器不支持 MediaRecorder，无法导出视频。");
   }
@@ -823,6 +866,7 @@ export async function exportBrowserVideo({
   if (document.fonts?.ready) {
     await document.fonts.ready.catch(() => {});
   }
+  throwIfExportAborted(signal);
 
   onProgress?.({ progress: 4, phaseKey: "exportPrepareVisuals" });
   const exportVisualSegments = visualSegments.some((segment) => segment.src)
@@ -874,6 +918,7 @@ export async function exportBrowserVideo({
       };
     }),
   );
+  throwIfExportAborted(signal);
   const stickerSources = Array.from(
     new Set([
       ...(sticker?.src ? [sticker.src] : []),
@@ -883,7 +928,15 @@ export async function exportBrowserVideo({
   const stickerImageEntries = await Promise.all(
     stickerSources.map(async (src) => [src, await loadImage(src).catch(() => null)]),
   );
+  throwIfExportAborted(signal);
   const stickerImageMap = new Map(stickerImageEntries.filter(([, image]) => image));
+  const visualOverlayItems = await Promise.all(
+    visualOverlaySegments.filter((segment) => segment.src).map(async (segment) => ({
+      segment,
+      visual: segment.type === "video" ? await loadVideo(segment.src) : await loadImage(segment.src),
+    })),
+  );
+  throwIfExportAborted(signal);
   onProgress?.({ progress: 8, phaseKey: "exportPrepareTracks" });
   const canvas = document.createElement("canvas");
   canvas.width = Math.max(2, Math.round(Number(exportSettings.width) || ratio.width));
@@ -893,6 +946,8 @@ export async function exportBrowserVideo({
   const canvasStream = canvas.captureStream(exportFrameRate);
 
   const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+  const rangeStart = Math.max(0, Number(timelineOffset) || 0);
+  const rangeEnd = rangeStart + Math.max(0, Number(duration) || 0);
   let audioContext = null;
   let decodedDuration = 0;
   const sources = [];
@@ -957,25 +1012,48 @@ export async function exportBrowserVideo({
           Number(input.sourceDuration) || decoded.duration - sourceOffset,
           decoded.duration - sourceOffset,
         ));
-        const outputDuration = Number(input.outputDuration) || sourceDuration / playbackRate;
+        const originalOutputDuration = Number(input.outputDuration) || sourceDuration / playbackRate;
+        const visibleStart = Math.max(input.start, rangeStart);
+        const visibleEnd = Math.min(input.start + originalOutputDuration, rangeEnd);
+        if (visibleEnd <= visibleStart) return null;
+        const trimOutput = visibleStart - input.start;
+        const outputDuration = visibleEnd - visibleStart;
+        const trimmedSourceOffset = sourceOffset + trimOutput * playbackRate;
+        const trimmedSourceDuration = Math.min(
+          decoded.duration - trimmedSourceOffset,
+          outputDuration * playbackRate,
+        );
         const preservePitch = Math.abs(playbackRate - 1) > 0.0001;
         const prepared = preservePitch
           ? createPitchPreservedAudioBuffer(audioContext, decoded, {
-              sourceOffset,
-              sourceDuration,
+              sourceOffset: trimmedSourceOffset,
+              sourceDuration: trimmedSourceDuration,
               playbackRate,
             })
           : decoded;
+        const fadeInRemaining = Math.max(0, (input.fadeIn || 0) - trimOutput);
+        const tailTrim = Math.max(0, input.start + originalOutputDuration - visibleEnd);
+        const fadeOutRemaining = Math.max(0, (input.fadeOut || 0) - tailTrim);
         return {
           ...input,
           decoded: prepared,
           playbackRate: 1,
-          sourceOffset: preservePitch ? 0 : sourceOffset,
-          sourceDuration: preservePitch ? outputDuration : sourceDuration,
+          start: visibleStart - rangeStart,
+          sourceOffset: preservePitch ? 0 : trimmedSourceOffset,
+          sourceDuration: preservePitch ? outputDuration : trimmedSourceDuration,
           outputDuration,
+          fadeIn: fadeInRemaining,
+          fadeOut: fadeOutRemaining,
+          initialGain: fadeInRemaining > 0 && input.fadeIn > 0
+            ? input.volume * clamp(trimOutput / input.fadeIn, 0, 1)
+            : input.volume,
+          finalGain: fadeOutRemaining > 0 && input.fadeOut > 0
+            ? input.volume * clamp(tailTrim / input.fadeOut, 0, 1)
+            : input.volume,
         };
       }),
-    );
+    ).then((items) => items.filter(Boolean));
+    throwIfExportAborted(signal);
 
     decodedDuration = Math.max(0, ...decodedInputs.filter((input) => input.role === "voice").map((input) => input.start + input.outputDuration));
 
@@ -984,15 +1062,15 @@ export async function exportBrowserVideo({
       const gain = audioContext.createGain();
       source.buffer = input.decoded;
       source.playbackRate.value = input.playbackRate;
-      gain.gain.value = input.volume;
+      gain.gain.value = input.initialGain;
       if (input.fadeIn > 0) {
-        gain.gain.setValueAtTime(0, audioContext.currentTime + input.start);
+        gain.gain.setValueAtTime(input.initialGain, audioContext.currentTime + input.start);
         gain.gain.linearRampToValueAtTime(input.volume, audioContext.currentTime + input.start + input.fadeIn);
       }
       if (input.fadeOut > 0) {
         const fadeStart = audioContext.currentTime + input.start + Math.max(0, input.outputDuration - input.fadeOut);
         gain.gain.setValueAtTime(input.volume, fadeStart);
-        gain.gain.linearRampToValueAtTime(0, audioContext.currentTime + input.start + input.outputDuration);
+        gain.gain.linearRampToValueAtTime(input.finalGain, audioContext.currentTime + input.start + input.outputDuration);
       }
       source.connect(gain);
       gain.connect(destination);
@@ -1006,24 +1084,25 @@ export async function exportBrowserVideo({
     });
   }
 
+  if (audioContext?.state === "suspended") {
+    await audioContext.resume();
+  }
+  throwIfExportAborted(signal);
   const outputStream = new MediaStream([
     ...canvasStream.getVideoTracks(),
     ...(destination ? destination.stream.getAudioTracks() : []),
   ]);
   const { recorder, format: recordingFormat } = createVideoRecorder(outputStream, {
     codec: exportSettings.codec,
-    videoBitsPerSecond: Math.max(2_000_000, Number(exportSettings.videoBitsPerSecond) || 12_000_000),
+    videoBitsPerSecond: Math.max(1_000_000, Number(exportSettings.videoBitsPerSecond) || 12_000_000),
+    audioBitsPerSecond: Math.max(96_000, Number(exportSettings.audioBitsPerSecond) || 192_000),
+    keyFrameInterval: exportSettings.keyFrameInterval,
   });
   const chunks = [];
   const exportSegments = captionSegments?.length ? captionSegments : createCaptionSegments(text);
   const segments = exportSegments.map((segment) => segment.text);
-  const totalDuration = Math.max(
-    duration,
-    decodedDuration,
-    ...sources.map(({ start, outputDuration }) => start + outputDuration),
-    1,
-  );
-  const captionTargetDuration = decodedDuration || 0;
+  const totalDuration = Math.max(Number(duration) || 0, 1 / exportFrameRate);
+  const captionTargetDuration = Number(providedCaptionTargetDuration) || decodedDuration || 0;
 
   recorder.ondataavailable = (event) => {
     if (event.data.size > 0) {
@@ -1037,12 +1116,13 @@ export async function exportBrowserVideo({
 
   onProgress?.({ progress: 16, phaseKey: "exportStartRecording" });
   recorder.start(250);
-  const startTime = performance.now();
+  let startTime = 0;
+  let audioStartTime = 0;
   let animationFrame = 0;
   let lastProgressUpdate = 0;
   let activeVideoItem = null;
-  const getVisualItemAtTime = (elapsed) => {
-    const visualIndex = getVisualSegmentIndexAtTime(exportVisualSegments, elapsed);
+  const getVisualItemAtTime = (timelineTime) => {
+    const visualIndex = getVisualSegmentIndexAtTime(exportVisualSegments, timelineTime);
     const resolvedIndex =
       visualIndex >= 0
         ? visualIndex
@@ -1091,15 +1171,30 @@ export async function exportBrowserVideo({
       return elapsed >= start && elapsed < end;
     });
   };
+  const getVisualOverlaysAtTime = (timelineTime) => visualOverlayItems
+    .filter(({ segment }) => timelineTime >= segment.start && timelineTime < segment.start + segment.duration)
+    .sort((left, right) => (left.segment.layer || 1) - (right.segment.layer || 1));
+  const syncVisualOverlays = (items, timelineTime) => {
+    items.forEach(({ segment, visual }) => {
+      if (segment.type !== "video") return;
+      const expectedTime = getVisualSourceTime(segment, Math.max(0, timelineTime - segment.start));
+      if (!visual.seeking && Math.abs((visual.currentTime || 0) - expectedTime) > 0.12) visual.currentTime = expectedTime;
+      visual.playbackRate = normalizeVisualPlaybackRate(segment.playbackRate);
+      visual.play().catch(() => {});
+    });
+  };
   const draw = () => {
     const elapsed = Math.min(totalDuration, (performance.now() - startTime) / 1000);
-    const segmentIndex = getSegmentIndexAtTime(exportSegments, elapsed, captionTargetDuration);
+    const timelineTime = rangeStart + elapsed;
+    const segmentIndex = getSegmentIndexAtTime(exportSegments, timelineTime, captionTargetDuration);
     const exportCaption =
       segmentIndex >= 0 && !exportSegments[segmentIndex]?.hidden ? segments[segmentIndex] : "";
-    const { item: visualItem, range: visualRange } = getVisualItemAtTime(elapsed);
-    const localTime = Math.max(0, elapsed - (visualRange?.start ?? 0));
+    const { item: visualItem, range: visualRange } = getVisualItemAtTime(timelineTime);
+    const localTime = Math.max(0, timelineTime - (visualRange?.start ?? 0));
     const visualSourceTime = syncVideoItem(visualItem, localTime);
-    const exportStickers = getStickersAtTime(elapsed);
+    const exportStickers = getStickersAtTime(timelineTime);
+    const activeVisualOverlays = getVisualOverlaysAtTime(timelineTime);
+    syncVisualOverlays(activeVisualOverlays, timelineTime);
     const exportVisual = visualItem.cutoutVisual || visualItem.visual;
     const visualIndex = visualItems.indexOf(visualItem);
     const junction = visualItem.segment.transition;
@@ -1107,8 +1202,8 @@ export async function exportBrowserVideo({
       ? Math.max(0.1, Math.min(Number(junction.duration) || 0.5, (visualRange?.end || 0) - (visualRange?.start || 0)))
       : 0;
     const transitionStart = (visualRange?.end || 0) - transitionDuration;
-    const nextVisualItem = transitionDuration > 0 && elapsed >= transitionStart ? visualItems[visualIndex + 1] : null;
-    const transitionProgress = nextVisualItem ? (elapsed - transitionStart) / transitionDuration : 0;
+    const nextVisualItem = transitionDuration > 0 && timelineTime >= transitionStart ? visualItems[visualIndex + 1] : null;
+    const transitionProgress = nextVisualItem ? (timelineTime - transitionStart) / transitionDuration : 0;
     if (nextVisualItem?.segment.type === "video") {
       const nextTime = Math.max(0, Number(nextVisualItem.segment.sourceStart) || 0) + transitionProgress * transitionDuration;
       if (!nextVisualItem.visual.seeking && Math.abs(nextVisualItem.visual.currentTime - nextTime) > 0.05) nextVisualItem.visual.currentTime = nextTime;
@@ -1145,6 +1240,11 @@ export async function exportBrowserVideo({
       vision: frameVision,
       visualEffects: visualItem.segment,
       visualTime: localTime,
+      visualOverlays: activeVisualOverlays.map(({ segment }) => ({
+        ...segment,
+        start: segment.start - (visualRange?.start ?? 0),
+      })),
+      visualOverlaySources: activeVisualOverlays.map(({ visual }) => visual),
     });
 
     if (elapsed === totalDuration || performance.now() - lastProgressUpdate > 180) {
@@ -1155,83 +1255,108 @@ export async function exportBrowserVideo({
       });
     }
 
-    if (elapsed < totalDuration) {
+    if (!signal?.aborted && elapsed < totalDuration) {
       animationFrame = requestAnimationFrame(draw);
     }
   };
 
-  draw();
-  sources.forEach(({ node, start, sourceOffset, sourceDuration }) => node.start(start, sourceOffset, sourceDuration));
-  await new Promise((resolve) => {
-    window.setTimeout(resolve, totalDuration * 1000);
-  });
-  cancelAnimationFrame(animationFrame);
-  visualItems.forEach((item) => {
-    if (item.segment.type === "video") {
-      item.visual.pause();
+  try {
+    throwIfExportAborted(signal);
+    // Give MediaRecorder a short warm-up window before the timeline and Web
+    // Audio sources start. Without it, short exports can lose their first
+    // audio packet under CPU load and produce a one-timeslice file.
+    await waitForExportTimeout(60, signal, window);
+    throwIfExportAborted(signal);
+    startTime = performance.now();
+    audioStartTime = audioContext?.currentTime || 0;
+    draw();
+    sources.forEach(({ node, start, sourceOffset, sourceDuration }) => node.start(audioStartTime + start, sourceOffset, sourceDuration));
+    await waitForExportTimeout(totalDuration * 1000, signal, window);
+    throwIfExportAborted(signal);
+    const finalTimelineTime = rangeStart + Math.max(0, totalDuration - 1 / exportFrameRate);
+    const finalSegmentIndex = getSegmentIndexAtTime(exportSegments, finalTimelineTime, captionTargetDuration);
+    const { item: finalVisualItem, range: finalVisualRange } = getVisualItemAtTime(finalTimelineTime);
+    const finalStickers = getStickersAtTime(finalTimelineTime);
+    const finalVisualOverlays = getVisualOverlaysAtTime(finalTimelineTime);
+    syncVisualOverlays(finalVisualOverlays, finalTimelineTime);
+    const finalLocalTime = Math.max(0, finalTimelineTime - (finalVisualRange?.start ?? 0));
+    const finalVisualSourceTime = syncVideoItem(finalVisualItem, finalLocalTime);
+    const finalResolvedVision = resolveVisionAnalysisAtTime(
+      finalVisualItem.segment.vision ?? null,
+      finalVisualSourceTime,
+    );
+    const finalFrameVision = finalResolvedVision
+      ? {
+          ...finalResolvedVision,
+          options: finalVisualItem.segment.vision?.options ?? finalResolvedVision.options,
+          maskVisual: finalResolvedVision.cutoutUrl
+            ? finalVisualItem.temporalMaskCache?.get(finalResolvedVision.cutoutUrl) ?? null
+            : null,
+        }
+      : null;
+    drawPreviewFrame(context, finalVisualItem.cutoutVisual || finalVisualItem.visual, canvas, {
+      subtitle:
+        finalSegmentIndex >= 0 && !exportSegments[finalSegmentIndex]?.hidden
+          ? segments[finalSegmentIndex]
+          : "",
+      progress: 1,
+      fitMode,
+      filter,
+      captionsEnabled,
+      captionPosition,
+      captionPlacement,
+      captionSize,
+      captionStyle,
+      captionReferenceSize,
+      stickers: finalStickers,
+      stickerImages: finalStickers.map((item) => item?.src ? stickerImageMap.get(item.src) : null),
+      transitionId,
+      vision: finalFrameVision,
+      visualTime: finalLocalTime,
+      visualOverlays: finalVisualOverlays.map(({ segment }) => ({
+        ...segment,
+        start: segment.start - (finalVisualRange?.start ?? 0),
+      })),
+      visualOverlaySources: finalVisualOverlays.map(({ visual }) => visual),
+    });
+    recorder.stop();
+    onProgress?.({ progress: 94, phaseKey: "exportPackageFile" });
+    await stopped;
+    throwIfExportAborted(signal);
+    const blobType = recorder.mimeType || recordingFormat.mimeType || "video/webm";
+    return {
+      blob: new Blob(chunks, { type: blobType }),
+      extension: recordingFormat.extension,
+      label: recordingFormat.label,
+      mimeType: blobType,
+      nativeMp4: recordingFormat.extension === "mp4",
+    };
+  } finally {
+    cancelAnimationFrame(animationFrame);
+    if (recorder.state !== "inactive") {
+      try { recorder.stop(); } catch { /* Recorder may already be stopping. */ }
     }
-  });
-  const finalSegmentIndex = getSegmentIndexAtTime(exportSegments, totalDuration, captionTargetDuration);
-  const { item: finalVisualItem, range: finalVisualRange } = getVisualItemAtTime(totalDuration);
-  const finalStickers = getStickersAtTime(Math.max(0, totalDuration - 0.0001));
-  const finalLocalTime = Math.max(0, totalDuration - (finalVisualRange?.start ?? 0));
-  const finalVisualSourceTime = syncVideoItem(finalVisualItem, finalLocalTime);
-  const finalResolvedVision = resolveVisionAnalysisAtTime(
-    finalVisualItem.segment.vision ?? null,
-    finalVisualSourceTime,
-  );
-  const finalFrameVision = finalResolvedVision
-    ? {
-        ...finalResolvedVision,
-        options: finalVisualItem.segment.vision?.options ?? finalResolvedVision.options,
-        maskVisual: finalResolvedVision.cutoutUrl
-          ? finalVisualItem.temporalMaskCache?.get(finalResolvedVision.cutoutUrl) ?? null
-          : null,
+    sources.forEach(({ node }) => {
+      try { node.stop(); } catch { /* Audio source may already have ended. */ }
+    });
+    canvasStream.getTracks().forEach((track) => track.stop());
+    destination?.stream.getTracks().forEach((track) => track.stop());
+    await audioContext?.close().catch(() => {});
+    visualItems.forEach((item) => {
+      item.temporalMaskCache?.dispose();
+      if (item.segment.type === "video") {
+        item.visual.pause();
+        item.visual.removeAttribute("src");
+        item.visual.load();
       }
-    : null;
-  drawPreviewFrame(context, finalVisualItem.cutoutVisual || finalVisualItem.visual, canvas, {
-    subtitle:
-      finalSegmentIndex >= 0 && !exportSegments[finalSegmentIndex]?.hidden
-        ? segments[finalSegmentIndex]
-        : "",
-    progress: 1,
-    fitMode,
-    filter,
-    captionsEnabled,
-    captionPosition,
-    captionPlacement,
-    captionSize,
-    captionStyle,
-    captionReferenceSize,
-    stickers: finalStickers,
-    stickerImages: finalStickers.map((item) => item?.src ? stickerImageMap.get(item.src) : null),
-    transitionId,
-    vision: finalFrameVision,
-  });
-  recorder.stop();
-  onProgress?.({ progress: 94, phaseKey: "exportPackageFile" });
-  await stopped;
-  canvasStream.getTracks().forEach((track) => track.stop());
-  destination?.stream.getTracks().forEach((track) => track.stop());
-  await audioContext?.close().catch(() => {});
-  visualItems.forEach((item) => {
-    item.temporalMaskCache?.dispose();
-    if (item.segment.type === "video") {
-      item.visual.pause();
-      item.visual.removeAttribute("src");
-      item.visual.load();
-    }
-  });
-
-  const blobType = recorder.mimeType || recordingFormat.mimeType || "video/webm";
-
-  return {
-    blob: new Blob(chunks, { type: blobType }),
-    extension: recordingFormat.extension,
-    label: recordingFormat.label,
-    mimeType: blobType,
-    nativeMp4: recordingFormat.extension === "mp4",
-  };
+    });
+    visualOverlayItems.forEach(({ segment, visual }) => {
+      if (segment.type !== "video") return;
+      visual.pause();
+      visual.removeAttribute("src");
+      visual.load();
+    });
+  }
 }
 
 async function getFfmpeg() {
@@ -1348,39 +1473,111 @@ export async function encodePngFrameSequence({ totalFrames, frameRate, produceFr
   });
 }
 
-export async function transcodeWebmToMp4(webmBlob) {
+export async function transcodeWebmToMp4(webmBlob, { signal } = {}) {
   return runFfmpegTask(async () => {
-    const [{ fetchFile }, ffmpeg] = await Promise.all([import("@ffmpeg/util"), getFfmpeg()]);
+    if (signal?.aborted) throw createAbortError("Export canceled");
+    let ffmpeg = null;
+    let terminated = false;
     const id = makeId("export");
     const inputName = `${id}.webm`;
     const outputName = `${id}.mp4`;
-
-    await ffmpeg.writeFile(inputName, await fetchFile(webmBlob));
+    const abort = () => {
+      terminated = true;
+      try { ffmpeg?.terminate(); } catch { /* FFmpeg may already be stopped. */ }
+      ffmpegLoadPromise = null;
+    };
+    signal?.addEventListener("abort", abort, { once: true });
     try {
-      await ffmpeg.exec([
-        "-i",
-        inputName,
-        "-c:v",
-        "libx264",
-        "-preset",
-        "veryfast",
-        "-pix_fmt",
-        "yuv420p",
-        "-c:a",
-        "aac",
-        "-movflags",
-        "faststart",
-        outputName,
-      ]);
-    } catch (error) {
-      await ffmpeg.deleteFile(outputName).catch(() => {});
-      await ffmpeg.exec(["-i", inputName, "-movflags", "faststart", outputName]);
+      const [{ fetchFile }, loadedFfmpeg] = await Promise.all([import("@ffmpeg/util"), getAbortableFfmpeg(signal)]);
+      ffmpeg = loadedFfmpeg;
+      if (signal?.aborted) throw createAbortError("Export canceled");
+      await ffmpeg.writeFile(inputName, await fetchFile(webmBlob));
+      try {
+        await ffmpeg.exec([
+          "-i",
+          inputName,
+          "-c:v",
+          "libx264",
+          "-preset",
+          "veryfast",
+          "-pix_fmt",
+          "yuv420p",
+          "-c:a",
+          "aac",
+          "-movflags",
+          "faststart",
+          outputName,
+        ]);
+      } catch {
+        if (signal?.aborted) throw createAbortError("Export canceled");
+        await ffmpeg.deleteFile(outputName).catch(() => {});
+        await ffmpeg.exec(["-i", inputName, "-movflags", "faststart", outputName]);
+      }
+      if (signal?.aborted) throw createAbortError("Export canceled");
+      const data = await ffmpeg.readFile(outputName);
+      return new Blob([data], { type: "video/mp4" });
+    } finally {
+      signal?.removeEventListener("abort", abort);
+      if (!terminated && ffmpeg) {
+        await ffmpeg.deleteFile(inputName).catch(() => {});
+        await ffmpeg.deleteFile(outputName).catch(() => {});
+      }
     }
-    const data = await ffmpeg.readFile(outputName);
-    await ffmpeg.deleteFile(inputName).catch(() => {});
-    await ffmpeg.deleteFile(outputName).catch(() => {});
+  });
+}
 
-    return new Blob([data], { type: "video/mp4" });
+export async function normalizeVideoForEditing(videoBlob, filename = "source-video.mkv", { decodedAudioBlob = null } = {}) {
+  return runFfmpegTask(async () => {
+    const [{ fetchFile }, ffmpeg] = await Promise.all([import("@ffmpeg/util"), getFfmpeg()]);
+    const id = makeId("compat-video");
+    const extension = filename.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "") || "mkv";
+    const inputName = `${id}.${extension}`;
+    const audioInputName = `${id}-libav-audio.wav`;
+    const outputName = `${id}.mp4`;
+    await ffmpeg.writeFile(inputName, await fetchFile(videoBlob));
+    if (decodedAudioBlob) await ffmpeg.writeFile(audioInputName, await fetchFile(decodedAudioBlob));
+    const inputArgs = decodedAudioBlob ? ["-i", inputName, "-i", audioInputName] : ["-i", inputName];
+    const audioMap = decodedAudioBlob ? ["-map", "1:a:0"] : ["-map", "0:a:0?"];
+    try {
+      try {
+        await ffmpeg.exec([
+          ...inputArgs, "-map", "0:v:0", ...audioMap,
+          "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-movflags", "faststart", outputName,
+        ]);
+      } catch {
+        await ffmpeg.deleteFile(outputName).catch(() => {});
+        await ffmpeg.exec([
+          ...inputArgs, "-map", "0:v:0", ...audioMap,
+          "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p",
+          "-c:a", "aac", "-b:a", "192k", "-movflags", "faststart", outputName,
+        ]);
+      }
+      const data = await ffmpeg.readFile(outputName);
+      return new Blob([data], { type: "video/mp4" });
+    } finally {
+      await ffmpeg.deleteFile(inputName).catch(() => {});
+      if (decodedAudioBlob) await ffmpeg.deleteFile(audioInputName).catch(() => {});
+      await ffmpeg.deleteFile(outputName).catch(() => {});
+    }
+  });
+}
+
+export async function transcodeAudioToWav(audioBlob, filename = "source-audio.bin") {
+  return runFfmpegTask(async () => {
+    const [{ fetchFile }, ffmpeg] = await Promise.all([import("@ffmpeg/util"), getFfmpeg()]);
+    const id = makeId("compat-audio");
+    const extension = filename.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "") || "bin";
+    const inputName = `${id}.${extension}`;
+    const outputName = `${id}.wav`;
+    await ffmpeg.writeFile(inputName, await fetchFile(audioBlob));
+    try {
+      await ffmpeg.exec(["-i", inputName, "-vn", "-ac", "2", "-ar", "48000", "-c:a", "pcm_s16le", outputName]);
+      const data = await ffmpeg.readFile(outputName);
+      return new Blob([data], { type: "audio/wav" });
+    } finally {
+      await ffmpeg.deleteFile(inputName).catch(() => {});
+      await ffmpeg.deleteFile(outputName).catch(() => {});
+    }
   });
 }
 

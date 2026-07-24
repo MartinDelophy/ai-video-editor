@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { createFrameCaptionSession, extractAutoEditFrames, generateFrameCaptions, generateImageVoiceoverText, probeBuiltInAI } from "../lib/autoEdit.js";
+import { createAutoEditTranslator, createFrameCaptionSession, extractAutoEditFrames, generateFrameCaptions, generateImageVoiceoverText, probeBuiltInAI } from "../lib/autoEdit.js";
 import { getVisualSegmentsTotal, makeId } from "../lib/timeline.js";
 
 export function useAutoEdit({ language, visualSegments, captionSegments, commitCaptionSegments, setCaptionsEnabled, setTrackVisibility, setSelectedSegmentId, setSelectedTrack, notify, t }) {
@@ -20,6 +20,42 @@ export function useAutoEdit({ language, visualSegments, captionSegments, commitC
     return result;
   }, [language]);
   useEffect(() => { checkSupport(); }, [checkSupport]);
+  const prepareSupport = useCallback(async () => {
+    const environment = await probeBuiltInAI(language);
+    if (environment.availability !== "downloadable" && environment.availability !== "downloading") {
+      setSupport(environment);
+      return environment;
+    }
+    setSupport({ ...environment, availability: "downloading", progress: 0 });
+    let promptSession = null;
+    let translator = null;
+    const needsTranslation = environment.promptLanguage !== environment.language;
+    let promptProgress = 0;
+    let translationProgress = 0;
+    const updateProgress = (kind, loaded) => {
+      const value = Math.max(0, Math.min(1, Number(loaded) || 0));
+      if (kind === "prompt") promptProgress = value;
+      else translationProgress = value;
+      const progress = Math.round((needsTranslation ? (promptProgress + translationProgress) / 2 : promptProgress) * 100);
+      setSupport((value) => ({ ...value, availability: "downloading", progress }));
+    };
+    try {
+      [promptSession, translator] = await Promise.all([
+        createFrameCaptionSession({ language, onDownloadProgress: (loaded) => updateProgress("prompt", loaded) }),
+        createAutoEditTranslator({ language, onDownloadProgress: (loaded) => updateProgress("translation", loaded) }),
+      ]);
+      const ready = await probeBuiltInAI(language);
+      setSupport({ ...ready, progress: ready.availability === "available" ? 100 : undefined });
+      return ready;
+    } catch (error) {
+      const failed = { ...environment, availability: "unavailable", reason: error?.name || "model-download-failed" };
+      setSupport(failed);
+      return failed;
+    } finally {
+      promptSession?.destroy?.();
+      translator?.destroy?.();
+    }
+  }, [language]);
 
   const generateImageCaption = useCallback(async (segment) => {
     if (!segment?.src || segment.type === "video" || support.availability !== "available" || job.running) return;
@@ -52,10 +88,16 @@ export function useAutoEdit({ language, visualSegments, captionSegments, commitC
     clearCandidateUrls();
     setReview({ open: true, candidates: [], captions: [], segments: [], error: "" });
     let session = null;
+    let translator = null;
     setJob({ running: true, progress: 2, phase: t("autoEditFindingScenes") });
     // Chrome requires LanguageModel.create() to happen during the button's
     // transient user activation when the model still needs downloading.
     const sessionPromise = createFrameCaptionSession({
+      language,
+      signal: abortRef.current.signal,
+      onDownloadProgress: (loaded) => setJob({ running: true, progress: Math.max(4, Math.round(loaded * 55)), phase: t("autoEditDownloadingModel") }),
+    });
+    const translatorPromise = createAutoEditTranslator({
       language,
       signal: abortRef.current.signal,
       onDownloadProgress: (loaded) => setJob({ running: true, progress: Math.max(4, Math.round(loaded * 55)), phase: t("autoEditDownloadingModel") }),
@@ -71,8 +113,9 @@ export function useAutoEdit({ language, visualSegments, captionSegments, commitC
       setReview((value) => ({ ...value, candidates, segments }));
       setJob({ running: true, progress: 60, phase: t("autoEditWritingCaptions") });
       session = await sessionPromise;
+      translator = await translatorPromise;
       const captions = await generateFrameCaptions({
-        frames, duration: getVisualSegmentsTotal(visualSegments), language, session,
+        frames, duration: getVisualSegmentsTotal(visualSegments), language, session, translator,
         onPartial: (partial) => {
           const modelProgress = partial.allWindows ? partial.completedWindows / partial.allWindows : 0;
           setJob({ running: true, progress: Math.min(96, 60 + Math.round(modelProgress * 36)), phase: t("autoEditWritingCaptions") });
@@ -94,6 +137,7 @@ export function useAutoEdit({ language, visualSegments, captionSegments, commitC
       setJob({ running: false, progress: 0, phase: "" });
     } finally {
       session?.destroy?.();
+      translator?.destroy?.();
     }
   }, [checkSupport, clearCandidateUrls, job.running, language, notify, support, t, visualSegments]);
   const cancel = () => { abortRef.current?.abort(); setJob({ running: false, progress: 0, phase: "" }); };
@@ -110,5 +154,5 @@ export function useAutoEdit({ language, visualSegments, captionSegments, commitC
     notify(t("autoEditDone"));
     closeReview();
   };
-  return { support, job, review, checkSupport, run, generateImageCaption, cancel, closeReview, applyCaptions };
+  return { support, job, review, checkSupport, prepareSupport, run, generateImageCaption, cancel, closeReview, applyCaptions };
 }

@@ -35,6 +35,7 @@ export function getVisualAssetPayload(asset) {
     name: asset.name ?? "",
     meta: asset.meta ?? "",
     blob: asset.blob ?? null,
+    compatibilityAudioBlob: asset.compatibilityAudioBlob ?? null,
     width: asset.width ?? asset.naturalWidth ?? 0,
     height: asset.height ?? asset.naturalHeight ?? 0,
     sourceStart: Math.max(0, Number(asset.sourceStart) || 0),

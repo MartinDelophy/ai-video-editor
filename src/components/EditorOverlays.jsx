@@ -14,14 +14,19 @@ export function AssetDragPreview({ preview, t }) {
   </div>;
 }
 
-export function ExportProgressOverlay({ exporting, percent, phase, elapsedSeconds, t }) {
+export function ExportProgressOverlay({ exporting, percent, phase, elapsedSeconds, onCancel, canceling, t }) {
   if (!exporting) return null;
-  return <div className="export-progress-overlay" role="status" aria-live="polite"><div className="export-progress-card">
-    <div className="export-progress-header"><span>{t("exportInProgress")}</span><strong>{percent}%</strong></div>
+  return <div className="export-progress-overlay" role="dialog" aria-modal="true" aria-labelledby="export-progress-title"><div className="export-progress-card">
+    <div className="export-progress-header"><span id="export-progress-title">{t("exportInProgress")}</span><strong>{percent}%</strong></div>
     <div className="export-progress-bar" role="progressbar" aria-label={t("exportProgress")} aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent}>
       <span style={{ width: `${percent}%` }} />
     </div>
     <div className="export-progress-meta"><span>{phase || t("preparingExport")}</span><span>{formatClock(elapsedSeconds)}</span></div>
+    {percent < 100 ? (
+      <button className="export-progress-cancel" type="button" disabled={canceling} onClick={onCancel}>
+        {canceling ? t("exportCanceling") : t("exportCancel")}
+      </button>
+    ) : null}
   </div></div>;
 }
 

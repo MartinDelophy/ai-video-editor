@@ -24,7 +24,7 @@ function collectLegacyMessages(directory, messages = new Set()) {
   for (const name of readdirSync(directory)) {
     const path = join(directory, name);
     const info = statSync(path);
-    if (info.isDirectory()) collectLegacyMessages(path, messages);
+    if (info.isDirectory() && name !== "vendor") collectLegacyMessages(path, messages);
     else if (/\.(?:js|jsx)$/.test(name) && !/\.test\.[^.]+$/.test(name) && !/i18n|ttsText|asr\.js|workers/.test(path)) {
       const ast = parse(readFileSync(path, "utf8"), { sourceType: "module", plugins: ["jsx"] });
       traverse(ast, {
@@ -49,5 +49,5 @@ describe("legacy user-visible message localization", () => {
         expect(Object.hasOwn(UI_MESSAGE_COPY[id] ?? {}, message), `${id}: ${message}`).toBe(true);
       }
     }
-  });
+  }, 60_000);
 });

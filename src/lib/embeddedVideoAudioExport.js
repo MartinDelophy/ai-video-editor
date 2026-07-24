@@ -1,4 +1,5 @@
 import { concatenateAudioBlobs, decodeWaveform, extractAudioFromVideo } from "./media.js";
+import { isExportAbortError, throwIfExportAborted } from "./exportCancellation.js";
 import { getVisualSegmentTimeline } from "./timeline.js";
 
 const getAssetKey = (segment) => segment?.assetId || segment?.src || segment?.id || "";
@@ -27,13 +28,15 @@ export function createEmbeddedVideoAudioSegments(visualSegments = [], audioAsset
   });
 }
 
-export async function prepareEmbeddedVideoAudio(visualSegments = [], onProgress) {
+export async function prepareEmbeddedVideoAudio(visualSegments = [], onProgress, signal) {
+  throwIfExportAborted(signal);
   const candidates = visualSegments.filter((segment) => segment.type === "video" && !segment.sourceAudioDisabled);
   const uniqueAssets = [...new Map(candidates.map((segment) => [getAssetKey(segment), segment])).entries()];
   if (!uniqueAssets.length) return { blob: null, segments: [] };
 
   const extracted = [];
   for (let index = 0; index < uniqueAssets.length; index += 1) {
+    throwIfExportAborted(signal);
     const [key, segment] = uniqueAssets[index];
     onProgress?.({
       progress: 2 + Math.round((index / uniqueAssets.length) * 3),
@@ -44,16 +47,21 @@ export async function prepareEmbeddedVideoAudio(visualSegments = [], onProgress)
       const sourceBlob = segment.blob instanceof Blob
         ? segment.blob
         : segment.src
-          ? await fetch(segment.src).then((response) => {
+          ? await fetch(segment.src, { signal }).then((response) => {
               if (!response.ok) throw new Error(`无法读取视频素材：${response.status}`);
               return response.blob();
             })
           : null;
       if (!sourceBlob) continue;
-      const blob = await extractAudioFromVideo(sourceBlob, segment.name || "source-video.mp4");
+      const blob = segment.compatibilityAudioBlob instanceof Blob
+        ? segment.compatibilityAudioBlob
+        : await extractAudioFromVideo(sourceBlob, segment.name || "source-video.mp4");
+      throwIfExportAborted(signal);
       const decoded = await decodeWaveform(blob, 24);
+      throwIfExportAborted(signal);
       if (decoded.duration > 0) extracted.push({ key, blob, duration: decoded.duration });
     } catch (error) {
+      if (isExportAbortError(error)) throw error;
       console.warn("Embedded video audio extraction skipped", segment.name || segment.id, error);
     }
   }
@@ -65,8 +73,11 @@ export async function prepareEmbeddedVideoAudio(visualSegments = [], onProgress)
     offset += item.duration;
     return mapped;
   }));
+  throwIfExportAborted(signal);
+  const blob = await concatenateAudioBlobs(extracted.map((item) => item.blob));
+  throwIfExportAborted(signal);
   return {
-    blob: await concatenateAudioBlobs(extracted.map((item) => item.blob)),
+    blob,
     segments: createEmbeddedVideoAudioSegments(visualSegments, audioAssets),
   };
 }

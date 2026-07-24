@@ -20,6 +20,13 @@ test.describe("Auto Edit desktop video smoke", () => {
             destroy() {},
           }),
         };
+        window.Translator = {
+          availability: async () => "available",
+          create: async ({ targetLanguage }) => ({
+            translate: async (text) => targetLanguage === "zh" ? `中文：${text}` : text,
+            destroy() {},
+          }),
+        };
       });
       await page.goto("/");
       const languageIntro = page.locator(".language-intro");

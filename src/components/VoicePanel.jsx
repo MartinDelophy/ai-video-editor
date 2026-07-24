@@ -80,16 +80,22 @@ function AutoEditReviewDialog({ t, autoEdit }) {
   );
 }
 
-function AutoEditPanel({ t, hasVisual, language, autoEdit }) {
+function AutoEditPanel({ t, hasVisual, autoEdit }) {
   const availability = autoEdit?.support?.availability || "unknown";
   const ready = availability === "available" || availability === "downloadable" || availability === "downloading";
+  const downloadProgress = Math.max(0, Math.min(100, Number(autoEdit?.support?.progress) || 0));
+  const isPreparingSupport = availability === "downloading" && Number.isFinite(autoEdit?.support?.progress);
+  const supportActionLabel = availability === "downloading"
+    ? `${t("autoEditDownloadingModel")}${downloadProgress ? ` ${downloadProgress}%` : ""}`
+    : availability === "downloadable" ? t("autoEditDownloadModel") : t("autoEditCheckSupport");
   return (<>
     <div className="auto-edit-panel">
       <section className="auto-edit-intro"><Scissors size={28} weight="duotone" /><div><strong>{t("autoEditCreateTitle")}</strong><span>{t("autoEditCreateDesc")}</span></div></section>
       <section className="auto-edit-status-card">
         <div><span>{t("autoEditBrowserModel")}</span><strong className={`auto-edit-availability is-${availability}`}>{t(`autoEditStatus_${availability}`)}</strong></div>
         <p>{t("autoEditPrivacyHint")}</p>
-        <button className="panel-secondary" type="button" disabled={autoEdit?.job?.running || availability === "checking"} onClick={autoEdit?.checkSupport}>{t("autoEditCheckSupport")}</button>
+        <button className="panel-secondary" type="button" disabled={autoEdit?.job?.running || availability === "checking" || isPreparingSupport} onClick={availability === "downloadable" || availability === "downloading" ? autoEdit?.prepareSupport : autoEdit?.checkSupport}>{supportActionLabel}</button>
+        {isPreparingSupport ? <progress max="100" value={downloadProgress} aria-label={supportActionLabel} /> : null}
       </section>
       <div className="auto-edit-flow"><span>1</span><p><strong>{t("autoEditStepScenes")}</strong><small>{t("autoEditStepScenesHint")}</small></p><span>2</span><p><strong>{t("autoEditStepCaptions")}</strong><small>{t("autoEditStepCaptionsHint")}</small></p><span>3</span><p><strong>{t("autoEditStepTimeline")}</strong><small>{t("autoEditStepTimelineHint")}</small></p></div>
       {autoEdit?.job?.running ? <div className="auto-edit-progress"><div><span>{autoEdit.job.phase}</span><strong>{autoEdit.job.progress}%</strong></div><progress max="100" value={autoEdit.job.progress} /><button className="panel-secondary" type="button" onClick={autoEdit.cancel}>{t("cancel")}</button></div> : null}

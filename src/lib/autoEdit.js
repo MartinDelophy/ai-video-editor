@@ -24,29 +24,61 @@ const AUTO_EDIT_LANGUAGE_NAMES = {
   "pt-BR": "Brazilian Portuguese",
   th: "Thai",
   vi: "Vietnamese",
+  ru: "Russian",
 };
+
+const PROMPT_API_LANGUAGES = new Set(["en", "ja", "es", "de", "fr"]);
 
 export function getAutoEditLanguage(language = "en") {
   return AUTO_EDIT_LANGUAGE_TAGS[language] || language || "en";
+}
+
+export function getAutoEditPromptLanguage(language = "en") {
+  const outputLanguage = getAutoEditLanguage(language);
+  return PROMPT_API_LANGUAGES.has(outputLanguage) ? outputLanguage : "en";
+}
+
+function getTranslatorLanguage(language) {
+  return getAutoEditLanguage(language).split("-")[0];
 }
 
 function getAutoEditLanguageName(language) {
   return AUTO_EDIT_LANGUAGE_NAMES[language] || language;
 }
 
+function combineAvailability(...values) {
+  if (values.includes("unavailable")) return "unavailable";
+  if (values.includes("downloading")) return "downloading";
+  if (values.includes("downloadable")) return "downloadable";
+  return values.every((value) => value === "available") ? "available" : "unavailable";
+}
+
 export async function probeBuiltInAI(language = "en") {
   if (typeof window === "undefined" || !window.LanguageModel) {
     return { availability: "unavailable", reason: "api-missing", language: getAutoEditLanguage(language) };
   }
-  const modelLanguage = getAutoEditLanguage(language);
+  const outputLanguage = getAutoEditLanguage(language);
+  const promptLanguage = getAutoEditPromptLanguage(language);
+  const needsTranslation = promptLanguage !== outputLanguage;
   try {
-    const availability = await window.LanguageModel.availability({
+    const promptAvailability = await window.LanguageModel.availability({
       expectedInputs: [{ type: "text", languages: ["en"] }, { type: "image" }],
-      expectedOutputs: [{ type: "text", languages: [modelLanguage] }],
+      expectedOutputs: [{ type: "text", languages: [promptLanguage] }],
     });
-    return { availability, reason: "", language: modelLanguage };
+    if (!needsTranslation) return { availability: promptAvailability, reason: "", language: outputLanguage, promptLanguage };
+    if (!window.Translator) return { availability: "unavailable", reason: "translator-api-missing", language: outputLanguage, promptLanguage };
+    const translationAvailability = await window.Translator.availability({
+      sourceLanguage: "en",
+      targetLanguage: getTranslatorLanguage(outputLanguage),
+    });
+    return {
+      availability: combineAvailability(promptAvailability, translationAvailability),
+      reason: "",
+      language: outputLanguage,
+      promptLanguage,
+    };
   } catch (error) {
-    return { availability: "unavailable", reason: error?.name || "probe-failed", language: modelLanguage };
+    return { availability: "unavailable", reason: error?.name || "probe-failed", language: outputLanguage, promptLanguage };
   }
 }
 
@@ -248,7 +280,7 @@ export async function extractAutoEditFrames(segments, onProgress = () => {}, sig
 }
 
 export function createFrameCaptionSession({ language, onDownloadProgress, signal }) {
-  const modelLanguage = getAutoEditLanguage(language);
+  const modelLanguage = getAutoEditPromptLanguage(language);
   const options = {
     expectedInputs: [{ type: "text", languages: ["en"] }, { type: "image" }],
     expectedOutputs: [{ type: "text", languages: [modelLanguage] }],
@@ -260,10 +292,29 @@ export function createFrameCaptionSession({ language, onDownloadProgress, signal
   return window.LanguageModel.create(options);
 }
 
+export function createAutoEditTranslator({ language, onDownloadProgress, signal }) {
+  const outputLanguage = getAutoEditLanguage(language);
+  if (getAutoEditPromptLanguage(language) === outputLanguage) return null;
+  return window.Translator.create({
+    sourceLanguage: "en",
+    targetLanguage: getTranslatorLanguage(outputLanguage),
+    monitor(monitor) {
+      monitor.addEventListener("downloadprogress", (event) => onDownloadProgress?.(event.loaded));
+    },
+    signal,
+  });
+}
+
+async function translateText(text, translator) {
+  if (!translator || !text) return text;
+  return String(await translator.translate(text)).trim();
+}
+
 export async function generateImageVoiceoverText({ src, language = "en", signal }) {
   if (!src) throw new Error("image-missing");
-  const modelLanguage = getAutoEditLanguage(language);
+  const modelLanguage = getAutoEditPromptLanguage(language);
   const session = await createFrameCaptionSession({ language, signal });
+  const translator = await createAutoEditTranslator({ language, signal });
   try {
     const response = await fetch(src, { signal });
     if (!response.ok) throw new Error("image-load-failed");
@@ -280,13 +331,14 @@ export async function generateImageVoiceoverText({ src, language = "en", signal 
     ] }], { responseConstraint: schema, signal });
     const text = String(JSON.parse(result)?.text || "").trim();
     if (!text) throw new Error("empty-caption");
-    return text;
+    return translateText(text, translator);
   } finally {
     session.destroy?.();
+    translator?.destroy?.();
   }
 }
 
-async function generateCaptionGroup(session, frames, duration, modelLanguage) {
+async function generateCaptionGroup(session, frames, duration, modelLanguage, translator) {
   const outputLanguage = getAutoEditLanguageName(modelLanguage);
   const content = [{ type: "text", value: `Describe every provided candidate frame with one concise on-screen caption. Output only in ${outputLanguage}. Return exactly ${frames.length} captions in the same order as the images. Use only visible evidence; do not invent names or facts. Frame timestamps: ${frames.map((frame) => frame.time.toFixed(2)).join(", ")} seconds.` }];
   frames.forEach((frame) => content.push({ type: "image", value: frame.blob }));
@@ -304,9 +356,10 @@ async function generateCaptionGroup(session, frames, duration, modelLanguage) {
     ] }], { responseConstraint: singleSchema });
     descriptions[index] = String(JSON.parse(singleResponse)?.text || "").trim();
   }
+  const translatedDescriptions = await Promise.all(descriptions.map((text) => translateText(text, translator)));
   return frames.map((frame, index) => ({
     id: makeId("caption"),
-    text: descriptions[index],
+    text: translatedDescriptions[index],
     start: frame.time,
     end: Math.min(duration, Math.max(frame.time + 1.2, frames[index + 1]?.time ?? frame.segmentEnd ?? duration)),
     hidden: false,
@@ -324,9 +377,10 @@ function createSlidingWindows(frames, size = 6, overlap = 2) {
   return windows;
 }
 
-export async function generateFrameCaptions({ frames, duration, language, session: providedSession, onDownloadProgress, onPartial }) {
-  const modelLanguage = getAutoEditLanguage(language);
+export async function generateFrameCaptions({ frames, duration, language, session: providedSession, translator: providedTranslator, onDownloadProgress, onPartial }) {
+  const modelLanguage = getAutoEditPromptLanguage(language);
   const session = providedSession || await createFrameCaptionSession({ language, onDownloadProgress });
+  const translator = providedTranslator === undefined ? await createAutoEditTranslator({ language, onDownloadProgress }) : providedTranslator;
   const groups = [];
   frames.forEach((frame) => {
     let group = groups.find((item) => item.segmentId === frame.segmentId);
@@ -347,7 +401,7 @@ export async function generateFrameCaptions({ frames, duration, language, sessio
       try {
         for (let windowIndex = 0; windowIndex < windows.length; windowIndex += 1) {
           const window = windows[windowIndex];
-          const generated = await generateCaptionGroup(session, window.frames, duration, modelLanguage);
+          const generated = await generateCaptionGroup(session, window.frames, duration, modelLanguage, translator);
           // Overlap gives the model context; each window commits only its new time region.
           const committed = generated.filter((caption) => (caption.start + caption.end) / 2 < window.commitEnd || windowIndex === windows.length - 1);
           groupCaptions.push(...committed);
@@ -366,5 +420,6 @@ export async function generateFrameCaptions({ frames, duration, language, sessio
     return allCaptions.sort((a, b) => a.start - b.start);
   } finally {
     if (!providedSession) session.destroy?.();
+    if (providedTranslator === undefined) translator?.destroy?.();
   }
 }

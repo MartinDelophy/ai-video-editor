@@ -9,7 +9,11 @@
 
 Timeline Studio is a local-first AI video editor that runs in the browser. It combines a CapCut-style multi-track timeline with browser-side AI voiceovers, automatic captions, vision tools, talking-avatar generation, and deterministic offline export.
 
-[Open the editor](https://video-editor.ai-creator.top/) · [Watch the demo](https://www.youtube.com/watch?v=chdRPG2ndMs) · [Hugging Face Space](https://huggingface.co/spaces/haixin/timeline-studio)
+[Open the editor](https://video-editor.ai-creator.top/) · [Watch on YouTube](https://youtu.be/bqKhpPPa-qo) · [Hugging Face Space](https://huggingface.co/spaces/haixin/timeline-studio)
+
+## Video demo
+
+https://github.com/user-attachments/assets/e8327caa-429e-40ff-a7fe-a59e6cf7a464
 
 ![Timeline Studio editor](docs/screenshots/editor-timeline.png)
 

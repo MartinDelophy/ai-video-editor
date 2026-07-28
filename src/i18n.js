@@ -16,17 +16,17 @@ const MEDIA_COMPATIBILITY_COPY = {
 };
 
 const COMMUNITY_LINKS_COPY = {
-  zh: { communityLinks: "社区链接", discordCommunity: "Discord 社区", githubRepository: "GitHub 仓库" },
-  en: { communityLinks: "Community links", discordCommunity: "Discord community", githubRepository: "GitHub repository" },
-  ja: { communityLinks: "コミュニティリンク", discordCommunity: "Discord コミュニティ", githubRepository: "GitHub リポジトリ" },
-  ko: { communityLinks: "커뮤니티 링크", discordCommunity: "Discord 커뮤니티", githubRepository: "GitHub 저장소" },
-  es: { communityLinks: "Enlaces de la comunidad", discordCommunity: "Comunidad de Discord", githubRepository: "Repositorio de GitHub" },
-  fr: { communityLinks: "Liens communautaires", discordCommunity: "Communauté Discord", githubRepository: "Dépôt GitHub" },
-  de: { communityLinks: "Community-Links", discordCommunity: "Discord-Community", githubRepository: "GitHub-Repository" },
-  pt: { communityLinks: "Links da comunidade", discordCommunity: "Comunidade do Discord", githubRepository: "Repositório do GitHub" },
-  th: { communityLinks: "ลิงก์ชุมชน", discordCommunity: "ชุมชน Discord", githubRepository: "ที่เก็บ GitHub" },
-  vi: { communityLinks: "Liên kết cộng đồng", discordCommunity: "Cộng đồng Discord", githubRepository: "Kho GitHub" },
-  ru: { communityLinks: "Ссылки сообщества", discordCommunity: "Сообщество Discord", githubRepository: "Репозиторий GitHub" },
+  zh: { communityLinks: "社区链接", discordCommunity: "Discord 社区", githubRepository: "GitHub 仓库", resourceLinks: "Timeline Studio 资源" },
+  en: { communityLinks: "Community links", discordCommunity: "Discord community", githubRepository: "GitHub repository", resourceLinks: "Timeline Studio resources" },
+  ja: { communityLinks: "コミュニティリンク", discordCommunity: "Discord コミュニティ", githubRepository: "GitHub リポジトリ", resourceLinks: "Timeline Studio リソース" },
+  ko: { communityLinks: "커뮤니티 링크", discordCommunity: "Discord 커뮤니티", githubRepository: "GitHub 저장소", resourceLinks: "Timeline Studio 리소스" },
+  es: { communityLinks: "Enlaces de la comunidad", discordCommunity: "Comunidad de Discord", githubRepository: "Repositorio de GitHub", resourceLinks: "Recursos de Timeline Studio" },
+  fr: { communityLinks: "Liens communautaires", discordCommunity: "Communauté Discord", githubRepository: "Dépôt GitHub", resourceLinks: "Ressources de Timeline Studio" },
+  de: { communityLinks: "Community-Links", discordCommunity: "Discord-Community", githubRepository: "GitHub-Repository", resourceLinks: "Timeline-Studio-Ressourcen" },
+  pt: { communityLinks: "Links da comunidade", discordCommunity: "Comunidade do Discord", githubRepository: "Repositório do GitHub", resourceLinks: "Recursos do Timeline Studio" },
+  th: { communityLinks: "ลิงก์ชุมชน", discordCommunity: "ชุมชน Discord", githubRepository: "ที่เก็บ GitHub", resourceLinks: "แหล่งข้อมูล Timeline Studio" },
+  vi: { communityLinks: "Liên kết cộng đồng", discordCommunity: "Cộng đồng Discord", githubRepository: "Kho GitHub", resourceLinks: "Tài nguyên Timeline Studio" },
+  ru: { communityLinks: "Ссылки сообщества", discordCommunity: "Сообщество Discord", githubRepository: "Репозиторий GitHub", resourceLinks: "Ресурсы Timeline Studio" },
 };
 
 const VECTOR_LIBRARY_COPY = {

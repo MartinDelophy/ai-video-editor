@@ -98,7 +98,7 @@ export function Topbar({
                       <span className="file-menu-format">.timeline</span>
                     </button>
                     <div className="file-menu-divider" />
-                    <nav className="file-menu-resources" aria-label="Timeline Studio resources">
+                    <nav className="file-menu-resources" aria-label={t("resourceLinks")}>
                       <a href="/features/">{t("resourceFeatures")}</a>
                       <a href="/how-it-works/">{t("resourceGuide")}</a>
                       <a href="/faq/">{t("resourceFaq")}</a>

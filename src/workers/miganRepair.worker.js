@@ -8,6 +8,8 @@ const MODEL_CACHE_KEY =
 const MODEL_BYTES = 24_743_604;
 const MODEL_SIZE = 256;
 const CACHE_NAME = "timeline-studio-migan-generator-256-webgpu-v1";
+const SHARED_MODEL_CACHE_NAME = "timeline-studio-model-cache-v4";
+const MODEL_READ_STALL_TIMEOUT_MS = 20_000;
 
 ort.env.wasm.numThreads = 1;
 ort.env.wasm.wasmPaths = "/vendor/migan-ort/";
@@ -18,10 +20,17 @@ function report(requestId, stage, value, extra = {}) {
   self.postMessage({ type: "progress", requestId, stage, value, ...extra });
 }
 
+function validateModelSize(byteLength) {
+  if (byteLength !== MODEL_BYTES) {
+    throw new Error(`MODEL_SIZE_MISMATCH:${byteLength}:${MODEL_BYTES}`);
+  }
+}
+
 async function readResponse(response, requestId, source) {
   const total = Number(response.headers.get("content-length")) || MODEL_BYTES;
   if (!response.body) {
     const bytes = await response.arrayBuffer();
+    validateModelSize(bytes.byteLength);
     report(requestId, "download", 1, { loaded: bytes.byteLength, total, source });
     return bytes;
   }
@@ -29,12 +38,28 @@ async function readResponse(response, requestId, source) {
   const chunks = [];
   let loaded = 0;
   while (true) {
-    const { done, value } = await reader.read();
+    let timer = 0;
+    let chunk;
+    try {
+      chunk = await Promise.race([
+        reader.read(),
+        new Promise((_, reject) => {
+          timer = setTimeout(() => reject(new Error("MODEL_READ_STALLED")), MODEL_READ_STALL_TIMEOUT_MS);
+        }),
+      ]);
+    } catch (error) {
+      await reader.cancel().catch(() => {});
+      throw error;
+    } finally {
+      clearTimeout(timer);
+    }
+    const { done, value } = chunk;
     if (done) break;
     chunks.push(value);
     loaded += value.byteLength;
     report(requestId, "download", Math.min(1, loaded / total), { loaded, total, source });
   }
+  validateModelSize(loaded);
   const merged = new Uint8Array(loaded);
   let offset = 0;
   chunks.forEach((chunk) => { merged.set(chunk, offset); offset += chunk.byteLength; });
@@ -44,19 +69,41 @@ async function readResponse(response, requestId, source) {
 async function createSession(requestId, modelSourcePreference) {
   const cache = await caches.open(CACHE_NAME);
   const cached = await cache.match(MODEL_CACHE_KEY);
-  let model;
-  if (cached) model = await readResponse(cached, requestId, "cache");
-  else {
-    const { response } = await fetchFirstAvailableModel(mirroredModelFileUrls({
-      repository: "timeline-studio-onnx-models",
-      revision: MODEL_REVISION,
-      path: MODEL_PATH,
-      preference: modelSourcePreference,
-    }));
-    model = await readResponse(response, requestId, "network");
-    await cache.put(MODEL_CACHE_KEY, new Response(model, {
+  let model = null;
+  if (cached) {
+    try {
+      model = await readResponse(cached, requestId, "cache");
+    } catch {
+      await cache.delete(MODEL_CACHE_KEY).catch(() => false);
+    }
+  }
+  if (!model) {
+    let retriedSharedCache = false;
+    while (!model) {
+      const { response } = await fetchFirstAvailableModel(mirroredModelFileUrls({
+        repository: "timeline-studio-onnx-models",
+        revision: MODEL_REVISION,
+        path: MODEL_PATH,
+        preference: modelSourcePreference,
+      }));
+      try {
+        model = await readResponse(response, requestId, "network");
+      } catch (error) {
+        const fromSharedCache = response.headers.get("X-Timeline-Model-Cache") === "hit";
+        if (!retriedSharedCache && fromSharedCache) {
+          retriedSharedCache = true;
+          const sharedCache = await caches.open(SHARED_MODEL_CACHE_NAME);
+          await sharedCache.delete(MODEL_CACHE_KEY).catch(() => false);
+          continue;
+        }
+        throw error;
+      }
+    }
+    // Model initialization should not wait on persistent storage. Cache writes
+    // can be slow or quota-limited even when the downloaded model is valid.
+    cache.put(MODEL_CACHE_KEY, new Response(model, {
       headers: { "Content-Type": "application/octet-stream", "Content-Length": String(model.byteLength) },
-    }));
+    })).catch(() => {});
   }
   report(requestId, "compile", 0);
   const started = performance.now();

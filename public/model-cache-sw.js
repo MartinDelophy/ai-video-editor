@@ -127,14 +127,25 @@ function withCacheStatus(response, status) {
 async function cacheFirst(request, event) {
   const cache = await caches.open(MODEL_CACHE_NAME);
   const cacheRequest = canonicalModelCacheRequest(request);
-  let cached = await cache.match(cacheRequest) || await cache.match(request);
+  let cached = await cache.match(cacheRequest);
+  let needsCanonicalMigration = false;
+  if (!cached && cacheRequest.url !== request.url) {
+    cached = await cache.match(request);
+    needsCanonicalMigration = Boolean(cached);
+  }
   if (!cached && cacheRequest.url !== request.url) {
     const keys = await cache.keys();
     const equivalent = keys.find((key) => canonicalModelCacheRequest(key).url === cacheRequest.url);
-    if (equivalent) cached = await cache.match(equivalent);
+    if (equivalent) {
+      cached = await cache.match(equivalent);
+      needsCanonicalMigration = Boolean(cached && equivalent.url !== cacheRequest.url);
+    }
   }
   if (cached) {
-    if (cacheRequest.url !== request.url) {
+    // Only copy legacy source-specific entries into the canonical key. A
+    // canonical hit must never overwrite itself while its body is streaming
+    // to the requesting worker; doing so can leave reader.read() pending.
+    if (needsCanonicalMigration) {
       event.waitUntil(cache.put(cacheRequest, cached.clone()).catch(() => {}));
     }
     return withCacheStatus(cached, "hit");

@@ -5,7 +5,7 @@
 - Editable main Visuals sequence plus timed picture-in-picture overlays
 - Captions, stickers, voiceover, separated source audio, and music tracks
 - Visual transforms, property keyframes, masks, filters, effects, speed, and animations
-- Automatic captions, multilingual browser TTS, vocal separation, vision analysis, and digital-human generation
+- Automatic captions, multilingual browser TTS, vocal separation, and vision analysis
 - Portable `.timeline` ZIP archives containing `project.json` and media binaries
 - Offline WebCodecs composition/export with a recorder fallback
 - Undo/redo through the editor history layer
@@ -44,7 +44,7 @@ Observed browser-path constraints:
 3. A fully serializable editor core independent of React setters, DOM nodes, Blob URLs, and browser-only refs; the first shared reducers now live in `src/lib/projectCommandEngine.js`.
 4. Persisted undo checkpoints; transactions, revision preconditions, idempotency keys, structured errors, and field-level dry-run diffs are available.
 5. Richer non-caption analysis inspection; project, track, clip, and caption transcript reads are available.
-6. Progress events and cancellation for ASR, TTS, vision, avatar generation, and export.
+6. Progress events and cancellation for ASR, TTS, vision, and export.
 7. Content-addressed deduplication beyond the current hashed import paths; per-segment portable Voiceover media references are available.
 8. Agent-focused integration tests that apply a command plan, reopen the project, exercise both the supported headless render subset and browser-render parity cases, decode, and verify the result.
 

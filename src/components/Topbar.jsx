@@ -68,6 +68,7 @@ export function Topbar({
   projectFileInputRef,
 }) {
   const exportAnchorRef = useRef(null);
+  const ratioAnchorRef = useRef(null);
   const settingsAnchorRef = useRef(null);
   const modelCacheControlRef = useRef(null);
   const [modelCacheInspection, setModelCacheInspection] = useState({ state: "idle", result: null });
@@ -178,7 +179,7 @@ export function Topbar({
           {t("redo")}
         </button>
         <span className="divider" />
-        <div className="menu-anchor">
+        <div className="menu-anchor" ref={ratioAnchorRef}>
           <button
             className="ratio-select"
             type="button"
@@ -187,7 +188,7 @@ export function Topbar({
             {ratio.label} <CaretDown size={14} />
           </button>
           {showRatioMenu ? (
-            <Popover closeLabel={t("close")} onClose={() => setShowRatioMenu(false)}>
+            <Popover anchorRef={ratioAnchorRef} closeLabel={t("close")} showClose={false} onClose={() => setShowRatioMenu(false)}>
               <div className="menu-list">
                 {RATIO_OPTIONS.map((option) => (
                   <button

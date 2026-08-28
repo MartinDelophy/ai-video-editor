@@ -80,6 +80,7 @@ export function getVisualAssetPayload(asset) {
     sourceDuration: Math.max(0, Number(asset.sourceDuration ?? asset.duration) || 0),
     playbackRate: Math.max(0.25, Math.min(4, Number(asset.playbackRate) || 1)),
     trackFrames: Array.isArray(asset.trackFrames) ? asset.trackFrames : [],
+    trackFrameSampling: asset.trackFrameSampling ?? "",
     trackFrameDuration: Math.max(
       0,
       Number(asset.trackFrameDuration ?? asset.sourceDuration ?? asset.duration) || 0,

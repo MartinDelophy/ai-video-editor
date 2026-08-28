@@ -40,7 +40,7 @@ import {
   X,
 } from "@phosphor-icons/react";
 
-import { IMAGE_SEGMENT_SECONDS, MAX_IMAGE_THUMBNAILS, MAX_TIMELINE_DURATION_SECONDS, TRANSITIONS } from "../config/editor.js";
+import { IMAGE_SEGMENT_SECONDS, MAX_TIMELINE_DURATION_SECONDS, TRANSITIONS } from "../config/editor.js";
 import { formatClock, formatCompactDuration, formatTime, getSegmentStartTime, getTimedSegmentLaneStateKey, getVisualSegmentStartTime, packCaptionSegmentsIntoLanes, packTimedSegmentsIntoLanes } from "../lib/timeline.js";
 import { sliceSourceAudioPeaks } from "../lib/sourceAudioSync.js";
 import {
@@ -49,7 +49,9 @@ import {
   createMainVisualFromOverlay,
   reorderSingleVisualOverlayLane,
 } from "../lib/visualOverlayTimeline.js";
-import { getSampledVideoTrackFrames, getVideoTrackFrameSource } from "../lib/videoTrackFrames.js";
+import { getSampledVideoTrackFrames, getVideoTrackFrameAtSourceTime, getVideoTrackFrameSource } from "../lib/videoTrackFrames.js";
+import { extractVideoTrackFrames, getVideoTrackSampleCount } from "../lib/media.js";
+import { getVisualSourceTime } from "../lib/visualEffects.js";
 import { normalizeVisualSpeedCurve } from "../lib/visualSpeedCurve.js";
 import { rollVisualBoundary, slideVisualSegment, slipVisualSegment } from "../lib/fineEdit.js";
 import { collectTimelineSnapPoints, createTimelineSnapGuide, findClosestTimelineSnap, snapTimelineRange } from "../lib/timelineSnap.js";
@@ -91,6 +93,7 @@ const TIMELINE_WHEEL_GESTURE_RESET_DELAY = 180;
 const TIMELINE_BUTTON_ZOOM_RATIO = 1.25;
 const TIMELINE_TRACK_ROW_HEIGHT = "var(--timeline-track-row-height, 48px)";
 const VIDEO_FRAME_MIN_COUNT = 1;
+const VIDEO_THUMBNAIL_DISPLAY_MAX_COUNT = 480;
 const IMAGE_THUMBNAIL_TARGET_WIDTH = 84;
 const IMAGE_THUMBNAIL_MAX_COUNT = 240;
 const TIMELINE_WHEEL_ZOOM_CONTENT_SELECTOR = [
@@ -101,23 +104,23 @@ const TIMELINE_WHEEL_ZOOM_CONTENT_SELECTOR = [
   ".audio-clip",
 ].join(", ");
 
-function getTimelineThumbnailCount({ duration, timelineDuration, contentWidth, timelineZoom, availableFrames = MAX_IMAGE_THUMBNAILS }) {
-  if (!availableFrames || timelineDuration <= 0 || contentWidth <= 0) {
+function getTimelineThumbnailCount({ duration, timelineDuration, contentWidth, timelineZoom, maxThumbnails = VIDEO_THUMBNAIL_DISPLAY_MAX_COUNT }) {
+  if (!maxThumbnails || timelineDuration <= 0 || contentWidth <= 0) {
     return VIDEO_FRAME_MIN_COUNT;
   }
 
   const clipPixelWidth = Math.max(68, (Math.max(0, duration || 0) / timelineDuration) * contentWidth);
   const targetCellWidth =
     timelineZoom >= 8
-      ? 30
+      ? 48
       : timelineZoom >= 3
-        ? 38
+        ? 56
         : timelineZoom >= 1
-          ? 48
-          : 68;
+          ? 64
+          : 76;
   return Math.max(
     VIDEO_FRAME_MIN_COUNT,
-    Math.min(availableFrames, Math.ceil(clipPixelWidth / targetCellWidth)),
+    Math.min(maxThumbnails, Math.ceil(clipPixelWidth / targetCellWidth)),
   );
 }
 
@@ -1227,6 +1230,7 @@ export function Timeline({
     };
   }, [contextMenu]);
   const [localTimelineZoom, setLocalTimelineZoom] = useState(() => clampTimelineZoom(timelineZoom));
+  const filmstripUpgradeInFlightRef = useRef(new Set());
   const [trimScaleLock, setTrimScaleLock] = useState(null);
   const trimScaleLockRef = useRef(null);
   const trimScrollSeekGuardUntilRef = useRef(0);
@@ -1375,6 +1379,44 @@ export function Timeline({
     timelineZoomRef.current = nextZoom;
     setLocalTimelineZoom(nextZoom);
   }, [timelineZoom]);
+  useEffect(() => {
+    if (localTimelineZoom < 3 || typeof setVisualSegments !== "function") return undefined;
+    const segment = displayedVisualSegments.find((item) => {
+      if ((item.type || visualType) !== "video" || !item.src || filmstripUpgradeInFlightRef.current.has(item.src)) return false;
+      const sourceDuration = Math.max(
+        Number(item.trackFrameDuration) || 0,
+        (Number(item.sourceStart) || 0) + (Number(item.sourceDuration) || Number(item.duration) || 0),
+      );
+      const storedFrames = Array.isArray(item.trackFrames) ? item.trackFrames : [];
+      const expectedCount = getVideoTrackSampleCount(sourceDuration);
+      const usesLegacyCenteredSamples = storedFrames.length > 0
+        && item.trackFrameSampling !== "exact-pts-hq-v4";
+      return sourceDuration > 0 && (storedFrames.length < expectedCount * 0.9 || usesLegacyCenteredSamples);
+    });
+    if (!segment) return undefined;
+    const sourceDuration = Math.max(
+      Number(segment.trackFrameDuration) || 0,
+      (Number(segment.sourceStart) || 0) + (Number(segment.sourceDuration) || Number(segment.duration) || 0),
+    );
+    const sourceKey = segment.src;
+    filmstripUpgradeInFlightRef.current.add(sourceKey);
+    extractVideoTrackFrames(sourceKey, {
+      duration: sourceDuration,
+      width: segment.width,
+      height: segment.height,
+      maxFrames: getVideoTrackSampleCount(sourceDuration),
+    }).then((trackFrames) => {
+      if (!trackFrames.length) return;
+      setVisualSegments((items) => items.map((item) => item.src === sourceKey
+        ? { ...item, trackFrames, trackFrameDuration: sourceDuration, trackFrameSampling: "exact-pts-hq-v4" }
+        : item));
+    }).catch((error) => {
+      console.warn("High-density timeline frame extraction failed", error);
+    }).finally(() => {
+      filmstripUpgradeInFlightRef.current.delete(sourceKey);
+    });
+    return undefined;
+  }, [displayedVisualSegments, localTimelineZoom, setVisualSegments, visualType]);
   useEffect(() => {
     if (!window.matchMedia?.("(max-width: 760px)").matches || timelineDuration <= 0) return;
     const minimumZoom = getTimelineZoomForVisibleDuration(timelineDuration);
@@ -2215,7 +2257,7 @@ export function Timeline({
         const width = timelineDuration > 0 ? Math.max(0.01, Math.min(100 - left, segment.duration / timelineDuration * 100)) : 0;
         const active = currentTime >= segment.start && currentTime < segment.start + segment.duration;
         const overlayFrames = segment.type === "video" && segment.trackFrames?.length
-          ? getSampledVideoTrackFrames(segment.trackFrames, getTimelineThumbnailCount({ duration: segment.duration, timelineDuration, contentWidth: rulerViewport.contentWidth, timelineZoom: localTimelineZoom, availableFrames: MAX_IMAGE_THUMBNAILS }), segment)
+          ? getSampledVideoTrackFrames(segment.trackFrames, getTimelineThumbnailCount({ duration: segment.duration, timelineDuration, contentWidth: rulerViewport.contentWidth, timelineZoom: localTimelineZoom }), segment)
           : [];
         const overlayImageCount = segment.type !== "video"
           ? getImageTimelineThumbnailCount({ duration: segment.duration, timelineDuration, contentWidth: rulerViewport.contentWidth })
@@ -2884,22 +2926,35 @@ export function Timeline({
                       ? Math.max(0.01, Math.min(100, ((promotionOverlay?.duration || 0.5) / timelineDuration) * 100))
                       : 0;
                     const videoTrackFrames = Array.isArray(segment.trackFrames) ? segment.trackFrames : [];
+                    const isPortraitVideo = segmentType === "video" && (segment.height || 0) > (segment.width || 0);
                     const desiredVideoFrameCount = getTimelineThumbnailCount({
                       duration: segment.duration,
                       timelineDuration,
                       contentWidth: rulerViewport.contentWidth,
                       timelineZoom: localTimelineZoom,
-                      availableFrames: videoTrackFrames.length || MAX_IMAGE_THUMBNAILS,
+                      maxThumbnails: VIDEO_THUMBNAIL_DISPLAY_MAX_COUNT,
                     });
-                    const visibleVideoFrames = segmentType === "video"
+                    const sampledVideoFrames = segmentType === "video"
                       ? videoTrackFrames.length
                         ? getSampledVideoTrackFrames(videoTrackFrames, desiredVideoFrameCount, segment)
                         : segment.thumbnail
                           ? Array.from({ length: desiredVideoFrameCount }, () => segment.thumbnail)
                           : []
                       : [];
-                    const isPortraitVideo = segmentType === "video" && (segment.height || 0) > (segment.width || 0);
-
+                    const visibleVideoFrames = sampledVideoFrames.slice();
+                    if (segmentType === "video" && isCurrentVisualSegment && visibleVideoFrames.length && segmentRange) {
+                      const localTime = Math.max(0, Math.min(Number(segment.duration) || 0, currentTime - segmentRange.start));
+                      const activeFrameIndex = Math.min(
+                        visibleVideoFrames.length - 1,
+                        Math.floor(localTime / Math.max(0.001, Number(segment.duration) || 0.001) * visibleVideoFrames.length),
+                      );
+                      const exactFrame = getVideoTrackFrameAtSourceTime(
+                        videoTrackFrames,
+                        getVisualSourceTime(segment, localTime),
+                        Number(segment.trackFrameDuration) || Number(segment.sourceDuration) || Number(segment.duration) || 0,
+                      );
+                      if (exactFrame) visibleVideoFrames[activeFrameIndex] = exactFrame;
+                    }
                     return (
                       <div
                         key={segment.id}

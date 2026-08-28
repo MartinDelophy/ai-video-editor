@@ -1,3 +1,5 @@
+import { getVisualSourceTime } from "./visualEffects.js";
+
 const MIN_PLAYBACK_RATE = 0.25;
 const MAX_PLAYBACK_RATE = 4;
 
@@ -20,6 +22,33 @@ export function createVideoTrackFrame(src, sourceTime) {
     src,
     sourceTime: Math.max(0, Number(sourceTime) || 0),
   };
+}
+
+function getFrameAtOrBefore(timedFrames, targetTime) {
+  if (!timedFrames.length) return null;
+  const safeTarget = Math.max(0, Number(targetTime) || 0);
+  let low = 0;
+  let high = timedFrames.length - 1;
+  while (low <= high) {
+    const middle = Math.floor((low + high) / 2);
+    if (timedFrames[middle].sourceTime <= safeTarget) low = middle + 1;
+    else high = middle - 1;
+  }
+  return timedFrames[Math.max(0, high)].frame;
+}
+
+export function getVideoTrackFrameAtSourceTime(frames, targetTime, duration = 0) {
+  if (!Array.isArray(frames) || !frames.length) return null;
+  const timedFrames = frames
+    .map((frame, index) => ({
+      frame,
+      sourceTime: getVideoTrackFrameTime(frame, index, frames.length, duration),
+    }))
+    .filter(({ frame }) => Boolean(getVideoTrackFrameSource(frame)))
+    .sort((left, right) => left.sourceTime - right.sourceTime);
+  if (!timedFrames.length) return null;
+
+  return getFrameAtOrBefore(timedFrames, targetTime);
 }
 
 export function getSampledVideoTrackFrames(frames, count, segment = null) {
@@ -49,26 +78,11 @@ export function getSampledVideoTrackFrames(frames, count, segment = null) {
     .sort((left, right) => left.sourceTime - right.sourceTime);
   if (!timedFrames.length) return [];
 
-  const findClosestFrame = (targetTime) => {
-    let low = 0;
-    let high = timedFrames.length - 1;
-    while (low < high) {
-      const middle = Math.floor((low + high) / 2);
-      if (timedFrames[middle].sourceTime < targetTime) low = middle + 1;
-      else high = middle;
-    }
-    const next = timedFrames[low];
-    const previous = timedFrames[Math.max(0, low - 1)];
-    return Math.abs(previous.sourceTime - targetTime) <= Math.abs(next.sourceTime - targetTime)
-      ? previous.frame
-      : next.frame;
-  };
-
   return Array.from({ length: safeCount }, (_, index) => {
-    const targetTime = Math.min(
-      sourceStart + sourceSpan,
-      sourceStart + ((index + 0.5) / safeCount) * sourceSpan,
-    );
-    return findClosestFrame(targetTime);
+    const localTime = (index / safeCount) * Math.max(0.001, Number(segment?.duration) || sourceSpan / playbackRate);
+    const targetTime = segment
+      ? getVisualSourceTime(segment, localTime)
+      : sourceStart + (index / safeCount) * sourceSpan;
+    return getFrameAtOrBefore(timedFrames, Math.min(sourceStart + sourceSpan, targetTime));
   });
 }

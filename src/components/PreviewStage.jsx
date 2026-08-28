@@ -250,20 +250,6 @@ export function PreviewStage({
   const activePreviewFrameStyle = isFocusPreviewOpen && focusPreviewFrameSize.width > 0
     ? { ...previewFrameStyle, width: `${focusPreviewFrameSize.width}px`, height: `${focusPreviewFrameSize.height}px` }
     : previewFrameStyle;
-  const emptyPreviewFrameStyle = (() => {
-    if (isFocusPreviewOpen || !activePreviewFrameSize.width || !activePreviewFrameSize.height) {
-      return activePreviewFrameStyle;
-    }
-    const scale = Math.min(
-      1,
-      960 / activePreviewFrameSize.width,
-      540 / activePreviewFrameSize.height,
-    );
-    return {
-      width: `${Math.round(activePreviewFrameSize.width * scale)}px`,
-      height: `${Math.round(activePreviewFrameSize.height * scale)}px`,
-    };
-  })();
   const frameWidth = Math.max(1, activePreviewFrameSize.width || 1);
   const frameHeight = Math.max(1, activePreviewFrameSize.height || 1);
   const previewPixelRatio = typeof window === "undefined" ? 1 : Math.max(1, window.devicePixelRatio || 1);
@@ -645,7 +631,7 @@ export function PreviewStage({
         }}
       >
         {!hasPreviewContent ? (
-          <button className="preview-empty" type="button" style={emptyPreviewFrameStyle} onClick={() => fileInputRef.current?.click()}>
+          <button className="preview-empty" type="button" onClick={() => fileInputRef.current?.click()}>
             <CloudArrowUp size={38} />
             <strong>{t("previewEmptyTitle")}</strong>
             <span>{t("previewEmptySubtitle")}</span>

@@ -82,7 +82,7 @@ function getSubjectMaterialTexture(materialId) {
 }
 
 const VIDEO_TRACK_FRAME_MAX = 480;
-const VIDEO_TRACK_FRAME_HEIGHT = 90;
+const VIDEO_TRACK_FRAME_HEIGHT = 180;
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 
 export function getVideoTrackSampleCount(duration, maxFrames = VIDEO_TRACK_FRAME_MAX) {
@@ -91,13 +91,19 @@ export function getVideoTrackSampleCount(duration, maxFrames = VIDEO_TRACK_FRAME
     return 0;
   }
 
+  // Timeline filmstrips are an editing surface, not a decorative poster row.
+  // Short clips need enough timestamped samples for the frame beneath the
+  // playhead to agree with the preview after deep timeline zoom. Longer clips
+  // remain bounded by VIDEO_TRACK_FRAME_MAX to keep import memory predictable.
   const targetStep =
-    safeDuration <= 20
-      ? 0.2
-      : safeDuration <= 45
-        ? 0.25
+    safeDuration <= 16
+      ? 1 / 30
+      : safeDuration <= 30
+        ? 1 / 20
+      : safeDuration <= 60
+        ? 0.1
       : safeDuration <= 120
-        ? 0.4
+        ? 0.2
         : safeDuration <= 600
           ? 0.5
           : 1.5;
@@ -155,7 +161,7 @@ export function seekVideoFrame(video, time) {
 
 async function extractVideoTrackFramesWithWebCodecs(src, sampleTimes, options) {
   if (typeof VideoDecoder === "undefined" || !sampleTimes.length) return null;
-  const { width, height, quality, signal } = options;
+  const { width, height, quality, signal, duration, maxFrames } = options;
   let input = null;
   try {
     const blob = src instanceof Blob
@@ -177,6 +183,18 @@ async function extractVideoTrackFramesWithWebCodecs(src, sampleTimes, options) {
       decoderOptions: { optimizeForLatency: true },
     });
     const frames = [];
+    const packetStats = await track.computePacketStats(Math.max(1, maxFrames) + 1);
+    if (packetStats.packetCount <= maxFrames) {
+      for await (const result of sink.canvases(0, duration)) {
+        if (signal?.aborted) throw signal.reason || new DOMException("Aborted", "AbortError");
+        if (!result?.canvas) continue;
+        frames.push(createVideoTrackFrame(
+          result.canvas.toDataURL("image/jpeg", quality),
+          result.timestamp,
+        ));
+      }
+      return frames;
+    }
     for await (const result of sink.canvasesAtTimestamps(sampleTimes)) {
       if (signal?.aborted) throw signal.reason || new DOMException("Aborted", "AbortError");
       if (!result?.canvas) continue;
@@ -201,7 +219,7 @@ export async function extractVideoTrackFrames(src, options = {}) {
     width,
     height,
     maxFrames = VIDEO_TRACK_FRAME_MAX,
-    quality = 0.72,
+    quality = 0.88,
     signal,
   } = options;
   const video = await loadVideo(src);
@@ -216,7 +234,7 @@ export async function extractVideoTrackFrames(src, options = {}) {
   const aspectRatio = naturalWidth / naturalHeight;
   const canvas = document.createElement("canvas");
   canvas.height = VIDEO_TRACK_FRAME_HEIGHT;
-  canvas.width = Math.max(36, Math.min(180, Math.round(canvas.height * aspectRatio)));
+  canvas.width = Math.max(36, Math.min(360, Math.round(canvas.height * aspectRatio)));
   const context = canvas.getContext("2d", { alpha: false });
   if (!context) {
     return [];
@@ -225,13 +243,15 @@ export async function extractVideoTrackFrames(src, options = {}) {
   try {
     const sampleTimes = Array.from(
       { length: frameCount },
-      (_, index) => ((index + 0.5) / frameCount) * safeDuration,
+      (_, index) => (index / frameCount) * safeDuration,
     );
     const decodedFrames = await extractVideoTrackFramesWithWebCodecs(src, sampleTimes, {
       width: canvas.width,
       height: canvas.height,
       quality,
       signal,
+      duration: safeDuration,
+      maxFrames,
     });
     if (decodedFrames?.length) return decodedFrames;
     const frames = [];
@@ -258,7 +278,7 @@ export async function createVideoTrackFramesFromBlobs(blobs, options = {}) {
     width,
     height,
     maxFrames = VIDEO_TRACK_FRAME_MAX,
-    quality = 0.72,
+    quality = 0.88,
     signal,
   } = options;
   const frameCount = Math.min(
@@ -270,7 +290,7 @@ export async function createVideoTrackFramesFromBlobs(blobs, options = {}) {
   const naturalHeight = Math.max(1, Number(height) || 9);
   const canvas = document.createElement("canvas");
   canvas.height = VIDEO_TRACK_FRAME_HEIGHT;
-  canvas.width = Math.max(36, Math.min(180, Math.round(canvas.height * naturalWidth / naturalHeight)));
+  canvas.width = Math.max(36, Math.min(360, Math.round(canvas.height * naturalWidth / naturalHeight)));
   const context = canvas.getContext("2d", { alpha: false });
   if (!context) return [];
 

@@ -4921,19 +4921,15 @@ button:disabled {
   align-items: center;
   justify-content: center;
   gap: 14px;
-  width: min(960px, 100%);
+  width: min(420px, 78%);
   max-width: 100%;
   max-height: 100%;
-  aspect-ratio: var(--preview-ratio, 16 / 9);
-  border: 1px solid rgba(173, 184, 196, 0.16);
-  border-radius: 10px;
+  aspect-ratio: 16 / 9;
+  border: 1px dashed rgba(173, 184, 196, 0.22);
+  border-radius: 8px;
   color: #9da9b5;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.026), rgba(255, 255, 255, 0.012)),
-    #151a20;
-  box-shadow:
-    0 20px 54px rgba(0, 0, 0, 0.24),
-    inset 0 1px 0 rgba(255, 255, 255, 0.025);
+  background: rgba(255, 255, 255, 0.025);
+  box-shadow: none;
   cursor: pointer;
 }
 
@@ -8080,6 +8076,7 @@ button:disabled {
 .image-thumbnails.is-video.is-portrait-video img {
   object-fit: cover;
   object-position: center center;
+  background: #05070a;
 }
 
 .image-clip.is-video {

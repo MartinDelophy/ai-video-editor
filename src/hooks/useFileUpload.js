@@ -19,7 +19,8 @@ export function useFileUpload(deps) {
       const src = URL.createObjectURL(file); deps.imageUrlRefs.current.add(src);
       const type = getMediaFileKind(file);
       return { id: crypto.randomUUID(), type, src, name: file.name, meta: "读取中", blob: file,
-        duration: type === "video" ? 0 : 4, width: 0, height: 0, trackFrames: [] };
+        duration: type === "video" ? 0 : 4, width: 0, height: 0, trackFrames: [],
+        preparing: type === "video", prepareProgress: type === "video" ? 0.08 : 1 };
     });
     const primary = assets[0]; deps.setSelectedLibraryAssetId(primary.id); deps.setUserAssets((current) => [...assets, ...current]);
     const primaryVisual = assets.find((asset) => asset.type === "image" || asset.type === "video");
@@ -38,7 +39,9 @@ export function useFileUpload(deps) {
       }
       if (asset.type === "video") {
         const prepareCompatibleVideo = async () => {
-          update(asset.id, { meta: deps.t("mediaCompatibilityProcessing") });
+          const compatibilityPatch = { meta: deps.t("mediaCompatibilityProcessing"), preparing: true, prepareProgress: 0.16 };
+          update(asset.id, compatibilityPatch);
+          deps.updateVisualAssetInTimeline(asset.id, compatibilityPatch);
           deps.notify(deps.t("mediaCompatibilityProcessing"));
           try {
             let probe = null;
@@ -63,7 +66,9 @@ export function useFileUpload(deps) {
             deps.notify(deps.t("mediaCompatibilityReady"));
           } catch (error) {
             console.error("Media compatibility fallback failed", error);
-            update(asset.id, { meta: deps.t("mediaCompatibilityFailed") });
+            const failurePatch = { meta: deps.t("mediaCompatibilityFailed"), preparing: false, prepareProgress: 0 };
+            update(asset.id, failurePatch);
+            deps.updateVisualAssetInTimeline(asset.id, failurePatch);
             deps.notify(deps.t("mediaCompatibilityFailedHint"));
           }
         };
@@ -80,16 +85,26 @@ export function useFileUpload(deps) {
             const patch = { meta: `${width || "?"} x ${height || "?"} · ${formatClock(duration)}${backendLabel}`,
               duration, width, height, type: "video", src: sourceAsset.src, blob: sourceAsset.blob,
               trackFrameDuration: duration,
+              preparing: true, prepareProgress: 0.42,
               compatibilityAudioBlob: sourceAsset.compatibilityAudioBlob ?? null, mediaCompatibility: compatibility };
             update(asset.id, patch); deps.updateVisualAssetInTimeline(asset.id, patch);
+            const extractingPatch = { preparing: true, prepareProgress: 0.68 };
+            update(asset.id, extractingPatch); deps.updateVisualAssetInTimeline(asset.id, extractingPatch);
             extractVideoTrackFrames(sourceAsset.src, { duration, width, height }).then((trackFrames) => {
-              if (!trackFrames.length) return;
-              update(asset.id, { trackFrames }); deps.updateVisualAssetInTimeline(asset.id, { trackFrames });
-            }).catch((error) => console.warn("Video timeline frame extraction failed", error));
+              if (!trackFrames.length) throw new Error("No timeline frames decoded");
+              const framePatch = { trackFrames, trackFrameSampling: "exact-pts-hq-v4", preparing: false, prepareProgress: 1 };
+              update(asset.id, framePatch); deps.updateVisualAssetInTimeline(asset.id, framePatch);
+            }).catch((error) => {
+              console.warn("Video timeline frame extraction failed", error);
+              const failurePatch = { preparing: false, prepareProgress: 0, timelineFrameError: true };
+              update(asset.id, failurePatch); deps.updateVisualAssetInTimeline(asset.id, failurePatch);
+            });
           };
           video.onerror = async () => {
             if (compatibility || !shouldProbeWithLibav(asset.blob, { nativeMetadataError: true })) {
-              update(asset.id, { meta: deps.t("mediaCompatibilityFailed") });
+              const failurePatch = { meta: deps.t("mediaCompatibilityFailed"), preparing: false, prepareProgress: 0 };
+              update(asset.id, failurePatch);
+              deps.updateVisualAssetInTimeline(asset.id, failurePatch);
               return;
             }
             await prepareCompatibleVideo();

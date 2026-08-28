@@ -59,7 +59,7 @@ export function createAssetDropActions(d) {
         d.updateVisualAssetInTimeline(asset.id, { ...asset, preparing: false, prepareProgress: 1 });
         if (asset.type === "video") {
           extractVideoTrackFrames(asset.src, { duration: asset.duration, width: asset.width, height: asset.height })
-            .then((trackFrames) => { if (trackFrames.length) d.updateVisualAssetInTimeline(asset.id, { trackFrames }); })
+            .then((trackFrames) => { if (trackFrames.length) d.updateVisualAssetInTimeline(asset.id, { trackFrames, trackFrameSampling: "exact-pts-hq-v4" }); })
             .catch((error) => console.warn("Remote video timeline frame extraction failed", error));
         }
       } else {

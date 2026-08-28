@@ -164,17 +164,35 @@ function AutoEditPanel({ t, hasVisual, autoEdit }) {
   const ready = availability === "available" || availability === "downloadable" || availability === "downloading";
   const downloadProgress = Math.max(0, Math.min(100, Number(autoEdit?.support?.progress) || 0));
   const isPreparingSupport = availability === "downloading" && Number.isFinite(autoEdit?.support?.progress);
+  const showDownloadDetails = isPreparingSupport || autoEdit?.support?.stalled;
+  const downloadRows = [
+    ["prompt", t("autoEditPromptModel")],
+    ...(autoEdit?.support?.promptLanguage !== autoEdit?.support?.language ? [["translation", t("autoEditTranslationModel")]] : []),
+  ].map(([id, label]) => ({ id, label, ...(autoEdit?.support?.downloads?.[id] || { progress: 0, state: "downloading", attempt: 1 }) }));
+  const getDownloadStateLabel = (download) => download.state === "complete"
+    ? t("autoEditDownloadComplete")
+    : download.state === "stalled" ? t("autoEditDownloadStalled")
+      : `${download.progress > 0 ? t("autoEditDownloadActive") : t("autoEditDownloadWaiting")}${download.attempt > 1 ? ` · ${t("autoEditDownloadAttempt").replace("{attempt}", download.attempt)}` : ""}`;
   const supportActionLabel = availability === "downloading"
     ? `${t("autoEditDownloadingModel")}${downloadProgress ? ` ${downloadProgress}%` : ""}`
-    : availability === "downloadable" ? t("autoEditDownloadModel") : t("autoEditCheckSupport");
+    : availability === "downloadable" ? t(autoEdit?.support?.stalled ? "autoEditRetryDownload" : "autoEditDownloadModel") : t("autoEditCheckSupport");
   return (<>
     <div className="auto-edit-panel">
       <section className="auto-edit-intro"><Scissors size={28} weight="duotone" /><div><strong>{t("autoEditCreateTitle")}</strong><span>{t("autoEditCreateDesc")}</span></div></section>
       <section className="auto-edit-status-card">
         <div><span>{t("autoEditBrowserModel")}</span><strong className={`auto-edit-availability is-${availability}`}>{t(`autoEditStatus_${availability}`)}</strong></div>
         <p>{t("autoEditPrivacyHint")}</p>
-        <button className="panel-secondary" type="button" disabled={autoEdit?.job?.running || availability === "checking" || isPreparingSupport} onClick={availability === "downloadable" || availability === "downloading" ? autoEdit?.prepareSupport : autoEdit?.checkSupport}>{supportActionLabel}</button>
-        {isPreparingSupport ? <progress max="100" value={downloadProgress} aria-label={supportActionLabel} /> : null}
+        {availability === "available"
+          ? <div className="auto-edit-model-ready" role="status"><CheckCircle size={17} weight="fill" /><span>{t("autoEditModelReady")}</span></div>
+          : <button className="panel-secondary" type="button" disabled={autoEdit?.job?.running || availability === "checking" || isPreparingSupport} onClick={availability === "downloadable" || availability === "downloading" ? autoEdit?.prepareSupport : autoEdit?.checkSupport}>{supportActionLabel}</button>}
+        {showDownloadDetails ? <div className="auto-edit-model-downloads" aria-live="polite">
+          {downloadRows.map((download) => <div className={`auto-edit-model-download is-${download.state}`} key={download.id}>
+            <div><span>{download.label}</span><span className="auto-edit-model-download-meta"><small>{getDownloadStateLabel(download)}</small><strong>{download.progress}%</strong></span></div>
+            <progress max="100" value={download.progress} aria-label={`${download.label} ${download.progress}%`} />
+          </div>)}
+          <div className="auto-edit-download-total"><span>{t("autoEditDownloadTotal")}</span><strong>{downloadProgress}%</strong></div>
+          {autoEdit?.support?.stalled ? <p className="auto-edit-download-warning">{t("autoEditDownloadStalledHint")}</p> : null}
+        </div> : null}
       </section>
       <div className="auto-edit-flow"><span>1</span><p><strong>{t("autoEditStepScenes")}</strong><small>{t("autoEditStepScenesHint")}</small></p><span>2</span><p><strong>{t("autoEditStepCaptions")}</strong><small>{t("autoEditStepCaptionsHint")}</small></p><span>3</span><p><strong>{t("autoEditStepTimeline")}</strong><small>{t("autoEditStepTimelineHint")}</small></p></div>
       {autoEdit?.job?.running ? <div className="auto-edit-progress"><div><span>{autoEdit.job.phase}</span><strong>{autoEdit.job.progress}%</strong></div><progress max="100" value={autoEdit.job.progress} /><button className="panel-secondary" type="button" onClick={autoEdit.cancel}>{t("cancel")}</button></div> : null}

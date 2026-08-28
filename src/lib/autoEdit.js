@@ -1,4 +1,5 @@
 import { makeId } from "./timeline.js";
+import { createChromeBuiltInSession } from "./chromeBuiltInAi.js";
 
 const AUTO_EDIT_LANGUAGE_TAGS = {
   zh: "zh-CN",
@@ -279,29 +280,33 @@ export async function extractAutoEditFrames(segments, onProgress = () => {}, sig
   }
 }
 
-export function createFrameCaptionSession({ language, onDownloadProgress, signal }) {
+export function createFrameCaptionSession({ language, onDownloadProgress, onRetry, signal }) {
   const modelLanguage = getAutoEditPromptLanguage(language);
   const options = {
     expectedInputs: [{ type: "text", languages: ["en"] }, { type: "image" }],
     expectedOutputs: [{ type: "text", languages: [modelLanguage] }],
-    monitor(monitor) {
-      monitor.addEventListener("downloadprogress", (event) => onDownloadProgress?.(event.loaded));
-    },
-    signal,
   };
-  return window.LanguageModel.create(options);
+  return createChromeBuiltInSession({
+    create: (createOptions) => window.LanguageModel.create(createOptions),
+    options,
+    signal,
+    onDownloadProgress,
+    onRetry,
+  });
 }
 
-export function createAutoEditTranslator({ language, onDownloadProgress, signal }) {
+export function createAutoEditTranslator({ language, onDownloadProgress, onRetry, signal }) {
   const outputLanguage = getAutoEditLanguage(language);
   if (getAutoEditPromptLanguage(language) === outputLanguage) return null;
-  return window.Translator.create({
-    sourceLanguage: "en",
-    targetLanguage: getTranslatorLanguage(outputLanguage),
-    monitor(monitor) {
-      monitor.addEventListener("downloadprogress", (event) => onDownloadProgress?.(event.loaded));
+  return createChromeBuiltInSession({
+    create: (createOptions) => window.Translator.create(createOptions),
+    options: {
+      sourceLanguage: "en",
+      targetLanguage: getTranslatorLanguage(outputLanguage),
     },
     signal,
+    onDownloadProgress,
+    onRetry,
   });
 }
 

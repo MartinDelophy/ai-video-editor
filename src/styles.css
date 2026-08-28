@@ -2358,6 +2358,23 @@ button:disabled {
 .auto-edit-status-card > div > span { color: #c1cdd2; font-size: 12px; }
 .auto-edit-status-card p { margin: 0; }
 .auto-edit-status-card progress { width: 100%; height: 5px; accent-color: #35ead9; }
+.auto-edit-status-card .auto-edit-model-ready { display:flex; align-items:center; justify-content:flex-start; gap:7px; min-height:38px; padding:0 11px; border:1px solid rgba(53,234,217,.16); border-radius:8px; color:#79f3e7; background:rgba(53,234,217,.055); }
+.auto-edit-model-ready svg { flex:0 0 auto; }
+.auto-edit-model-ready span { color:inherit; font-size:11px; font-weight:650; line-height:1.35; }
+.auto-edit-model-downloads { display:grid !important; align-items:stretch !important; justify-content:normal !important; gap:11px; width:100%; min-width:0; }
+.auto-edit-model-download { display:grid !important; align-items:stretch !important; justify-content:normal !important; gap:6px; width:100%; min-width:0; }
+.auto-edit-model-download > div { display:flex !important; align-items:center; justify-content:space-between; gap:12px; width:100%; min-width:0; }
+.auto-edit-model-download span { overflow:hidden; color:#b9c7cc !important; font-size:10px !important; text-overflow:ellipsis; white-space:nowrap; }
+.auto-edit-model-download-meta { display:flex; flex:0 0 auto; align-items:center; gap:9px; overflow:visible !important; }
+.auto-edit-model-download small { color:#70818a; font-size:9px; white-space:nowrap; }
+.auto-edit-model-download strong { min-width:34px; color:#9fb0b7; font-size:10px; text-align:right; font-variant-numeric:tabular-nums; }
+.auto-edit-model-download.is-retrying small { color:#e7c56f; }
+.auto-edit-model-download.is-stalled small { color:#e7c56f; }
+.auto-edit-model-download.is-complete small,.auto-edit-model-download.is-complete strong { color:#54dccc; }
+.auto-edit-model-download progress { display:block; width:100% !important; height:4px; }
+.auto-edit-download-total { display:flex !important; align-items:center !important; justify-content:space-between !important; width:100%; border-top:1px solid rgba(255,255,255,.06); padding-top:8px; color:#7f9098; font-size:9px; }
+.auto-edit-download-total strong { color:#b6c5ca; font-size:10px; font-variant-numeric:tabular-nums; }
+.auto-edit-status-card .auto-edit-download-warning { margin:0; border:1px solid rgba(231,197,111,.15); border-radius:7px; padding:7px 8px; color:#bca66f; font-size:9px; line-height:1.45; background:rgba(231,197,111,.045); }
 .auto-edit-status-card .auto-edit-warning { color: #d8b96e; }
 .auto-edit-availability { color: #82919b; font-size: 10px; }
 .auto-edit-availability.is-available { color: #35ead9; }

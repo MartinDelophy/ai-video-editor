@@ -1,3 +1,5 @@
+import { createChromeBuiltInSession } from "./chromeBuiltInAi.js";
+
 export const AI_MUSIC_PRESETS = {
   style: [
     ["cinematic", "cinematic soundtrack"],
@@ -45,7 +47,9 @@ export async function translateMusicDescriptionToEnglish(text, sourceLanguage = 
   let detectedLanguage = sourceLanguage === "zh" ? "zh" : sourceLanguage;
   if (globalThis.LanguageDetector?.create) {
     try {
-      const detector = await globalThis.LanguageDetector.create();
+      const detector = await createChromeBuiltInSession({
+        create: (options) => globalThis.LanguageDetector.create(options),
+      });
       const results = await detector.detect(value);
       detectedLanguage = results?.[0]?.detectedLanguage || detectedLanguage;
       detector.destroy?.();
@@ -56,9 +60,9 @@ export async function translateMusicDescriptionToEnglish(text, sourceLanguage = 
   if (!globalThis.Translator?.create) {
     throw new Error("Browser translation is unavailable. Use English or enable Chrome built-in translation.");
   }
-  const translator = await globalThis.Translator.create({
-    sourceLanguage: detectedLanguage,
-    targetLanguage: "en",
+  const translator = await createChromeBuiltInSession({
+    create: (options) => globalThis.Translator.create(options),
+    options: { sourceLanguage: detectedLanguage, targetLanguage: "en" },
   });
   try {
     return await translator.translate(value);

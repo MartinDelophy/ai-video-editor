@@ -7,6 +7,7 @@ export function useAutoEdit({ language, visualSegments, captionSegments, commitC
   const [job, setJob] = useState({ running: false, progress: 0, phase: "" });
   const [review, setReview] = useState({ open: false, candidates: [], captions: [], segments: [], error: "" });
   const abortRef = useRef(null);
+  const supportDownloadAttemptRef = useRef(0);
   const candidateUrlsRef = useRef([]);
   const clearCandidateUrls = useCallback(() => {
     candidateUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
@@ -20,16 +21,40 @@ export function useAutoEdit({ language, visualSegments, captionSegments, commitC
     return result;
   }, [language]);
   useEffect(() => { checkSupport(); }, [checkSupport]);
+  useEffect(() => {
+    if (!support.stalled) return undefined;
+    let cancelled = false;
+    const refreshAvailability = async () => {
+      const result = await probeBuiltInAI(language);
+      if (cancelled || result.availability !== "available") return;
+      supportDownloadAttemptRef.current = 0;
+      setSupport({ ...result, availability: "available", progress: 100, stalled: false });
+    };
+    refreshAvailability();
+    const interval = window.setInterval(refreshAvailability, 5_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [language, support.stalled]);
   const prepareSupport = useCallback(async () => {
-    const environment = await probeBuiltInAI(language);
+    // Do not await availability here. Chrome requires create() to run inside
+    // the button click's transient user-activation window when a model still
+    // needs downloading. Support was already probed by checkSupport().
+    const environment = support;
     if (environment.availability !== "downloadable" && environment.availability !== "downloading") {
-      setSupport(environment);
-      return environment;
+      return checkSupport();
     }
-    setSupport({ ...environment, availability: "downloading", progress: 0 });
+    supportDownloadAttemptRef.current += 1;
+    const downloadAttempt = supportDownloadAttemptRef.current;
+    const needsTranslation = environment.promptLanguage !== environment.language;
+    const initialDownloads = {
+      prompt: { progress: 0, state: "downloading", attempt: downloadAttempt },
+      ...(needsTranslation ? { translation: { progress: 0, state: "downloading", attempt: downloadAttempt } } : {}),
+    };
+    setSupport({ ...environment, availability: "downloading", progress: 0, downloads: initialDownloads, stalled: false });
     let promptSession = null;
     let translator = null;
-    const needsTranslation = environment.promptLanguage !== environment.language;
     let promptProgress = 0;
     let translationProgress = 0;
     const updateProgress = (kind, loaded) => {
@@ -37,25 +62,57 @@ export function useAutoEdit({ language, visualSegments, captionSegments, commitC
       if (kind === "prompt") promptProgress = value;
       else translationProgress = value;
       const progress = Math.round((needsTranslation ? (promptProgress + translationProgress) / 2 : promptProgress) * 100);
-      setSupport((value) => ({ ...value, availability: "downloading", progress }));
+      setSupport((current) => ({
+        ...current,
+        availability: "downloading",
+        progress,
+        downloads: {
+          ...current.downloads,
+          [kind]: {
+            ...(current.downloads?.[kind] || initialDownloads[kind]),
+            progress: Math.round(value * 100),
+            state: value >= 1 ? "complete" : "downloading",
+          },
+        },
+      }));
     };
     try {
       [promptSession, translator] = await Promise.all([
-        createFrameCaptionSession({ language, onDownloadProgress: (loaded) => updateProgress("prompt", loaded) }),
-        createAutoEditTranslator({ language, onDownloadProgress: (loaded) => updateProgress("translation", loaded) }),
+        createFrameCaptionSession({
+          language,
+          onDownloadProgress: (loaded) => updateProgress("prompt", loaded),
+        }).then((session) => { updateProgress("prompt", 1); return session; }),
+        createAutoEditTranslator({
+          language,
+          onDownloadProgress: (loaded) => updateProgress("translation", loaded),
+        })?.then((session) => { updateProgress("translation", 1); return session; }) || null,
       ]);
       const ready = await probeBuiltInAI(language);
+      supportDownloadAttemptRef.current = 0;
       setSupport({ ...ready, progress: ready.availability === "available" ? 100 : undefined });
       return ready;
     } catch (error) {
-      const failed = { ...environment, availability: "unavailable", reason: error?.name || "model-download-failed" };
-      setSupport(failed);
+      const retryable = ["ModelDownloadStalledError", "NetworkError", "AbortError"].includes(error?.name);
+      let failed = { ...environment, availability: retryable ? "downloadable" : "unavailable", stalled: retryable };
+      setSupport((current) => {
+        failed = {
+          ...current,
+          availability: retryable ? "downloadable" : "unavailable",
+          reason: error?.name || "model-download-failed",
+          stalled: retryable,
+          downloads: Object.fromEntries(Object.entries(current.downloads || initialDownloads).map(([kind, download]) => [
+            kind,
+            download.state === "complete" ? download : { ...download, state: retryable ? "stalled" : "failed" },
+          ])),
+        };
+        return failed;
+      });
       return failed;
     } finally {
       promptSession?.destroy?.();
       translator?.destroy?.();
     }
-  }, [language]);
+  }, [checkSupport, language, support]);
 
   const generateImageCaption = useCallback(async (segment) => {
     if (!segment?.src || segment.type === "video" || support.availability !== "available" || job.running) return;

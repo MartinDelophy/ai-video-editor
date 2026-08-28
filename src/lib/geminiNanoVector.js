@@ -1,4 +1,5 @@
 import { createVectorColorSlots, createVectorSvgDataUrl, VECTOR_VIEWBOX_SIZE } from "./vectorAssets.js";
+import { createChromeBuiltInSession } from "./chromeBuiltInAi.js";
 
 const BLOCKED_ELEMENTS = new Set([
   "script",
@@ -119,13 +120,10 @@ export async function detectVectorRequestLanguage({
   if (!api) throw new Error("LANGUAGE_DETECTOR_UNAVAILABLE");
   const availability = await api.availability();
   if (availability === "unavailable") throw new Error("LANGUAGE_DETECTOR_UNAVAILABLE");
-  const detector = await api.create({
+  const detector = await createChromeBuiltInSession({
+    create: (options) => api.create(options),
     signal,
-    monitor(monitor) {
-      monitor.addEventListener("downloadprogress", (event) => {
-        onDownloadProgress?.(Math.max(0, Math.min(1, Number(event.loaded) || 0)));
-      });
-    },
+    onDownloadProgress,
   });
   try {
     const results = await detector.detect(String(request || "").trim(), { signal });
@@ -153,15 +151,11 @@ export async function translateVectorRequestToEnglish({
   if (!api) throw new Error("TRANSLATOR_UNAVAILABLE");
   const availability = await api.availability({ sourceLanguage, targetLanguage: "en" });
   if (availability === "unavailable") throw new Error("TRANSLATION_PAIR_UNAVAILABLE");
-  const translator = await api.create({
-    sourceLanguage,
-    targetLanguage: "en",
+  const translator = await createChromeBuiltInSession({
+    create: (options) => api.create(options),
+    options: { sourceLanguage, targetLanguage: "en" },
     signal,
-    monitor(monitor) {
-      monitor.addEventListener("downloadprogress", (event) => {
-        onDownloadProgress?.(Math.max(0, Math.min(1, Number(event.loaded) || 0)));
-      });
-    },
+    onDownloadProgress,
   });
   try {
     const translated = String(await translator.translate(value, { signal })).trim();
@@ -307,13 +301,10 @@ export async function generateVectorWithGeminiNano({
     onDownloadProgress: onTranslationDownloadProgress,
   });
   onPhaseChange?.("model");
-  const session = await api.create({
+  const session = await createChromeBuiltInSession({
+    create: (options) => api.create(options),
     signal,
-    monitor(monitor) {
-      monitor.addEventListener("downloadprogress", (event) => {
-        onDownloadProgress?.(Math.max(0, Math.min(1, Number(event.loaded) || 0)));
-      });
-    },
+    onDownloadProgress,
   });
   try {
     onPhaseChange?.("generating");

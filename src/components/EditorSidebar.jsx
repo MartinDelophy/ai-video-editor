@@ -237,6 +237,7 @@ export function EditorSidebar({ model: d }) {
             updateSelectedVisualEffects={d.updateSelectedVisualEffects}
             miganRepair={d.miganRepair}
             hdRestoration={d.hdRestoration}
+            smartDenoise={d.smartDenoise}
           />
         )}
       </aside>

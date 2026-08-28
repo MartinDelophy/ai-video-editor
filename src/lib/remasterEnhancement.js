@@ -12,7 +12,7 @@ function getWorker() {
   worker.addEventListener("message", (event) => {
     const message = event.data ?? {};
     const request = pending.get(message.requestId);
-    if (!request) return;
+    if (!request) { message.result?.bitmap?.close?.(); return; }
     if (message.type === "progress") { request.onProgress?.(message); return; }
     pending.delete(message.requestId);
     request.signal?.removeEventListener("abort", request.abort);
@@ -27,7 +27,7 @@ function getWorker() {
   return worker;
 }
 
-export function enhanceRemasterFrame({ bitmap, maxLongEdge = 960, onProgress, signal }) {
+export function enhanceRemasterFrame({ bitmap, maxLongEdge = 960, strength = 1, outputType = "blob", sequenceId = "", allowResidualReuse = false, reuseThreshold = 0.012, onProgress, signal }) {
   if (!bitmap) return Promise.reject(new Error("没有可增强的画面"));
   const requestId = `remaster-${crypto.randomUUID?.() ?? Date.now()}`;
   return new Promise((resolve, reject) => {
@@ -35,17 +35,13 @@ export function enhanceRemasterFrame({ bitmap, maxLongEdge = 960, onProgress, si
     const abort = () => {
       pending.delete(requestId);
       bitmap.close?.();
-      if (worker === activeWorker) {
-        activeWorker.terminate();
-        worker = null;
-        pending.clear();
-      }
+      activeWorker.postMessage({ type: "cancel", requestId });
       const error = new Error("视频增强已取消"); error.name = "AbortError"; reject(error);
     };
     if (signal?.aborted) { abort(); return; }
     signal?.addEventListener("abort", abort, { once: true });
     pending.set(requestId, { resolve, reject, onProgress, signal, abort });
-    activeWorker.postMessage({ type: "enhance", requestId, bitmap, maxLongEdge }, [bitmap]);
+    activeWorker.postMessage({ type: "enhance", requestId, bitmap, maxLongEdge, strength, outputType, sequenceId, allowResidualReuse, reuseThreshold }, [bitmap]);
   });
 }
 

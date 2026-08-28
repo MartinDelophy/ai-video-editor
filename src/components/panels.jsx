@@ -1083,6 +1083,7 @@ export function ToolPanel(props) {
     trOption,
     miganRepair,
     hdRestoration,
+    smartDenoise,
     selectedEffectSegment,
     effectAnalysis,
     effectRunning,
@@ -1849,6 +1850,7 @@ export function VisualEffectsPanel({
   sourceAudioLinked = false,
   miganRepair = null,
   hdRestoration = null,
+  smartDenoise = null,
   mode = "main",
   vectorEditor = null,
   onApplyPreset = null,
@@ -1927,7 +1929,10 @@ export function VisualEffectsPanel({
     onCanvasEditModeChange?.(activeTab === "mask" ? "mask" : "transform");
   }, [activeTab, onCanvasEditModeChange]);
   useEffect(() => {
-    tabsRef.current?.closest(".voice-tab-body")?.scrollTo({ top: 0, behavior: "auto" });
+    tabsRef.current
+      ?.closest(".visual-effects-panel")
+      ?.querySelector(".visual-context-tab-body")
+      ?.scrollTo({ top: 0, behavior: "auto" });
   }, [activeTab, segment?.id]);
   useEffect(() => {
     const frame = requestAnimationFrame(() => {
@@ -2010,6 +2015,7 @@ export function VisualEffectsPanel({
             </button>
           ) : null}
         </div> : null}
+        <div className="visual-context-tab-body">
         {activeTab === "transform" ?
         <section className="visual-editor-card visual-transform-card">
           <div className="visual-editor-heading"><span><Diamond size={16} weight="fill" />{t("visualKeyframes")}</span><em>{localTime.toFixed(2)}s · {keyframes.length} {t("visualFrames")}</em></div>
@@ -2087,10 +2093,15 @@ export function VisualEffectsPanel({
             {singleSection ? <em>{t("repairLocalBadge")}</em> : null}
           </div>
           <div className="repair-capability-list">
-            <article className="repair-capability is-available">
+            <article className="repair-capability is-available is-featured">
               <span><MagicWand size={18} weight="duotone" /></span>
               <div><strong>{t("repairWatermarkCapability")}</strong><small>{t("repairWatermarkCapabilityHint")}</small></div>
               <button className="panel-primary" type="button" onClick={miganRepair?.openDialog}>{segment?.repair ? t("repairEditAgain") : t("repairOpenEditor")}</button>
+            </article>
+            <article className="repair-capability is-available">
+              <span><Waveform size={18} weight="duotone" /></span>
+              <div><strong>{t("denoiseCapability")}</strong><small>{t("denoiseCapabilityHint")}</small></div>
+              <button className="panel-primary" type="button" onClick={smartDenoise?.openDialog}>{segment?.enhancement?.mode === "smart-denoise-drunet" ? t("repairEditAgain") : t("repairOpenEditor")}</button>
             </article>
             <article className="repair-capability is-available">
               <span><Scan size={18} weight="duotone" /></span>
@@ -2100,7 +2111,9 @@ export function VisualEffectsPanel({
           </div>
           {segment?.repair ? <label className="switch-row repair-result-toggle"><input type="checkbox" checked={segment.repair.enabled !== false} onChange={(event) => onChange?.({ repairEnabled: event.target.checked })} />{t("repairUseResult")}</label> : null}
           {segment?.enhancement?.mode === "nanovsr-644k" ? <label className="switch-row repair-result-toggle"><input type="checkbox" checked={segment.enhancement.enabled !== false} onChange={(event) => onChange?.({ enhancementEnabled: event.target.checked })} />{t("hdRestoreUseResult")}</label> : null}
+          {segment?.enhancement?.mode === "smart-denoise-drunet" ? <label className="switch-row repair-result-toggle"><input type="checkbox" checked={segment.enhancement.enabled !== false} onChange={(event) => onChange?.({ enhancementEnabled: event.target.checked })} />{t("denoiseUseResult")}</label> : null}
         </section> : null}
+        </div>
       </>}
     </div>
   );

@@ -15,8 +15,13 @@ ort.env.webgpu.powerPreference = "high-performance";
 ort.env.webgpu.forceFallbackAdapter = false;
 
 let sessionPromise = null;
-let activeRequestId = "";
 const canceledRequests = new Set();
+let processingChain = Promise.resolve();
+let framePool = null;
+let residualState = null;
+let directRgbaCopySupported = typeof VideoFrame !== "undefined";
+const float16Scratch = new Float32Array(1);
+const float16Bits = new Uint32Array(float16Scratch.buffer);
 
 function postProgress(requestId, progress, phaseKey, extra = {}) {
   if (!canceledRequests.has(requestId)) {
@@ -85,10 +90,8 @@ async function getSession(requestId) {
 }
 
 function float32ToFloat16(value) {
-  const floatView = new Float32Array(1);
-  const intView = new Uint32Array(floatView.buffer);
-  floatView[0] = value;
-  const bits = intView[0];
+  float16Scratch[0] = value;
+  const bits = float16Bits[0];
   const sign = (bits >>> 16) & 0x8000;
   const mantissa = bits & 0x7fffff;
   const exponent = (bits >>> 23) & 0xff;
@@ -103,6 +106,96 @@ function float32ToFloat16(value) {
   return sign | (halfExponent << 10) | ((mantissa + 0x1000) >>> 13);
 }
 
+function getFramePool(width, height) {
+  if (framePool?.width === width && framePool?.height === height) return framePool;
+  const planeSize = width * height;
+  const inputCanvas = new OffscreenCanvas(width, height);
+  const outputCanvas = new OffscreenCanvas(width, height);
+  const enhanced = new Uint8ClampedArray(planeSize * 4);
+  framePool = {
+    width,
+    height,
+    planeSize,
+    inputCanvas,
+    inputContext: inputCanvas.getContext("2d", { willReadFrequently: true }),
+    outputCanvas,
+    outputContext: outputCanvas.getContext("2d"),
+    pixels: new Uint8ClampedArray(planeSize * 4),
+    tensorData: new Uint16Array(planeSize * 3),
+    enhanced,
+    outputImageData: new ImageData(enhanced, width, height),
+  };
+  framePool.tensor = new ort.Tensor("float16", framePool.tensorData, [1, 3, height, width]);
+  residualState = null;
+  return framePool;
+}
+
+async function copyBitmapToPixels(bitmap, pool) {
+  if (directRgbaCopySupported && bitmap.width === pool.width && bitmap.height === pool.height) {
+    let frame = null;
+    try {
+      frame = new VideoFrame(bitmap, { timestamp: 0 });
+      await frame.copyTo(pool.pixels, {
+        format: "RGBA",
+        layout: [{ offset: 0, stride: pool.width * 4 }],
+      });
+      frame.close();
+      bitmap.close();
+      return pool.pixels;
+    } catch (error) {
+      frame?.close();
+      directRgbaCopySupported = false;
+      console.warn("Direct VideoFrame RGBA copy unavailable; using the pooled canvas path.", error);
+    }
+  }
+  pool.inputContext.clearRect(0, 0, pool.width, pool.height);
+  pool.inputContext.drawImage(bitmap, 0, 0, pool.width, pool.height);
+  bitmap.close();
+  pool.pixels.set(pool.inputContext.getImageData(0, 0, pool.width, pool.height).data);
+  return pool.pixels;
+}
+
+function getFrameChange(previous, current) {
+  if (!previous || previous.length !== current.length) return { score: 1, changedRatio: 1 };
+  let difference = 0;
+  let changed = 0;
+  let samples = 0;
+  const stride = 32;
+  for (let index = 0; index < current.length; index += stride) {
+    const delta = (Math.abs(current[index] - previous[index])
+      + Math.abs(current[index + 1] - previous[index + 1])
+      + Math.abs(current[index + 2] - previous[index + 2])) / 3;
+    difference += delta;
+    if (delta > 18) changed += 1;
+    samples += 1;
+  }
+  return {
+    score: difference / Math.max(1, samples) / 255,
+    changedRatio: changed / Math.max(1, samples),
+  };
+}
+
+function canReuseResidual({ sequenceId, width, height, pixels, threshold }) {
+  if (!sequenceId || residualState?.sequenceId !== sequenceId || residualState.width !== width || residualState.height !== height) return null;
+  const change = getFrameChange(residualState.original, pixels);
+  return change.score <= threshold && change.changedRatio <= 0.045 ? change : null;
+}
+
+function rememberResidual(sequenceId, width, height, pixels, enhanced) {
+  if (!sequenceId) return;
+  if (residualState?.sequenceId !== sequenceId || residualState.width !== width || residualState.height !== height) {
+    residualState = {
+      sequenceId,
+      width,
+      height,
+      original: new Uint8ClampedArray(pixels.length),
+      enhanced: new Uint8ClampedArray(enhanced.length),
+    };
+  }
+  residualState.original.set(pixels);
+  residualState.enhanced.set(enhanced);
+}
+
 function getInferenceSize(width, height, maxLongEdge) {
   const scale = Math.min(1, maxLongEdge / Math.max(width, height));
   return {
@@ -111,61 +204,81 @@ function getInferenceSize(width, height, maxLongEdge) {
   };
 }
 
-async function enhanceFrame(requestId, bitmap, maxLongEdge) {
+async function enhanceFrame(requestId, bitmap, maxLongEdge, strength = 1, options = {}) {
   const size = getInferenceSize(bitmap.width, bitmap.height, maxLongEdge);
-  const inputCanvas = new OffscreenCanvas(size.width, size.height);
-  const inputContext = inputCanvas.getContext("2d", { willReadFrequently: true });
-  inputContext.drawImage(bitmap, 0, 0, size.width, size.height);
-  bitmap.close();
-  const pixels = inputContext.getImageData(0, 0, size.width, size.height).data;
-  const planeSize = size.width * size.height;
-  const tensorData = new Uint16Array(planeSize * 3);
-  for (let index = 0; index < planeSize; index += 1) {
-    const pixelIndex = index * 4;
-    tensorData[index] = float32ToFloat16(pixels[pixelIndex] / 255);
-    tensorData[planeSize + index] = float32ToFloat16(pixels[pixelIndex + 1] / 255);
-    tensorData[planeSize * 2 + index] = float32ToFloat16(pixels[pixelIndex + 2] / 255);
-  }
+  const pool = getFramePool(size.width, size.height);
+  const pixels = await copyBitmapToPixels(bitmap, pool);
+  const { planeSize, tensorData, enhanced } = pool;
+  const reuseThreshold = Math.max(0, Math.min(0.04, Number(options.reuseThreshold) || 0));
+  const change = options.allowResidualReuse
+    ? canReuseResidual({ sequenceId: options.sequenceId, width: size.width, height: size.height, pixels, threshold: reuseThreshold })
+    : null;
   if (canceledRequests.has(requestId)) return null;
-  const { session, backend, fallbackReason } = await getSession(requestId);
-  postProgress(requestId, 58, backend === "webgpu" ? "remasterPhaseGpuFrame" : "remasterPhaseCpuFrame", { backend, fallbackReason });
+  const blend = Math.max(0, Math.min(1, Number(strength) || 0));
+  let backend = residualState?.backend || "";
+  let fallbackReason = residualState?.fallbackReason || "";
   const startedAt = performance.now();
-  const outputMap = await session.run({ input: new ort.Tensor("float16", tensorData, [1, 3, size.height, size.width]) });
-  const output = outputMap.output.data;
-  const readOutput = (index) => readFloat16TensorValue(output, index);
-  if (canceledRequests.has(requestId)) return null;
-  const enhanced = new Uint8ClampedArray(planeSize * 4);
-  for (let index = 0; index < planeSize; index += 1) {
-    const pixelIndex = index * 4;
-    enhanced[pixelIndex] = Math.round(Math.max(0, Math.min(1, readOutput(index))) * 255);
-    enhanced[pixelIndex + 1] = Math.round(Math.max(0, Math.min(1, readOutput(planeSize + index))) * 255);
-    enhanced[pixelIndex + 2] = Math.round(Math.max(0, Math.min(1, readOutput(planeSize * 2 + index))) * 255);
-    enhanced[pixelIndex + 3] = 255;
+  if (change) {
+    for (let index = 0; index < planeSize; index += 1) {
+      const pixelIndex = index * 4;
+      enhanced[pixelIndex] = pixels[pixelIndex] + residualState.enhanced[pixelIndex] - residualState.original[pixelIndex];
+      enhanced[pixelIndex + 1] = pixels[pixelIndex + 1] + residualState.enhanced[pixelIndex + 1] - residualState.original[pixelIndex + 1];
+      enhanced[pixelIndex + 2] = pixels[pixelIndex + 2] + residualState.enhanced[pixelIndex + 2] - residualState.original[pixelIndex + 2];
+      enhanced[pixelIndex + 3] = 255;
+    }
+  } else {
+    for (let index = 0; index < planeSize; index += 1) {
+      const pixelIndex = index * 4;
+      tensorData[index] = float32ToFloat16(pixels[pixelIndex] / 255);
+      tensorData[planeSize + index] = float32ToFloat16(pixels[pixelIndex + 1] / 255);
+      tensorData[planeSize * 2 + index] = float32ToFloat16(pixels[pixelIndex + 2] / 255);
+    }
+    const resolved = await getSession(requestId);
+    backend = resolved.backend;
+    fallbackReason = resolved.fallbackReason;
+    postProgress(requestId, 58, backend === "webgpu" ? "remasterPhaseGpuFrame" : "remasterPhaseCpuFrame", { backend, fallbackReason });
+    const outputMap = await resolved.session.run({ input: pool.tensor });
+    const outputTensor = outputMap.output;
+    const output = outputTensor.data;
+    const readOutput = (index) => readFloat16TensorValue(output, index);
+    if (canceledRequests.has(requestId)) return null;
+    for (let index = 0; index < planeSize; index += 1) {
+      const pixelIndex = index * 4;
+      const red = Math.max(0, Math.min(1, readOutput(index))) * 255;
+      const green = Math.max(0, Math.min(1, readOutput(planeSize + index))) * 255;
+      const blue = Math.max(0, Math.min(1, readOutput(planeSize * 2 + index))) * 255;
+      enhanced[pixelIndex] = Math.round(pixels[pixelIndex] + (red - pixels[pixelIndex]) * blend);
+      enhanced[pixelIndex + 1] = Math.round(pixels[pixelIndex + 1] + (green - pixels[pixelIndex + 1]) * blend);
+      enhanced[pixelIndex + 2] = Math.round(pixels[pixelIndex + 2] + (blue - pixels[pixelIndex + 2]) * blend);
+      enhanced[pixelIndex + 3] = 255;
+    }
+    outputTensor.dispose?.();
   }
+  rememberResidual(options.sequenceId, size.width, size.height, pixels, enhanced);
+  if (residualState) { residualState.backend = backend; residualState.fallbackReason = fallbackReason; }
   postProgress(requestId, 94, "remasterPhaseGeneratePreview");
-  const outputCanvas = new OffscreenCanvas(size.width, size.height);
-  outputCanvas.getContext("2d").putImageData(new ImageData(enhanced, size.width, size.height), 0, 0);
-  const blob = await outputCanvas.convertToBlob({ type: "image/png" });
-  return { blob, width: size.width, height: size.height, inferenceMs: Math.round(performance.now() - startedAt), backend, fallbackReason };
+  pool.outputContext.putImageData(pool.outputImageData, 0, 0);
+  const common = { width: size.width, height: size.height, inferenceMs: Math.round(performance.now() - startedAt), backend, fallbackReason, reusedResidual: Boolean(change), changeScore: change?.score ?? null };
+  if (options.outputType === "bitmap") return { ...common, bitmap: await createImageBitmap(pool.outputCanvas) };
+  return { ...common, blob: await pool.outputCanvas.convertToBlob({ type: "image/png" }) };
 }
 
-self.addEventListener("message", async (event) => {
+self.addEventListener("message", (event) => {
   const message = event.data ?? {};
   if (message.type === "cancel") { canceledRequests.add(message.requestId); return; }
   if (message.type !== "enhance") return;
-  const { requestId, bitmap, maxLongEdge = 960 } = message;
-  if (activeRequestId) {
-    self.postMessage({ type: "error", requestId, error: "已有增强任务正在运行" });
-    bitmap?.close?.(); return;
-  }
-  activeRequestId = requestId;
-  try {
-    postProgress(requestId, 2, "remasterPhasePrepareFrame");
-    const result = await enhanceFrame(requestId, bitmap, maxLongEdge);
-    if (result && !canceledRequests.has(requestId)) self.postMessage({ type: "result", requestId, result });
-  } catch (error) {
-    if (!canceledRequests.has(requestId)) self.postMessage({ type: "error", requestId, error: error instanceof Error ? error.message : "视频增强失败" });
-  } finally {
-    canceledRequests.delete(requestId); activeRequestId = "";
-  }
+  const { requestId, bitmap, maxLongEdge = 960, strength = 1, outputType = "blob", sequenceId = "", allowResidualReuse = false, reuseThreshold = 0.012 } = message;
+  processingChain = processingChain.then(async () => {
+    try {
+      if (canceledRequests.has(requestId)) { bitmap?.close?.(); return; }
+      postProgress(requestId, 2, "remasterPhasePrepareFrame");
+      const result = await enhanceFrame(requestId, bitmap, maxLongEdge, strength, { outputType, sequenceId, allowResidualReuse, reuseThreshold });
+      if (result && !canceledRequests.has(requestId)) self.postMessage({ type: "result", requestId, result }, result.bitmap ? [result.bitmap] : []);
+      else result?.bitmap?.close?.();
+    } catch (error) {
+      if (!canceledRequests.has(requestId)) self.postMessage({ type: "error", requestId, error: error instanceof Error ? error.message : "视频增强失败" });
+    } finally {
+      canceledRequests.delete(requestId);
+    }
+  });
 });

@@ -11,6 +11,7 @@ import { EditorSidebar } from "./components/EditorSidebar.jsx";
 import { FirstVisualGuide } from "./components/FirstVisualGuide.jsx";
 import { MiganRepairDialog } from "./components/MiganRepairDialog.jsx";
 import { NanoVsrRestorationDialog } from "./components/NanoVsrRestorationDialog.jsx";
+import { SmartDenoiseDialog } from "./components/SmartDenoiseDialog.jsx";
 import {
   canShowFirstVisualGuide,
   FIRST_VISUAL_GUIDE_MOBILE_QUERY,
@@ -72,6 +73,7 @@ import { decodeWaveform, downloadBlob } from "./lib/media.js";
 import { useAiMusicGeneration } from "./hooks/useAiMusicGeneration.js";
 import { useMiganRepair } from "./hooks/useMiganRepair.js";
 import { useNanoVsrRestoration } from "./hooks/useNanoVsrRestoration.js";
+import { useSmartDenoise } from "./hooks/useSmartDenoise.js";
 import { getImageThumbnailCount, getVisualSegmentsTotal, normalizeTimedSegmentIds } from "./lib/timeline.js";
 import { getVisualSourceTime, normalizeVisualTransform, removeVisualPropertyKeyframe, updateVisualSegmentPlaybackRate, upsertVisualKeyframe, upsertVisualPropertyKeyframe } from "./lib/visualEffects.js";
 import { getVisualSpeedCurveTimelineProgress, updateVisualSegmentSpeedCurve } from "./lib/visualSpeedCurve.js";
@@ -423,7 +425,7 @@ export function App() {
       if (change.photoParallax) return { ...item, photoParallax: normalizePhotoParallax(change.photoParallax) };
       if (change.vectorPatch && (item.kind === "vector" || item.vectorBody)) return { ...item, ...change.vectorPatch };
       if (typeof change.enhancementEnabled === "boolean" && item.enhancement) {
-        if (["remaster-drunet-full", "nanovsr-644k"].includes(item.enhancement.mode)) {
+        if (["remaster-drunet-full", "nanovsr-644k", "smart-denoise-drunet"].includes(item.enhancement.mode)) {
           const source = change.enhancementEnabled ? item.enhancement.processed : item.enhancement.original;
           if (!source?.src) return item;
           return {
@@ -520,6 +522,14 @@ export function App() {
     t,
   });
   const hdRestoration = useNanoVsrRestoration({
+    selectedSegment: selectedVisualSegment,
+    imageUrlRefs,
+    setVisualSegments,
+    setUserAssets,
+    notify,
+    t,
+  });
+  const smartDenoise = useSmartDenoise({
     selectedSegment: selectedVisualSegment,
     imageUrlRefs,
     setVisualSegments,
@@ -1378,7 +1388,7 @@ export function App() {
           updateScript, userAssets, visionJob, aiMusic, smartFrame,
           selectedVisualSegment, selectedEffectSegment, effectAnalysis, effectRunning, effectProgress, effectPhase,
           effectsPanelMode, setEffectsPanelMode, cinematicDepth, photoParallaxDepth,
-          visualLocalTime, updateSelectedVisualEffects, updateSelectedSubjectEffect, updateSelectedClickRipple, removeSelectedSubjectEffect, miganRepair, hdRestoration,
+          visualLocalTime, updateSelectedVisualEffects, updateSelectedSubjectEffect, updateSelectedClickRipple, removeSelectedSubjectEffect, miganRepair, hdRestoration, smartDenoise,
           mobilePanel, setMobilePanel: changeMobilePanel, applyAssetToTrack, handleGeneratedVector,
         }} />
 
@@ -1601,6 +1611,7 @@ export function App() {
           updateSelectedVisualEffects={updateSelectedVisualEffects}
           miganRepair={miganRepair}
           hdRestoration={hdRestoration}
+          smartDenoise={smartDenoise}
           onPreviewAnimation={setVisualAnimationPreview}
           selectedFilterId={selectedFilterId}
           setSelectedFilterId={setSelectedFilterId}
@@ -1816,6 +1827,12 @@ export function App() {
       <NanoVsrRestorationDialog
         restoration={hdRestoration}
         segment={hdRestoration.sourceSegment || selectedVisualSegment}
+        t={t}
+        onApplied={() => changeMobilePanel("")}
+      />
+      <SmartDenoiseDialog
+        denoise={smartDenoise}
+        segment={smartDenoise.sourceSegment || selectedVisualSegment}
         t={t}
         onApplied={() => changeMobilePanel("")}
       />

@@ -1,6 +1,6 @@
 import { I18N_COMPLETION_COPY } from "./i18nCompletion.js";
 import { EFFECTS_LOCALIZED_COPY } from "./i18nEffects.js";
-import { REPAIR_LOCALIZED_COPY } from "./i18nRepair.js";
+import { DENOISE_HUB_HINT_COPY, DENOISE_LOCALIZED_COPY, REPAIR_LOCALIZED_COPY } from "./i18nRepair.js";
 
 const MEDIA_COMPATIBILITY_COPY = {
   zh: { mediaCompatibilityProcessing: "正在分析并兼容处理该媒体…", mediaCompatibilityReady: "兼容媒体已准备完成", mediaCompatibilityFailed: "兼容处理失败", mediaCompatibilityFailedHint: "无法读取该媒体，请尝试转换为 MP4/H.264/AAC" },
@@ -838,9 +838,9 @@ const REPAIR_COPY = {
     repairImageReady: "图片修复完成，结果已加入我的资产", repairClipReady: "视频修复完成，结果已加入我的资产并用于当前片段", repairCanceled: "已取消 AI 修复，原片保持不变",
     repairFailed: "AI 修复失败", repairPhasePrepare: "正在准备画面", repairPhaseDownload: "正在下载 MI-GAN 模型", repairPhaseCompile: "正在初始化 WebGPU",
     repairPhaseFrame: "正在修复画面", repairPhaseRefine: "正在细化贴边水印", repairPhaseLoadEncoder: "正在准备视频合成器", repairPhaseEncodeVideo: "正在合成修复视频", repairPhaseCreateAsset: "正在生成修复素材", repairPhaseReady: "修复完成", repairPhaseCanceling: "正在取消…", repairPhaseStopping: "正在停止处理…", repairStopping: "正在停止…", visualTabsPrevious: "查看前面的属性", visualTabsNext: "查看更多属性",
-    repairHubTitle: "AI 修复", repairHubIntro: "选择需要的修复能力，具体范围和效果在独立工作区中完成。", repairLocalBadge: "浏览器本地",
-    repairWatermarkCapability: "去水印 / 对象移除", repairWatermarkCapabilityHint: "框选一个或多个区域，支持视频分时段处理。", repairOpenEditor: "打开", repairEditAgain: "重新编辑",
-    repairHdCapability: "高清修复", repairHdCapabilityHint: "清晰度、降噪与压缩瑕疵修复。", repairComingSoon: "即将支持",
+    repairHubTitle: "AI 修复", repairHubIntro: "选择修复能力，在独立工作区完成。", repairLocalBadge: "浏览器本地",
+    repairWatermarkCapability: "去水印 / 对象移除", repairWatermarkCapabilityHint: "框选移除，视频分段。", repairOpenEditor: "打开", repairEditAgain: "重新编辑",
+    repairHdCapability: "高清修复", repairHdCapabilityHint: "提高清晰度，修复瑕疵。", repairComingSoon: "即将支持",
     repairDialogTitle: "AI 去水印修复", repairDialogImageMode: "图片模式", repairDialogVideoMode: "视频逐帧模式", repairLocalOnly: "本地处理 · 素材不会上传",
     repairMoveRegion: "移动区域", repairDrawRegion: "重新框选", repairResizeRegion: "调整修复区域", repairCompare: "拖动对比修复前后", repairBefore: "修复前", repairAfter: "修复后",
     repairFrameTimeline: "视频帧与修复区间", repairRegions: "修复区域", repairAddRegion: "添加区域", repairAddPositionKeyframe: "记录当前位置",
@@ -867,9 +867,9 @@ const REPAIR_COPY = {
     repairImageReady: "Image repaired and added to My assets", repairClipReady: "Video repaired, added to My assets, and applied to the clip", repairCanceled: "AI repair canceled; the original is unchanged",
     repairFailed: "AI repair failed", repairPhasePrepare: "Preparing frame", repairPhaseDownload: "Downloading MI-GAN model", repairPhaseCompile: "Initializing WebGPU",
     repairPhaseFrame: "Repairing frame", repairPhaseRefine: "Refining edge watermark", repairPhaseLoadEncoder: "Preparing the video composer", repairPhaseEncodeVideo: "Composing the repaired video", repairPhaseCreateAsset: "Creating the repaired media", repairPhaseReady: "Repair complete", repairPhaseCanceling: "Canceling…", repairPhaseStopping: "Stopping…", repairStopping: "Stopping…", visualTabsPrevious: "Show previous properties", visualTabsNext: "Show more properties",
-    repairHubTitle: "AI Repair", repairHubIntro: "Choose a repair capability, then define regions and validate the result in a dedicated workspace.", repairLocalBadge: "Browser local",
-    repairWatermarkCapability: "Watermark / object removal", repairWatermarkCapabilityHint: "Select one or more regions, with timed regions for video.", repairOpenEditor: "Open", repairEditAgain: "Edit again",
-    repairHdCapability: "HD restoration", repairHdCapabilityHint: "Clarity, denoise, and compression artifact repair.", repairComingSoon: "Coming soon",
+    repairHubTitle: "AI Repair", repairHubIntro: "Choose a repair tool and finish in its workspace.", repairLocalBadge: "Browser local",
+    repairWatermarkCapability: "Watermark / object removal", repairWatermarkCapabilityHint: "Remove timed regions.", repairOpenEditor: "Open", repairEditAgain: "Edit again",
+    repairHdCapability: "HD restoration", repairHdCapabilityHint: "Clarity and artifact repair.", repairComingSoon: "Coming soon",
     repairDialogTitle: "AI watermark repair", repairDialogImageMode: "Image mode", repairDialogVideoMode: "Frame-by-frame video", repairLocalOnly: "Processed locally · Media is never uploaded",
     repairMoveRegion: "Move region", repairDrawRegion: "Draw again", repairResizeRegion: "Resize repair region", repairCompare: "Drag to compare before and after", repairBefore: "Before", repairAfter: "After",
     repairFrameTimeline: "Video frames and repair ranges", repairRegions: "Repair regions", repairAddRegion: "Add region", repairAddPositionKeyframe: "Record position",
@@ -3320,7 +3320,7 @@ export function createTranslator(languageId) {
   const mobileClipActionCopy = MOBILE_CLIP_ACTION_COPY[languageId] ?? MOBILE_CLIP_ACTION_COPY.en;
   const mobileStickerCopy = MOBILE_STICKER_COPY[languageId] ?? MOBILE_STICKER_COPY.en;
   const completionCopy = globalThis.__GENERATING_I18N__ ? {} : I18N_COMPLETION_COPY[languageId] ?? I18N_COMPLETION_COPY.en ?? {};
-  const repairCopy = { ...REPAIR_COPY.en, ...(REPAIR_COPY[languageId] ?? {}), ...(REPAIR_LOCALIZED_COPY[languageId] ?? {}) };
+  const repairCopy = { ...REPAIR_COPY.en, ...(REPAIR_COPY[languageId] ?? {}), ...(REPAIR_LOCALIZED_COPY[languageId] ?? {}), ...(DENOISE_LOCALIZED_COPY[languageId] ?? DENOISE_LOCALIZED_COPY.en), ...(DENOISE_HUB_HINT_COPY[languageId] ?? DENOISE_HUB_HINT_COPY.en) };
   const projectChromeCopy = PROJECT_CHROME_COPY[languageId] ?? PROJECT_CHROME_COPY.en;
   const coreLabelCopy = CORE_LABEL_COPY[languageId] ?? CORE_LABEL_COPY.en;
   const specializedCopy = Object.assign({}, ...[

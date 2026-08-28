@@ -1393,6 +1393,7 @@ export function VoicePanel({
   updateSelectedVisualEffects,
   miganRepair,
   hdRestoration,
+  smartDenoise,
   onPreviewAnimation,
   selectedFilterId,
   setSelectedFilterId,
@@ -1684,6 +1685,7 @@ export function VoicePanel({
             sourceAudioLinked={sourceAudioLinked}
             miganRepair={miganRepair}
             hdRestoration={hdRestoration}
+            smartDenoise={smartDenoise}
             requestedTab={mobileInspectorSection}
             singleSection={mobileInspectorSection}
             vectorEditor={isVectorVisual ? <VectorControls t={t} segment={selectedVisualSegment} onUpdate={(patch) => updateSelectedVisualEffects?.({ vectorPatch: patch })} /> : null}

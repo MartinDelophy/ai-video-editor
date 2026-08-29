@@ -948,6 +948,13 @@ button:disabled {
 .plugin-field select { height: 36px; padding: 0 9px; }
 .plugin-field input { height: 38px; padding: 0 10px; font: inherit; }
 .plugin-field input::placeholder { color: #657079; }
+.plugin-local-endpoint { width: 100%; margin: 16px 0 10px; text-align: left; }
+.plugin-workflow-field textarea { min-height: 190px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 9px; }
+.plugin-workflow-field > p { margin: -1px 0 0; color: #697780; font-size: 9px; line-height: 1.45; }
+.plugin-generation-actions { display: grid; gap: 7px; }
+.plugin-file-field { position: relative; min-height: 64px; overflow: hidden; border: 1px dashed rgba(103,166,255,.25); border-radius: 8px; padding: 9px; background: rgba(73,126,196,.045); }
+.plugin-file-field input[type="file"] { position: absolute; inset: 25px 8px 7px; opacity: 0; cursor: pointer; }
+.plugin-file-field em { display: flex; align-items: center; min-height: 28px; overflow: hidden; border-radius: 6px; padding: 0 9px; color: #8fb8eb; font-size: 9.5px; font-style: normal; text-overflow: ellipsis; white-space: nowrap; background: rgba(74,137,218,.09); }
 .plugin-space-field { width: 100%; margin: 16px 0 10px; text-align: left; }
 .plugin-field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
 .plugin-mode-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; border: 1px solid rgba(255,255,255,.07); border-radius: 8px; padding: 3px; background: #171c22; }

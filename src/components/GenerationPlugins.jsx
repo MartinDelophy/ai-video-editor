@@ -2,9 +2,6 @@ import {
   ArrowSquareOut,
   Check,
   CheckCircle,
-  CloudArrowDown,
-  Code,
-  Globe,
   ImageSquare,
   LinkSimple,
   MagnifyingGlass,
@@ -16,7 +13,7 @@ import {
   VideoCamera,
   X,
 } from "@phosphor-icons/react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 
 const COPY = {
@@ -47,14 +44,29 @@ const AUTH_RECOVERY_COPY = {
   ru: { waitingAuth: "Ожидание Puter", retryAuth: "Повторить вход", authTimeout: "Puter не вернул результат авторизации. Закройте окно входа и повторите попытку.", popupBlocked: "Браузер заблокировал окно входа. Разрешите всплывающие окна и повторите попытку.", authClosed: "Окно входа закрыто до завершения авторизации." },
 };
 
+const LOCAL_COPY = {
+  zh: { comfyDescription: "连接本机 ComfyUI API 工作流", webuiDescription: "连接本机 A1111 / Forge 图像生成", endpoint: "本地服务地址", connectLocal: "连接本地服务", connecting: "正在探测服务", localOnly: "仅允许 localhost / 127.0.0.1 / ::1。请只为本编辑器的准确来源启用 CORS，不要把无鉴权的生成服务暴露到局域网或公网。", comfyWorkflow: "API 工作流 JSON", comfyWorkflowHelp: "在 ComfyUI 中保存为 API Format，并可用 {{prompt}}、{{negative_prompt}}、{{seed}} 作为模板变量。", workflowPlaceholder: "粘贴 ComfyUI API Format 工作流 JSON…", negativePrompt: "负面提示词", negativePlaceholder: "例如：低清晰度、文字、水印…", seed: "种子（-1 随机）", textToImage: "文生图", imageToImage: "图生图", referenceImage: "参考图片", chooseImage: "选择图片", width: "宽度", height: "高度", steps: "步数", localGenerating: "本机生成中", comfyNote: "执行真实 /prompt 任务，完成后从 /history 与 /view 读取所有图片或视频输出。", webuiNote: "兼容启用 --api 的 Stable Diffusion WebUI 与 Forge；结果自动进入 My assets。", workflowRequired: "请粘贴 API 工作流", cancelJob: "取消生成", cardLocal: "本机服务", cardWorkflow: "工作流驱动" },
+  en: { comfyDescription: "Connect a local ComfyUI API workflow", webuiDescription: "Connect local A1111 / Forge image generation", endpoint: "Local service address", connectLocal: "Connect local service", connecting: "Checking service", localOnly: "Only localhost / 127.0.0.1 / ::1 are allowed. Enable CORS only for this editor's exact origin; do not expose an unauthenticated generator to your LAN or the internet.", comfyWorkflow: "API workflow JSON", comfyWorkflowHelp: "Save as API Format in ComfyUI. Use {{prompt}}, {{negative_prompt}}, and {{seed}} as template variables.", workflowPlaceholder: "Paste a ComfyUI API Format workflow JSON…", negativePrompt: "Negative prompt", negativePlaceholder: "Low quality, text, watermark…", seed: "Seed (-1 random)", textToImage: "Text to image", imageToImage: "Image to image", referenceImage: "Reference image", chooseImage: "Choose image", width: "Width", height: "Height", steps: "Steps", localGenerating: "Generating locally", comfyNote: "Runs a real /prompt job, then imports every image or video output through /history and /view.", webuiNote: "Works with Stable Diffusion WebUI or Forge started with --api; results go to My assets.", workflowRequired: "Paste an API workflow", cancelJob: "Cancel generation", cardLocal: "Local service", cardWorkflow: "Workflow-driven" },
+  ja: { comfyDescription: "ローカル ComfyUI API ワークフローに接続", webuiDescription: "ローカル A1111 / Forge 画像生成に接続", endpoint: "ローカルサービスアドレス", connectLocal: "ローカルサービスに接続", connecting: "サービス確認中", localOnly: "localhost / 127.0.0.1 / ::1 のみ利用できます。CORS はこのエディターの正確なオリジンだけに許可し、認証のないサービスを外部公開しないでください。", comfyWorkflow: "API ワークフロー JSON", comfyWorkflowHelp: "ComfyUI で API Format として保存し、{{prompt}}、{{negative_prompt}}、{{seed}} を使用できます。", workflowPlaceholder: "ComfyUI API Format JSON を貼り付け…", negativePrompt: "ネガティブプロンプト", negativePlaceholder: "低品質、文字、透かし…", seed: "シード（-1 はランダム）", textToImage: "テキストから画像", imageToImage: "画像から画像", referenceImage: "参照画像", chooseImage: "画像を選択", width: "幅", height: "高さ", steps: "ステップ", localGenerating: "ローカル生成中", comfyNote: "実際の /prompt を実行し、/history と /view から画像・動画を読み込みます。", webuiNote: "--api を有効にした WebUI / Forge に対応し、結果は My assets に保存されます。", workflowRequired: "API ワークフローを貼り付けてください", cancelJob: "生成をキャンセル", cardLocal: "ローカルサービス", cardWorkflow: "ワークフロー方式" },
+  ko: { comfyDescription: "로컬 ComfyUI API 워크플로 연결", webuiDescription: "로컬 A1111 / Forge 이미지 생성 연결", endpoint: "로컬 서비스 주소", connectLocal: "로컬 서비스 연결", connecting: "서비스 확인 중", localOnly: "localhost / 127.0.0.1 / ::1만 허용합니다. 이 편집기의 정확한 원본에만 CORS를 허용하고 인증 없는 서비스를 외부에 공개하지 마세요.", comfyWorkflow: "API 워크플로 JSON", comfyWorkflowHelp: "ComfyUI에서 API Format으로 저장하고 {{prompt}}, {{negative_prompt}}, {{seed}} 변수를 사용할 수 있습니다.", workflowPlaceholder: "ComfyUI API Format JSON 붙여넣기…", negativePrompt: "네거티브 프롬프트", negativePlaceholder: "낮은 품질, 텍스트, 워터마크…", seed: "시드(-1 무작위)", textToImage: "텍스트로 이미지", imageToImage: "이미지로 이미지", referenceImage: "참조 이미지", chooseImage: "이미지 선택", width: "너비", height: "높이", steps: "스텝", localGenerating: "로컬 생성 중", comfyNote: "실제 /prompt 작업을 실행하고 /history 및 /view에서 모든 출력을 가져옵니다.", webuiNote: "--api로 실행한 WebUI / Forge와 호환되며 결과는 My assets에 저장됩니다.", workflowRequired: "API 워크플로를 붙여넣으세요", cancelJob: "생성 취소", cardLocal: "로컬 서비스", cardWorkflow: "워크플로 기반" },
+  es: { comfyDescription: "Conecta un flujo API local de ComfyUI", webuiDescription: "Conecta generación local A1111 / Forge", endpoint: "Dirección del servicio local", connectLocal: "Conectar servicio local", connecting: "Comprobando servicio", localOnly: "Solo se permite localhost / 127.0.0.1 / ::1. Autoriza CORS únicamente para el origen exacto del editor y no expongas el servicio sin autenticación.", comfyWorkflow: "JSON del flujo API", comfyWorkflowHelp: "Guárdalo como API Format en ComfyUI y usa {{prompt}}, {{negative_prompt}} y {{seed}}.", workflowPlaceholder: "Pega el JSON API Format de ComfyUI…", negativePrompt: "Prompt negativo", negativePlaceholder: "Baja calidad, texto, marca de agua…", seed: "Semilla (-1 aleatoria)", textToImage: "Texto a imagen", imageToImage: "Imagen a imagen", referenceImage: "Imagen de referencia", chooseImage: "Elegir imagen", width: "Ancho", height: "Alto", steps: "Pasos", localGenerating: "Generando localmente", comfyNote: "Ejecuta /prompt e importa las salidas mediante /history y /view.", webuiNote: "Compatible con WebUI / Forge iniciado con --api; guarda en My assets.", workflowRequired: "Pega un flujo API", cancelJob: "Cancelar generación", cardLocal: "Servicio local", cardWorkflow: "Basado en flujo" },
+  fr: { comfyDescription: "Connecter un workflow API ComfyUI local", webuiDescription: "Connecter la génération locale A1111 / Forge", endpoint: "Adresse du service local", connectLocal: "Connecter le service local", connecting: "Vérification du service", localOnly: "Seuls localhost / 127.0.0.1 / ::1 sont autorisés. Autorisez CORS uniquement pour l’origine exacte de l’éditeur et n’exposez pas le service sans authentification.", comfyWorkflow: "JSON du workflow API", comfyWorkflowHelp: "Enregistrez au format API dans ComfyUI et utilisez {{prompt}}, {{negative_prompt}} et {{seed}}.", workflowPlaceholder: "Collez le JSON API Format ComfyUI…", negativePrompt: "Prompt négatif", negativePlaceholder: "Faible qualité, texte, filigrane…", seed: "Graine (-1 aléatoire)", textToImage: "Texte vers image", imageToImage: "Image vers image", referenceImage: "Image de référence", chooseImage: "Choisir une image", width: "Largeur", height: "Hauteur", steps: "Étapes", localGenerating: "Génération locale", comfyNote: "Exécute /prompt puis importe les sorties via /history et /view.", webuiNote: "Compatible WebUI / Forge lancé avec --api ; résultats dans My assets.", workflowRequired: "Collez un workflow API", cancelJob: "Annuler la génération", cardLocal: "Service local", cardWorkflow: "Piloté par workflow" },
+  de: { comfyDescription: "Lokalen ComfyUI-API-Workflow verbinden", webuiDescription: "Lokale A1111-/Forge-Bildgenerierung verbinden", endpoint: "Lokale Serviceadresse", connectLocal: "Lokalen Dienst verbinden", connecting: "Dienst wird geprüft", localOnly: "Nur localhost / 127.0.0.1 / ::1 sind erlaubt. CORS nur für den exakten Ursprung dieses Editors freigeben; den Dienst nicht ungeschützt veröffentlichen.", comfyWorkflow: "API-Workflow-JSON", comfyWorkflowHelp: "In ComfyUI als API Format speichern und {{prompt}}, {{negative_prompt}}, {{seed}} verwenden.", workflowPlaceholder: "ComfyUI API Format JSON einfügen…", negativePrompt: "Negativer Prompt", negativePlaceholder: "Niedrige Qualität, Text, Wasserzeichen…", seed: "Seed (-1 zufällig)", textToImage: "Text zu Bild", imageToImage: "Bild zu Bild", referenceImage: "Referenzbild", chooseImage: "Bild wählen", width: "Breite", height: "Höhe", steps: "Schritte", localGenerating: "Lokale Generierung", comfyNote: "Führt /prompt aus und importiert Ausgaben über /history und /view.", webuiNote: "Kompatibel mit WebUI / Forge und --api; Ergebnisse landen in My assets.", workflowRequired: "API-Workflow einfügen", cancelJob: "Generierung abbrechen", cardLocal: "Lokaler Dienst", cardWorkflow: "Workflow-basiert" },
+  pt: { comfyDescription: "Conectar fluxo API local do ComfyUI", webuiDescription: "Conectar geração local A1111 / Forge", endpoint: "Endereço do serviço local", connectLocal: "Conectar serviço local", connecting: "Verificando serviço", localOnly: "Somente localhost / 127.0.0.1 / ::1. Autorize CORS apenas para a origem exata do editor e não exponha o serviço sem autenticação.", comfyWorkflow: "JSON do fluxo API", comfyWorkflowHelp: "Salve como API Format no ComfyUI e use {{prompt}}, {{negative_prompt}} e {{seed}}.", workflowPlaceholder: "Cole o JSON API Format do ComfyUI…", negativePrompt: "Prompt negativo", negativePlaceholder: "Baixa qualidade, texto, marca d’água…", seed: "Seed (-1 aleatório)", textToImage: "Texto para imagem", imageToImage: "Imagem para imagem", referenceImage: "Imagem de referência", chooseImage: "Escolher imagem", width: "Largura", height: "Altura", steps: "Passos", localGenerating: "Gerando localmente", comfyNote: "Executa /prompt e importa saídas via /history e /view.", webuiNote: "Compatível com WebUI / Forge iniciado com --api; resultados em My assets.", workflowRequired: "Cole um fluxo API", cancelJob: "Cancelar geração", cardLocal: "Serviço local", cardWorkflow: "Baseado em fluxo" },
+  th: { comfyDescription: "เชื่อมต่อเวิร์กโฟลว์ API ของ ComfyUI ในเครื่อง", webuiDescription: "เชื่อมต่อการสร้างภาพ A1111 / Forge ในเครื่อง", endpoint: "ที่อยู่บริการในเครื่อง", connectLocal: "เชื่อมต่อบริการในเครื่อง", connecting: "กำลังตรวจสอบบริการ", localOnly: "อนุญาตเฉพาะ localhost / 127.0.0.1 / ::1 ให้เปิด CORS เฉพาะ origin ของตัวแก้ไขนี้ และอย่าเปิดบริการที่ไม่มีการยืนยันตัวตนสู่ภายนอก", comfyWorkflow: "JSON เวิร์กโฟลว์ API", comfyWorkflowHelp: "บันทึกเป็น API Format ใน ComfyUI และใช้ {{prompt}}, {{negative_prompt}}, {{seed}}", workflowPlaceholder: "วาง JSON แบบ API Format ของ ComfyUI…", negativePrompt: "พรอมต์เชิงลบ", negativePlaceholder: "คุณภาพต่ำ ข้อความ ลายน้ำ…", seed: "Seed (-1 สุ่ม)", textToImage: "ข้อความเป็นภาพ", imageToImage: "ภาพเป็นภาพ", referenceImage: "ภาพอ้างอิง", chooseImage: "เลือกภาพ", width: "กว้าง", height: "สูง", steps: "ขั้นตอน", localGenerating: "กำลังสร้างในเครื่อง", comfyNote: "เรียก /prompt จริงและนำเข้าผลลัพธ์ผ่าน /history และ /view", webuiNote: "ใช้กับ WebUI / Forge ที่เปิด --api และบันทึกผลใน My assets", workflowRequired: "วางเวิร์กโฟลว์ API", cancelJob: "ยกเลิกการสร้าง", cardLocal: "บริการในเครื่อง", cardWorkflow: "ขับเคลื่อนด้วยเวิร์กโฟลว์" },
+  vi: { comfyDescription: "Kết nối quy trình API ComfyUI cục bộ", webuiDescription: "Kết nối tạo ảnh A1111 / Forge cục bộ", endpoint: "Địa chỉ dịch vụ cục bộ", connectLocal: "Kết nối dịch vụ cục bộ", connecting: "Đang kiểm tra dịch vụ", localOnly: "Chỉ cho phép localhost / 127.0.0.1 / ::1. Chỉ bật CORS cho đúng origin của trình biên tập và không công khai dịch vụ chưa xác thực.", comfyWorkflow: "JSON quy trình API", comfyWorkflowHelp: "Lưu dạng API Format trong ComfyUI và dùng {{prompt}}, {{negative_prompt}}, {{seed}}.", workflowPlaceholder: "Dán JSON API Format của ComfyUI…", negativePrompt: "Prompt phủ định", negativePlaceholder: "Chất lượng thấp, chữ, watermark…", seed: "Seed (-1 ngẫu nhiên)", textToImage: "Văn bản thành ảnh", imageToImage: "Ảnh thành ảnh", referenceImage: "Ảnh tham chiếu", chooseImage: "Chọn ảnh", width: "Rộng", height: "Cao", steps: "Bước", localGenerating: "Đang tạo cục bộ", comfyNote: "Chạy /prompt thật và nhập đầu ra qua /history và /view.", webuiNote: "Tương thích WebUI / Forge chạy với --api; kết quả vào My assets.", workflowRequired: "Dán quy trình API", cancelJob: "Hủy tạo", cardLocal: "Dịch vụ cục bộ", cardWorkflow: "Theo quy trình" },
+  ru: { comfyDescription: "Подключить локальный API-workflow ComfyUI", webuiDescription: "Подключить локальную генерацию A1111 / Forge", endpoint: "Адрес локального сервиса", connectLocal: "Подключить локальный сервис", connecting: "Проверка сервиса", localOnly: "Разрешены только localhost / 127.0.0.1 / ::1. Разрешайте CORS только точному origin редактора и не публикуйте сервис без авторизации.", comfyWorkflow: "JSON API-workflow", comfyWorkflowHelp: "Сохраните в ComfyUI как API Format; доступны {{prompt}}, {{negative_prompt}}, {{seed}}.", workflowPlaceholder: "Вставьте JSON ComfyUI API Format…", negativePrompt: "Негативный промпт", negativePlaceholder: "Низкое качество, текст, водяной знак…", seed: "Seed (-1 случайный)", textToImage: "Текст в изображение", imageToImage: "Изображение в изображение", referenceImage: "Референс", chooseImage: "Выбрать изображение", width: "Ширина", height: "Высота", steps: "Шаги", localGenerating: "Локальная генерация", comfyNote: "Запускает /prompt и импортирует результаты через /history и /view.", webuiNote: "Совместимо с WebUI / Forge, запущенным с --api; результат в My assets.", workflowRequired: "Вставьте API-workflow", cancelJob: "Отменить генерацию", cardLocal: "Локальный сервис", cardWorkflow: "Workflow" },
+};
+
 const PLUGINS = [
   { id: "puter", name: "Puter.js", Icon: MagicWand, tone: "violet", capabilities: ["T2V", "T2I", "I2V"] },
-  { id: "huggingface", name: "Hugging Face Spaces", Icon: Globe, tone: "yellow", capabilities: ["APP", "API", "OAuth"] },
+  { id: "comfyui", name: "ComfyUI", Icon: PlugsConnected, tone: "mint", capabilities: ["API", "T2I", "T2V"], descriptionKey: "comfyDescription" },
+  { id: "webui", name: "Stable Diffusion WebUI", Icon: ImageSquare, tone: "blue", capabilities: ["T2I", "I2I", "LOCAL"], descriptionKey: "webuiDescription" },
 ];
 
 function getCopy(language) {
   const key = String(language || "en").toLowerCase();
-  return { ...(COPY[key] || COPY.en), ...(AUTH_RECOVERY_COPY[key] || AUTH_RECOVERY_COPY.en) };
+  return { ...(COPY[key] || COPY.en), ...(AUTH_RECOVERY_COPY[key] || AUTH_RECOVERY_COPY.en), ...(LOCAL_COPY[key] || LOCAL_COPY.en) };
 }
 
 function getPuterAuthError(copy, connection) {
@@ -120,13 +132,13 @@ export function PluginCatalogPanel({ language, plugins, onOpenInspector }) {
           return (
             <button key={plugin.id} type="button" className={`plugin-card is-${plugin.tone} ${selected ? "is-selected" : ""}`} onClick={() => { plugins.setSelectedPluginId(plugin.id); onOpenInspector?.(); }}>
               <span className={`plugin-brand-mark is-${plugin.tone}`}><plugin.Icon size={21} weight="duotone" /></span>
-              <span className="plugin-card-copy"><strong>{plugin.name}</strong><em>{copy.capability}</em><small>{plugin.capabilities.map((item) => <i key={item}>{item}</i>)}</small></span>
+              <span className="plugin-card-copy"><strong>{plugin.name}</strong><em>{plugin.descriptionKey ? copy[plugin.descriptionKey] : copy.capability}</em><small>{plugin.capabilities.map((item) => <i key={item}>{item}</i>)}</small></span>
               <span className={`plugin-state ${connected ? "is-connected" : "is-available"}`}>{connected ? <CheckCircle size={13} weight="fill" /> : null}{connected ? copy.connected : copy.available}</span>
             </button>
           );
         })}
       </div>
-      <div className="plugin-catalog-footnote"><PlugsConnected size={16} /><span>Puter.js · Hugging Face Spaces</span></div>
+      <div className="plugin-catalog-footnote"><PlugsConnected size={16} /><span>Puter.js · ComfyUI · Stable Diffusion WebUI</span></div>
     </div>
   );
 }
@@ -174,40 +186,112 @@ function PuterInspector({ copy, plugins }) {
   );
 }
 
-function HuggingFaceInspector({ copy, plugins }) {
-  const [spaceInput, setSpaceInput] = useState("");
-  const [resultUrl, setResultUrl] = useState("");
-  const connection = plugins.connections.huggingface;
-  const connected = connection.state === "connected";
+function useStoredValue(key, fallback) {
+  const [value, setValue] = useState(() => {
+    try { return window.localStorage.getItem(key) || fallback; } catch { return fallback; }
+  });
+  useEffect(() => {
+    try { window.localStorage.setItem(key, value); } catch { /* Storage may be unavailable in private contexts. */ }
+  }, [key, value]);
+  return [value, setValue];
+}
+
+function LocalConnectionView({ copy, name, tone, Icon, connection, endpoint, setEndpoint, defaultEndpoint, onConnect, description, capabilities }) {
   const busy = connection.state === "connecting";
-  if (!connected) {
-    return (
-      <div className="plugin-connect-view">
-        <span className="plugin-brand-mark large is-yellow"><Globe size={28} weight="duotone" /></span>
-        <small>{copy.available}</small><h2>Hugging Face Spaces</h2><p>{copy.spaceHelp}</p>
-        <div className="plugin-capability-grid"><span><Globe size={17} /> APP</span><span><Code size={17} /> API</span><span><ShieldCheck size={17} /> OAuth</span></div>
-        <label className="plugin-field plugin-space-field"><span>{copy.spaceUrl}</span><input value={spaceInput} onChange={(event) => setSpaceInput(event.target.value)} placeholder={copy.spacePlaceholder} /></label>
-        <button type="button" className="plugin-button primary wide" disabled={!spaceInput.trim() || busy} onClick={() => plugins.connectSpace(spaceInput).catch(() => {})}>{busy ? <SpinnerGap className="spin" size={17} /> : <LinkSimple size={17} />}{copy.connectSpace}</button>
-        {connection.error ? <p className="plugin-error">{copy.connectionError}: {connection.error}</p> : null}
-      </div>
-    );
-  }
-  const importing = plugins.job.state === "running";
   return (
-    <div className="plugin-generator plugin-space-generator">
-      <div className="plugin-connected-banner"><span><CheckCircle size={18} weight="fill" /><strong>{connection.spaceId}</strong></span><button type="button" onClick={plugins.disconnectSpace}>{copy.disconnect}</button></div>
-      <div className="plugin-space-frame"><header><span><Globe size={15} />{copy.embedded}</span><a href={connection.embedUrl} target="_blank" rel="noreferrer"><ArrowSquareOut size={15} /></a></header><iframe title={connection.spaceId} src={connection.embedUrl} credentialless="" allow="clipboard-read; clipboard-write; microphone; camera" /></div>
-      <label className="plugin-field plugin-space-field"><span>{copy.importUrl}</span><input value={resultUrl} onChange={(event) => setResultUrl(event.target.value)} placeholder={copy.importPlaceholder} /></label>
-      <JobStatus copy={copy} plugins={plugins} />
-      <button type="button" className="plugin-button primary wide" disabled={!resultUrl.trim() || importing} onClick={() => plugins.importSpaceOutput(resultUrl)}>{importing ? <SpinnerGap className="spin" size={17} /> : <CloudArrowDown size={17} />}{copy.importAsset}</button>
-      <p className="plugin-prototype-note">{copy.hfNote}</p>
+    <div className="plugin-connect-view">
+      <span className={`plugin-brand-mark large is-${tone}`}><Icon size={28} weight="duotone" /></span>
+      <small>{copy.cardLocal}</small><h2>{name}</h2><p>{description}</p>
+      <div className="plugin-capability-grid">{capabilities.map(({ icon: CapabilityIcon, label }) => <span key={label}><CapabilityIcon size={17} />{label}</span>)}</div>
+      <label className="plugin-field plugin-local-endpoint"><span>{copy.endpoint}</span><input value={endpoint} onChange={(event) => setEndpoint(event.target.value)} placeholder={defaultEndpoint} spellCheck={false} /></label>
+      <button type="button" className="plugin-button primary wide" disabled={busy} onClick={() => onConnect(endpoint).catch(() => {})}>{busy ? <SpinnerGap className="spin" size={17} /> : <LinkSimple size={17} />}{busy ? copy.connecting : copy.connectLocal}</button>
+      <div className="plugin-secure-note"><ShieldCheck size={17} weight="duotone" /><span>{copy.localOnly}</span></div>
+      {connection.error ? <p className="plugin-error">{copy.connectionError}: {connection.error}</p> : null}
+    </div>
+  );
+}
+
+function LocalConnectedBanner({ copy, name, endpoint, onDisconnect }) {
+  return <div className="plugin-connected-banner"><span><CheckCircle size={18} weight="fill" /><strong>{name}</strong><em title={endpoint}>{endpoint}</em></span><button type="button" onClick={onDisconnect}>{copy.disconnect}</button></div>;
+}
+
+function LocalJobActions({ copy, plugins, disabled, onGenerate }) {
+  const running = plugins.job.state === "running";
+  return (
+    <>
+      <JobStatus copy={{ ...copy, generating: copy.localGenerating }} plugins={plugins} />
+      <div className="plugin-generation-actions">
+        <button type="button" className="plugin-button primary wide generation" disabled={disabled || running} onClick={onGenerate}>{running ? <SpinnerGap className="spin" size={18} /> : <MagicWand size={18} weight="fill" />}{running ? copy.localGenerating : copy.generate}</button>
+        {running ? <button type="button" className="plugin-button secondary wide" onClick={plugins.cancelLocalJob}>{copy.cancelJob}</button> : null}
+      </div>
+    </>
+  );
+}
+
+function ComfyUIInspector({ copy, plugins }) {
+  const [endpoint, setEndpoint] = useStoredValue("timeline-studio-comfyui-endpoint", "http://127.0.0.1:8188");
+  const [workflowTemplate, setWorkflowTemplate] = useStoredValue("timeline-studio-comfyui-workflow", "");
+  const [prompt, setPrompt] = useState("");
+  const [negativePrompt, setNegativePrompt] = useState("");
+  const [seed, setSeed] = useState("-1");
+  const connection = plugins.connections.comfyui;
+  if (connection.state !== "connected") {
+    return <LocalConnectionView copy={copy} name="ComfyUI" tone="mint" Icon={PlugsConnected} connection={connection} endpoint={endpoint} setEndpoint={setEndpoint} defaultEndpoint="http://127.0.0.1:8188" onConnect={plugins.connectComfyUI} description={copy.comfyDescription} capabilities={[{ icon: PlugsConnected, label: copy.cardWorkflow }, { icon: ImageSquare, label: "T2I" }, { icon: VideoCamera, label: "T2V" }]} />;
+  }
+  return (
+    <div className="plugin-generator">
+      <LocalConnectedBanner copy={copy} name="ComfyUI" endpoint={connection.endpoint} onDisconnect={() => plugins.disconnectLocal("comfyui")} />
+      <label className="plugin-field"><span>{copy.prompt}</span><textarea value={prompt} onChange={(event) => setPrompt(event.target.value)} placeholder={copy.placeholder} maxLength={1600} /><small>{prompt.length}/1600</small></label>
+      <label className="plugin-field"><span>{copy.negativePrompt}</span><input value={negativePrompt} onChange={(event) => setNegativePrompt(event.target.value)} placeholder={copy.negativePlaceholder} /></label>
+      <label className="plugin-field"><span>{copy.seed}</span><input type="number" value={seed} onChange={(event) => setSeed(event.target.value)} /></label>
+      <label className="plugin-field plugin-workflow-field"><span>{copy.comfyWorkflow}</span><textarea value={workflowTemplate} onChange={(event) => setWorkflowTemplate(event.target.value)} placeholder={copy.workflowPlaceholder} spellCheck={false} /><p>{copy.comfyWorkflowHelp}</p></label>
+      <LocalJobActions copy={copy} plugins={plugins} disabled={!workflowTemplate.trim()} onGenerate={() => plugins.generateWithComfyUI({ workflowTemplate, prompt, negativePrompt, seed })} />
+      <p className="plugin-prototype-note">{copy.comfyNote}</p>
+    </div>
+  );
+}
+
+function WebUIInspector({ copy, plugins }) {
+  const [endpoint, setEndpoint] = useStoredValue("timeline-studio-webui-endpoint", "http://127.0.0.1:7860");
+  const [mode, setMode] = useState("txt2img");
+  const [prompt, setPrompt] = useState("");
+  const [negativePrompt, setNegativePrompt] = useState("");
+  const [width, setWidth] = useState("1024");
+  const [height, setHeight] = useState("1024");
+  const [steps, setSteps] = useState("24");
+  const [seed, setSeed] = useState("-1");
+  const [initImage, setInitImage] = useState("");
+  const [initImageName, setInitImageName] = useState("");
+  const connection = plugins.connections.webui;
+  const readImage = (file) => {
+    if (!file) { setInitImage(""); setInitImageName(""); return; }
+    const reader = new FileReader();
+    reader.onload = () => { setInitImage(String(reader.result || "")); setInitImageName(file.name); };
+    reader.readAsDataURL(file);
+  };
+  if (connection.state !== "connected") {
+    return <LocalConnectionView copy={copy} name="Stable Diffusion WebUI" tone="blue" Icon={ImageSquare} connection={connection} endpoint={endpoint} setEndpoint={setEndpoint} defaultEndpoint="http://127.0.0.1:7860" onConnect={plugins.connectWebUI} description={copy.webuiDescription} capabilities={[{ icon: ImageSquare, label: "T2I" }, { icon: ImageSquare, label: "I2I" }, { icon: PlugsConnected, label: copy.cardLocal }]} />;
+  }
+  return (
+    <div className="plugin-generator">
+      <LocalConnectedBanner copy={copy} name="Stable Diffusion WebUI" endpoint={connection.endpoint} onDisconnect={() => plugins.disconnectLocal("webui")} />
+      <label className="plugin-field"><span>{copy.mode}</span><div className="plugin-mode-tabs"><button type="button" className={mode === "txt2img" ? "is-active" : ""} onClick={() => setMode("txt2img")}>{copy.textToImage}</button><button type="button" className={mode === "img2img" ? "is-active" : ""} onClick={() => setMode("img2img")}>{copy.imageToImage}</button></div></label>
+      <label className="plugin-field"><span>{copy.prompt}</span><textarea value={prompt} onChange={(event) => setPrompt(event.target.value)} placeholder={copy.placeholder} maxLength={1600} /><small>{prompt.length}/1600</small></label>
+      <label className="plugin-field"><span>{copy.negativePrompt}</span><input value={negativePrompt} onChange={(event) => setNegativePrompt(event.target.value)} placeholder={copy.negativePlaceholder} /></label>
+      {mode === "img2img" ? <label className="plugin-field plugin-file-field"><span>{copy.referenceImage}</span><input type="file" accept="image/*" onChange={(event) => readImage(event.target.files?.[0])} /><em>{initImageName || copy.chooseImage}</em></label> : null}
+      <div className="plugin-field-row"><label className="plugin-field"><span>{copy.width}</span><input type="number" min="64" step="8" value={width} onChange={(event) => setWidth(event.target.value)} /></label><label className="plugin-field"><span>{copy.height}</span><input type="number" min="64" step="8" value={height} onChange={(event) => setHeight(event.target.value)} /></label></div>
+      <div className="plugin-field-row"><label className="plugin-field"><span>{copy.steps}</span><input type="number" min="1" max="150" value={steps} onChange={(event) => setSteps(event.target.value)} /></label><label className="plugin-field"><span>{copy.seed}</span><input type="number" value={seed} onChange={(event) => setSeed(event.target.value)} /></label></div>
+      <LocalJobActions copy={copy} plugins={plugins} disabled={!prompt.trim() || (mode === "img2img" && !initImage)} onGenerate={() => plugins.generateWithWebUI({ mode, prompt, negativePrompt, width, height, steps, seed, initImage })} />
+      <p className="plugin-prototype-note">{copy.webuiNote}</p>
     </div>
   );
 }
 
 export function PluginInspector({ language, plugins }) {
   const copy = getCopy(language);
-  return plugins.selectedPluginId === "huggingface" ? <HuggingFaceInspector copy={copy} plugins={plugins} /> : <PuterInspector copy={copy} plugins={plugins} />;
+  if (plugins.selectedPluginId === "comfyui") return <ComfyUIInspector copy={copy} plugins={plugins} />;
+  if (plugins.selectedPluginId === "webui") return <WebUIInspector copy={copy} plugins={plugins} />;
+  return <PuterInspector copy={copy} plugins={plugins} />;
 }
 
 // eslint-disable-next-line react-refresh/only-export-components

@@ -163,6 +163,41 @@ async function readMediaBlob(src) {
   }
 }
 
+async function normalizeImageBlob(blob) {
+  if (!(blob instanceof Blob) || blob.size === 0) {
+    throw new Error("The provider returned an empty image.");
+  }
+
+  const header = new Uint8Array(await blob.slice(0, 16).arrayBuffer());
+  const ascii = (start, length) => String.fromCharCode(...header.slice(start, start + length));
+  let mime = String(blob.type || "").toLowerCase().split(";", 1)[0];
+  if (header[0] === 0x89 && ascii(1, 3) === "PNG") mime = "image/png";
+  else if (header[0] === 0xff && header[1] === 0xd8 && header[2] === 0xff) mime = "image/jpeg";
+  else if (ascii(0, 4) === "RIFF" && ascii(8, 4) === "WEBP") mime = "image/webp";
+  else if (ascii(4, 4) === "ftyp" && ["avif", "avis"].includes(ascii(8, 4))) mime = "image/avif";
+  if (!mime.startsWith("image/")) {
+    throw new Error(`The provider returned ${mime || "an unknown format"} instead of an image.`);
+  }
+
+  const normalized = blob.type === mime ? blob : new Blob([blob], { type: mime });
+  try {
+    const bitmap = await createImageBitmap(normalized);
+    const dimensions = { width: bitmap.width, height: bitmap.height };
+    bitmap.close();
+    if (!dimensions.width || !dimensions.height) throw new Error("The generated image has no dimensions.");
+    return { blob: normalized, mime, ...dimensions };
+  } catch (error) {
+    throw new Error("The provider returned an image that the browser could not decode.", { cause: error });
+  }
+}
+
+function imageExtensionForMime(mime) {
+  if (mime === "image/jpeg") return "jpg";
+  if (mime === "image/webp") return "webp";
+  if (mime === "image/avif") return "avif";
+  return "png";
+}
+
 const VIDEO_SOURCE_KEYS = ["src", "currentSrc", "url", "asset_url", "assetUrl", "href", "download_url", "downloadUrl"];
 const VIDEO_CONTAINER_KEYS = ["result", "output", "data", "video", "file", "media"];
 
@@ -384,19 +419,43 @@ export function useGenerationPlugins({ imageUrlRefs, notify, setActiveTool, setM
     }, 2400);
     try {
       if (mode === "text-to-image") {
-        const image = await puter.ai.txt2img(prompt, { model });
-        const source = image.currentSrc || image.src;
-        const blob = await readMediaBlob(source);
-        if (!mountedRef.current) return;
-        await addImageAsset({
-          src: source,
-          blob,
-          name: `${String(prompt).trim().slice(0, 34) || "Puter generation"}.png`,
-          prompt: String(prompt).trim(),
-          provider: `Puter.js · ${model}`,
-          width: image.naturalWidth,
-          height: image.naturalHeight,
-        });
+        const isXai = String(model).startsWith("grok-");
+        const outputPath = isXai ? `generated-images/${crypto.randomUUID()}.jpg` : "";
+        let storedBlob = null;
+        let source = "";
+        try {
+          const image = await puter.ai.txt2img(prompt, {
+            model,
+            ...(isXai ? { provider: "xai", puter_output_path: outputPath } : {}),
+          });
+          source = image.currentSrc || image.src;
+          if (outputPath) {
+            try {
+              storedBlob = await puter.fs.read(outputPath);
+            } catch {
+              // Older Puter backends may ignore puter_output_path. The direct
+              // URL remains a best-effort fallback while it is still alive.
+            }
+          }
+          storedBlob ||= await readMediaBlob(source);
+          if (!storedBlob) {
+            throw new Error("The generated image could not be downloaded before its temporary URL expired.");
+          }
+          const decoded = await normalizeImageBlob(storedBlob);
+          if (!mountedRef.current) return;
+          const extension = imageExtensionForMime(decoded.mime);
+          await addImageAsset({
+            src: source,
+            blob: decoded.blob,
+            name: `${String(prompt).trim().slice(0, 34) || "Puter generation"}.${extension}`,
+            prompt: String(prompt).trim(),
+            provider: `Puter.js · ${model}`,
+            width: decoded.width,
+            height: decoded.height,
+          });
+        } finally {
+          if (outputPath) puter.fs.delete(outputPath).catch(() => {});
+        }
         return;
       }
       const size = ratio === "9:16" ? "720x1280" : "1280x720";

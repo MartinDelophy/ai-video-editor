@@ -74,6 +74,7 @@ import { useAiMusicGeneration } from "./hooks/useAiMusicGeneration.js";
 import { useMiganRepair } from "./hooks/useMiganRepair.js";
 import { useNanoVsrRestoration } from "./hooks/useNanoVsrRestoration.js";
 import { useSmartDenoise } from "./hooks/useSmartDenoise.js";
+import { useGenerationPlugins } from "./hooks/useGenerationPlugins.js";
 import { getImageThumbnailCount, getVisualSegmentsTotal, normalizeTimedSegmentIds } from "./lib/timeline.js";
 import { getVisualSourceTime, normalizeVisualTransform, removeVisualPropertyKeyframe, updateVisualSegmentPlaybackRate, upsertVisualKeyframe, upsertVisualPropertyKeyframe } from "./lib/visualEffects.js";
 import { getVisualSpeedCurveTimelineProgress, updateVisualSegmentSpeedCurve } from "./lib/visualSpeedCurve.js";
@@ -560,6 +561,14 @@ export function App() {
 
   const { builtInAssets, filteredVoices, libraryType, libraryQuery, setLibraryQuery,
     selectLibraryType, libraryStatus, libraryError, libraryProvider, assetDownloadStates, prefetchLibraryAsset } = useEditorCatalog(voiceFilter);
+  const generationPlugins = useGenerationPlugins({
+    imageUrlRefs,
+    notify,
+    setActiveTool,
+    setMediaTab,
+    setSelectedLibraryAssetId,
+    setUserAssets,
+  });
   const handleGeneratedVector = (asset) => {
     setUserAssets((current) => [asset, ...current]);
     setSelectedLibraryAssetId(asset.id);
@@ -1389,7 +1398,7 @@ export function App() {
           selectedVisualSegment, selectedEffectSegment, effectAnalysis, effectRunning, effectProgress, effectPhase,
           effectsPanelMode, setEffectsPanelMode, cinematicDepth, photoParallaxDepth,
           visualLocalTime, updateSelectedVisualEffects, updateSelectedSubjectEffect, updateSelectedClickRipple, removeSelectedSubjectEffect, miganRepair, hdRestoration, smartDenoise,
-          mobilePanel, setMobilePanel: changeMobilePanel, applyAssetToTrack, handleGeneratedVector,
+          mobilePanel, setMobilePanel: changeMobilePanel, applyAssetToTrack, handleGeneratedVector, generationPlugins,
         }} />
 
         <PreviewStage
@@ -1639,6 +1648,7 @@ export function App() {
           updateSelectedClickRipple={updateSelectedClickRipple}
           removeSelectedSubjectEffect={removeSelectedSubjectEffect}
           onOpticalFlowAssetReady={handleOpticalFlowAssetReady}
+          generationPlugins={generationPlugins}
         />
       </section>
 

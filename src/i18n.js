@@ -2,6 +2,20 @@ import { I18N_COMPLETION_COPY } from "./i18nCompletion.js";
 import { EFFECTS_LOCALIZED_COPY } from "./i18nEffects.js";
 import { DENOISE_HUB_HINT_COPY, DENOISE_LOCALIZED_COPY, REPAIR_LOCALIZED_COPY } from "./i18nRepair.js";
 
+const PLUGIN_TOOL_COPY = {
+  zh: { plugins: "插件" },
+  en: { plugins: "Plugins" },
+  ja: { plugins: "プラグイン" },
+  ko: { plugins: "플러그인" },
+  es: { plugins: "Plugins" },
+  fr: { plugins: "Plugins" },
+  de: { plugins: "Plugins" },
+  pt: { plugins: "Plugins" },
+  th: { plugins: "ปลั๊กอิน" },
+  vi: { plugins: "Plugin" },
+  ru: { plugins: "Плагины" },
+};
+
 const MEDIA_COMPATIBILITY_COPY = {
   zh: { mediaCompatibilityProcessing: "正在分析并兼容处理该媒体…", mediaCompatibilityReady: "兼容媒体已准备完成", mediaCompatibilityFailed: "兼容处理失败", mediaCompatibilityFailedHint: "无法读取该媒体，请尝试转换为 MP4/H.264/AAC" },
   en: { mediaCompatibilityProcessing: "Analyzing and preparing compatible media…", mediaCompatibilityReady: "Compatible media is ready", mediaCompatibilityFailed: "Compatibility processing failed", mediaCompatibilityFailedHint: "This media could not be read. Try MP4 with H.264/AAC." },
@@ -3324,7 +3338,7 @@ export function createTranslator(languageId) {
   const projectChromeCopy = PROJECT_CHROME_COPY[languageId] ?? PROJECT_CHROME_COPY.en;
   const coreLabelCopy = CORE_LABEL_COPY[languageId] ?? CORE_LABEL_COPY.en;
   const specializedCopy = Object.assign({}, ...[
-    EXPORT_RENDER_COPY, MEDIA_COMPATIBILITY_COPY, COMMUNITY_LINKS_COPY, AUDIO_SPATIAL_COPY, VOICE_COLOR_COPY, VOICE_CLONE_COPY, TIMELINE_SELECTION_COPY, TIMELINE_FINE_EDIT_COPY, TIMELINE_TRIM_COPY, TIMELINE_TOOLBAR_COPY, SHORTCUT_GUIDE_COPY, FACE_SWAP_COPY, VECTOR_LIBRARY_COPY, PROJECT_CHROME_COPY, CORE_LABEL_COPY, MOBILE_DRAWER_COPY, MOBILE_CLIP_ACTION_COPY,
+    EXPORT_RENDER_COPY, MEDIA_COMPATIBILITY_COPY, COMMUNITY_LINKS_COPY, AUDIO_SPATIAL_COPY, VOICE_COLOR_COPY, VOICE_CLONE_COPY, TIMELINE_SELECTION_COPY, TIMELINE_FINE_EDIT_COPY, TIMELINE_TRIM_COPY, TIMELINE_TOOLBAR_COPY, SHORTCUT_GUIDE_COPY, FACE_SWAP_COPY, VECTOR_LIBRARY_COPY, PROJECT_CHROME_COPY, CORE_LABEL_COPY, MOBILE_DRAWER_COPY, MOBILE_CLIP_ACTION_COPY, PLUGIN_TOOL_COPY,
     VISUAL_EDITOR_COPY, COLOR_GRADE_COPY, TRANSITION_EDITOR_COPY, ASSET_PREVIEW_COPY, ASSET_DROP_COPY,
     AUTO_CAPTION_STATUS_COPY, VISUAL_PANEL_TITLE_COPY, VISUAL_MASK_SHAPE_COPY,
     VISUAL_KEYFRAME_ACTION_COPY, VISUAL_TAB_COPY, VISUAL_SPEED_CURVE_COPY, SOURCE_AUDIO_SYNC_COPY,

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { CaretDown } from "@phosphor-icons/react";
 import { COMPACT_WORKSPACE_QUERY, TOOL_RAIL } from "../config/editor.js";
 import { MediaPanel, ToolPanel } from "./panels.jsx";
+import { PluginCatalogPanel } from "./GenerationPlugins.jsx";
 
 export function EditorSidebar({ model: d }) {
   const toolRailRef = useRef(null);
@@ -117,6 +118,14 @@ export function EditorSidebar({ model: d }) {
             onOpenAiMusic={() => {
               d.setSmartMode("ai-music");
               d.selectTool("smart");
+              if (window.matchMedia?.(COMPACT_WORKSPACE_QUERY).matches) d.setMobilePanel?.("inspector");
+            }}
+          />
+        ) : d.activeTool === "plugins" ? (
+          <PluginCatalogPanel
+            language={d.activeLanguage}
+            plugins={d.generationPlugins}
+            onOpenInspector={() => {
               if (window.matchMedia?.(COMPACT_WORKSPACE_QUERY).matches) d.setMobilePanel?.("inspector");
             }}
           />

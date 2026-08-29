@@ -52,6 +52,7 @@ export function resolveInspectorPanelContext({ origin = "", activeTool = "", sel
   }[origin];
   if (explicitContext) return explicitContext;
   if (activeTool === "smart") return "smart";
+  if (activeTool === "plugins") return "plugins";
   if (activeTool === "effects") return "effects";
   if (activeTool === "caption") return "caption";
   if (selectedTrack === "image") return "visual";

@@ -8300,6 +8300,8 @@ button:disabled {
 }
 
 .timeline-media-preparing strong {
+  flex: 0 1 auto;
+  min-width: 0;
   overflow: hidden;
   font-size: 10px;
   font-weight: 720;
@@ -8308,7 +8310,8 @@ button:disabled {
 }
 
 .timeline-media-preparing em {
-  margin-left: auto;
+  flex: 0 0 auto;
+  margin-left: 0;
   color: rgba(204, 255, 250, 0.72);
   font-size: 9px;
   font-style: normal;

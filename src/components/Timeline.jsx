@@ -50,7 +50,7 @@ import {
   reorderSingleVisualOverlayLane,
 } from "../lib/visualOverlayTimeline.js";
 import { getSampledVideoTrackFrames, getVideoTrackFrameAtSourceTime, getVideoTrackFrameSource } from "../lib/videoTrackFrames.js";
-import { extractVideoTrackFrames, getVideoTrackSampleCount } from "../lib/media.js";
+import { captureVideoTrackFrame, extractVideoTrackFrames, getVideoTrackSampleCount } from "../lib/media.js";
 import { getVisualSourceTime } from "../lib/visualEffects.js";
 import { normalizeVisualSpeedCurve } from "../lib/visualSpeedCurve.js";
 import { rollVisualBoundary, slideVisualSegment, slipVisualSegment } from "../lib/fineEdit.js";
@@ -122,6 +122,32 @@ function getTimelineThumbnailCount({ duration, timelineDuration, contentWidth, t
     VIDEO_FRAME_MIN_COUNT,
     Math.min(maxThumbnails, Math.ceil(clipPixelWidth / targetCellWidth)),
   );
+}
+
+function getBisectionCellOrder(startIndex, endIndex) {
+  if (endIndex < startIndex) return [];
+  const order = [];
+  const ranges = [[startIndex, endIndex]];
+  while (ranges.length) {
+    const [start, end] = ranges.shift();
+    if (end < start) continue;
+    const middle = Math.floor((start + end) / 2);
+    order.push(middle);
+    if (start < middle) ranges.push([start, middle - 1]);
+    if (middle < end) ranges.push([middle + 1, end]);
+  }
+  return order;
+}
+
+function mergeExactVideoTrackFrame(frames, incoming, tolerance = 0.06) {
+  if (!incoming?.src) return Array.isArray(frames) ? frames : [];
+  const next = Array.isArray(frames) ? frames.slice() : [];
+  const sourceTime = Number(incoming.sourceTime) || 0;
+  const matchingIndex = next.findIndex((frame) => Math.abs((Number(frame?.sourceTime) || 0) - sourceTime) <= tolerance);
+  if (matchingIndex >= 0) next[matchingIndex] = incoming;
+  else next.push(incoming);
+  next.sort((a, b) => (Number(a?.sourceTime) || 0) - (Number(b?.sourceTime) || 0));
+  return next;
 }
 
 function getImageTimelineThumbnailCount({ duration, timelineDuration, contentWidth }) {
@@ -275,9 +301,24 @@ export function Timeline({
   const [timelineMarquee, setTimelineMarquee] = useState(null);
   const [selectedEditPointIndex, setSelectedEditPointIndex] = useState(-1);
   const [activeFineEdit, setActiveFineEdit] = useState(null);
+  const [playheadTrackFrame, setPlayheadTrackFrame] = useState(null);
+  const [timelineSeekActive, setTimelineSeekActive] = useState(false);
   const timelineSelectionTriggerRef = useRef(null);
   const timelineRangeDragClickGuardRef = useRef("");
   const timelineMarqueeClickGuardRef = useRef(false);
+
+  useEffect(() => {
+    const handleTimelineSeekState = (event) => {
+      const active = Boolean(event.detail?.active);
+      if (active) {
+        progressiveFilmstripAbortRef.current?.abort();
+        progressiveFilmstripAbortRef.current = null;
+      }
+      setTimelineSeekActive(active);
+    };
+    window.addEventListener("timeline-seek-state", handleTimelineSeekState);
+    return () => window.removeEventListener("timeline-seek-state", handleTimelineSeekState);
+  }, []);
 
   const getVisualStart = useCallback((index) => displayedVisualSegments
     .slice(0, Math.max(0, index))
@@ -1231,6 +1272,7 @@ export function Timeline({
   }, [contextMenu]);
   const [localTimelineZoom, setLocalTimelineZoom] = useState(() => clampTimelineZoom(timelineZoom));
   const filmstripUpgradeInFlightRef = useRef(new Set());
+  const progressiveFilmstripAbortRef = useRef(null);
   const [trimScaleLock, setTrimScaleLock] = useState(null);
   const trimScaleLockRef = useRef(null);
   const trimScrollSeekGuardUntilRef = useRef(0);
@@ -1244,6 +1286,7 @@ export function Timeline({
   const rulerViewportSyncRef = useRef(null);
   const rulerViewportRef = useRef(null);
   const rulerCanvasRef = useRef(null);
+  const playheadFrameCaptureRef = useRef(0);
   const zoomReadoutRef = useRef(null);
   const pendingWheelDeltaRef = useRef(0);
   const pendingWheelAnchorRef = useRef(null);
@@ -1380,9 +1423,117 @@ export function Timeline({
     setLocalTimelineZoom(nextZoom);
   }, [timelineZoom]);
   useEffect(() => {
+    const segmentIndex = displayedVisualSegments.findIndex((item) => item.id === currentVisualSegment?.id);
+    const segment = displayedVisualSegments[segmentIndex];
+    const segmentRange = renderedVisualTimeline[segmentIndex];
+    if (
+      !segment
+      || !segment.remoteSrc
+      || (segment.type || visualType) !== "video"
+      || segment.preparing
+      || timelineSeekActive
+      || !segment.blob
+      || !segmentRange
+      || rulerViewport.contentWidth <= 0
+      || rulerViewport.viewportWidth <= 0
+    ) return undefined;
+
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => {
+      progressiveFilmstripAbortRef.current?.abort();
+      progressiveFilmstripAbortRef.current = controller;
+      const frameCount = getTimelineThumbnailCount({
+        duration: segment.duration,
+        timelineDuration,
+        contentWidth: rulerViewport.contentWidth,
+        timelineZoom: localTimelineZoom,
+        maxThumbnails: VIDEO_THUMBNAIL_DISPLAY_MAX_COUNT,
+      });
+      const viewportStart = rulerViewport.scrollLeft / rulerViewport.contentWidth * timelineDuration;
+      const viewportEnd = (rulerViewport.scrollLeft + rulerViewport.viewportWidth) / rulerViewport.contentWidth * timelineDuration;
+      const visibleLocalStart = Math.max(0, viewportStart - segmentRange.start);
+      const visibleLocalEnd = Math.min(Number(segment.duration) || 0, viewportEnd - segmentRange.start);
+      if (visibleLocalEnd <= visibleLocalStart || frameCount <= 0) return;
+      const duration = Math.max(0.001, Number(segment.duration) || 0.001);
+      const firstVisibleCell = Math.max(0, Math.min(frameCount - 1, Math.floor(visibleLocalStart / duration * frameCount)));
+      const lastVisibleCell = Math.max(firstVisibleCell, Math.min(frameCount - 1, Math.ceil(visibleLocalEnd / duration * frameCount) - 1));
+      const playheadCell = currentTime >= segmentRange.start && currentTime < segmentRange.end
+        ? Math.max(0, Math.min(frameCount - 1, Math.floor((currentTime - segmentRange.start) / duration * frameCount)))
+        : -1;
+      const visibleOrder = getBisectionCellOrder(firstVisibleCell, lastVisibleCell);
+      const offscreenLeft = getBisectionCellOrder(0, firstVisibleCell - 1);
+      const offscreenRight = getBisectionCellOrder(lastVisibleCell + 1, frameCount - 1);
+      const offscreenOrder = [];
+      for (let index = 0; index < Math.max(offscreenLeft.length, offscreenRight.length); index += 1) {
+        if (index < offscreenLeft.length) offscreenOrder.push(offscreenLeft[index]);
+        if (index < offscreenRight.length) offscreenOrder.push(offscreenRight[index]);
+      }
+      const priorityCells = [...new Set([
+        ...(playheadCell >= firstVisibleCell && playheadCell <= lastVisibleCell ? [playheadCell] : []),
+        ...visibleOrder,
+        // Seed a bounded number of offscreen subdivisions. Scrolling the
+        // viewport reprioritizes the newly visible region instead of decoding
+        // hundreds of unseen frames on a slow machine.
+        ...offscreenOrder.slice(0, 24),
+      ])];
+      const sourceDuration = Math.max(
+        Number(segment.trackFrameDuration) || 0,
+        (Number(segment.sourceStart) || 0) + (Number(segment.sourceDuration) || Number(segment.duration) || 0),
+      );
+      const existingFrames = Array.isArray(segment.trackFrames) ? segment.trackFrames : [];
+      const sourceCellSpan = sourceDuration / Math.max(1, frameCount);
+      const sampleTimes = priorityCells
+        .map((cellIndex) => getVisualSourceTime(segment, cellIndex / frameCount * duration))
+        .filter((sourceTime) => !existingFrames.some((frame) => (
+          Math.abs((Number(frame?.sourceTime) || 0) - sourceTime) <= Math.max(0.04, sourceCellSpan * 0.08)
+        )));
+      if (!sampleTimes.length) return;
+      extractVideoTrackFrames(segment.blob, {
+        duration: sourceDuration,
+        width: segment.width,
+        height: segment.height,
+        sampleTimes,
+        preferNativeSeek: true,
+        signal: controller.signal,
+        onFrame: (frame) => {
+          if (controller.signal.aborted) return;
+          setVisualSegments((items) => items.map((item) => item.id === segment.id
+            ? {
+                ...item,
+                trackFrames: mergeExactVideoTrackFrame(item.trackFrames, frame),
+                trackFrameDuration: sourceDuration,
+                trackFrameSampling: "exact-pts-hq-v5-progressive",
+              }
+            : item));
+        },
+      }).catch((error) => {
+        if (error?.name !== "AbortError") console.warn("Progressive visible filmstrip extraction failed", error);
+      }).finally(() => {
+        if (progressiveFilmstripAbortRef.current === controller) progressiveFilmstripAbortRef.current = null;
+      });
+    }, 160);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+      if (progressiveFilmstripAbortRef.current === controller) progressiveFilmstripAbortRef.current = null;
+    };
+  }, [
+    currentVisualSegment?.id,
+    currentVisualSegment?.src,
+    currentVisualSegment?.preparing,
+    localTimelineZoom,
+    rulerViewport.contentWidth,
+    rulerViewport.scrollLeft,
+    rulerViewport.viewportWidth,
+    setVisualSegments,
+    timelineDuration,
+    timelineSeekActive,
+    visualType,
+  ]);
+  useEffect(() => {
     if (localTimelineZoom < 3 || typeof setVisualSegments !== "function") return undefined;
     const segment = displayedVisualSegments.find((item) => {
-      if ((item.type || visualType) !== "video" || !item.src || filmstripUpgradeInFlightRef.current.has(item.src)) return false;
+      if ((item.type || visualType) !== "video" || item.remoteSrc || !item.src || filmstripUpgradeInFlightRef.current.has(item.src)) return false;
       const sourceDuration = Math.max(
         Number(item.trackFrameDuration) || 0,
         (Number(item.sourceStart) || 0) + (Number(item.sourceDuration) || Number(item.duration) || 0),
@@ -1400,11 +1551,12 @@ export function Timeline({
     );
     const sourceKey = segment.src;
     filmstripUpgradeInFlightRef.current.add(sourceKey);
-    extractVideoTrackFrames(sourceKey, {
+    extractVideoTrackFrames(segment.blob || sourceKey, {
       duration: sourceDuration,
       width: segment.width,
       height: segment.height,
       maxFrames: getVideoTrackSampleCount(sourceDuration),
+      preferNativeSeek: Boolean(segment.remoteSrc),
     }).then((trackFrames) => {
       if (!trackFrames.length) return;
       setVisualSegments((items) => items.map((item) => item.src === sourceKey
@@ -1417,6 +1569,76 @@ export function Timeline({
     });
     return undefined;
   }, [displayedVisualSegments, localTimelineZoom, setVisualSegments, visualType]);
+  useEffect(() => {
+    if (playheadFrameCaptureRef.current) {
+      window.cancelAnimationFrame(playheadFrameCaptureRef.current);
+      playheadFrameCaptureRef.current = 0;
+    }
+    if (timelineSeekActive) return undefined;
+    const segmentIndex = displayedVisualSegments.findIndex((item) => item.id === currentVisualSegment?.id);
+    const segment = displayedVisualSegments[segmentIndex];
+    const segmentRange = renderedVisualTimeline[segmentIndex];
+    if (!segment || (segment.type || visualType) !== "video" || !segmentRange) {
+      setPlayheadTrackFrame(null);
+      return undefined;
+    }
+    const localTime = Math.max(0, Math.min(Number(segment.duration) || 0, currentTime - segmentRange.start));
+    // At the exact origin, retain the prepared opening representative. Some
+    // WebM decoders expose a synthetic black canvas before their first PTS.
+    if (localTime < 0.2) return undefined;
+    const frameCount = getTimelineThumbnailCount({
+      duration: segment.duration,
+      timelineDuration,
+      contentWidth: rulerViewport.contentWidth,
+      timelineZoom: localTimelineZoom,
+      maxThumbnails: VIDEO_THUMBNAIL_DISPLAY_MAX_COUNT,
+    });
+    const cellIndex = Math.min(
+      frameCount - 1,
+      Math.floor(localTime / Math.max(0.001, Number(segment.duration) || 0.001) * frameCount),
+    );
+    const expectedSourceTime = getVisualSourceTime(segment, localTime);
+    let attempts = 0;
+    const capturePresentedFrame = () => {
+      playheadFrameCaptureRef.current = 0;
+      const previewVideo = document.querySelector(".preview-video");
+      if (!(previewVideo instanceof HTMLVideoElement) || previewVideo.readyState < 2) {
+        if (attempts++ < 48) playheadFrameCaptureRef.current = window.requestAnimationFrame(capturePresentedFrame);
+        return;
+      }
+      // The preview is the authoritative decoder for the current playhead.
+      // Ignore an intermediate render while a seek is still catching up.
+      if (Math.abs(previewVideo.currentTime - expectedSourceTime) > 0.18) {
+        if (attempts++ < 48) playheadFrameCaptureRef.current = window.requestAnimationFrame(capturePresentedFrame);
+        return;
+      }
+      const frame = captureVideoTrackFrame(previewVideo, { sourceTime: previewVideo.currentTime });
+      if (!frame) return;
+      setPlayheadTrackFrame({
+        segmentId: segment.id,
+        cellIndex,
+        frameCount,
+        timelineTime: currentTime,
+        frame,
+      });
+    };
+    playheadFrameCaptureRef.current = window.requestAnimationFrame(capturePresentedFrame);
+    return () => {
+      if (!playheadFrameCaptureRef.current) return;
+      window.cancelAnimationFrame(playheadFrameCaptureRef.current);
+      playheadFrameCaptureRef.current = 0;
+    };
+  }, [
+    currentTime,
+    currentVisualSegment?.id,
+    displayedVisualSegments,
+    localTimelineZoom,
+    renderedVisualTimeline,
+    rulerViewport.contentWidth,
+    timelineDuration,
+    timelineSeekActive,
+    visualType,
+  ]);
   useEffect(() => {
     if (!window.matchMedia?.("(max-width: 760px)").matches || timelineDuration <= 0) return;
     const minimumZoom = getTimelineZoomForVisibleDuration(timelineDuration);
@@ -2953,7 +3175,12 @@ export function Timeline({
                         getVisualSourceTime(segment, localTime),
                         Number(segment.trackFrameDuration) || Number(segment.sourceDuration) || Number(segment.duration) || 0,
                       );
-                      if (exactFrame) visibleVideoFrames[activeFrameIndex] = exactFrame;
+                      const livePlayheadFrame = playheadTrackFrame?.segmentId === segment.id
+                        && playheadTrackFrame.frameCount === visibleVideoFrames.length
+                        && playheadTrackFrame.cellIndex === activeFrameIndex
+                        ? playheadTrackFrame.frame
+                        : null;
+                      if (livePlayheadFrame || exactFrame) visibleVideoFrames[activeFrameIndex] = livePlayheadFrame || exactFrame;
                     }
                     return (
                       <div
@@ -3005,7 +3232,9 @@ export function Timeline({
                         {segment.preparing ? (
                           <div className="timeline-media-preparing" aria-live="polite">
                             <i className="timeline-media-spinner" />
-                            <strong>{t("timelineMediaPreparing", "正在准备素材")}</strong>
+                            <strong>{segment.prepareStage === "download"
+                              ? t("remoteAssetDownloading", "正在下载在线素材…")
+                              : t("timelineMediaPreparing", "正在准备素材")}</strong>
                             <em>{Math.round((segment.prepareProgress || 0) * 100)}%</em>
                           </div>
                         ) : segmentType === "video" ? (

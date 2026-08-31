@@ -97,6 +97,7 @@ export function getVisualAssetPayload(asset) {
     } : undefined,
     vectorDesign: asset.vectorDesign ? { ...asset.vectorDesign } : undefined,
     preparing: Boolean(asset.preparing),
+    prepareStage: asset.prepareStage === "download" ? "download" : asset.prepareStage === "prepare" ? "prepare" : "",
     prepareProgress: Math.max(0, Math.min(1, Number(asset.prepareProgress) || 0)),
   };
 }

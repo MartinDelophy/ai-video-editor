@@ -42,8 +42,16 @@ function mapCommonsPage(page, type) {
   const metadata = info.extmetadata || {};
   const duration = Number.parseFloat(info.duration ?? metadata.Duration?.value) || 0;
   const license = metadata.LicenseShortName?.value || "Free license";
+  const videoDerivatives = type === "video"
+    ? [...(info.derivatives || [])].filter((item) => item.src && item.type?.startsWith("video/") && item.width <= 1280)
+    : [];
+  const transferBoundedVideoDerivatives = duration > 0
+    ? videoDerivatives.filter((item) => !item.bandwidth || item.bandwidth * duration / 8 <= 12 * 1024 * 1024)
+    : [];
   const derivative = type === "video"
-    ? [...(info.derivatives || [])].filter((item) => item.src && item.type?.startsWith("video/") && item.width <= 1280).sort((a, b) => Math.abs((a.width || 0) - 854) - Math.abs((b.width || 0) - 854))[0]
+    ? transferBoundedVideoDerivatives.length
+      ? [...transferBoundedVideoDerivatives].sort((a, b) => (b.width || 0) - (a.width || 0))[0]
+      : [...videoDerivatives].sort((a, b) => (a.width || 0) - (b.width || 0))[0]
     : type === "audio"
       ? (info.derivatives || []).find((item) => item.src && item.type?.startsWith("audio/"))
       : null;
@@ -54,8 +62,12 @@ function mapCommonsPage(page, type) {
   return {
     id: `commons-${type}-${page.pageid}`, type, src: editorSrc, originalSrc: info.url, thumbnail,
     name: page.title?.replace(/^File:/, "") || `Commons ${type}`,
-    meta: type === "audio" ? `${formatDuration(duration)} · ${license}` : `${info.width || "—"} × ${info.height || "—"} · ${license}`,
-    width: info.width, height: info.height, duration: duration || undefined, trackFrames: type === "video" ? [] : undefined,
+    meta: type === "audio"
+      ? `${formatDuration(duration)} · ${license}`
+      : `${derivative?.width || info.width || "—"} × ${derivative?.height || info.height || "—"} · ${license}`,
+    width: derivative?.width || info.width, height: derivative?.height || info.height,
+    originalWidth: info.width, originalHeight: info.height,
+    duration: duration || undefined, trackFrames: type === "video" ? [] : undefined,
     provider: "Wikimedia Commons", creator: stripHtml(metadata.Artist?.value || ""),
     sourceUrl: info.descriptionurl, license,
     licenseUrl: metadata.LicenseUrl?.value || info.descriptionurl,

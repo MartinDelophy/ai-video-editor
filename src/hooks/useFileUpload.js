@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 import { MAX_TIMELINE_DURATION_SECONDS, SUPPORTED_MEDIA_TYPES } from "../config/editor.js";
-import { decodeWaveform, extractVideoTrackFrames, normalizeVideoForEditing } from "../lib/media.js";
+import { decodeWaveform, extractVideoTrackFrames, getVideoTrackImportFrameBudget, normalizeVideoForEditing } from "../lib/media.js";
 import { getMediaFileKind, isSupportedMediaFile, MEDIA_BACKENDS, probeMediaCompatibility, selectMediaBackends, shouldProbeWithLibav } from "../lib/mediaCompatibility.js";
 import { formatClock, formatTime } from "../lib/timeline.js";
 
@@ -90,9 +90,23 @@ export function useFileUpload(deps) {
             update(asset.id, patch); deps.updateVisualAssetInTimeline(asset.id, patch);
             const extractingPatch = { preparing: true, prepareProgress: 0.68 };
             update(asset.id, extractingPatch); deps.updateVisualAssetInTimeline(asset.id, extractingPatch);
-            extractVideoTrackFrames(sourceAsset.src, { duration, width, height }).then((trackFrames) => {
+            const importFrameBudget = getVideoTrackImportFrameBudget(duration);
+            let lastProgressBucket = -1;
+            extractVideoTrackFrames(sourceAsset.blob || sourceAsset.src, {
+              duration,
+              width,
+              height,
+              maxFrames: importFrameBudget,
+              onProgress: (progress) => {
+                const progressBucket = Math.max(0, Math.min(20, Math.floor((Number(progress) || 0) * 20)));
+                if (progressBucket === lastProgressBucket) return;
+                lastProgressBucket = progressBucket;
+                const progressPatch = { preparing: true, prepareProgress: 0.68 + progressBucket / 20 * 0.29 };
+                update(asset.id, progressPatch); deps.updateVisualAssetInTimeline(asset.id, progressPatch);
+              },
+            }).then((trackFrames) => {
               if (!trackFrames.length) throw new Error("No timeline frames decoded");
-              const framePatch = { trackFrames, trackFrameSampling: "exact-pts-hq-v4", preparing: false, prepareProgress: 1 };
+              const framePatch = { trackFrames, trackFrameSampling: "exact-pts-hq-v4", trackFrameImportBudget: importFrameBudget, preparing: false, prepareProgress: 1 };
               update(asset.id, framePatch); deps.updateVisualAssetInTimeline(asset.id, framePatch);
             }).catch((error) => {
               console.warn("Video timeline frame extraction failed", error);

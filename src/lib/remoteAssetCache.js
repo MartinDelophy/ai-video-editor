@@ -18,7 +18,7 @@ export async function getRemoteAssetBlob(asset, onProgress) {
     const response = await fetch(key, {
       mode: "cors",
       credentials: "omit",
-      referrerPolicy: "no-referrer",
+      referrerPolicy: "strict-origin-when-cross-origin",
     });
     if (!response.ok) throw new Error(String(response.status));
     const total = Number(response.headers.get("content-length")) || 0;

@@ -85,6 +85,19 @@ const VIDEO_TRACK_FRAME_MAX = 480;
 const VIDEO_TRACK_FRAME_HEIGHT = 180;
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 
+export function getVideoTrackImportFrameBudget(duration, environment = globalThis?.navigator) {
+  const hardwareConcurrency = Math.max(0, Number(environment?.hardwareConcurrency) || 0);
+  const deviceMemory = Math.max(0, Number(environment?.deviceMemory) || 0);
+  const isConstrainedDevice =
+    (hardwareConcurrency > 0 && hardwareConcurrency <= 4) ||
+    (deviceMemory > 0 && deviceMemory <= 4);
+  const isComfortableDevice =
+    hardwareConcurrency >= 8 &&
+    (deviceMemory === 0 || deviceMemory >= 8);
+  const importFrameCap = isConstrainedDevice ? 120 : isComfortableDevice ? 240 : 180;
+  return Math.max(1, Math.min(importFrameCap, getVideoTrackSampleCount(duration)));
+}
+
 export function getVideoTrackSampleCount(duration, maxFrames = VIDEO_TRACK_FRAME_MAX) {
   const safeDuration = Math.max(0, Number.isFinite(duration) ? duration : 0);
   if (!safeDuration) {
@@ -159,31 +172,67 @@ export function seekVideoFrame(video, time) {
   });
 }
 
+export function captureVideoTrackFrame(video, options = {}) {
+  if (!(video instanceof HTMLVideoElement) || video.readyState < 2 || !video.videoWidth || !video.videoHeight) return null;
+  const {
+    sourceTime = video.currentTime,
+    quality = 0.88,
+  } = options;
+  const canvas = document.createElement("canvas");
+  canvas.height = VIDEO_TRACK_FRAME_HEIGHT;
+  canvas.width = Math.max(
+    36,
+    Math.min(360, Math.round(canvas.height * video.videoWidth / Math.max(1, video.videoHeight))),
+  );
+  const context = canvas.getContext("2d", { alpha: false });
+  if (!context) return null;
+  context.drawImage(video, 0, 0, canvas.width, canvas.height);
+  return createVideoTrackFrame(
+    canvas.toDataURL("image/jpeg", quality),
+    Math.max(0, Number(sourceTime) || 0),
+  );
+}
+
 async function extractVideoTrackFramesWithWebCodecs(src, sampleTimes, options) {
   if (typeof VideoDecoder === "undefined" || !sampleTimes.length) return null;
-  const { width, height, quality, signal, duration, maxFrames } = options;
+  const { width, height, quality, signal, duration, maxFrames, onProgress, onFrame } = options;
   let input = null;
   try {
-    const blob = src instanceof Blob
-      ? src
-      : await fetch(String(src), { signal }).then((response) => {
-          if (!response.ok) throw new Error(`Video read failed (${response.status})`);
-          return response.blob();
+    onProgress?.(0.03);
+    const { ALL_FORMATS, BlobSource, CanvasSink, Input, UrlSource } = await import("mediabunny");
+    const source = src instanceof Blob
+      ? new BlobSource(src)
+      : new UrlSource(String(src), {
+          requestInit: {
+            cache: "no-store",
+            credentials: "omit",
+            referrerPolicy: "strict-origin-when-cross-origin",
+          },
+          maxCacheSize: 16 * 1024 * 1024,
+          parallelism: 2,
         });
     if (signal?.aborted) throw signal.reason || new DOMException("Aborted", "AbortError");
-    const { ALL_FORMATS, BlobSource, CanvasSink, Input } = await import("mediabunny");
-    input = new Input({ source: new BlobSource(blob), formats: ALL_FORMATS });
+    input = new Input({ source, formats: ALL_FORMATS });
     const track = await input.getPrimaryVideoTrack();
-    if (!track || !(await track.canDecode())) return null;
-    const sink = new CanvasSink(track, {
+    if (!track) return null;
+    onProgress?.(0.06);
+    if (!(await track.canDecode())) return null;
+    onProgress?.(0.1);
+    const firstPresentationTimestamp = Math.max(0, Number(await track.getFirstTimestamp()) || 0);
+    const effectiveSampleTimes = sampleTimes.map((timestamp, index) => (
+      index === 0 ? Math.max(firstPresentationTimestamp, timestamp) : timestamp
+    ));
+    const sinkOptions = {
       width,
       height,
       fit: "fill",
       poolSize: 3,
       decoderOptions: { optimizeForLatency: true },
-    });
+    };
+    const sink = new CanvasSink(track, sinkOptions);
     const frames = [];
     const packetStats = await track.computePacketStats(Math.max(1, maxFrames) + 1);
+    onProgress?.(0.14);
     if (packetStats.packetCount <= maxFrames) {
       for await (const result of sink.canvases(0, duration)) {
         if (signal?.aborted) throw signal.reason || new DOMException("Aborted", "AbortError");
@@ -192,17 +241,24 @@ async function extractVideoTrackFramesWithWebCodecs(src, sampleTimes, options) {
           result.canvas.toDataURL("image/jpeg", quality),
           result.timestamp,
         ));
+        onFrame?.(frames.at(-1), frames.length - 1, packetStats.packetCount);
+        onProgress?.(Math.min(0.98, 0.14 + 0.84 * frames.length / Math.max(1, packetStats.packetCount)));
       }
+      onProgress?.(1);
       return frames;
     }
-    for await (const result of sink.canvasesAtTimestamps(sampleTimes)) {
+    for (const timestamp of effectiveSampleTimes) {
       if (signal?.aborted) throw signal.reason || new DOMException("Aborted", "AbortError");
+      const result = await sink.getCanvas(timestamp);
       if (!result?.canvas) continue;
       frames.push(createVideoTrackFrame(
         result.canvas.toDataURL("image/jpeg", quality),
         result.timestamp,
       ));
+      onFrame?.(frames.at(-1), frames.length - 1, effectiveSampleTimes.length);
+      onProgress?.(Math.min(0.98, 0.14 + 0.84 * frames.length / effectiveSampleTimes.length));
     }
+    onProgress?.(1);
     return frames;
   } catch (error) {
     if (error?.name === "AbortError") throw error;
@@ -221,52 +277,92 @@ export async function extractVideoTrackFrames(src, options = {}) {
     maxFrames = VIDEO_TRACK_FRAME_MAX,
     quality = 0.88,
     signal,
+    onProgress,
+    onFrame,
+    preferNativeSeek = false,
+    sampleTimes: requestedSampleTimes,
   } = options;
-  const video = await loadVideo(src);
-  const safeDuration = Math.max(0, duration || video.duration || 0);
-  const frameCount = getVideoTrackSampleCount(safeDuration, maxFrames);
-  if (!frameCount) {
-    return [];
-  }
-
-  const naturalWidth = Math.max(1, width || video.videoWidth || 16);
-  const naturalHeight = Math.max(1, height || video.videoHeight || 9);
-  const aspectRatio = naturalWidth / naturalHeight;
-  const canvas = document.createElement("canvas");
-  canvas.height = VIDEO_TRACK_FRAME_HEIGHT;
-  canvas.width = Math.max(36, Math.min(360, Math.round(canvas.height * aspectRatio)));
-  const context = canvas.getContext("2d", { alpha: false });
-  if (!context) {
-    return [];
-  }
-
+  const ownedObjectUrl = src instanceof Blob ? URL.createObjectURL(src) : "";
+  let video = null;
   try {
-    const sampleTimes = Array.from(
+    let safeDuration = Math.max(0, Number(duration) || 0);
+    let naturalWidth = Math.max(0, Number(width) || 0);
+    let naturalHeight = Math.max(0, Number(height) || 0);
+    const ensureVideo = async () => {
+      if (!video) video = await loadVideo(ownedObjectUrl || src);
+      return video;
+    };
+    // Catalog and uploaded assets normally already carry trusted media
+    // dimensions and duration. Do not block the WebCodecs path on an HTMLVideo
+    // metadata event: some WebM Blob URLs never advance that event even though
+    // the same Blob is immediately readable by Mediabunny/WebCodecs.
+    if (!safeDuration || !naturalWidth || !naturalHeight) {
+      const metadataVideo = await ensureVideo();
+      safeDuration ||= Math.max(0, Number(metadataVideo.duration) || 0);
+      naturalWidth ||= Math.max(0, Number(metadataVideo.videoWidth) || 0);
+      naturalHeight ||= Math.max(0, Number(metadataVideo.videoHeight) || 0);
+    }
+    const explicitSampleTimes = Array.isArray(requestedSampleTimes)
+      ? requestedSampleTimes
+        .map((time) => Math.max(0, Math.min(safeDuration, Number(time) || 0)))
+        .filter((time, index, values) => index === 0 || Math.abs(time - values[index - 1]) > 0.0001)
+      : null;
+    const frameCount = explicitSampleTimes?.length || getVideoTrackSampleCount(safeDuration, maxFrames);
+    if (!frameCount) return [];
+    const aspectRatio = Math.max(1, naturalWidth || 16) / Math.max(1, naturalHeight || 9);
+    const canvas = document.createElement("canvas");
+    canvas.height = VIDEO_TRACK_FRAME_HEIGHT;
+    canvas.width = Math.max(36, Math.min(360, Math.round(canvas.height * aspectRatio)));
+    const context = canvas.getContext("2d", { alpha: false });
+    if (!context) return [];
+    const sampleTimes = explicitSampleTimes || Array.from(
       { length: frameCount },
-      (_, index) => (index / frameCount) * safeDuration,
+      (_, index) => index === 0
+        // Some WebM decoders expose a synthetic black canvas for their first
+        // few positive timestamps while the real opening GOP is warming up.
+        // Use a restrained opening representative that remains well inside
+        // the first shot, then normalize it to source time zero below.
+        ? Math.min(safeDuration, 0.26)
+        : (index / frameCount) * safeDuration,
     );
-    const decodedFrames = await extractVideoTrackFramesWithWebCodecs(src, sampleTimes, {
+    const decodedFrames = preferNativeSeek ? null : await extractVideoTrackFramesWithWebCodecs(src, sampleTimes, {
       width: canvas.width,
       height: canvas.height,
       quality,
       signal,
       duration: safeDuration,
       maxFrames,
+      onProgress,
+      onFrame,
     });
-    if (decodedFrames?.length) return decodedFrames;
+    if (decodedFrames?.length) {
+      // Sampling a tiny epsilon avoids the undecoded black canvas exposed by
+      // some WebM decoders at an exact zero timestamp, while normalizing the
+      // resulting presentation frame back to source time 0.
+      if (!explicitSampleTimes) decodedFrames[0] = createVideoTrackFrame(decodedFrames[0].src, 0);
+      return decodedFrames;
+    }
     const frames = [];
+    video = await ensureVideo();
     video.pause();
     for (let index = 0; index < frameCount; index += 1) {
       if (signal?.aborted) throw signal.reason || new DOMException("Aborted", "AbortError");
       const time = sampleTimes[index];
-      const sourceTime = await seekVideoFrame(video, time);
+      await seekVideoFrame(video, time);
+      if (signal?.aborted) throw signal.reason || new DOMException("Aborted", "AbortError");
       context.drawImage(video, 0, 0, canvas.width, canvas.height);
-      frames.push(createVideoTrackFrame(canvas.toDataURL("image/jpeg", quality), sourceTime));
+      frames.push(createVideoTrackFrame(
+        canvas.toDataURL("image/jpeg", quality),
+        !explicitSampleTimes && index === 0 ? 0 : time,
+      ));
+      onFrame?.(frames.at(-1), index, frameCount);
+      onProgress?.(0.05 + 0.95 * (index + 1) / frameCount);
     }
     return frames;
   } finally {
-    video.removeAttribute("src");
-    video.load();
+    video?.removeAttribute("src");
+    video?.load();
+    if (ownedObjectUrl) URL.revokeObjectURL(ownedObjectUrl);
   }
 }
 

@@ -1,6 +1,12 @@
-import { decodeWaveform, extractVideoTrackFrames } from "./media.js";
+import { decodeWaveform, extractVideoTrackFrames, getVideoTrackImportFrameBudget } from "./media.js";
 import { getRemoteAssetBlob } from "./remoteAssetCache.js";
 import { getVisualInsertionHover, resolveVisualInsertion } from "./visualDropInsertion.js";
+
+function getRemoteVideoImportFrameBudget(duration) {
+  const seconds = Math.max(0, Number(duration) || 0);
+  const fastFirstPass = seconds > 300 ? 16 : seconds > 120 ? 24 : 48;
+  return Math.min(fastFirstPass, getVideoTrackImportFrameBudget(seconds));
+}
 
 export function createAssetDropActions(d) {
   const tr = (key, fallback) => d.t?.(key, fallback) ?? fallback;
@@ -16,7 +22,8 @@ export function createAssetDropActions(d) {
       const src = URL.createObjectURL(blob);
       d.imageUrlRefs?.current?.add(src);
       return { ...asset, src, blob, remoteSrc: asset.src };
-    } catch {
+    } catch (error) {
+      console.warn("Remote asset download failed", asset?.src || "", error);
       d.notify(tr("remoteAssetDownloadFailed", "在线素材下载失败，请稍后重试或打开来源页下载"));
       return null;
     }
@@ -33,7 +40,12 @@ export function createAssetDropActions(d) {
     let pendingSegment = null;
     let progressBucket = -1;
     if (isRemoteVisual && track === "image") {
-      pendingSegment = d.appendVisualAssetToTimeline({ ...asset, preparing: true, prepareProgress: 0 }, { message: tr("remoteAssetPreparing", "在线素材正在准备"), insertIndex: options.insertIndex });
+      pendingSegment = d.appendVisualAssetToTimeline({
+        ...asset,
+        preparing: true,
+        prepareStage: "download",
+        prepareProgress: 0,
+      }, { message: tr("remoteAssetDownloading", "正在下载在线素材…"), insertIndex: options.insertIndex });
       d.onFirstVisualDropped?.();
     }
     asset = await resolveRemoteAsset(asset, pendingSegment ? (progress) => {
@@ -56,11 +68,46 @@ export function createAssetDropActions(d) {
     }
     if (track === "image") {
       if (pendingSegment) {
-        d.updateVisualAssetInTimeline(asset.id, { ...asset, preparing: false, prepareProgress: 1 });
+        d.updateVisualAssetInTimeline(asset.id, {
+          ...asset,
+          preparing: asset.type === "video",
+          prepareStage: asset.type === "video" ? "prepare" : "",
+          prepareProgress: asset.type === "video" ? 0.02 : 1,
+        });
         if (asset.type === "video") {
-          extractVideoTrackFrames(asset.src, { duration: asset.duration, width: asset.width, height: asset.height })
-            .then((trackFrames) => { if (trackFrames.length) d.updateVisualAssetInTimeline(asset.id, { trackFrames, trackFrameSampling: "exact-pts-hq-v4" }); })
-            .catch((error) => console.warn("Remote video timeline frame extraction failed", error));
+          d.notify(tr("remoteAssetPreparing", "在线素材正在准备"));
+          progressBucket = -1;
+          let trackFrames = [];
+          try {
+            trackFrames = await extractVideoTrackFrames(asset.blob || asset.src, {
+              duration: asset.duration,
+              width: asset.width,
+              height: asset.height,
+              maxFrames: getRemoteVideoImportFrameBudget(asset.duration),
+              // Browser-native seeking is slower per frame but remains PTS-
+              // accurate for Wikimedia VP9/WebM files whose sparse WebCodecs
+              // seeks can otherwise collapse the strip to repeated frames.
+              preferNativeSeek: true,
+              onProgress: (progress) => {
+                const bucket = Math.round(Math.max(0, Math.min(1, progress || 0)) * 20) / 20;
+                if (bucket === progressBucket) return;
+                progressBucket = bucket;
+                d.setVisualSegments((segments) => segments.map((segment) => segment.id === pendingSegment.id
+                  ? { ...segment, prepareStage: "prepare", prepareProgress: bucket }
+                  : segment));
+              },
+            });
+          } catch (error) {
+            console.warn("Remote video timeline frame extraction failed", error);
+          }
+          d.updateVisualAssetInTimeline(asset.id, {
+            ...(trackFrames.length ? { trackFrames, trackFrameSampling: "exact-pts-hq-v4" } : {}),
+            preparing: false,
+            prepareStage: "",
+            prepareProgress: 1,
+            timelineFrameError: !trackFrames.length,
+          });
+          return;
         }
       } else {
         d.appendVisualAssetToTimeline(asset, { insertIndex: options.insertIndex });

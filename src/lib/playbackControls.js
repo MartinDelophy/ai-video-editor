@@ -97,14 +97,23 @@ export function createPlaybackControls(deps) {
       pauseTimelineMedia();
       deps.setIsPlaying(false);
     }
+    window.dispatchEvent(new CustomEvent("timeline-seek-state", { detail: { active: true } }));
     seekTo(getTimelineTimeFromClientX(event.clientX), { immediate: true });
     const move = (e) => seekTo(getTimelineTimeFromClientX(e.clientX));
-    const up = (upEvent) => {
+    const cleanup = () => {
       removeEventListener("pointermove", move);
       removeEventListener("pointerup", up);
+      removeEventListener("pointercancel", cancel);
+      window.dispatchEvent(new CustomEvent("timeline-seek-state", { detail: { active: false } }));
+    };
+    const up = (upEvent) => {
+      cleanup();
       seekTo(getTimelineTimeFromClientX(upEvent.clientX), { immediate: true });
     };
-    addEventListener("pointermove", move); addEventListener("pointerup", up, { once: true });
+    const cancel = () => cleanup();
+    addEventListener("pointermove", move);
+    addEventListener("pointerup", up, { once: true });
+    addEventListener("pointercancel", cancel, { once: true });
   };
   const handlePlayToggle = () => {
     const video = deps.previewVideoRef.current;

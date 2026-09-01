@@ -19,6 +19,7 @@ import { getVisualMaskInsets, getVisualMaskSvgDataUrl, resolveVisualTransform, s
 import { resolveVisualClipAnimation } from "../lib/visualClipAnimations.js";
 import { getStickerBaseSize } from "../lib/stickerGeometry.js";
 import { resolveCaptionStyleForSegment } from "../lib/captionFonts.js";
+import { resolveCaptionSizeForSegment } from "../lib/captionStyles.js";
 import { resolveCaptionSegmentPlacement } from "../lib/captionLayout.js";
 import { CaptionOverlay } from "./CaptionOverlay.jsx";
 import { IconButton } from "./ui.jsx";
@@ -948,7 +949,7 @@ export function PreviewStage({
                     <CaptionOverlay
                       key={caption.id}
                       text={caption.text}
-                      captionSize={captionSize}
+                      captionSize={resolveCaptionSizeForSegment(captionSize, caption)}
                       captionStyle={resolveCaptionStyleForSegment(captionStyle, caption)}
                       placement={{
                         ...basePlacement,

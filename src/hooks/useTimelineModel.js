@@ -147,16 +147,10 @@ export function useTimelineModel(d) {
         const item = lane.find(({ segment, range }) => (
           !segment.hidden && range && d.currentTime >= range.start && d.currentTime < range.end
         ));
-        return item ? {
-          id: item.segment.id,
-          text: item.segment.text,
-          fontId: item.segment.fontId || d.captionStyle?.fontId || "default",
-          placement: item.segment.placement,
-          laneIndex,
-        } : null;
+        return item ? { ...item.segment, laneIndex } : null;
       })
       .filter(Boolean);
-  }, [captionTimeline, d.captionSegments, d.captionStyle?.fontId, d.currentTime, d.trackVisibility]);
+  }, [captionTimeline, d.captionSegments, d.currentTime, d.trackVisibility]);
   const currentStickerSegmentIndex = getTimedSegmentIndexAtTime(d.stickerSegments, d.currentTime);
   const currentStickerSegment = currentStickerSegmentIndex >= 0
     ? d.stickerSegments[currentStickerSegmentIndex] ?? null

@@ -149,8 +149,10 @@ export function App() {
   const [introClosing, setIntroClosing] = useState(false);
   const {
     captionPlacement, captionPosition, captionSegments, captionSize, captionStyle,
+    captionStylePresetId, captionStylePresets,
     captionsEnabled, script, selectedSegmentId, setCaptionPlacement,
     setCaptionPosition, setCaptionSegments, setCaptionSize, setCaptionStyle,
+    setCaptionStylePresetId, setCaptionStylePresets,
     setCaptionsEnabled, setScript, setSelectedSegmentId,
   } = useCaptionState();
   const {
@@ -645,10 +647,10 @@ export function App() {
   const {
     alignAudioCaptions, alignCaptionToAudio, commitCaptionSegments, deleteCaptionSegment, handleCaptionPositionChange,
     linkAllCaptionAudio, linkAudioToCaption, linkCaptionAudio,
-    startCaptionDrag, toggleCaptionSegmentHidden,
+    startCaptionDrag, syncCaptionPositions, toggleCaptionSegmentHidden,
     unlinkAllCaptionAudio, unlinkAudioCaptions, unlinkCaptionAudio, updateCaptionSegmentText, updateScript,
   } = createCaptionEditingActions({
-    audioSegments, captionSegments, captionStyle, currentCaptionSegment, focusedSegmentIndex,
+    audioSegments, captionPlacement, captionSegments, captionStyle, currentCaptionSegment, focusedSegmentIndex,
     notify, previewCanvasRef, previewVisionKey, previewVisionRecord, script,
     selectedSegmentId, setCaptionPlacement, setCaptionPosition, setCaptionSegments,
     setScript, setSelectedSegmentId, setSelectedTrack,
@@ -1375,6 +1377,7 @@ export function App() {
         <EditorSidebar model={{
           activeLanguage, activeTool, analyzeCurrentVisual, analyzeEffectVisual, audioBlob, audioDuration,
           builtInAssets, captionPosition, captionSegments, captionSize, captionStyle,
+          captionStylePresetId, captionStylePresets,
           captionTargetDuration, captionsEnabled, clearMusicTrack, clearSourceAudioTrack,
           compactRail, currentSegmentIndex, deleteCaptionSegment,
           deleteUserAsset, downloadBlob, draggedAssetId,
@@ -1388,12 +1391,12 @@ export function App() {
           seekTo, segments, selectTool, selectedCaptionSegment, selectedFilterId,
           selectedLibraryAssetId, selectedSegmentId, selectedStickerId, selectedTransitionId,
           selectedVoice: selectedVoiceProfile ? { ...selectedVoice, name: selectedVoiceProfile.name } : selectedVoice,
-          setCaptionSegments, setCaptionSize, setCaptionStyle, setCaptionsEnabled, setIsDragging,
+          setCaptionSegments, setCaptionSize, setCaptionStyle, setCaptionStylePresetId, setCaptionStylePresets, setCaptionsEnabled, setIsDragging,
           setMediaTab, setMusicVolume, setSelectedAudioSegmentId, setSelectedFilterId, setSelectedSegmentId,
           setSelectedStickerId, setSelectedTrack, setSelectedTransitionId, setSourceAudioVolume, setVoiceTab,
           sourceAudioBlob, sourceAudioDuration, sourceAudioLinked, sourceAudioName, sourceAudioVolume, status, t,
           selectedAudioToolTarget, separateSelectedAudioVocals, separateSourceVocals, vocalSeparationJob,
-          toggleCaptionSegmentHidden, trOption, updateCaptionSegmentText,
+          syncCaptionPositions, toggleCaptionSegmentHidden, trOption, updateCaptionSegmentText,
           updateScript, userAssets, visionJob, aiMusic, smartFrame,
           selectedVisualSegment, selectedEffectSegment, effectAnalysis, effectRunning, effectProgress, effectPhase,
           effectsPanelMode, setEffectsPanelMode, cinematicDepth, photoParallaxDepth,

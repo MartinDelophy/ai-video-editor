@@ -3,6 +3,7 @@ import { createPortal, flushSync } from "react-dom";
 
 import {
   ArrowCounterClockwise,
+  ArrowsClockwise,
   CaretDown,
   CaretLeft,
   CaretRight,
@@ -41,7 +42,16 @@ import {
   ensureCaptionFontLoaded,
   getCaptionFont,
   getCaptionFontsForLanguage,
+  resolveCaptionStyleForSegment,
 } from "../lib/captionFonts.js";
+import {
+  applyCaptionPresetToStyle,
+  buildCaptionPresetSnapshot,
+  BUILTIN_CAPTION_STYLE_PRESETS,
+  CAPTION_VISUAL_STYLE_KEYS,
+  getCaptionStylePreset,
+  resolveCaptionSizeForSegment,
+} from "../lib/captionStyles.js";
 import {
   detectGeminiNanoVectorSupport,
   generateVectorWithGeminiNano,
@@ -1027,10 +1037,15 @@ export function ToolPanel(props) {
     estimatedDuration,
     captionPosition,
     setCaptionPosition,
+    syncCaptionPositions,
     captionSize,
     setCaptionSize,
     captionStyle,
     setCaptionStyle,
+    captionStylePresetId,
+    setCaptionStylePresetId,
+    captionStylePresets,
+    setCaptionStylePresets,
     setCaptionSegments,
     captionsEnabled,
     setCaptionsEnabled,
@@ -1103,11 +1118,20 @@ export function ToolPanel(props) {
     effectsPanelMode,
   } = props;
   const [captionFontStatus, setCaptionFontStatus] = useState("");
+  const [captionStyleMenuOpen, setCaptionStyleMenuOpen] = useState(false);
+  const [captionEditTarget, setCaptionEditTarget] = useState("master");
   const captionFontOptions = useMemo(
     () => getCaptionFontsForLanguage(uiLanguage),
     [uiLanguage],
   );
-  const activeCaptionFontId = selectedCaptionSegment?.fontId || captionStyle?.fontId || "default";
+  const editingCurrentCaption = captionEditTarget === "current" && Boolean(selectedCaptionSegment?.id);
+  const effectiveCaptionStyle = editingCurrentCaption
+    ? resolveCaptionStyleForSegment(captionStyle, selectedCaptionSegment)
+    : captionStyle;
+  const effectiveCaptionSize = editingCurrentCaption
+    ? resolveCaptionSizeForSegment(captionSize, selectedCaptionSegment)
+    : captionSize;
+  const activeCaptionFontId = effectiveCaptionStyle?.fontId || "default";
   const visibleCaptionFontOptions = useMemo(() => {
     if (captionFontOptions.some((item) => item.id === activeCaptionFontId)) return captionFontOptions;
     return [captionFontOptions[0], getCaptionFont(activeCaptionFontId), ...captionFontOptions.slice(1)]
@@ -1133,14 +1157,28 @@ export function ToolPanel(props) {
     };
   }, [activeCaptionFontId, selectedCaptionSegment?.text]);
   const selectedCaptionFont = getCaptionFont(activeCaptionFontId);
-  const selectCaptionFont = async (fontId) => {
-    if (selectedCaptionSegment?.id) {
+  const updateCaptionStyleField = (key, value) => {
+    if (editingCurrentCaption) {
       setCaptionSegments((items) => items.map((segment) => (
-        segment.id === selectedCaptionSegment.id ? { ...segment, fontId } : segment
+        segment.id === selectedCaptionSegment.id
+          ? { ...segment, styleOverrides: { ...(segment.styleOverrides || {}), [key]: value } }
+          : segment
       )));
-    } else {
-      setCaptionStyle((style) => ({ ...style, fontId }));
+      return;
     }
+    setCaptionStylePresetId("modified");
+    setCaptionStyle((style) => ({ ...style, [key]: value }));
+    setCaptionSegments((items) => items.map((segment) => {
+      const styleOverrides = { ...(segment.styleOverrides || {}) };
+      delete styleOverrides[key];
+      const next = { ...segment, styleOverrides };
+      if (key === "fontId") delete next.fontId;
+      if (!Object.keys(styleOverrides).length) delete next.styleOverrides;
+      return next;
+    }));
+  };
+  const selectCaptionFont = async (fontId) => {
+    updateCaptionStyleField("fontId", fontId);
     if (fontId === "default") {
       setCaptionFontStatus("ready");
       return;
@@ -1157,27 +1195,111 @@ export function ToolPanel(props) {
     }
   };
 
+  const applyCaptionStylePreset = (preset) => {
+    if (!preset) return;
+    if (editingCurrentCaption) {
+      setCaptionSegments((items) => items.map((segment) => (
+        segment.id === selectedCaptionSegment.id
+          ? {
+            ...segment,
+            styleOverrides: {
+              ...(segment.styleOverrides || {}),
+              ...Object.fromEntries(CAPTION_VISUAL_STYLE_KEYS.map((key) => [key, preset.style?.[key] ?? captionStyle[key]])),
+              captionSize: preset.captionSize,
+            },
+          }
+          : segment
+      )));
+    } else {
+      setCaptionStyle(applyCaptionPresetToStyle(captionStyle, preset));
+      setCaptionSize(preset.captionSize);
+      setCaptionStylePresetId(preset.id);
+      setCaptionSegments((items) => items.map((segment) => {
+        const { styleOverrides: _styleOverrides, fontId: _fontId, ...rest } = segment;
+        return rest;
+      }));
+    }
+    setCaptionStyleMenuOpen(false);
+  };
+
+  const saveCurrentCaptionStyle = () => {
+    const name = window.prompt(t("captionStyleNamePrompt"), t("captionStyleUntitled"));
+    if (!name?.trim()) return;
+    const preset = buildCaptionPresetSnapshot(name.trim(), effectiveCaptionStyle, effectiveCaptionSize);
+    setCaptionStylePresets((items) => [...items, preset]);
+    if (!editingCurrentCaption) setCaptionStylePresetId(preset.id);
+    setCaptionStyleMenuOpen(false);
+  };
+
+  const selectedCaptionStylePreset = getCaptionStylePreset(captionStylePresetId)
+    || captionStylePresets.find((preset) => preset.id === captionStylePresetId)
+    || null;
+
   if (activeTool === "caption") {
+    const currentPosition = editingCurrentCaption && selectedCaptionSegment?.placement
+      ? ["top", "middle", "bottom"].find((position) => (
+        Math.abs(Number(selectedCaptionSegment.placement.y) - ({ top: 18, middle: 50, bottom: 78 }[position])) < 4
+      )) || "custom"
+      : captionPosition;
+    const presetLabel = selectedCaptionStylePreset
+      ? (selectedCaptionStylePreset.labelKey ? t(selectedCaptionStylePreset.labelKey) : selectedCaptionStylePreset.name)
+      : t("captionStyleModified");
     return (
       <div className="tool-panel caption-tool-panel">
-        <h2>{t("caption")}</h2>
-        <p className="tool-helper-copy">{t("captionCanvasHint")}</p>
-        <label className="switch-row">
-          <input type="checkbox" checked={captionsEnabled} onChange={(event) => setCaptionsEnabled(event.target.checked)} />
-          {t("showCaptions")}
-        </label>
-        <div className="segmented">
+        <div className="caption-tool-heading">
+          <div><h2>{t("captionStyle")}</h2><p>{t("captionStyleSystemHint")}</p></div>
+          <label className="caption-visibility-toggle"><input type="checkbox" checked={captionsEnabled} onChange={(event) => setCaptionsEnabled(event.target.checked)} /><span>{t("showCaptions")}</span></label>
+        </div>
+        <div className="caption-style-library">
+          <button className="caption-style-library-trigger" type="button" aria-expanded={captionStyleMenuOpen} onClick={() => setCaptionStyleMenuOpen((open) => !open)}>
+            <span><small>{t("captionDefaultStyle")}</small><strong>{presetLabel}</strong></span><CaretDown size={16} weight="bold" />
+          </button>
+          <button className="caption-style-edit-button" type="button" onClick={() => setCaptionEditTarget("master")}>{t("captionEditStyle")}</button>
+          {captionStyleMenuOpen ? <div className="caption-style-library-menu">
+            <div className="caption-style-library-section">
+              <span>{t("captionProjectStyles")}</span>
+              <button type="button" onClick={() => { setCaptionEditTarget("master"); setCaptionStyleMenuOpen(false); }}><i className="caption-style-sample is-classic">Aa</i><strong>{t("captionDefaultStyle")}</strong>{captionEditTarget === "master" ? <Check size={15} weight="bold" /> : null}</button>
+              {captionStylePresets.map((preset) => <button type="button" key={preset.id} onClick={() => applyCaptionStylePreset(preset)}><i className="caption-style-sample is-custom">Aa</i><strong>{preset.name}</strong>{captionStylePresetId === preset.id && !editingCurrentCaption ? <Check size={15} weight="bold" /> : null}</button>)}
+            </div>
+            <div className="caption-style-library-section">
+              <span>{t("captionBuiltInPresets")}</span>
+              {BUILTIN_CAPTION_STYLE_PRESETS.map((preset) => <button type="button" key={preset.id} onClick={() => applyCaptionStylePreset(preset)}><i className={`caption-style-sample ${preset.sampleClass}`}>Aa</i><strong>{t(preset.labelKey)}</strong>{captionStylePresetId === preset.id && !editingCurrentCaption ? <Check size={15} weight="bold" /> : null}</button>)}
+            </div>
+            <button className="caption-style-save-row" type="button" onClick={saveCurrentCaptionStyle}><Plus size={15} weight="bold" />{t("captionSaveAsStyle")}</button>
+          </div> : null}
+        </div>
+        <div className="caption-edit-target" role="tablist" aria-label={t("captionEditTarget")}>
+          <button type="button" className={captionEditTarget === "master" ? "is-active" : ""} onClick={() => setCaptionEditTarget("master")}>{t("captionDefaultStyle")}</button>
+          <button type="button" disabled={!selectedCaptionSegment} className={editingCurrentCaption ? "is-active" : ""} onClick={() => setCaptionEditTarget("current")}>{t("captionCurrentCaption")}</button>
+        </div>
+        <div className={`caption-edit-scope-note ${editingCurrentCaption ? "is-current" : "is-master"}`}><Diamond size={14} weight={editingCurrentCaption ? "fill" : "duotone"} /><span>{editingCurrentCaption ? t("captionEditingCurrentHint") : t("captionEditingMasterHint").replace("{count}", captionSegments.length)}</span></div>
+        <div className="caption-position-heading">
+          <span className="caption-field-title">{t("captionPositionLabel")}</span>
+          <button
+            type="button"
+            disabled={!selectedCaptionSegment}
+            onClick={() => {
+              syncCaptionPositions(selectedCaptionSegment?.id);
+              setCaptionEditTarget("master");
+            }}
+          >
+            <ArrowsClockwise size={13} weight="bold" />
+            {t("captionSyncPosition")}
+          </button>
+        </div>
+        <div className="segmented caption-position-segmented">
           {["top", "middle", "bottom"].map((position) => (
             <button
-              className={captionPosition === position ? "is-active" : ""}
+              className={currentPosition === position ? "is-active" : ""}
               type="button"
               key={position}
-              onClick={() => setCaptionPosition(position)}
+              onClick={() => setCaptionPosition(position, editingCurrentCaption ? selectedCaptionSegment?.id : "")}
             >
               {position === "top" ? t("top") : position === "middle" ? t("middle") : t("bottom")}
             </button>
           ))}
         </div>
+        {currentPosition === "custom" ? <small className="caption-custom-position-note">{t("captionCustomPosition")}</small> : null}
         <div className={`caption-font-field ${captionFontStatus === "loading" ? "is-loading" : ""}`} aria-busy={captionFontStatus === "loading"}>
           <div className="caption-style-heading">
             <strong>{t("captionFont")}</strong>
@@ -1222,7 +1344,7 @@ export function ToolPanel(props) {
         <div className="slider-field compact-slider">
           <div>
             <label htmlFor="caption-size">{t("fontSize")}</label>
-            <span>{captionSize}px</span>
+            <span>{effectiveCaptionSize}px</span>
           </div>
           <input
             id="caption-size"
@@ -1230,26 +1352,34 @@ export function ToolPanel(props) {
             min="12"
             max="42"
             step="1"
-            value={captionSize}
-            onChange={(event) => setCaptionSize(Number(event.target.value))}
+            value={effectiveCaptionSize}
+            onChange={(event) => {
+              const value = Number(event.target.value);
+              if (editingCurrentCaption) updateCaptionStyleField("captionSize", value);
+              else {
+                setCaptionStylePresetId("modified");
+                setCaptionSize(value);
+                setCaptionSegments((items) => items.map((segment) => {
+                  const styleOverrides = { ...(segment.styleOverrides || {}) };
+                  delete styleOverrides.captionSize;
+                  const next = { ...segment, styleOverrides };
+                  if (!Object.keys(styleOverrides).length) delete next.styleOverrides;
+                  return next;
+                }));
+              }
+            }}
           />
         </div>
         <div className="caption-style-panel">
-          <div className="caption-style-heading"><strong>{t("captionStyle")}</strong><span>{t("captionStyleHint")}</span></div>
-          <div className="caption-style-presets">
-            <button type="button" className={captionStyle.backgroundOpacity === 0 && captionStyle.borderWidth === 0 ? "is-active" : ""} onClick={() => setCaptionStyle((style) => ({ ...style, effect: "normal", backgroundOpacity: 0, borderWidth: 0, shadowOpacity: 0 }))}>{t("captionPresetNone")}</button>
-            {[['normal', t('captionPresetClassic')], ['neon', t('captionPresetNeon')]].map(([effect, label]) => (
-              <button key={effect} type="button" className={captionStyle.effect === effect ? "is-active" : ""} onClick={() => setCaptionStyle((style) => ({ ...style, effect, ...(effect === 'neon' ? { backgroundOpacity: 0.18, borderWidth: 1, borderColor: '#35f0dd' } : {}) }))}>{label}</button>
-            ))}
-          </div>
           <div className="caption-color-row">
-            <label>{t("captionTextColor")}<input type="color" value={captionStyle.textColor} onChange={(event) => setCaptionStyle((style) => ({ ...style, textColor: event.target.value }))} /></label>
-            <label>{t("captionBackground")}<input type="color" value={captionStyle.backgroundColor} onChange={(event) => setCaptionStyle((style) => ({ ...style, backgroundColor: event.target.value }))} /></label>
-            <label>{t("captionBorderColor")}<input type="color" value={captionStyle.borderColor} onChange={(event) => setCaptionStyle((style) => ({ ...style, borderColor: event.target.value }))} /></label>
+            <label>{t("captionTextColor")}<input type="color" value={effectiveCaptionStyle.textColor} onChange={(event) => updateCaptionStyleField("textColor", event.target.value)} /></label>
+            <label>{t("captionBackground")}<input type="color" value={effectiveCaptionStyle.backgroundColor} onChange={(event) => updateCaptionStyleField("backgroundColor", event.target.value)} /></label>
+            <label>{t("captionBorderColor")}<input type="color" value={effectiveCaptionStyle.borderColor} onChange={(event) => updateCaptionStyleField("borderColor", event.target.value)} /></label>
           </div>
-          {[['backgroundOpacity', t('captionOpacity'), 0, 1, 0.05, '%'], ['borderWidth', t('captionBorderWidth'), 0, 8, 1, 'px'], ['radius', t('captionRadius'), 0, 28, 1, 'px'], ['paddingX', t('captionPaddingX'), 0, 52, 1, 'px'], ['paddingY', t('captionPaddingY'), 0, 32, 1, 'px'], ['shadowOpacity', t('captionShadow'), 0, 1, 0.05, '%']].map(([key, label, min, max, step, unit]) => (
-            <div className="slider-field compact-slider" key={key}><div><label>{label}</label><span>{unit === '%' ? `${Math.round(captionStyle[key] * 100)}%` : `${captionStyle[key]}${unit}`}</span></div><input type="range" min={min} max={max} step={step} value={captionStyle[key]} onChange={(event) => setCaptionStyle((style) => ({ ...style, [key]: Number(event.target.value) }))} /></div>
+          {[["backgroundOpacity", t("captionOpacity"), 0, 1, 0.05, "%"], ["textStrokeWidth", t("captionOutlineWidth"), 0, 6, 1, "px"], ["borderWidth", t("captionBorderWidth"), 0, 8, 1, "px"], ["radius", t("captionRadius"), 0, 28, 1, "px"], ["paddingX", t("captionPaddingX"), 0, 52, 1, "px"], ["paddingY", t("captionPaddingY"), 0, 32, 1, "px"], ["shadowOpacity", t("captionShadow"), 0, 1, 0.05, "%"]].map(([key, label, min, max, step, unit]) => (
+            <div className="slider-field compact-slider" key={key}><div><label>{label}</label><span>{unit === "%" ? `${Math.round(effectiveCaptionStyle[key] * 100)}%` : `${effectiveCaptionStyle[key]}${unit}`}</span></div><input type="range" min={min} max={max} step={step} value={effectiveCaptionStyle[key]} onChange={(event) => updateCaptionStyleField(key, Number(event.target.value))} /></div>
           ))}
+          <button className="caption-save-style-button" type="button" onClick={saveCurrentCaptionStyle}><Plus size={15} weight="bold" />{t("captionSaveAsStyle")}</button>
         </div>
       </div>
     );

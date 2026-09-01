@@ -1,5 +1,6 @@
 import {
   Armchair,
+  ArrowCounterClockwise,
   ArrowsOut,
   Bathtub,
   Bed,
@@ -18,6 +19,7 @@ import {
   Coffee,
   CursorClick,
   DoorOpen,
+  Diamond,
   Drop,
   DownloadSimple,
   Eye,
@@ -64,6 +66,7 @@ import {
   resolveCaptionFontWeight,
 } from "../lib/captionFonts.js";
 import { getCaptionVoiceSegment } from "../lib/captionVoice.js";
+import { countCaptionSegmentOverrides, getCaptionSegmentOverrides } from "../lib/captionStyles.js";
 import { findCaptionAudioLinkTarget } from "../lib/captionEditingActions.js";
 import { resolveInspectorPanelContext } from "../lib/mobileClipActions.js";
 import { normalizeVisualKeyframes } from "../lib/visualEffects.js";
@@ -575,6 +578,7 @@ function CaptionContextPanel({
   linkCaptionAudio,
   unlinkCaptionAudio,
   audioSegments,
+  setCaptionSegments,
 }) {
   const srtInputRef = useRef(null);
   const focusNewCaptionRef = useRef(false);
@@ -588,6 +592,60 @@ function CaptionContextPanel({
     : 0;
   const linkedAudioSegment = audioSegments.find((segment) => segment.id === selectedCaptionSegment?.audioSegmentId);
   const relinkTarget = findCaptionAudioLinkTarget(selectedCaptionSegment, audioSegments);
+  const selectedStyleOverrides = getCaptionSegmentOverrides(selectedCaptionSegment);
+  const selectedPlacementLabel = selectedCaptionSegment?.placement
+    ? [["top", 18], ["middle", 50], ["bottom", 78]].find(([, y]) => (
+      Math.abs(Number(selectedCaptionSegment.placement.y) - y) < 4
+      && Math.abs(Number(selectedCaptionSegment.placement.x) - 50) < 4
+    ))?.[0]
+    : "";
+  const selectedOverrideEntries = selectedCaptionSegment ? [
+    ...(selectedCaptionSegment.placement ? [[
+      "placement",
+      t("captionPositionLabel"),
+      selectedPlacementLabel ? t(selectedPlacementLabel) : t("captionCustomPosition"),
+    ]] : []),
+    ...Object.entries(selectedStyleOverrides).map(([key, value]) => {
+      const labelKeys = {
+        fontId: "captionFont", captionSize: "fontSize", textColor: "captionTextColor",
+        backgroundColor: "captionBackground", backgroundOpacity: "captionOpacity",
+        borderColor: "captionBorderColor", borderWidth: "captionBorderWidth",
+        radius: "captionRadius", paddingX: "captionPaddingX", paddingY: "captionPaddingY",
+        shadowOpacity: "captionShadow", effect: "captionEffect", textStrokeColor: "captionOutlineColor",
+        textStrokeWidth: "captionOutlineWidth",
+      };
+      const display = typeof value === "number"
+        ? (key.toLowerCase().includes("opacity") ? `${Math.round(value * 100)}%` : `${value}px`)
+        : key === "fontId" ? getCaptionFont(value).label : String(value);
+      return [key, t(labelKeys[key] || "captionStyle"), display];
+    }),
+  ] : [];
+
+  function resetCaptionOverride(key) {
+    if (!selectedCaptionSegment?.id) return;
+    setCaptionSegments((items) => items.map((segment) => {
+      if (segment.id !== selectedCaptionSegment.id) return segment;
+      if (key === "placement") {
+        const { placement: _placement, ...rest } = segment;
+        return rest;
+      }
+      const styleOverrides = { ...(segment.styleOverrides || {}) };
+      delete styleOverrides[key];
+      const next = { ...segment, styleOverrides };
+      if (key === "fontId") delete next.fontId;
+      if (!Object.keys(styleOverrides).length) delete next.styleOverrides;
+      return next;
+    }));
+  }
+
+  function resetAllCaptionOverrides() {
+    if (!selectedCaptionSegment?.id) return;
+    setCaptionSegments((items) => items.map((segment) => {
+      if (segment.id !== selectedCaptionSegment.id) return segment;
+      const { placement: _placement, styleOverrides: _styleOverrides, fontId: _fontId, ...rest } = segment;
+      return rest;
+    }));
+  }
 
   useEffect(() => {
     if (!focusNewCaptionRef.current || !selectedCaptionSegment) return;
@@ -655,6 +713,28 @@ function CaptionContextPanel({
           </div>
         </div>
       )}
+
+      {selectedCaptionSegment ? (
+        <section className={`caption-override-panel ${selectedOverrideEntries.length ? "has-overrides" : "is-following"}`}>
+          <header>
+            <span><Diamond size={14} weight={selectedOverrideEntries.length ? "fill" : "duotone"} /></span>
+            <div>
+              <strong>{selectedOverrideEntries.length
+                ? t("captionIndividualAdjustments").replace("{count}", selectedOverrideEntries.length)
+                : t("captionFollowsDefaultStyle")}</strong>
+              <small>{selectedOverrideEntries.length ? t("captionOverrideHint") : t("captionFollowingHint")}</small>
+            </div>
+          </header>
+          {selectedOverrideEntries.length ? <>
+            <div className="caption-override-list">
+              {selectedOverrideEntries.map(([key, label, value]) => (
+                <div key={key}><span><strong>{label}</strong><em>{value}</em></span><button type="button" aria-label={`${t("captionRestoreProperty")}：${label}`} onClick={() => resetCaptionOverride(key)}><ArrowCounterClockwise size={14} /></button></div>
+              ))}
+            </div>
+            <button className="caption-restore-all" type="button" onClick={resetAllCaptionOverrides}><ArrowCounterClockwise size={15} />{t("captionRestoreDefaultStyle")}</button>
+          </> : null}
+        </section>
+      ) : null}
 
       {selectedCaptionSegment ? (
         <section className={`caption-audio-link ${linkedAudioSegment ? "is-linked" : ""}`} data-testid="caption-audio-link">
@@ -770,7 +850,9 @@ function CaptionContextPanel({
                 seekTo(getSegmentStartTime(captionSegments, index, captionTargetDuration));
               }}
             >
-              <span>{segment.text}</span>
+              <span>{segment.text}<small>{countCaptionSegmentOverrides(segment)
+                ? t("captionAdjustedItems").replace("{count}", countCaptionSegmentOverrides(segment))
+                : t("captionFollowsDefaultStyle")}</small></span>
               <em>{formatTime(getSegmentStartTime(captionSegments, index, captionTargetDuration))}</em>
             </button>
           ))
@@ -1732,6 +1814,7 @@ export function VoicePanel({
             linkCaptionAudio={linkCaptionAudio}
             unlinkCaptionAudio={unlinkCaptionAudio}
             audioSegments={audioSegments}
+            setCaptionSegments={setCaptionSegments}
             seekTo={seekTo}
             sourceAudioBlob={sourceAudioBlob}
             generateCaptionsFromSourceAudio={generateCaptionsFromSourceAudio}

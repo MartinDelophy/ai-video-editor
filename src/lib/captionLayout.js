@@ -15,7 +15,11 @@ const CAPTION_MAX_WIDTH = 680;
 const CAPTION_RADIUS = 7;
 const CAPTION_SHADOW_BLUR = 6;
 const CAPTION_SHADOW_OFFSET_Y = 1;
-export const CAPTION_DESIGN_SHORT_EDGE = 360;
+// Caption sizes are authored against a 360px-tall design frame. Subtitles are
+// read across the horizontal baseline, so their perceived size should follow
+// media height: a 9:16 canvas needs larger type than a 16:9 canvas shown at the
+// same width. Width-based/short-edge scaling made portrait captions tiny.
+export const CAPTION_DESIGN_HEIGHT = 360;
 
 export const CAPTION_FONT_FAMILY =
   'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif';
@@ -38,11 +42,10 @@ function clamp(value, minimum, maximum) {
 
 export function getCaptionScale(_referenceFrame, renderFrame) {
   const render = normalizeFrameSize(renderFrame);
-  const renderShortEdge = Math.min(render.width, render.height);
-  if (!renderShortEdge) {
+  if (!render.height) {
     return 1;
   }
-  return renderShortEdge / CAPTION_DESIGN_SHORT_EDGE;
+  return render.height / CAPTION_DESIGN_HEIGHT;
 }
 
 export function resolveCaptionMetrics({
@@ -302,10 +305,23 @@ export function drawCaptionLayout(context, layout, position = { x: 0, y: 0 }) {
   const blockHeight = layout.lines.length * metrics.lineHeight;
   const firstLineY = position.y + (layout.height - blockHeight) / 2 + metrics.lineHeight / 2;
   layout.lines.forEach((line, index) => {
+    const textX = position.x + layout.width / 2;
+    const textY = firstLineY + index * metrics.lineHeight;
+    const strokeWidth = Math.max(0, Number(style.textStrokeWidth ?? 0)) * metrics.scale;
+    if (strokeWidth) {
+      context.save();
+      context.shadowColor = "transparent";
+      context.lineJoin = "round";
+      context.miterLimit = 2;
+      context.lineWidth = strokeWidth * 2;
+      context.strokeStyle = style.textStrokeColor || "#05080d";
+      context.strokeText(line, textX, textY, layout.contentWidth);
+      context.restore();
+    }
     context.fillText(
       line,
-      position.x + layout.width / 2,
-      firstLineY + index * metrics.lineHeight,
+      textX,
+      textY,
       layout.contentWidth,
     );
   });

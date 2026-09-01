@@ -18,6 +18,7 @@ import {
   resolveCaptionSegmentPlacement,
 } from "./captionLayout.js";
 import { resolveCaptionStyleForSegment } from "./captionFonts.js";
+import { resolveCaptionSizeForSegment } from "./captionStyles.js";
 import { resolveVisionAnalysisAtTime } from "./vision.js";
 import { getVisualFitRect } from "./visualGeometry.js";
 import { resolveSmartFrameCropAtTime, smartFrameCropToPixels } from "./smartFrame.js";
@@ -1953,7 +1954,7 @@ export async function exportBrowserVideo({
       captionsEnabled,
       captionPosition,
       captionPlacement: resolveCaptionSegmentPlacement(activeCaptionSegment, captionPlacement),
-      captionSize,
+      captionSize: resolveCaptionSizeForSegment(captionSize, activeCaptionSegment),
       captionStyle: resolveCaptionStyleForSegment(captionStyle, activeCaptionSegment),
       captionReferenceSize,
       stickers: exportStickers,
@@ -2040,7 +2041,7 @@ export async function exportBrowserVideo({
       captionsEnabled,
       captionPosition,
       captionPlacement: resolveCaptionSegmentPlacement(finalCaptionSegment, captionPlacement),
-      captionSize,
+      captionSize: resolveCaptionSizeForSegment(captionSize, finalCaptionSegment),
       captionStyle: resolveCaptionStyleForSegment(captionStyle, finalCaptionSegment),
       captionReferenceSize,
       stickers: finalStickers,

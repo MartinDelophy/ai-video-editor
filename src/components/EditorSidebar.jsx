@@ -151,10 +151,15 @@ export function EditorSidebar({ model: d }) {
             estimatedDuration={d.estimatedDuration}
             captionPosition={d.captionPosition}
             setCaptionPosition={d.handleCaptionPositionChange}
+            syncCaptionPositions={d.syncCaptionPositions}
             captionSize={d.captionSize}
             setCaptionSize={d.setCaptionSize}
             captionStyle={d.captionStyle}
             setCaptionStyle={d.setCaptionStyle}
+            captionStylePresetId={d.captionStylePresetId}
+            setCaptionStylePresetId={d.setCaptionStylePresetId}
+            captionStylePresets={d.captionStylePresets}
+            setCaptionStylePresets={d.setCaptionStylePresets}
             setCaptionSegments={d.setCaptionSegments}
             captionsEnabled={d.captionsEnabled}
             setCaptionsEnabled={d.setCaptionsEnabled}

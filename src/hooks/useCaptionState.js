@@ -15,6 +15,8 @@ const DEFAULT_CAPTION_STYLE = {
   shadowOpacity: 0.45,
   effect: "normal",
   fontId: "default",
+  textStrokeColor: "#05080d",
+  textStrokeWidth: 0,
 };
 
 export function useCaptionState() {
@@ -23,14 +25,18 @@ export function useCaptionState() {
   const [captionPlacement, setCaptionPlacement] = useState({ x: 50, y: 78 });
   const [captionSize, setCaptionSize] = useState(14);
   const [captionStyle, setCaptionStyle] = useState(DEFAULT_CAPTION_STYLE);
+  const [captionStylePresetId, setCaptionStylePresetId] = useState("classic");
+  const [captionStylePresets, setCaptionStylePresets] = useState([]);
   const [captionsEnabled, setCaptionsEnabled] = useState(true);
   const [captionSegments, setCaptionSegments] = useState(() => createCaptionSegments(DEFAULT_SCRIPT));
   const [selectedSegmentId, setSelectedSegmentId] = useState("");
 
   return {
     captionPlacement, captionPosition, captionSegments, captionSize, captionStyle,
+    captionStylePresetId, captionStylePresets,
     captionsEnabled, script, selectedSegmentId, setCaptionPlacement,
     setCaptionPosition, setCaptionSegments, setCaptionSize, setCaptionStyle,
+    setCaptionStylePresetId, setCaptionStylePresets,
     setCaptionsEnabled, setScript, setSelectedSegmentId,
   };
 }

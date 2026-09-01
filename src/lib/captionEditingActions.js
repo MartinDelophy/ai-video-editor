@@ -191,17 +191,56 @@ export function createCaptionEditingActions(d) {
     return true;
   }
 
-  function handleCaptionPositionChange(position) {
+  function handleCaptionPositionChange(position, segmentId = "") {
     const placementMap = {
       top: { x: 50, y: 18 },
       middle: { x: 50, y: 50 },
       bottom: { x: 50, y: 78 },
     };
-    d.setCaptionPosition(position);
-    d.setCaptionPlacement(placementMap[position] ?? placementMap.bottom);
+    const placement = placementMap[position] ?? placementMap.bottom;
+    if (segmentId) {
+      d.setCaptionSegments((items) => position === d.captionPosition
+        ? items.map((segment) => {
+          if (segment.id !== segmentId) return segment;
+          const { placement: _placement, ...rest } = segment;
+          return rest;
+        })
+        : setCaptionSegmentPlacement(items, segmentId, placement));
+    } else {
+      d.setCaptionPosition(position);
+      d.setCaptionPlacement(placement);
+      d.setCaptionSegments((items) => items.map((segment) => {
+        if (!segment.placement) return segment;
+        const { placement: _placement, ...rest } = segment;
+        return rest;
+      }));
+    }
     if (disableSmartCaptionAvoidance()) {
       d.notify("已切回手动字幕位置，智能避让已关闭");
     }
+  }
+
+  function syncCaptionPositions(segmentId = "") {
+    const source = d.captionSegments.find((segment) => segment.id === segmentId);
+    const placement = source?.placement || d.captionPlacement || { x: 50, y: 78 };
+    const normalizedPlacement = {
+      x: Math.max(10, Math.min(90, Number(placement.x) || 50)),
+      y: Math.max(10, Math.min(90, Number(placement.y) || 78)),
+    };
+    const anchor = [
+      ["top", 18],
+      ["middle", 50],
+      ["bottom", 78],
+    ].find(([, y]) => Math.abs(normalizedPlacement.x - 50) < 4 && Math.abs(normalizedPlacement.y - y) < 4)?.[0] || "custom";
+
+    d.setCaptionPlacement(normalizedPlacement);
+    d.setCaptionPosition(anchor);
+    d.setCaptionSegments((items) => items.map((segment) => {
+      if (!segment.placement) return segment;
+      const { placement: _placement, ...rest } = segment;
+      return rest;
+    }));
+    d.notify(t(disableSmartCaptionAvoidance() ? "captionPositionSyncedSmartOff" : "captionPositionSynced"));
   }
 
   function startCaptionDrag(event, segmentId = d.currentCaptionSegment?.id) {
@@ -299,6 +338,7 @@ export function createCaptionEditingActions(d) {
     alignAudioCaptions,
     deleteCaptionSegment,
     handleCaptionPositionChange,
+    syncCaptionPositions,
     linkCaptionAudio,
     linkAllCaptionAudio,
     linkAudioToCaption,

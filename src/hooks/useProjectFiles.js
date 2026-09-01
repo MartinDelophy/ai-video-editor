@@ -16,6 +16,7 @@ export function useProjectFiles(deps) {
       script: deps.script, commandState: commandStateRef.current, selectedVoiceId: deps.selectedVoiceId, speed: deps.speed, volume: deps.volume,
       ratioId: deps.ratioId, fitMode: deps.fitMode, captionPosition: deps.captionPosition,
       captionPlacement: deps.captionPlacement, captionSize: deps.captionSize, captionStyle: deps.captionStyle,
+      captionStylePresetId: deps.captionStylePresetId, captionStylePresets: deps.captionStylePresets,
       captionsEnabled: deps.captionsEnabled, captionSegments: deps.captionSegments, audioSegments, musicSegments: deps.musicSegments, visualSegments, visualOverlaySegments,
       stickerSegments: deps.stickerSegments, selectedFilterId: deps.selectedFilterId,
       selectedTransitionId: deps.selectedTransitionId, selectedStickerId: deps.selectedStickerId,
@@ -89,7 +90,10 @@ export function useProjectFiles(deps) {
       deps.setVolume(Number(data.volume) || 1); deps.setRatioId(RATIO_OPTIONS.some((option) => option.id === data.ratioId) ? data.ratioId : "16:9");
       deps.setFitMode(data.fitMode || "contain"); deps.setCaptionPosition(data.captionPosition || "bottom");
       deps.setCaptionPlacement(data.captionPlacement || { x: 50, y: 78 }); deps.setCaptionSize(Number(data.captionSize) || 14);
-      deps.setCaptionStyle(data.captionStyle || deps.captionStyle); deps.setCaptionsEnabled(data.captionsEnabled !== false);
+      deps.setCaptionStyle(data.captionStyle || deps.captionStyle);
+      deps.setCaptionStylePresetId?.(data.captionStylePresetId || "classic");
+      deps.setCaptionStylePresets?.(Array.isArray(data.captionStylePresets) ? data.captionStylePresets : []);
+      deps.setCaptionsEnabled(data.captionsEnabled !== false);
       deps.setTrackVisibility(normalizeTrackVisibility(data.trackVisibility)); deps.setTrackLocks(normalizeTrackLocks(data.trackLocks)); deps.setTimelineZoom(Number(data.timelineZoom) || 1);
       deps.setSelectedFilterId(data.selectedFilterId || "none"); deps.setSelectedTransitionId(data.selectedTransitionId || "none");
       deps.setSelectedStickerId(data.selectedStickerId || "none"); deps.setStickerSegments(Array.isArray(data.stickerSegments) ? data.stickerSegments : []);

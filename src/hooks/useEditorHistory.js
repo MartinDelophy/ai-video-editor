@@ -22,6 +22,8 @@ function createSnapshot(d) {
     captionPlacement: { ...d.captionPlacement },
     captionSize: d.captionSize,
     captionStyle: { ...d.captionStyle },
+    captionStylePresetId: d.captionStylePresetId,
+    captionStylePresets: cloneItems(d.captionStylePresets),
     captionsEnabled: d.captionsEnabled,
     visualSegments: cloneItems(d.visualSegments),
     visualOverlaySegments: cloneItems(d.visualOverlaySegments),
@@ -87,6 +89,8 @@ export function createEditorSnapshotSignature(snapshot) {
     captionPlacement: snapshot.captionPlacement,
     captionSize: snapshot.captionSize,
     captionStyle: snapshot.captionStyle,
+    captionStylePresetId: snapshot.captionStylePresetId,
+    captionStylePresets: snapshot.captionStylePresets,
     captionsEnabled: snapshot.captionsEnabled,
     visuals: snapshot.visualSegments.map(mediaIdentity),
     visualOverlays: (snapshot.visualOverlaySegments ?? []).map(mediaIdentity),
@@ -156,6 +160,8 @@ function restoreSnapshot(snapshot, d) {
   d.setCaptionPlacement({ ...snapshot.captionPlacement });
   d.setCaptionSize(snapshot.captionSize);
   d.setCaptionStyle({ ...snapshot.captionStyle });
+  d.setCaptionStylePresetId?.(snapshot.captionStylePresetId || "classic");
+  d.setCaptionStylePresets?.(cloneItems(snapshot.captionStylePresets));
   d.setCaptionsEnabled(snapshot.captionsEnabled);
   d.setVisualSegments(visualSegments);
   d.setVisualOverlaySegments(visualOverlaySegments);

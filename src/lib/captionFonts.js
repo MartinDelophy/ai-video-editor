@@ -166,9 +166,14 @@ export function resolveCaptionFontWeight(fontId) {
 }
 
 export function resolveCaptionStyleForSegment(captionStyle = {}, segment = null) {
+  const overrides = segment?.styleOverrides ?? {};
+  const legacyFontId = segment?.fontId && segment.fontId !== DEFAULT_CAPTION_FONT_ID
+    ? segment.fontId
+    : null;
   return {
     ...captionStyle,
-    fontId: segment?.fontId || captionStyle?.fontId || DEFAULT_CAPTION_FONT_ID,
+    ...overrides,
+    fontId: overrides.fontId || legacyFontId || captionStyle?.fontId || DEFAULT_CAPTION_FONT_ID,
   };
 }
 

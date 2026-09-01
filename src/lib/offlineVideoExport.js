@@ -15,6 +15,7 @@ import { registerAacEncoder } from "@mediabunny/aac-encoder";
 
 import { throwIfExportAborted } from "./exportCancellation.js";
 import { resolveCaptionStyleForSegment } from "./captionFonts.js";
+import { resolveCaptionSizeForSegment } from "./captionStyles.js";
 import { resolveCaptionSegmentPlacement } from "./captionLayout.js";
 import {
   createTemporalMaskCache,
@@ -348,7 +349,7 @@ async function renderCompositionAt(context, canvas, prepared, options, time) {
     subtitle: caption, fitMode: options.fitMode, filter: options.filter,
     captionsEnabled: options.captionsEnabled, captionPosition: options.captionPosition,
     captionPlacement: resolveCaptionSegmentPlacement(activeCaptionSegment, options.captionPlacement),
-    captionSize: options.captionSize,
+    captionSize: resolveCaptionSizeForSegment(options.captionSize, activeCaptionSegment),
     captionStyle: resolveCaptionStyleForSegment(options.captionStyle, activeCaptionSegment),
     captionReferenceSize: options.captionReferenceSize,
     stickers, stickerImages: stickers.map((sticker) => prepared.stickerImages.get(sticker.src)),

@@ -1269,7 +1269,7 @@ export function ToolPanel(props) {
           </div> : null}
         </div>
         <div className="caption-edit-target" role="tablist" aria-label={t("captionEditTarget")}>
-          <button type="button" className={captionEditTarget === "master" ? "is-active" : ""} onClick={() => setCaptionEditTarget("master")}>{t("captionDefaultStyle")}</button>
+          <button type="button" className={captionEditTarget === "master" ? "is-active" : ""} onClick={() => setCaptionEditTarget("master")}>{t("captionDefaultStyleTab")}</button>
           <button type="button" disabled={!selectedCaptionSegment} className={editingCurrentCaption ? "is-active" : ""} onClick={() => setCaptionEditTarget("current")}>{t("captionCurrentCaption")}</button>
         </div>
         <div className={`caption-edit-scope-note ${editingCurrentCaption ? "is-current" : "is-master"}`}><Diamond size={14} weight={editingCurrentCaption ? "fill" : "duotone"} /><span>{editingCurrentCaption ? t("captionEditingCurrentHint") : t("captionEditingMasterHint").replace("{count}", captionSegments.length)}</span></div>

@@ -94,6 +94,7 @@ const TIMELINE_BUTTON_ZOOM_RATIO = 1.25;
 const TIMELINE_TRACK_ROW_HEIGHT = "var(--timeline-track-row-height, 48px)";
 const VIDEO_FRAME_MIN_COUNT = 1;
 const VIDEO_THUMBNAIL_DISPLAY_MAX_COUNT = 480;
+const PLAYHEAD_FRAME_SYNC_TOLERANCE_SECONDS = 0.025;
 const IMAGE_THUMBNAIL_TARGET_WIDTH = 84;
 const IMAGE_THUMBNAIL_MAX_COUNT = 240;
 const TIMELINE_WHEEL_ZOOM_CONTENT_SELECTOR = [
@@ -245,6 +246,7 @@ export function Timeline({
   timelineContentDuration = timelineDuration,
   setTimelineHorizon,
   currentTime,
+  previewVideoMediaTime = 0,
   playheadPercent,
   snapGuide,
   setSnapGuide,
@@ -1665,17 +1667,6 @@ export function Timeline({
     // At the exact origin, retain the prepared opening representative. Some
     // WebM decoders expose a synthetic black canvas before their first PTS.
     if (localTime < 0.2) return undefined;
-    const frameCount = getTimelineThumbnailCount({
-      duration: segment.duration,
-      timelineDuration,
-      contentWidth: rulerViewport.contentWidth,
-      timelineZoom: localTimelineZoom,
-      maxThumbnails: VIDEO_THUMBNAIL_DISPLAY_MAX_COUNT,
-    });
-    const cellIndex = Math.min(
-      frameCount - 1,
-      Math.floor(localTime / Math.max(0.001, Number(segment.duration) || 0.001) * frameCount),
-    );
     const expectedSourceTime = getVisualSourceTime(segment, localTime);
     let attempts = 0;
     const capturePresentedFrame = () => {
@@ -1685,9 +1676,11 @@ export function Timeline({
         if (attempts++ < 48) playheadFrameCaptureRef.current = window.requestAnimationFrame(capturePresentedFrame);
         return;
       }
-      // The preview is the authoritative decoder for the current playhead.
-      // Ignore an intermediate render while a seek is still catching up.
-      if (Math.abs(previewVideo.currentTime - expectedSourceTime) > 0.18) {
+      // currentTime advances as soon as a seek is requested, before the new
+      // pixels necessarily reach the compositor. Capture only after the
+      // preview's requestVideoFrameCallback-backed media time confirms that
+      // the decoder actually presented the frame for this playhead position.
+      if (Math.abs(previewVideoMediaTime - expectedSourceTime) > PLAYHEAD_FRAME_SYNC_TOLERANCE_SECONDS) {
         if (attempts++ < 48) playheadFrameCaptureRef.current = window.requestAnimationFrame(capturePresentedFrame);
         return;
       }
@@ -1695,9 +1688,8 @@ export function Timeline({
       if (!frame) return;
       setPlayheadTrackFrame({
         segmentId: segment.id,
-        cellIndex,
-        frameCount,
         timelineTime: currentTime,
+        sourceTime: previewVideoMediaTime,
         frame,
       });
     };
@@ -1711,10 +1703,8 @@ export function Timeline({
     currentTime,
     currentVisualSegment?.id,
     displayedVisualSegments,
-    localTimelineZoom,
+    previewVideoMediaTime,
     renderedVisualTimeline,
-    rulerViewport.contentWidth,
-    timelineDuration,
     timelineSeekActive,
     visualType,
   ]);
@@ -3249,14 +3239,15 @@ export function Timeline({
                         visibleVideoFrames.length - 1,
                         Math.floor(localTime / Math.max(0.001, Number(segment.duration) || 0.001) * visibleVideoFrames.length),
                       );
+                      const expectedSourceTime = getVisualSourceTime(segment, localTime);
                       const exactFrame = getVideoTrackFrameAtSourceTime(
                         videoTrackFrames,
-                        getVisualSourceTime(segment, localTime),
+                        expectedSourceTime,
                         Number(segment.trackFrameDuration) || Number(segment.sourceDuration) || Number(segment.duration) || 0,
                       );
                       const livePlayheadFrame = playheadTrackFrame?.segmentId === segment.id
-                        && playheadTrackFrame.frameCount === visibleVideoFrames.length
-                        && playheadTrackFrame.cellIndex === activeFrameIndex
+                        && Math.abs(playheadTrackFrame.timelineTime - currentTime) <= PLAYHEAD_FRAME_SYNC_TOLERANCE_SECONDS
+                        && Math.abs(playheadTrackFrame.sourceTime - expectedSourceTime) <= PLAYHEAD_FRAME_SYNC_TOLERANCE_SECONDS
                         ? playheadTrackFrame.frame
                         : null;
                       if (livePlayheadFrame || exactFrame) visibleVideoFrames[activeFrameIndex] = livePlayheadFrame || exactFrame;

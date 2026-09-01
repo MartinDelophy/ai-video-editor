@@ -966,12 +966,18 @@ button:disabled {
 .plugin-job > div strong { color: #65eadd; font-size: 10px; }
 .plugin-job > i { height: 4px; overflow: hidden; border-radius: 999px; background: rgba(255,255,255,.07); }
 .plugin-job > i span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #2ccfbe, #71f6e8); transition: width 220ms ease; }
+.plugin-job > i.is-indeterminate span { width: 38%; animation: plugin-progress-indeterminate 1.15s ease-in-out infinite; }
 .plugin-job > button { display: flex; align-items: center; justify-content: center; gap: 5px; min-height: 28px; border: 0; border-radius: 6px; color: #74eee2; font-size: 9.5px; background: rgba(68,231,216,.08); cursor: pointer; }
 .plugin-job.is-complete { border-color: rgba(71,225,140,.16); background: rgba(71,225,140,.05); }
+.plugin-job.is-cancelled { border-color: rgba(255,255,255,.1); background: rgba(255,255,255,.035); }
 .plugin-job.is-error { border-color: rgba(255,103,116,.18); background: rgba(255,90,105,.055); }
 .plugin-job.is-error > div, .plugin-job.is-error > div strong { color: #ff9ba5; }
 .plugin-job > p { margin: 0; color: #bd858b; font-size: 9px; line-height: 1.45; overflow-wrap: anywhere; }
 .plugin-button.generation { min-height: 42px; margin-top: 1px; }
+@keyframes plugin-progress-indeterminate {
+  from { transform: translateX(-110%); }
+  to { transform: translateX(280%); }
+}
 .plugin-error { width: 100%; margin: 10px 0 0 !important; border: 1px solid rgba(255,105,119,.14); border-radius: 7px; padding: 8px 9px; color: #d98e96 !important; font-size: 9px !important; line-height: 1.45 !important; text-align: left; background: rgba(255,80,97,.045); overflow-wrap: anywhere; }
 .plugin-space-generator { min-height: 0; }
 .plugin-space-frame { overflow: hidden; min-height: 330px; border: 1px solid rgba(255,255,255,.085); border-radius: 9px; background: #0b0f14; }
@@ -1000,6 +1006,7 @@ button:disabled {
 }
 @media (prefers-reduced-motion: reduce) {
   .plugin-card, .plugin-job > i span { transition: none; }
+  .plugin-job > i.is-indeterminate span { animation: none; width: 100%; opacity: .42; }
   .spin { animation-duration: 1.6s; }
 }
 

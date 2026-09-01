@@ -1,0 +1,4 @@
+interface:
+  display_name: "Develop Timeline Studio Plugin"
+  short_description: "Build safe generation-provider connectors"
+  default_prompt: "Use $develop-timeline-studio-plugin to evaluate and integrate a generation provider into Timeline Studio."

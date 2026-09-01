@@ -15,6 +15,7 @@ import {
 } from "@phosphor-icons/react";
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
+import { GENERATION_PROVIDERS } from "../plugins/generation/registry.js";
 
 const COPY = {
   zh: { title: "插件", subtitle: "连接网页生成服务，结果进入 My assets。", search: "搜索插件", connected: "已连接", connect: "连接", available: "可用", cancel: "取消", disconnect: "断开连接", capability: "图像与视频生成", authTitle: "连接 Puter.js", authBody: "将打开 Puter 登录弹窗。登录成功后，生成调用会使用你的 Puter 账户额度。", continue: "登录 Puter", secure: "无需 API Key；登录和用量由 Puter 处理。", userPays: "用户账户计费", mode: "生成方式", textVideo: "文生视频", textImage: "文生图", prompt: "描述你想生成的内容", placeholder: "例如：雨后的东京街头，缓慢推进镜头，霓虹倒影在路面流动……", ratio: "画幅", duration: "时长", model: "模型", generate: "开始生成", generating: "正在远端生成", resultSaved: "已保存到 My assets", openAssets: "查看 My assets", puterNote: "视频生成可能需要几分钟，关闭面板不会取消远端任务。", spaceUrl: "Space 地址", spacePlaceholder: "owner/space-name 或 https://…hf.space", connectSpace: "连接 Space", spaceHelp: "支持公开或 Protected 的可嵌入 Space。", embedded: "嵌入式 Space", importUrl: "生成结果地址", importPlaceholder: "粘贴 Space 返回的视频或图片 URL", importAsset: "导入 My assets", hfNote: "不同 Space 的 API 结构不同；当前通过嵌入界面生成，再用结果地址导入。", connectionError: "连接失败", jobError: "任务失败" },
@@ -58,12 +59,6 @@ const LOCAL_COPY = {
   ru: { comfyDescription: "Подключить локальный API-workflow ComfyUI", webuiDescription: "Подключить локальную генерацию A1111 / Forge", endpoint: "Адрес локального сервиса", connectLocal: "Подключить локальный сервис", connecting: "Проверка сервиса", localOnly: "Разрешены только localhost / 127.0.0.1 / ::1. Разрешайте CORS только точному origin редактора и не публикуйте сервис без авторизации.", comfyWorkflow: "JSON API-workflow", comfyWorkflowHelp: "Сохраните в ComfyUI как API Format; доступны {{prompt}}, {{negative_prompt}}, {{seed}}.", workflowPlaceholder: "Вставьте JSON ComfyUI API Format…", negativePrompt: "Негативный промпт", negativePlaceholder: "Низкое качество, текст, водяной знак…", seed: "Seed (-1 случайный)", textToImage: "Текст в изображение", imageToImage: "Изображение в изображение", referenceImage: "Референс", chooseImage: "Выбрать изображение", width: "Ширина", height: "Высота", steps: "Шаги", localGenerating: "Локальная генерация", comfyNote: "Запускает /prompt и импортирует результаты через /history и /view.", webuiNote: "Совместимо с WebUI / Forge, запущенным с --api; результат в My assets.", workflowRequired: "Вставьте API-workflow", cancelJob: "Отменить генерацию", cardLocal: "Локальный сервис", cardWorkflow: "Workflow" },
 };
 
-const PLUGINS = [
-  { id: "puter", name: "Puter.js", Icon: MagicWand, tone: "violet", capabilities: ["T2V", "T2I", "I2V"] },
-  { id: "comfyui", name: "ComfyUI", Icon: PlugsConnected, tone: "mint", capabilities: ["API", "T2I", "T2V"], descriptionKey: "comfyDescription" },
-  { id: "webui", name: "Stable Diffusion WebUI", Icon: ImageSquare, tone: "blue", capabilities: ["T2I", "I2I", "LOCAL"], descriptionKey: "webuiDescription" },
-];
-
 function getCopy(language) {
   const key = String(language || "en").toLowerCase();
   return { ...(COPY[key] || COPY.en), ...(AUTH_RECOVERY_COPY[key] || AUTH_RECOVERY_COPY.en), ...(LOCAL_COPY[key] || LOCAL_COPY.en) };
@@ -105,13 +100,15 @@ function AuthDialog({ copy, busy, error, onCancel, onContinue }) {
 }
 
 function JobStatus({ copy, plugins }) {
-  if (!(["running", "complete", "error"].includes(plugins.job.state))) return null;
+  if (!(["queued", "running", "complete", "cancelled", "error"].includes(plugins.job.state))) return null;
   const complete = plugins.job.state === "complete";
+  const cancelled = plugins.job.state === "cancelled";
   const error = plugins.job.state === "error";
+  const progress = Number.isFinite(plugins.job.progress) ? plugins.job.progress : null;
   return (
-    <div className={`plugin-job ${complete ? "is-complete" : ""} ${error ? "is-error" : ""}`}>
-      <div><span>{complete ? <CheckCircle size={17} weight="fill" /> : error ? <X size={17} /> : <SpinnerGap className="spin" size={17} />}{complete ? copy.resultSaved : error ? copy.jobError : copy.generating}</span><strong>{error ? "" : `${plugins.job.progress}%`}</strong></div>
-      {!error ? <i><span style={{ width: `${plugins.job.progress}%` }} /></i> : <p>{plugins.job.message}</p>}
+    <div className={`plugin-job ${complete ? "is-complete" : ""} ${cancelled ? "is-cancelled" : ""} ${error ? "is-error" : ""}`}>
+      <div><span>{complete ? <CheckCircle size={17} weight="fill" /> : error || cancelled ? <X size={17} /> : <SpinnerGap className="spin" size={17} />}{complete ? copy.resultSaved : cancelled ? copy.cancelJob : error ? copy.jobError : copy.generating}</span><strong>{progress === null || error || cancelled ? "" : `${progress}%`}</strong></div>
+      {!error && !cancelled ? <i className={progress === null ? "is-indeterminate" : ""}><span style={progress === null ? undefined : { width: `${progress}%` }} /></i> : error ? <p>{plugins.job.message}</p> : null}
       {complete ? <button type="button" onClick={plugins.openGeneratedAsset}>{copy.openAssets}<ArrowSquareOut size={15} /></button> : null}
     </div>
   );
@@ -120,7 +117,7 @@ function JobStatus({ copy, plugins }) {
 export function PluginCatalogPanel({ language, plugins, onOpenInspector }) {
   const copy = getCopy(language);
   const [query, setQuery] = useState("");
-  const filtered = useMemo(() => PLUGINS.filter((plugin) => plugin.name.toLowerCase().includes(query.trim().toLowerCase())), [query]);
+  const filtered = useMemo(() => GENERATION_PROVIDERS.filter((plugin) => plugin.displayName.toLowerCase().includes(query.trim().toLowerCase())), [query]);
   return (
     <div className="tool-panel plugin-catalog-panel">
       <div className="plugin-catalog-heading"><span><PlugsConnected size={20} weight="duotone" /></span><div><h2>{copy.title}</h2><p>{copy.subtitle}</p></div></div>
@@ -132,13 +129,13 @@ export function PluginCatalogPanel({ language, plugins, onOpenInspector }) {
           return (
             <button key={plugin.id} type="button" className={`plugin-card is-${plugin.tone} ${selected ? "is-selected" : ""}`} onClick={() => { plugins.setSelectedPluginId(plugin.id); onOpenInspector?.(); }}>
               <span className={`plugin-brand-mark is-${plugin.tone}`}><plugin.Icon size={21} weight="duotone" /></span>
-              <span className="plugin-card-copy"><strong>{plugin.name}</strong><em>{plugin.descriptionKey ? copy[plugin.descriptionKey] : copy.capability}</em><small>{plugin.capabilities.map((item) => <i key={item}>{item}</i>)}</small></span>
+              <span className="plugin-card-copy"><strong>{plugin.displayName}</strong><em>{plugin.descriptionKey ? copy[plugin.descriptionKey] : copy.capability}</em><small>{plugin.badges.map((item) => <i key={item}>{item}</i>)}</small></span>
               <span className={`plugin-state ${connected ? "is-connected" : "is-available"}`}>{connected ? <CheckCircle size={13} weight="fill" /> : null}{connected ? copy.connected : copy.available}</span>
             </button>
           );
         })}
       </div>
-      <div className="plugin-catalog-footnote"><PlugsConnected size={16} /><span>Puter.js · ComfyUI · Stable Diffusion WebUI</span></div>
+      <div className="plugin-catalog-footnote"><PlugsConnected size={16} /><span>{GENERATION_PROVIDERS.map((plugin) => plugin.displayName).join(" · ")}</span></div>
     </div>
   );
 }
@@ -216,7 +213,7 @@ function LocalConnectedBanner({ copy, name, endpoint, onDisconnect }) {
 }
 
 function LocalJobActions({ copy, plugins, disabled, onGenerate }) {
-  const running = plugins.job.state === "running";
+  const running = ["queued", "running"].includes(plugins.job.state);
   return (
     <>
       <JobStatus copy={{ ...copy, generating: copy.localGenerating }} plugins={plugins} />
@@ -289,9 +286,12 @@ function WebUIInspector({ copy, plugins }) {
 
 export function PluginInspector({ language, plugins }) {
   const copy = getCopy(language);
-  if (plugins.selectedPluginId === "comfyui") return <ComfyUIInspector copy={copy} plugins={plugins} />;
-  if (plugins.selectedPluginId === "webui") return <WebUIInspector copy={copy} plugins={plugins} />;
-  return <PuterInspector copy={copy} plugins={plugins} />;
+  const Inspector = {
+    puter: PuterInspector,
+    comfyui: ComfyUIInspector,
+    webui: WebUIInspector,
+  }[plugins.selectedPluginId] || PuterInspector;
+  return <Inspector copy={copy} plugins={plugins} />;
 }
 
 // eslint-disable-next-line react-refresh/only-export-components

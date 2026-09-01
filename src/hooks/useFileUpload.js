@@ -106,7 +106,7 @@ export function useFileUpload(deps) {
               },
             }).then((trackFrames) => {
               if (!trackFrames.length) throw new Error("No timeline frames decoded");
-              const framePatch = { trackFrames, trackFrameSampling: "exact-pts-hq-v4", trackFrameImportBudget: importFrameBudget, preparing: false, prepareProgress: 1 };
+              const framePatch = { trackFrames, trackFrameSampling: "exact-pts-hq-v5-seed", trackFrameImportBudget: importFrameBudget, preparing: false, prepareProgress: 1 };
               update(asset.id, framePatch); deps.updateVisualAssetInTimeline(asset.id, framePatch);
             }).catch((error) => {
               console.warn("Video timeline frame extraction failed", error);

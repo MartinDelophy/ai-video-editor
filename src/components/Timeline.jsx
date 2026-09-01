@@ -150,6 +150,48 @@ function mergeExactVideoTrackFrame(frames, incoming, tolerance = 0.06) {
   return next;
 }
 
+function mergeExactVideoTrackFrames(frames, incomingFrames, tolerance = 0.06) {
+  return (Array.isArray(incomingFrames) ? incomingFrames : []).reduce(
+    (merged, frame) => mergeExactVideoTrackFrame(merged, frame, tolerance),
+    Array.isArray(frames) ? frames : [],
+  );
+}
+
+function waitForFilmstripIdle(signal, minimumDelay = 0) {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(signal.reason || new DOMException("Aborted", "AbortError"));
+      return;
+    }
+    let idleId = 0;
+    let timerId = 0;
+    const cleanup = () => {
+      signal?.removeEventListener("abort", handleAbort);
+      if (idleId) window.cancelIdleCallback?.(idleId);
+      if (timerId) window.clearTimeout(timerId);
+    };
+    const handleAbort = () => {
+      cleanup();
+      reject(signal.reason || new DOMException("Aborted", "AbortError"));
+    };
+    const finish = () => {
+      cleanup();
+      resolve();
+    };
+    signal?.addEventListener("abort", handleAbort, { once: true });
+    const requestIdle = () => {
+      timerId = 0;
+      if (typeof window.requestIdleCallback === "function") {
+        idleId = window.requestIdleCallback(finish, { timeout: 600 });
+      } else {
+        timerId = window.setTimeout(finish, 260);
+      }
+    };
+    if (minimumDelay > 0) timerId = window.setTimeout(requestIdle, minimumDelay);
+    else requestIdle();
+  });
+}
+
 function getImageTimelineThumbnailCount({ duration, timelineDuration, contentWidth }) {
   if (timelineDuration <= 0 || contentWidth <= 0) {
     return 1;
@@ -1273,6 +1315,8 @@ export function Timeline({
   const [localTimelineZoom, setLocalTimelineZoom] = useState(() => clampTimelineZoom(timelineZoom));
   const filmstripUpgradeInFlightRef = useRef(new Set());
   const progressiveFilmstripAbortRef = useRef(null);
+  const progressiveFilmstripStateRef = useRef(null);
+  progressiveFilmstripStateRef.current = { currentTime, displayedVisualSegments, renderedVisualTimeline };
   const [trimScaleLock, setTrimScaleLock] = useState(null);
   const trimScaleLockRef = useRef(null);
   const trimScrollSeekGuardUntilRef = useRef(0);
@@ -1423,12 +1467,12 @@ export function Timeline({
     setLocalTimelineZoom(nextZoom);
   }, [timelineZoom]);
   useEffect(() => {
-    const segmentIndex = displayedVisualSegments.findIndex((item) => item.id === currentVisualSegment?.id);
-    const segment = displayedVisualSegments[segmentIndex];
-    const segmentRange = renderedVisualTimeline[segmentIndex];
+    const filmstripState = progressiveFilmstripStateRef.current;
+    const segmentIndex = filmstripState.displayedVisualSegments.findIndex((item) => item.id === currentVisualSegment?.id);
+    const segment = filmstripState.displayedVisualSegments[segmentIndex];
+    const segmentRange = filmstripState.renderedVisualTimeline[segmentIndex];
     if (
       !segment
-      || !segment.remoteSrc
       || (segment.type || visualType) !== "video"
       || segment.preparing
       || timelineSeekActive
@@ -1457,8 +1501,8 @@ export function Timeline({
       const duration = Math.max(0.001, Number(segment.duration) || 0.001);
       const firstVisibleCell = Math.max(0, Math.min(frameCount - 1, Math.floor(visibleLocalStart / duration * frameCount)));
       const lastVisibleCell = Math.max(firstVisibleCell, Math.min(frameCount - 1, Math.ceil(visibleLocalEnd / duration * frameCount) - 1));
-      const playheadCell = currentTime >= segmentRange.start && currentTime < segmentRange.end
-        ? Math.max(0, Math.min(frameCount - 1, Math.floor((currentTime - segmentRange.start) / duration * frameCount)))
+      const playheadCell = filmstripState.currentTime >= segmentRange.start && filmstripState.currentTime < segmentRange.end
+        ? Math.max(0, Math.min(frameCount - 1, Math.floor((filmstripState.currentTime - segmentRange.start) / duration * frameCount)))
         : -1;
       const visibleOrder = getBisectionCellOrder(firstVisibleCell, lastVisibleCell);
       const offscreenLeft = getBisectionCellOrder(0, firstVisibleCell - 1);
@@ -1468,13 +1512,15 @@ export function Timeline({
         if (index < offscreenLeft.length) offscreenOrder.push(offscreenLeft[index]);
         if (index < offscreenRight.length) offscreenOrder.push(offscreenRight[index]);
       }
-      const priorityCells = [...new Set([
+      const visiblePriorityCells = [...new Set([
         ...(playheadCell >= firstVisibleCell && playheadCell <= lastVisibleCell ? [playheadCell] : []),
         ...visibleOrder,
-        // Seed a bounded number of offscreen subdivisions. Scrolling the
-        // viewport reprioritizes the newly visible region instead of decoding
-        // hundreds of unseen frames on a slow machine.
-        ...offscreenOrder.slice(0, 24),
+      ])];
+      const offscreenPriorityCells = [...new Set([
+        // Continue the same midpoint-bisection refinement through offscreen
+        // cells after the visible region has been committed atomically. A
+        // viewport move aborts this work and restarts with the new region.
+        ...offscreenOrder,
       ])];
       const sourceDuration = Math.max(
         Number(segment.trackFrameDuration) || 0,
@@ -1482,30 +1528,62 @@ export function Timeline({
       );
       const existingFrames = Array.isArray(segment.trackFrames) ? segment.trackFrames : [];
       const sourceCellSpan = sourceDuration / Math.max(1, frameCount);
-      const sampleTimes = priorityCells
+      const getMissingSampleTimes = (cellIndices) => cellIndices
         .map((cellIndex) => getVisualSourceTime(segment, cellIndex / frameCount * duration))
         .filter((sourceTime) => !existingFrames.some((frame) => (
           Math.abs((Number(frame?.sourceTime) || 0) - sourceTime) <= Math.max(0.04, sourceCellSpan * 0.08)
         )));
-      if (!sampleTimes.length) return;
-      extractVideoTrackFrames(segment.blob, {
-        duration: sourceDuration,
-        width: segment.width,
-        height: segment.height,
-        sampleTimes,
-        preferNativeSeek: true,
-        signal: controller.signal,
-        onFrame: (frame) => {
-          if (controller.signal.aborted) return;
-          setVisualSegments((items) => items.map((item) => item.id === segment.id
-            ? {
-                ...item,
-                trackFrames: mergeExactVideoTrackFrame(item.trackFrames, frame),
-                trackFrameDuration: sourceDuration,
-                trackFrameSampling: "exact-pts-hq-v5-progressive",
-              }
-            : item));
-        },
+      const visibleSampleTimes = getMissingSampleTimes(visiblePriorityCells);
+      const offscreenSampleTimes = getMissingSampleTimes(offscreenPriorityCells);
+      const fullFrameBudget = getVideoTrackSampleCount(sourceDuration);
+      const shouldBuildExactBackgroundIndex = Boolean(
+        !segment.remoteSrc
+        && fullFrameBudget > existingFrames.length
+        && fullFrameBudget < VIDEO_THUMBNAIL_DISPLAY_MAX_COUNT,
+      );
+      if (!visibleSampleTimes.length && !offscreenSampleTimes.length && !shouldBuildExactBackgroundIndex) return;
+      const commitRefinedFrames = (framesToCommit) => {
+        if (controller.signal.aborted || !framesToCommit?.length) return;
+        setVisualSegments((items) => items.map((item) => item.id === segment.id
+          ? {
+              ...item,
+              trackFrames: mergeExactVideoTrackFrames(item.trackFrames, framesToCommit),
+              trackFrameDuration: sourceDuration,
+              trackFrameSampling: "exact-pts-hq-v5-progressive",
+            }
+          : item));
+      };
+      const refineCells = (sampleTimes) => {
+        if (!sampleTimes.length) return Promise.resolve([]);
+        return extractVideoTrackFrames(segment.blob, {
+          duration: sourceDuration,
+          width: segment.width,
+          height: segment.height,
+          sampleTimes,
+          preferNativeSeek: Boolean(segment.remoteSrc),
+          signal: controller.signal,
+        });
+      };
+      refineCells(visibleSampleTimes).then(async (visibleFrames) => {
+        // Keep the initial filmstrip stable while a region is decoding. Each
+        // completed region swaps in once, so shot changes become clearer
+        // without a stream of thumbnail resampling flashes.
+        commitRefinedFrames(visibleFrames);
+        if (offscreenSampleTimes.length) {
+          await waitForFilmstripIdle(controller.signal);
+          commitRefinedFrames(await refineCells(offscreenSampleTimes));
+        }
+        if (!shouldBuildExactBackgroundIndex || controller.signal.aborted) return;
+        await waitForFilmstripIdle(controller.signal, 420);
+        const exactFrames = await extractVideoTrackFrames(segment.blob, {
+          duration: sourceDuration,
+          width: segment.width,
+          height: segment.height,
+          maxFrames: fullFrameBudget,
+          signal: controller.signal,
+          yieldEveryFrames: 8,
+        });
+        commitRefinedFrames(exactFrames);
       }).catch((error) => {
         if (error?.name !== "AbortError") console.warn("Progressive visible filmstrip extraction failed", error);
       }).finally(() => {
@@ -1539,6 +1617,7 @@ export function Timeline({
         (Number(item.sourceStart) || 0) + (Number(item.sourceDuration) || Number(item.duration) || 0),
       );
       const storedFrames = Array.isArray(item.trackFrames) ? item.trackFrames : [];
+      if (String(item.trackFrameSampling || "").startsWith("exact-pts-hq-v5")) return false;
       const expectedCount = getVideoTrackSampleCount(sourceDuration);
       const usesLegacyCenteredSamples = storedFrames.length > 0
         && item.trackFrameSampling !== "exact-pts-hq-v4";

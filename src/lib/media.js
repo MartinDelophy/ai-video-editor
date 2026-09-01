@@ -86,6 +86,29 @@ const VIDEO_TRACK_FRAME_MAX = 480;
 const VIDEO_TRACK_FRAME_HEIGHT = 180;
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 
+function yieldVideoTrackFrameWork(signal) {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(signal.reason || new DOMException("Aborted", "AbortError"));
+      return;
+    }
+    let timeoutId = 0;
+    const cleanup = () => {
+      signal?.removeEventListener("abort", handleAbort);
+      if (timeoutId) window.clearTimeout(timeoutId);
+    };
+    const handleAbort = () => {
+      cleanup();
+      reject(signal.reason || new DOMException("Aborted", "AbortError"));
+    };
+    signal?.addEventListener("abort", handleAbort, { once: true });
+    timeoutId = window.setTimeout(() => {
+      cleanup();
+      resolve();
+    }, 0);
+  });
+}
+
 export function getVideoTrackImportFrameBudget(duration, environment = globalThis?.navigator) {
   const hardwareConcurrency = Math.max(0, Number(environment?.hardwareConcurrency) || 0);
   const deviceMemory = Math.max(0, Number(environment?.deviceMemory) || 0);
@@ -95,7 +118,12 @@ export function getVideoTrackImportFrameBudget(duration, environment = globalThi
   const isComfortableDevice =
     hardwareConcurrency >= 8 &&
     (deviceMemory === 0 || deviceMemory >= 8);
-  const importFrameCap = isConstrainedDevice ? 120 : isComfortableDevice ? 240 : 180;
+  // Import readiness only needs a timestamped representative set dense enough
+  // to paint the initial filmstrip without stretching one poster across the
+  // clip. Exact PTS frames are refined after the clip becomes editable, with
+  // the visible viewport and playhead taking priority. Keeping this seed small
+  // avoids blocking a short upload on hundreds of sparse decoder seeks.
+  const importFrameCap = isConstrainedDevice ? 12 : isComfortableDevice ? 24 : 18;
   return Math.max(1, Math.min(importFrameCap, getVideoTrackSampleCount(duration)));
 }
 
@@ -196,7 +224,18 @@ export function captureVideoTrackFrame(video, options = {}) {
 
 async function extractVideoTrackFramesWithWebCodecs(src, sampleTimes, options) {
   if (typeof VideoDecoder === "undefined" || !sampleTimes.length) return null;
-  const { width, height, quality, signal, duration, maxFrames, onProgress, onFrame } = options;
+  const {
+    width,
+    height,
+    quality,
+    signal,
+    duration,
+    maxFrames,
+    onProgress,
+    onFrame,
+    exactSampleTimesOnly = false,
+    yieldEveryFrames = 0,
+  } = options;
   let input = null;
   try {
     onProgress?.(0.03);
@@ -234,7 +273,7 @@ async function extractVideoTrackFramesWithWebCodecs(src, sampleTimes, options) {
     const frames = [];
     const packetStats = await track.computePacketStats(Math.max(1, maxFrames) + 1);
     onProgress?.(0.14);
-    if (packetStats.packetCount <= maxFrames) {
+    if (!exactSampleTimesOnly && packetStats.packetCount <= maxFrames) {
       for await (const result of sink.canvases(0, duration)) {
         if (signal?.aborted) throw signal.reason || new DOMException("Aborted", "AbortError");
         if (!result?.canvas) continue;
@@ -244,6 +283,9 @@ async function extractVideoTrackFramesWithWebCodecs(src, sampleTimes, options) {
         ));
         onFrame?.(frames.at(-1), frames.length - 1, packetStats.packetCount);
         onProgress?.(Math.min(0.98, 0.14 + 0.84 * frames.length / Math.max(1, packetStats.packetCount)));
+        if (yieldEveryFrames > 0 && frames.length % yieldEveryFrames === 0) {
+          await yieldVideoTrackFrameWork(signal);
+        }
       }
       onProgress?.(1);
       return frames;
@@ -258,6 +300,9 @@ async function extractVideoTrackFramesWithWebCodecs(src, sampleTimes, options) {
       ));
       onFrame?.(frames.at(-1), frames.length - 1, effectiveSampleTimes.length);
       onProgress?.(Math.min(0.98, 0.14 + 0.84 * frames.length / effectiveSampleTimes.length));
+      if (yieldEveryFrames > 0 && frames.length % yieldEveryFrames === 0) {
+        await yieldVideoTrackFrameWork(signal);
+      }
     }
     onProgress?.(1);
     return frames;
@@ -282,6 +327,7 @@ export async function extractVideoTrackFrames(src, options = {}) {
     onFrame,
     preferNativeSeek = false,
     sampleTimes: requestedSampleTimes,
+    yieldEveryFrames = 0,
   } = options;
   const ownedObjectUrl = src instanceof Blob ? URL.createObjectURL(src) : "";
   let video = null;
@@ -335,6 +381,8 @@ export async function extractVideoTrackFrames(src, options = {}) {
       maxFrames,
       onProgress,
       onFrame,
+      exactSampleTimesOnly: Boolean(explicitSampleTimes),
+      yieldEveryFrames,
     });
     if (decodedFrames?.length) {
       // Sampling a tiny epsilon avoids the undecoded black canvas exposed by
@@ -358,6 +406,9 @@ export async function extractVideoTrackFrames(src, options = {}) {
       ));
       onFrame?.(frames.at(-1), index, frameCount);
       onProgress?.(0.05 + 0.95 * (index + 1) / frameCount);
+      if (yieldEveryFrames > 0 && (index + 1) % yieldEveryFrames === 0) {
+        await yieldVideoTrackFrameWork(signal);
+      }
     }
     return frames;
   } finally {

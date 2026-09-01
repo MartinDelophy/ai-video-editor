@@ -101,7 +101,7 @@ export function createAssetDropActions(d) {
             console.warn("Remote video timeline frame extraction failed", error);
           }
           d.updateVisualAssetInTimeline(asset.id, {
-            ...(trackFrames.length ? { trackFrames, trackFrameSampling: "exact-pts-hq-v4" } : {}),
+            ...(trackFrames.length ? { trackFrames, trackFrameSampling: "exact-pts-hq-v5-seed" } : {}),
             preparing: false,
             prepareStage: "",
             prepareProgress: 1,

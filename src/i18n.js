@@ -839,6 +839,20 @@ const CAPTION_STYLE_SYSTEM_COPY = {
   ru: { captionStyleSystemHint: "Один стиль по умолчанию и настройки для каждого субтитра", captionDefaultStyle: "Стиль по умолчанию", captionEditStyle: "Изменить стиль", captionProjectStyles: "Стили проекта", captionBuiltInPresets: "Встроенные пресеты", captionStylePresetPlain: "Только текст", captionStylePresetOutline: "Чёткая обводка", captionStylePresetClassicBoard: "Классическая плашка", captionStylePresetTranslucent: "Полупрозрачная плашка", captionStylePresetNeon: "Неон", captionSaveAsStyle: "Сохранить как новый стиль", captionStyleNamePrompt: "Название стиля", captionStyleUntitled: "Мой стиль", captionStyleModified: "Изменён", captionEditTarget: "Объект стиля", captionCurrentCaption: "Текущий субтитр", captionEditingMasterHint: "Изменяется стиль по умолчанию · {count} субтитров", captionEditingCurrentHint: "Настраивается только этот субтитр", captionPositionLabel: "Положение", captionOutlineWidth: "Обводка текста", captionOutlineColor: "Цвет обводки", captionEffect: "Эффект", captionCustomPosition: "Произвольное положение", captionIndividualAdjustments: "Индивидуальные настройки · {count}", captionFollowsDefaultStyle: "Следует стилю по умолчанию", captionOverrideHint: "Эти свойства больше не следуют стилю по умолчанию", captionFollowingHint: "Изменения стиля по умолчанию синхронизируются", captionRestoreProperty: "Сбросить свойство", captionRestoreDefaultStyle: "Восстановить стиль по умолчанию", captionAdjustedItems: "Настроек: {count}" },
 };
 
+const CAPTION_EDIT_TARGET_COPY = {
+  zh: { captionDefaultStyleTab: "默认样式" },
+  en: { captionDefaultStyleTab: "Default Style" },
+  ja: { captionDefaultStyleTab: "既定スタイル" },
+  ko: { captionDefaultStyleTab: "기본 스타일" },
+  es: { captionDefaultStyleTab: "Predeterminado" },
+  fr: { captionDefaultStyleTab: "Style par défaut" },
+  de: { captionDefaultStyleTab: "Standardstil" },
+  pt: { captionDefaultStyleTab: "Estilo padrão" },
+  th: { captionDefaultStyleTab: "สไตล์เริ่มต้น" },
+  vi: { captionDefaultStyleTab: "Kiểu mặc định" },
+  ru: { captionDefaultStyleTab: "По умолчанию" },
+};
+
 const CAPTION_POSITION_SYNC_COPY = {
   zh: { captionSyncPosition: "同步位置", captionPositionSynced: "已按当前字幕中心点同步全部字幕位置", captionPositionSyncedSmartOff: "已同步全部字幕位置，智能避让已关闭" },
   en: { captionSyncPosition: "Sync position", captionPositionSynced: "All captions synced to the current caption center", captionPositionSyncedSmartOff: "All caption positions synced; smart avoidance is off" },
@@ -3370,7 +3384,7 @@ export function createTranslator(languageId) {
     VISUAL_EDITOR_COPY, COLOR_GRADE_COPY, TRANSITION_EDITOR_COPY, ASSET_PREVIEW_COPY, ASSET_DROP_COPY,
     AUTO_CAPTION_STATUS_COPY, VISUAL_PANEL_TITLE_COPY, VISUAL_MASK_SHAPE_COPY,
     VISUAL_KEYFRAME_ACTION_COPY, VISUAL_TAB_COPY, VISUAL_SPEED_CURVE_COPY, SOURCE_AUDIO_SYNC_COPY,
-    CAPTION_WORKSPACE_COPY, CAPTION_STYLE_SYSTEM_COPY, CAPTION_POSITION_SYNC_COPY, RESOURCE_LINK_COPY, VISUAL_AI_TAB_COPY, REPAIR_COPY, REMASTER_COPY,
+    CAPTION_WORKSPACE_COPY, CAPTION_STYLE_SYSTEM_COPY, CAPTION_EDIT_TARGET_COPY, CAPTION_POSITION_SYNC_COPY, RESOURCE_LINK_COPY, VISUAL_AI_TAB_COPY, REPAIR_COPY, REMASTER_COPY,
     REMASTER_CLIP_COPY, REMASTER_GPU_COPY, REMASTER_PHASE_COPY, CONTEXT_PANEL_COPY,
     TIMELINE_AUDIO_MENU_COPY, SOURCE_AUDIO_LANE_COPY, TTS_BACKEND_COPY, CAPTION_AUDIO_LINK_COPY,
     VISUAL_ANIMATION_COPY, STICKER_EDITOR_COPY, MOBILE_STICKER_COPY,

@@ -1703,6 +1703,7 @@ export function App() {
         timelineContentDuration={Math.max(estimatedDuration, timelineHorizon)}
         setTimelineHorizon={setTimelineHorizon}
         currentTime={currentTime}
+        previewVideoMediaTime={previewVideoMediaTime}
         playheadPercent={playheadPercent}
         snapGuide={snapGuide}
         setSnapGuide={setSnapGuide}

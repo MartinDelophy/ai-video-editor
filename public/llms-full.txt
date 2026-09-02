@@ -1,6 +1,6 @@
 # Timeline Studio — Full Product Reference
 
-Last verified: 2026-08-08
+Last verified: 2026-09-02
 Canonical URL: https://video-editor.ai-creator.top/
 GitHub: https://github.com/MartinDelophy/ai-video-editor
 License: MIT
@@ -16,6 +16,8 @@ Timeline Studio is a free, open-source, local-first AI video editor that runs in
 - Additional browser Piper voices: German, Spanish, French, Italian and Brazilian Portuguese.
 - Generated speech is inserted at the current playhead as a voiceover clip.
 - Browser microphone recording is also available after user permission.
+- Authorized Chinese and English target-voice conversion uses OpenVoice V2 as a second stage after base synthesis.
+- Saved clone profiles and their embeddings remain browser-local; completed conversions go to My assets and never replace timeline audio automatically.
 
 ## Automatic captions
 
@@ -60,6 +62,19 @@ Timeline Studio is a free, open-source, local-first AI video editor that runs in
 - 512px mixed-FP16 mode is intended for quality output and can be slow on current browser GPUs.
 - Sparse neural keyframes are interpolated for encoded output.
 
+## AI music and repair
+
+- Browser-local AI music uses a prompt-first WebGPU workflow with translated descriptions, compact musical controls and persistent model caching.
+- Completed AI music goes to My assets and is not inserted into the timeline automatically.
+- AI Repair includes browser-local object or watermark removal, video restoration and denoising workflows with reversible asset application.
+- Subject and depth analysis support editable person or object effects, smart framing, cinematic depth and photo parallax.
+
+## Generation connectors
+
+- Puter uses its real provider-managed browser session and user-pays generation flow.
+- ComfyUI and Stable Diffusion WebUI are separate loopback-only connectors with real job or API output retrieval.
+- Completed connector media goes to My assets and is not inserted into the timeline automatically.
+
 ## Export
 
 - Export controls include resolution, frame rate, codec and quality.
@@ -79,7 +94,7 @@ Timeline Studio is a free, open-source, local-first AI video editor that runs in
 
 ## Supported interface languages
 
-Chinese, English, Japanese, Korean, Spanish, French, German, Portuguese, Thai and Vietnamese.
+Chinese, English, Japanese, Korean, Spanish, French, German, Portuguese, Thai, Vietnamese and Russian.
 
 ## Technology
 
@@ -92,3 +107,10 @@ React 19, Vite 6, ONNX Runtime Web, WebAssembly, WebGPU, MediaRecorder, browser 
 - https://video-editor.ai-creator.top/faq/
 - https://video-editor.ai-creator.top/privacy/
 - https://video-editor.ai-creator.top/about/
+- https://video-editor.ai-creator.top/ai-video-editor/
+- https://video-editor.ai-creator.top/ai-voiceover-generator/
+- https://video-editor.ai-creator.top/automatic-caption-generator/
+- https://video-editor.ai-creator.top/browser-ai-music-generator/
+- https://video-editor.ai-creator.top/local-ai-video-editor/
+- https://video-editor.ai-creator.top/talking-avatar-generator/
+- https://video-editor.ai-creator.top/articles/

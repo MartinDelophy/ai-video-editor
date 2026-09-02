@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url><loc>https://video-editor.ai-creator.top/</loc><lastmod>2026-07-16</lastmod><changefreq>weekly</changefreq><priority>1.0</priority></url>
-  <url><loc>https://video-editor.ai-creator.top/features/</loc><lastmod>2026-07-16</lastmod><changefreq>monthly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://video-editor.ai-creator.top/</loc><lastmod>2026-09-02</lastmod><changefreq>weekly</changefreq><priority>1.0</priority></url>
+  <url><loc>https://video-editor.ai-creator.top/features/</loc><lastmod>2026-09-02</lastmod><changefreq>monthly</changefreq><priority>0.9</priority></url>
   <url><loc>https://video-editor.ai-creator.top/how-it-works/</loc><lastmod>2026-07-16</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
   <url><loc>https://video-editor.ai-creator.top/faq/</loc><lastmod>2026-07-16</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
   <url><loc>https://video-editor.ai-creator.top/privacy/</loc><lastmod>2026-07-16</lastmod><changefreq>yearly</changefreq><priority>0.5</priority></url>
@@ -9,4 +9,10 @@
   <url><loc>https://video-editor.ai-creator.top/articles/</loc><lastmod>2026-07-17</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
   <url><loc>https://video-editor.ai-creator.top/articles/local-first-browser-ai-video-editor/</loc><lastmod>2026-07-17</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
   <url><loc>https://video-editor.ai-creator.top/articles/liveportrait-webgpu-port/</loc><lastmod>2026-07-17</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://video-editor.ai-creator.top/ai-video-editor/</loc><lastmod>2026-09-02</lastmod><changefreq>monthly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://video-editor.ai-creator.top/ai-voiceover-generator/</loc><lastmod>2026-09-02</lastmod><changefreq>monthly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://video-editor.ai-creator.top/automatic-caption-generator/</loc><lastmod>2026-09-02</lastmod><changefreq>monthly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://video-editor.ai-creator.top/browser-ai-music-generator/</loc><lastmod>2026-09-02</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://video-editor.ai-creator.top/local-ai-video-editor/</loc><lastmod>2026-09-02</lastmod><changefreq>monthly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://video-editor.ai-creator.top/talking-avatar-generator/</loc><lastmod>2026-09-02</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
 </urlset>

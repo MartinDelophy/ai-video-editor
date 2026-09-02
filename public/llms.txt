@@ -9,12 +9,19 @@ License: MIT
 ## Primary pages
 
 - [Open the editor](https://video-editor.ai-creator.top/): The live browser editing workspace.
+- [Browser AI video editor](https://video-editor.ai-creator.top/ai-video-editor/): Product overview for multi-track editing, browser requirements, outputs and local-first behavior.
+- [AI voiceover generator](https://video-editor.ai-creator.top/ai-voiceover-generator/): Multilingual synthesis, authorized voice conversion and editable audio workflow.
+- [Automatic caption generator](https://video-editor.ai-creator.top/automatic-caption-generator/): Browser Whisper recognition, timing, editing and caption export behavior.
+- [Browser AI music generator](https://video-editor.ai-creator.top/browser-ai-music-generator/): Prompt-first local WebGPU music generation and My assets workflow.
+- [Talking avatar generator](https://video-editor.ai-creator.top/talking-avatar-generator/): Authorized JoyVASA and LivePortrait talking-portrait workflow.
+- [Local-first AI video editor](https://video-editor.ai-creator.top/local-ai-video-editor/): Exact local-processing, networking, storage and device boundaries.
 - [Features](https://video-editor.ai-creator.top/features/): Current AI, timeline, visual, export and privacy capabilities.
 - [How it works](https://video-editor.ai-creator.top/how-it-works/): A factual end-to-end workflow guide.
 - [FAQ](https://video-editor.ai-creator.top/faq/): Pricing, privacy, voices, captions, browser and export answers.
 - [Privacy and local processing](https://video-editor.ai-creator.top/privacy/): What runs locally and which network requests remain.
 - [About](https://video-editor.ai-creator.top/about/): Project identity, technology, license and official links.
 - [Full product reference](https://video-editor.ai-creator.top/llms-full.txt): Expanded machine-readable product facts.
+- [Engineering articles](https://video-editor.ai-creator.top/articles/): Evidence-backed implementation notes about browser AI and WebGPU.
 
 ## Citation guidance
 

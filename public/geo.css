@@ -27,5 +27,13 @@ details { padding: 16px 0; border-bottom: 1px solid #263238; }
 summary { cursor: pointer; color: #fff; font-weight: 750; }
 code { color: #8df5e8; }
 .note { border-left: 3px solid #35ead9; padding: 12px 16px; background: #101a1e; }
+.answer { max-width: 780px; padding: 18px 20px; border: 1px solid #28504e; border-radius: 14px; background: rgba(20, 45, 44, .55); color: #d8e7e5; }
+.breadcrumbs { margin-bottom: 20px; color: #82908f; font-size: .84rem; }
+.breadcrumbs a { color: #9ab1af; }
+.facts { margin: 30px 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; list-style: none; }
+.facts li { padding: 14px 16px; border: 1px solid #243137; border-radius: 12px; background: #10171c; }
+.facts strong { display: block; color: #fff; }
+.related { margin-top: 54px; }
+.related a { font-weight: 750; }
 footer { padding: 26px 0 40px; border-top: 1px solid #202b30; color: #82908f; font-size: .88rem; }
 @media (max-width: 620px) { header { align-items: flex-start; flex-direction: column; } main { padding-top: 34px; } }

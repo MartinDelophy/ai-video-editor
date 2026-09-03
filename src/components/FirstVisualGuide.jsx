@@ -13,6 +13,8 @@ const COPY = {
   th: { title: "สองวิธีใช้งานที่มีประโยชน์", timeline: "คลิกขวาที่คลิปบนไทม์ไลน์เพื่อเปิดเมนูตัด ทำสำเนา และปิดเสียง", canvas: "คลิกภาพแล้วลากเพื่อย้าย หรือใช้จุดควบคุมเพื่อปรับขนาดและหมุน", done: "เข้าใจแล้ว" },
   vi: { title: "Hai thao tác hữu ích", timeline: "Nhấp chuột phải vào clip để mở các thao tác như cắt, nhân bản và tắt tiếng.", canvas: "Nhấp vào hình rồi kéo để di chuyển; dùng các tay nắm để đổi kích thước và xoay.", done: "Đã hiểu" },
   ru: { title: "Два полезных действия", timeline: "Щёлкните клип правой кнопкой мыши, чтобы открыть команды обрезки, дублирования и отключения звука.", canvas: "Нажмите на изображение и перетащите его; маркеры позволяют менять размер и поворот.", done: "Понятно" },
+  it: { title: "Due comandi utili", timeline: "Fai clic destro su una clip della timeline per aprire azioni rapide come taglia, duplica e disattiva audio.", canvas: "Fai clic sull’immagine e trascinala; usa le maniglie per ridimensionarla o ruotarla.", done: "Ho capito" },
+  id: { title: "Dua kontrol praktis", timeline: "Klik kanan klip di timeline untuk membuka tindakan cepat seperti potong, duplikat, dan bisukan.", canvas: "Klik visual lalu seret untuk memindahkannya; gunakan gagang untuk mengubah ukuran atau memutarnya.", done: "Mengerti" },
 };
 
 function getTargetRect(selector) {

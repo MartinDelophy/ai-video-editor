@@ -12,6 +12,8 @@ const AUTO_EDIT_LANGUAGE_TAGS = {
   pt: "pt-BR",
   th: "th",
   vi: "vi",
+  it: "it",
+  id: "id",
 };
 
 const AUTO_EDIT_LANGUAGE_NAMES = {
@@ -26,6 +28,8 @@ const AUTO_EDIT_LANGUAGE_NAMES = {
   th: "Thai",
   vi: "Vietnamese",
   ru: "Russian",
+  it: "Italian",
+  id: "Indonesian",
 };
 
 const PROMPT_API_LANGUAGES = new Set(["en", "ja", "es", "de", "fr"]);

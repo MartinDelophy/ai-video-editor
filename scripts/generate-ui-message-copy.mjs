@@ -4,7 +4,8 @@ import { readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 const traverse = traverseModule.default;
-const LANGUAGES = { zh: "zh-CN", en: "en", ja: "ja", ko: "ko", es: "es", fr: "fr", de: "de", pt: "pt", th: "th", vi: "vi", ru: "ru" };
+const LANGUAGES = { zh: "zh-CN", en: "en", ja: "ja", ko: "ko", es: "es", fr: "fr", de: "de", pt: "pt", th: "th", vi: "vi", ru: "ru", it: "it", id: "id" };
+const requestedLanguages = new Set(process.argv.slice(2));
 const messages = new Set();
 const USER_MESSAGE_CALL = /^(?:notify|commit|clear|replace|setStatus|setStatusText|reject|onProgress|confirm|alert|Error)/;
 
@@ -58,50 +59,62 @@ function chunksFor(entries, maximumLength = 900) {
   return chunks;
 }
 
-async function translateChunk(chunk, target) {
-  const url = new URL("https://translate.googleapis.com/translate_a/single");
-  url.searchParams.set("client", "gtx");
+const wait = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+
+async function translateChunk(chunk, target, attempt = 0) {
+  const url = new URL("https://clients5.google.com/translate_a/t");
+  url.searchParams.set("client", "dict-chrome-ex");
   url.searchParams.set("sl", "zh-CN");
   url.searchParams.set("tl", target);
-  url.searchParams.set("dt", "t");
   url.searchParams.set("q", chunk.map(({ line }) => line).join("\n"));
-  const response = await fetch(url);
+  const response = await fetch(url, { headers: { "User-Agent": "Timeline-Studio-i18n/1.0" } });
+  if (response.status === 429 && attempt < 6) {
+    await wait(Math.min(30000, 1500 * (2 ** attempt)));
+    return translateChunk(chunk, target, attempt + 1);
+  }
   if (!response.ok) throw new Error(`Translation failed: ${response.status}`);
   const payload = await response.json();
-  const translated = payload[0].map((part) => part[0]).join("");
+  const translated = payload.join("");
   const values = new Map();
   for (const match of translated.matchAll(/@@(\d+)@@\s*([\s\S]*?)(?=\s*@@\d+@@|$)/g)) values.set(Number(match[1]), match[2].trim());
   for (const entry of chunk) if (!values.has(entry.index)) throw new Error(`Missing translated message ${entry.index} for ${target}`);
   return values;
 }
 
-async function translateText(source, target) {
-  const url = new URL("https://translate.googleapis.com/translate_a/single");
-  url.searchParams.set("client", "gtx");
+async function translateText(source, target, attempt = 0) {
+  const url = new URL("https://clients5.google.com/translate_a/t");
+  url.searchParams.set("client", "dict-chrome-ex");
   url.searchParams.set("sl", "zh-CN");
   url.searchParams.set("tl", target);
-  url.searchParams.set("dt", "t");
   url.searchParams.set("q", source);
-  const response = await fetch(url);
+  const response = await fetch(url, { headers: { "User-Agent": "Timeline-Studio-i18n/1.0" } });
+  if (response.status === 429 && attempt < 6) {
+    await wait(Math.min(30000, 1500 * (2 ** attempt)));
+    return translateText(source, target, attempt + 1);
+  }
   if (!response.ok) throw new Error(`Translation failed: ${response.status}`);
   const payload = await response.json();
-  return payload[0].map((part) => part[0]).join("").trim();
+  return payload.join("").trim();
 }
 
 await collectMessages(new URL("../src", import.meta.url).pathname);
 const entries = [...messages].sort().map((source, index) => ({ index, source }));
 const output = {};
+const { UI_MESSAGE_COPY: existingCopy } = await import("../src/i18nMessages.js");
 
 for (const [language, target] of Object.entries(LANGUAGES)) {
-  output[language] = {};
+  output[language] = { ...(existingCopy[language] ?? {}) };
+  if (requestedLanguages.size && !requestedLanguages.has(language)) continue;
+  const missingEntries = entries.filter(({ source }) => !output[language][source]);
   if (language === "zh") {
-    for (const entry of entries) output[language][entry.source] = entry.source;
+    for (const entry of missingEntries) output[language][entry.source] = entry.source;
   } else {
-    for (const chunk of chunksFor(entries)) {
+    for (const chunk of chunksFor(missingEntries)) {
       const translated = await translateChunk(chunk, target);
       for (const entry of chunk) output[language][entry.source] = translated.get(entry.index);
+      await wait(350);
     }
-    const templates = entries.filter(({ source }) => /\{\d+\}/.test(source));
+    const templates = missingEntries.filter(({ source }) => /\{\d+\}/.test(source));
     for (let index = 0; index < templates.length; index += 6) {
       const batch = templates.slice(index, index + 6);
       const translated = await Promise.all(batch.map(({ source }) => translateText(source, target)));

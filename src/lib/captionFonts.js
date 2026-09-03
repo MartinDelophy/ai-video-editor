@@ -130,6 +130,8 @@ const FONT_IDS_BY_LANGUAGE = {
   fr: LATIN_FONT_IDS,
   de: LATIN_FONT_IDS,
   pt: LATIN_FONT_IDS,
+  it: LATIN_FONT_IDS,
+  id: LATIN_FONT_IDS,
   vi: [
     "be-vietnam-pro", "noto-sans", "noto-serif", "inter", "montserrat",
     "poppins", "merriweather", "barlow-condensed", "baloo-2", "coiny",

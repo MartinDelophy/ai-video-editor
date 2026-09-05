@@ -35,6 +35,7 @@ import {
   STICKER_CATEGORIES,
   STICKER_PAGE_SIZE,
   VOICES,
+  COMPACT_WORKSPACE_QUERY,
 } from "../config/editor.js";
 import { APP_LANGUAGES } from "../i18n.js";
 import { AI_MUSIC_PRESETS, buildEnglishMusicPrompt } from "../lib/aiMusicPrompt.js";
@@ -1100,6 +1101,7 @@ export function ToolPanel(props) {
     analyzeEffectVisual,
     openAvatarPanel,
     smartMode,
+    anna,
     setSmartMode,
     openMobileInspector,
     musicBlob,
@@ -1409,7 +1411,7 @@ export function ToolPanel(props) {
       <div className="tool-panel smart-hub-panel">
         <div className="smart-hub-grid" role="tablist" aria-label={t("smartTools")}>
           {[
-            ["auto-edit", Scissors, t("smartAutoEdit"), t("smartAutoEditHint")],
+            ["auto-edit", Scissors, t("smartAutoEdit"), anna?.enabled ? anna.t("generate") : t("smartAutoEditHint")],
             ["ai-music", MusicNote, aiCopy.title, aiCopy.hint],
             ["smart-frame", FrameCorners, t("smartFrame"), t("smartFrameHint")],
             ["avatar", PersonSimpleRun, t("smartAvatar"), t("smartAvatarHint")],
@@ -1417,6 +1419,7 @@ export function ToolPanel(props) {
             <button className={smartMode === id ? "is-active" : ""} type="button" role="tab" aria-selected={smartMode === id} key={id} onClick={() => {
               setSmartMode(id);
               if (id === "avatar") openAvatarPanel();
+              if (id === "auto-edit" && anna?.enabled && window.matchMedia?.(COMPACT_WORKSPACE_QUERY).matches) openMobileInspector?.();
               if (id === "ai-music" && window.matchMedia?.("(max-width: 760px)").matches) openMobileInspector?.();
             }}>
               <Icon size={24} weight="duotone" /><strong>{title}</strong><span>{hint}</span>

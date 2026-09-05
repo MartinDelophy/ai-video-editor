@@ -51,6 +51,7 @@ export function EditorSidebar({ model: d }) {
               className={`rail-tool ${d.activeTool === id ? "is-active" : ""}`}
               type="button"
               key={id}
+              aria-label={d.t(id, label)}
               onClick={() => {
                 d.selectTool(id);
                 if (window.matchMedia?.(COMPACT_WORKSPACE_QUERY).matches) {
@@ -197,6 +198,7 @@ export function EditorSidebar({ model: d }) {
             analyzeEffectVisual={d.analyzeEffectVisual}
             openAvatarPanel={d.openAvatarPanel}
             smartMode={d.smartMode}
+            anna={d.anna}
             setSmartMode={d.setSmartMode}
             openMobileInspector={() => d.setMobilePanel?.("inspector")}
             musicBlob={d.musicBlob}

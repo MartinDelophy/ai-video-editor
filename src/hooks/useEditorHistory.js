@@ -223,6 +223,7 @@ export function useEditorHistory(d) {
   const pendingRef = useRef(null);
   const timerRef = useRef(0);
   const restoredSignatureRef = useRef("");
+  const checkpointNextRef = useRef(false);
   latestSnapshotRef.current = snapshot;
   if (!historyRef.current) historyRef.current = createEditorHistory(snapshot);
 
@@ -245,6 +246,11 @@ export function useEditorHistory(d) {
     if (signature === currentSignature) return;
     pendingRef.current = latestSnapshot;
     window.clearTimeout(timerRef.current);
+    if (checkpointNextRef.current) {
+      checkpointNextRef.current = false;
+      commitPending();
+      return;
+    }
     timerRef.current = window.setTimeout(commitPending, HISTORY_DEBOUNCE_MS);
     return () => window.clearTimeout(timerRef.current);
   }, [commitPending, signature]);
@@ -290,5 +296,15 @@ export function useEditorHistory(d) {
     return () => window.removeEventListener("keydown", handleHistoryShortcut);
   }, [redo, undo]);
 
-  return { redo, undo };
+  // Keep a reviewed batch edit separate from the edits immediately before and after it.
+  const checkpoint = useCallback(() => {
+    commitPending();
+    const latest = latestSnapshotRef.current;
+    if (createEditorSnapshotSignature(historyRef.current.current) !== createEditorSnapshotSignature(latest)) {
+      historyRef.current = pushEditorHistory(historyRef.current, latest, HISTORY_LIMIT);
+    }
+    checkpointNextRef.current = true;
+  }, [commitPending]);
+
+  return { redo, undo, checkpoint };
 }

@@ -54,6 +54,9 @@ export function useVideoExport(d) {
     const finish = async (phase) => { d.setExportPhase(phase); d.setExportProgress(100); await new Promise((resolve) => setTimeout(resolve, 450)); };
     let actualPipeline = "";
     try {
+      if (options.onArtifact != null && typeof options.onArtifact !== "function") {
+        throw new Error(localize("exportFailed"));
+      }
       const exportAudio = exportSettings.audio !== "none";
       const captionDelivery = exportSettings.captions || "burned";
       const burnCaptions = captionDelivery !== "none" && d.captionsEnabled && d.trackVisibility.caption;
@@ -91,11 +94,15 @@ export function useVideoExport(d) {
             end: exportRange.end,
           })
         : "";
-      const downloadArtifacts = (blob, extension) => {
-        downloadBlob(blob, `${exportBaseName}.${extension}`);
+      const downloadArtifacts = async (blob, extension) => {
+        const deliver = options.onArtifact || downloadBlob;
+        throwIfExportAborted(signal);
+        await deliver(blob, `${exportBaseName}.${extension}`);
+        throwIfExportAborted(signal);
         if (srt) {
           progress({ progress: 99, phaseKey: "exportSaveSrt" });
-          downloadBlob(new Blob(["\uFEFF", srt], { type: "application/x-subrip;charset=utf-8" }), `${exportBaseName}.srt`);
+          await deliver(new Blob(["\uFEFF", srt], { type: "application/x-subrip;charset=utf-8" }), `${exportBaseName}.srt`);
+          throwIfExportAborted(signal);
         }
       };
       const embeddedVideoAudio = exportAudio && !d.sourceAudioBlob && d.trackVisibility.source !== false
@@ -210,7 +217,7 @@ export function useVideoExport(d) {
           };
         }
         progress({ progress: 99, phaseKey: "exportSaveFile", phaseParams: { format: video.label } });
-        downloadArtifacts(video.blob, video.extension);
+        await downloadArtifacts(video.blob, video.extension);
         d.setStatus("done"); d.setStatusText(localize("exportComplete")); await finish(localize("exportComplete"));
         notify(localize(srt ? "exportVideoAndSrtComplete" : "exportVideoComplete", { format: video.label }));
         return { status: "success", extension: video.extension, byteSize: video.blob.size, actualPipeline };
@@ -226,23 +233,32 @@ export function useVideoExport(d) {
             }),
           };
         }
-        progress({ progress: 98, phaseKey: "exportSaveFile", phaseParams: { format: "MP4" } }); downloadArtifacts(video.blob, "mp4");
+        progress({ progress: 98, phaseKey: "exportSaveFile", phaseParams: { format: "MP4" } }); await downloadArtifacts(video.blob, "mp4");
         d.setStatus("done"); d.setStatusText(localize("exportComplete")); await finish(localize("exportComplete")); notify(localize(srt ? "exportVideoAndSrtComplete" : "exportComplete", { format: "MP4" }));
         return { status: "success", extension: "mp4", byteSize: video.blob.size, actualPipeline };
       }
       d.setStatusText(localize("exportFfmpegLoading")); progress({ progress: 95, phaseKey: "exportFfmpegLoading" });
+      let mp4;
       try {
         d.setStatusText(localize("exportFfmpegTranscoding")); progress({ progress: 96, phaseKey: "exportFfmpegTranscoding" });
-        const mp4 = await transcodeWebmToMp4(video.blob, { signal, generationMetadata }); progress({ progress: 99, phaseKey: "exportSaveFile", phaseParams: { format: "MP4" } });
-        downloadArtifacts(mp4, "mp4"); d.setStatus("done"); d.setStatusText(localize("exportComplete")); await finish(localize("exportComplete")); notify(localize(srt ? "exportVideoAndSrtComplete" : "exportComplete", { format: "MP4" }));
-        return { status: "success", extension: "mp4", byteSize: mp4.size, actualPipeline };
+        mp4 = await transcodeWebmToMp4(video.blob, { signal, generationMetadata });
       } catch (error) {
         if (isExportAbortError(error)) throw error;
-        console.error(error); progress({ progress: 99, phaseKey: "exportWebmFallbackSaving" }); downloadArtifacts(video.blob, "webm");
+        // A caller collecting an MP4 artifact has requested that exact
+        // container. Never report an undelivered WebM as a successful MP4 run.
+        // Ordinary browser exports retain their existing WebM rescue path.
+        if (options.onArtifact) throw error;
+        console.error(error); progress({ progress: 99, phaseKey: "exportWebmFallbackSaving" }); await downloadArtifacts(video.blob, "webm");
         const fallbackComplete = localize("exportWebmFallbackComplete");
         d.setStatus("done"); d.setStatusText(fallbackComplete); await finish(fallbackComplete); notify(localize("exportWebmFallbackNotice"));
         return { status: "success", extension: "webm", byteSize: video.blob.size, actualPipeline };
       }
+      // Delivery is outside the transcoder's catch. A rejected sink (including
+      // its SRT attachment) must fail once, without re-encoding or delivering
+      // another video after the first file may already have been accepted.
+      progress({ progress: 99, phaseKey: "exportSaveFile", phaseParams: { format: "MP4" } });
+      await downloadArtifacts(mp4, "mp4"); d.setStatus("done"); d.setStatusText(localize("exportComplete")); await finish(localize("exportComplete")); notify(localize(srt ? "exportVideoAndSrtComplete" : "exportComplete", { format: "MP4" }));
+      return { status: "success", extension: "mp4", byteSize: mp4.size, actualPipeline };
     } catch (error) {
       if (isExportAbortError(error)) {
         const canceled = localize("exportCanceled");

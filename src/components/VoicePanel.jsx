@@ -1,3 +1,4 @@
+import { AnnaEditPanel } from "./AnnaEditPanel.jsx";
 import {
   Armchair,
   ArrowCounterClockwise,
@@ -1506,6 +1507,7 @@ export function VoicePanel({
   updateSelectedPhotoParallax,
   onOpticalFlowAssetReady,
   generationPlugins,
+  anna,
 }) {
   const [captionPanelTab, setCaptionPanelTab] = useState("caption");
   const panelRef = useRef(null);
@@ -1592,7 +1594,7 @@ export function VoicePanel({
       ? t(effectAnalysis?.targetKind === "object" ? "effectObjectAnalysisComplete" : "effectAnalysisComplete")
       : effectAnalysis
         ? t("effectAnalysisPartial")
-        : t(effectAnalysis?.targetKind === "object" ? "effectObjectAnalysisNeeded" : "effectAnalysisNeeded")) : isAiMusicContext ? (aiMusic?.job?.state === "running" ? `${Math.round((aiMusic.job.progress || 0) * 100)}%` : aiMusic?.job?.state === "complete" ? t("complete") : t("modelReady")) : isSmartAutoContext ? t(`autoEditStatus_${autoEdit?.support?.availability || "unknown"}`) : isSmartFrameContext ? (hasVisual ? t("smartVisualReady") : t("smartWaitingVisual")) : isCaptionContext
+        : t(effectAnalysis?.targetKind === "object" ? "effectObjectAnalysisNeeded" : "effectAnalysisNeeded")) : isAiMusicContext ? (aiMusic?.job?.state === "running" ? `${Math.round((aiMusic.job.progress || 0) * 100)}%` : aiMusic?.job?.state === "complete" ? t("complete") : t("modelReady")) : isSmartAutoContext ? (anna?.enabled ? anna.t(anna.connection.status === "connected" ? "connected" : "disconnected") : t(`autoEditStatus_${autoEdit?.support?.availability || "unknown"}`)) : isSmartFrameContext ? (hasVisual ? t("smartVisualReady") : t("smartWaitingVisual")) : isCaptionContext
     ? captionSegments.length
       ? `${captionSegments.length} ${t("captionSegmentsUnit", "条字幕")}`
       : t("noCaptionSegments")
@@ -1728,7 +1730,7 @@ export function VoicePanel({
           onCancel={photoParallaxDepth?.cancel}
           onChange={updateSelectedPhotoParallax}
         /> : null}
-        {isSmartAutoContext ? <AutoEditPanel t={t} hasVisual={hasVisual} language={uiLanguage} autoEdit={autoEdit} /> : null}
+        {isSmartAutoContext ? anna?.enabled ? <AnnaEditPanel anna={anna} /> : <AutoEditPanel t={t} hasVisual={hasVisual} language={uiLanguage} autoEdit={autoEdit} /> : null}
         {isSmartFrameContext ? <SmartFramePanel t={t} smartFrame={smartFrame} /> : null}
         {isAiMusicContext ? <AiMusicGenerator language={uiLanguage} music={aiMusic} embedded /> : null}
         {isStickerContext ? <StickerContextPanel t={t} segment={selectedStickerSegment} updateStickerSegment={updateStickerSegment} deleteStickerSegment={deleteStickerSegment} /> : null}

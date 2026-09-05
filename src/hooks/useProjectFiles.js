@@ -6,45 +6,65 @@ import { createCaptionSegments, getImageThumbnailCount, getVisualSegmentsTotal }
 import { normalizeSmartFrame } from "../lib/smartFrame.js";
 import { normalizeTrackLocks, normalizeTrackVisibility } from "../lib/projectTrackState.js";
 
-export function useProjectFiles(deps) {
+const asArray = (value) => Array.isArray(value) ? value : [];
+const finiteOr = (value, fallback) => value !== null && value !== undefined && Number.isFinite(Number(value)) ? Number(value) : fallback;
+
+// Archive and in-memory command callers share one complete snapshot contract.
+// Optional tracks must remain arrays even when a caller has no media for them.
+export function createProjectSnapshotFromState(deps = {}, commandState) {
+  const state = deps ?? {};
+  const visualSegments = asArray(state.visualSegments).map(({ blob: _blob, trackFrames: _trackFrames, src: _src, cutoutVisual: _cutoutVisual, enhancement: _enhancement, ...segment }) => segment);
+  const visualOverlaySegments = asArray(state.visualOverlaySegments).map(({ blob: _blob, src: _src, ...segment }) => segment);
+  const audioSegments = asArray(state.audioSegments).map(({ blob: _blob, url: _url, peaks: _peaks, ...segment }) => segment);
+  return {
+    script: state.script ?? DEFAULT_SCRIPT,
+    commandState: {
+      schemaVersion: 1,
+      revision: Number.isInteger(commandState?.revision) && commandState.revision >= 0 ? commandState.revision : 0,
+      appliedOperationIds: [...asArray(commandState?.appliedOperationIds)],
+    },
+    selectedVoiceId: state.selectedVoiceId ?? VOICES[0].id,
+    speed: finiteOr(state.speed, VOICES[0].defaultSpeed ?? 1), volume: finiteOr(state.volume, 1),
+    ratioId: state.ratioId ?? "16:9", fitMode: state.fitMode ?? "contain", captionPosition: state.captionPosition ?? "bottom",
+    captionPlacement: state.captionPlacement ?? { x: 50, y: 78 }, captionSize: finiteOr(state.captionSize, 14),
+    captionStyle: state.captionStyle ?? state.captionStyleFallback ?? { fontId: "default" },
+    captionStylePresetId: state.captionStylePresetId ?? "classic", captionStylePresets: asArray(state.captionStylePresets),
+    captionsEnabled: state.captionsEnabled !== false, captionSegments: asArray(state.captionSegments),
+    audioSegments, musicSegments: asArray(state.musicSegments), visualSegments, visualOverlaySegments,
+    stickerSegments: asArray(state.stickerSegments), selectedFilterId: state.selectedFilterId ?? "none",
+    selectedTransitionId: state.selectedTransitionId ?? "none", selectedStickerId: state.selectedStickerId ?? "none",
+    trackVisibility: normalizeTrackVisibility(state.trackVisibility), trackLocks: normalizeTrackLocks(state.trackLocks),
+    timelineZoom: finiteOr(state.timelineZoom, 1), audioDuration: finiteOr(state.audioDuration, 0),
+    musicName: state.musicName ?? "", musicDuration: finiteOr(state.musicDuration, 0), musicVolume: finiteOr(state.musicVolume, 0.35),
+    sourceAudioName: state.sourceAudioName ?? "", sourceAudioDuration: finiteOr(state.sourceAudioDuration, 0),
+    sourceAudioStart: finiteOr(state.sourceAudioStart, 0), sourceAudioVolume: finiteOr(state.sourceAudioVolume, 1),
+    sourceAudioSpatialEffect: state.sourceAudioSpatialEffect ?? "original", sourceAudioSpatialAmount: finiteOr(state.sourceAudioSpatialAmount, 1),
+    musicStart: finiteOr(state.musicStart, 0),
+    sourceAudioAssetId: state.sourceAudioAssetId ?? "", sourceAudioLinked: state.sourceAudioLinked !== false,
+  };
+}
+
+export function useProjectFiles(deps = {}) {
   const commandStateRef = useRef({ schemaVersion: 1, revision: 0, appliedOperationIds: [] });
-  const getProjectSnapshot = useCallback(() => {
-    const visualSegments = deps.visualSegments.map(({ blob, trackFrames, src, cutoutVisual, enhancement: _enhancement, ...segment }) => segment);
-    const visualOverlaySegments = deps.visualOverlaySegments.map(({ blob, src, ...segment }) => segment);
-    const audioSegments = deps.audioSegments.map(({ blob, url, peaks, ...segment }) => segment);
-    return {
-      script: deps.script, commandState: commandStateRef.current, selectedVoiceId: deps.selectedVoiceId, speed: deps.speed, volume: deps.volume,
-      ratioId: deps.ratioId, fitMode: deps.fitMode, captionPosition: deps.captionPosition,
-      captionPlacement: deps.captionPlacement, captionSize: deps.captionSize, captionStyle: deps.captionStyle,
-      captionStylePresetId: deps.captionStylePresetId, captionStylePresets: deps.captionStylePresets,
-      captionsEnabled: deps.captionsEnabled, captionSegments: deps.captionSegments, audioSegments, musicSegments: deps.musicSegments, visualSegments, visualOverlaySegments,
-      stickerSegments: deps.stickerSegments, selectedFilterId: deps.selectedFilterId,
-      selectedTransitionId: deps.selectedTransitionId, selectedStickerId: deps.selectedStickerId,
-      trackVisibility: deps.trackVisibility, trackLocks: deps.trackLocks, timelineZoom: deps.timelineZoom, audioDuration: deps.audioDuration,
-      musicName: deps.musicName, musicDuration: deps.musicDuration, musicVolume: deps.musicVolume,
-      sourceAudioName: deps.sourceAudioName, sourceAudioDuration: deps.sourceAudioDuration,
-      sourceAudioStart: deps.sourceAudioStart, sourceAudioVolume: deps.sourceAudioVolume,
-      sourceAudioSpatialEffect: deps.sourceAudioSpatialEffect, sourceAudioSpatialAmount: deps.sourceAudioSpatialAmount,
-      musicStart: deps.musicStart,
-      sourceAudioAssetId: deps.sourceAudioAssetId, sourceAudioLinked: deps.sourceAudioLinked,
-    };
-  }, [deps]);
+  const getProjectSnapshot = useCallback(() => createProjectSnapshotFromState(deps, commandStateRef.current), [deps]);
+
+  const createCurrentArchive = useCallback(() => createProjectArchive({
+    project: getProjectSnapshot(), visualSegments: [...asArray(deps.visualSegments), ...asArray(deps.visualOverlaySegments)],
+    audioSegments: asArray(deps.audioSegments),
+    audio: deps.audioBlob ? { blob: deps.audioBlob, name: "ai-voiceover" } : null,
+    sourceAudio: deps.sourceAudioBlob ? { blob: deps.sourceAudioBlob, name: deps.sourceAudioName || "source-audio" } : null,
+    music: deps.musicBlob ? { blob: deps.musicBlob, name: deps.musicName || "background-music" } : null,
+  }), [deps, getProjectSnapshot]);
 
   const handleExportProject = useCallback(async () => {
     deps.setShowFileMenu(false);
     try {
       deps.notify("正在打包工程与媒体素材…");
-      const archive = await createProjectArchive({
-        project: getProjectSnapshot(), visualSegments: [...deps.visualSegments, ...deps.visualOverlaySegments],
-        audioSegments: deps.audioSegments,
-        audio: deps.audioBlob ? { blob: deps.audioBlob, name: "ai-voiceover" } : null,
-        sourceAudio: deps.sourceAudioBlob ? { blob: deps.sourceAudioBlob, name: deps.sourceAudioName || "source-audio" } : null,
-        music: deps.musicBlob ? { blob: deps.musicBlob, name: deps.musicName || "background-music" } : null,
-      });
+      const archive = await createCurrentArchive();
       downloadBlob(archive, "AI-配音项目.timeline");
       deps.notify("工程包已导出（含媒体素材）");
     } catch (error) { deps.notify(error instanceof Error ? `工程导出失败：${error.message}` : "工程导出失败"); }
-  }, [deps, getProjectSnapshot]);
+  }, [deps, createCurrentArchive]);
 
   const handleNewProject = useCallback(() => {
     if (!window.confirm("新建工程将清空当前时间线，是否继续？")) return;
@@ -59,7 +79,7 @@ export function useProjectFiles(deps) {
   }, [deps]);
 
   const handleImportProject = useCallback(async (file) => {
-    if (!file) { deps.projectFileInputRef.current?.click(); return; }
+    if (!file) { deps.projectFileInputRef?.current?.click(); return false; }
     try {
       let archive;
       try { archive = await readProjectArchive(file); }
@@ -116,7 +136,7 @@ export function useProjectFiles(deps) {
       }).filter(Boolean) : [];
       deps.setVisualOverlaySegments(overlays); deps.setSelectedVisualOverlayId("");
       deps.setImageClipCount(getImageThumbnailCount(getVisualSegmentsTotal(visuals))); deps.setCurrentVisualAsset(visuals[0] || null);
-      deps.audioSegments.forEach((segment) => { if (segment.url?.startsWith("blob:")) URL.revokeObjectURL(segment.url); });
+      asArray(deps.audioSegments).forEach((segment) => { if (segment.url?.startsWith("blob:")) URL.revokeObjectURL(segment.url); });
       if (Array.isArray(data.audioSegments) && data.audioSegments.length && (audioSegmentMedia?.size || audio)) {
         let legacyDecoded = null;
         const restoredAudioSegments = (await Promise.all(data.audioSegments.map(async (segment) => {
@@ -148,9 +168,14 @@ export function useProjectFiles(deps) {
       deps.setSourceAudioAssetId(data.sourceAudioAssetId || ""); deps.setSourceAudioLinked(data.sourceAudioLinked !== false);
       deps.setCurrentTime(0); deps.clearAllVisionState(); deps.setShowFileMenu(false);
       deps.notify(archive.legacy ? "旧版工程已导入；请重新添加未嵌入的本地媒体，然后导出为 .timeline 工程包" : "工程包已导入，媒体素材已恢复");
-    } catch (error) { deps.notify(`无法读取工程文件${error instanceof Error && error.message ? `：${error.message}` : ""}`); }
-    if (deps.projectFileInputRef.current) deps.projectFileInputRef.current.value = "";
+      return true;
+    } catch (error) {
+      deps.notify(`无法读取工程文件${error instanceof Error && error.message ? `：${error.message}` : ""}`);
+      return false;
+    } finally {
+      if (deps.projectFileInputRef?.current) deps.projectFileInputRef.current.value = "";
+    }
   }, [deps]);
 
-  return { handleExportProject, handleImportProject, handleNewProject };
+  return { getProjectSnapshot, createCurrentArchive, handleExportProject, handleImportProject, handleNewProject };
 }

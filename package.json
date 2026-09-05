@@ -25,9 +25,15 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "typecheck": "tsc --noEmit",
-    "check": "npm run lint && npm run typecheck && npm run build"
+    "check": "npm run lint && npm run typecheck && npm run build",
+    "build:anna": "node scripts/build-anna.mjs",
+    "dev:anna": "vite --config vite.anna.config.mjs --host 127.0.0.1 --port 5181",
+    "anna:validate": "npx --yes @anna-ai/cli@0.1.51 validate --manifest anna/manifest.json --bundle anna/bundle",
+    "anna:dev": "npx --yes @anna-ai/cli@0.1.51 dev --cwd anna --manifest manifest.json --bundle bundle --slug timeline-studio --port 5180 --no-llm",
+    "anna:validate:strict": "npx --yes @anna-ai/cli@0.1.51 validate --manifest anna/manifest.json --bundle anna/bundle --strict"
   },
   "dependencies": {
+    "@anna-ai/app-runtime": "0.16.0",
     "@diffusionstudio/vits-web": "^1.0.3",
     "@ffmpeg/core": "^0.12.10",
     "@ffmpeg/ffmpeg": "^0.12.15",

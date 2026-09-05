@@ -1,0 +1,47 @@
+{
+  "schema": 2,
+  "required_executas": [],
+  "optional_executas": [],
+  "permissions": ["llm.complete", "storage.read", "storage.write", "fs.read", "fs.write"],
+  "host_capabilities": ["llm.complete", "aps.kv", "aps.files"],
+  "system_prompt_addendum": "Open the main Timeline Studio view when the user wants to edit a video. The user imports media in the app, describes an edit, reviews a proposed plan, applies it explicitly to the editable timeline, and exports. Do not claim that a video was rendered, exported, saved, or uploaded until the app reports that outcome. Never invent source assets or claim to have analyzed media when only metadata was provided.",
+  "tags": ["video", "editing", "ai", "local-first"],
+  "ui": {
+    "bundle": {
+      "format": "static-spa",
+      "entry": "index.html",
+      "external_origins": [
+        "https://huggingface.co",
+        "https://us.aws.cdn.hf.co",
+        "https://www.modelscope.cn",
+        "https://5244841125c1e42784f5bda924751be6.r2.cloudflarestorage.com"
+      ]
+    },
+    "views": [
+      {
+        "name": "main",
+        "title": "Timeline Studio",
+        "default": true,
+        "min_size": { "w": 800, "h": 600 },
+        "default_size": { "w": 1440, "h": 900 },
+        "max_size": { "w": 4096, "h": 2160 },
+        "single_instance": true,
+        "resizable": true,
+        "movable": true,
+        "icon": "icons/timeline-studio-icon.svg"
+      }
+    ],
+    "form_factors": ["desktop"],
+    "host_api": {
+      "llm": ["complete"],
+      "storage": ["get", "set", "delete", "list"],
+      "files": ["upload_init", "upload_finalize", "download_url", "list", "delete", "download"],
+      "window": ["ready", "set_title"]
+    },
+    "csp_overrides": {
+      "connect-src": ["blob:"],
+      "font-src": ["blob:"]
+    },
+    "state_merge": "last_writer_wins"
+  }
+}

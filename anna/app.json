@@ -1,0 +1,11 @@
+{
+  "slug": "timeline-studio",
+  "name": "Timeline Studio",
+  "version": "0.1.0-alpha.1",
+  "tagline": "Plan a video edit from your brief, then refine the timeline.",
+  "description": "Validation preview for desktop Anna windows. Import media, describe an edit, and ask Anna for an assembly plan based on your brief and clip metadata: names, types, durations, and trim eligibility. This planning step does not inspect video frames or audio. Review changes before explicitly applying supported ordering and simple 1x video trims, then adjust the editable timeline and export in your browser. Local draft checkpoints stay in browser storage. Explicit cloud-save or host-download actions upload the selected project archive, including its media, or exported video to Anna storage when available and authorized. Platform AI, storage, download, and browser-compute compatibility are being validated.",
+  "category": "productivity",
+  "homepage_url": "https://video-editor.ai-creator.top/",
+  "support_url": "https://github.com/MartinDelophy/ai-video-editor/issues",
+  "logo_file": "../public/icons/timeline-studio-icon-512.png"
+}

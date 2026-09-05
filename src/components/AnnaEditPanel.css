@@ -1,0 +1,201 @@
+.anna-edit-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+.anna-edit-panel p {
+  margin: 8px 0;
+  font-size: 12px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.anna-edit-panel h3 {
+  margin: 0 0 8px;
+  font-size: 13px;
+}
+.anna-connection {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 12px;
+}
+.anna-connection > span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.anna-connection p {
+  flex-basis: 100%;
+  color: var(--text-muted, #98a6b9);
+}
+.anna-prompt {
+  display: grid;
+  gap: 8px;
+  font-size: 12px;
+}
+.anna-prompt textarea {
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+  min-height: 100px;
+  padding: 12px;
+  border: 1px solid #354654;
+  border-radius: 10px;
+  background: #0d151f;
+  color: #e3edf7;
+  font: inherit;
+  line-height: 1.6;
+}
+.anna-prompt textarea:focus-visible {
+  outline: 1px solid #5dd5e5;
+  border-color: #5dd5e5;
+  outline-offset: 1px;
+}
+.anna-edit-panel .anna-hint {
+  margin: 0;
+  color: var(--text-muted, #98a6b9);
+  font-size: 11px;
+}
+.anna-edit-panel .auto-edit-generate {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  min-height: 38px;
+}
+.anna-edit-panel button:enabled,
+.anna-edit-panel summary,
+.anna-export a {
+  cursor: pointer;
+}
+.anna-edit-panel button:disabled {
+  cursor: not-allowed;
+}
+.anna-edit-panel .panel-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 12px;
+  min-height: 34px;
+  padding: 7px 10px;
+}
+.anna-job {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+.anna-job > span {
+  flex: 1;
+}
+.anna-spinner {
+  animation: anna-spin 1s linear infinite;
+  flex-shrink: 0;
+}
+.anna-edit-panel .anna-error {
+  color: #ffac9e;
+}
+.anna-edit-panel .anna-notice,
+.anna-edit-panel .is-ready,
+.anna-compatibility .is-passed {
+  color: #76dfc3;
+}
+.anna-edit-panel code {
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+.anna-section,
+.anna-review {
+  border-top: 1px solid #2a3848;
+  padding-top: 14px;
+  min-width: 0;
+}
+.anna-section > p {
+  color: var(--text-muted, #98a6b9);
+}
+.anna-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.anna-edit-panel summary {
+  font-size: 12px;
+  padding: 6px 0;
+}
+.anna-duration {
+  display: flex;
+  gap: 12px;
+  font-size: 12px;
+  color: #8edbe5;
+}
+.anna-review ol {
+  list-style: none;
+  margin: 12px 0;
+  padding: 0;
+  max-height: 280px;
+  overflow-y: auto;
+}
+.anna-review li {
+  padding: 9px 0;
+  display: grid;
+  gap: 4px;
+  border-top: 1px solid #263441;
+  font-size: 12px;
+}
+.anna-review li strong {
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+.anna-review li span,
+.anna-review li small {
+  color: #9aaabd;
+  font-size: 11px;
+}
+.anna-review li.is-changed strong {
+  color: #86e2ed;
+}
+.anna-export video {
+  width: 100%;
+  max-height: 220px;
+  background: #080e14;
+  margin-top: 10px;
+  border-radius: 8px;
+}
+.anna-export a {
+  display: inline-block;
+  padding: 9px 0;
+  color: #86e2ed;
+  font-size: 12px;
+}
+.anna-compatibility ul {
+  list-style: none;
+  padding: 0;
+}
+.anna-compatibility li {
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  padding: 6px 0;
+  font-size: 11px;
+}
+.anna-compatibility .is-blocked {
+  color: #ffb397;
+}
+.anna-compatibility .is-unverified {
+  color: #a5b1c2;
+}
+@keyframes anna-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .anna-spinner {
+    animation: none;
+  }
+}

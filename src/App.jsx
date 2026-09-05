@@ -34,6 +34,8 @@ import { useVoiceGeneration } from "./hooks/useVoiceGeneration.js";
 import { useVoiceProfiles } from "./hooks/useVoiceProfiles.js";
 import { useAutoCaptions } from "./hooks/useAutoCaptions.js";
 import { useAutoEdit } from "./hooks/useAutoEdit.js";
+import { useAnnaEditor } from "./hooks/useAnnaEditor.js";
+import { restoreAnnaVisualMedia } from "./lib/annaEditPlan.js";
 import { useSourceAudioExtraction } from "./hooks/useSourceAudioExtraction.js";
 import { useVocalSeparation } from "./hooks/useVocalSeparation.js";
 import { useAvatarGeneration } from "./hooks/useAvatarGeneration.js";
@@ -237,7 +239,7 @@ export function App() {
     setSelectedLibraryAssetId,
     setUserAssets,
   });
-  const { redo, undo } = useEditorHistory({
+  const { redo, undo, checkpoint: checkpointHistory } = useEditorHistory({
     audioSegments, captionPlacement, captionPosition, captionSegments, captionSize,
     captionStyle, captionsEnabled, currentTime, fitMode, imageClipCount, imageDuration,
     imageMeta, imageName, imageSrc, imageUrlRefs, musicBlob, musicDuration, musicName, musicSegments, musicStart,
@@ -1229,15 +1231,15 @@ export function App() {
     return { ...overlay, depthAnalysis: resolveDepthAnalysisAtTime(depthRecord, sourceTime) };
   }), [currentTime, depthRecords, previewVisualOverlays]);
 
-  const { handleExportProject, handleImportProject, handleNewProject } = useProjectFiles({
+  const { handleExportProject, handleImportProject, handleNewProject, getProjectSnapshot, createCurrentArchive } = useProjectFiles({
     audioBlob, audioDuration, audioSegments, captionPlacement, captionPosition, captionSegments, captionSize,
-    captionStyle, captionsEnabled, captionStyleFallback: captionStyle, clearAllVisionState,
+    captionStyle, captionStylePresetId, captionStylePresets, captionsEnabled, captionStyleFallback: captionStyle, clearAllVisionState,
     clearAudioTrack, clearImageTrack, clearMusicTrack, clearSourceAudioTrack, fitMode,
-    imageUrlRefs, musicBlob, musicDuration, musicName, musicStart, musicVolume, notify, projectFileInputRef,
+    imageUrlRefs, musicBlob, musicDuration, musicName, musicSegments, musicStart, musicVolume, notify, projectFileInputRef,
     ratioId, replaceAudio, replaceMusic, replaceSourceAudio, script, selectedFilterId,
     selectedStickerId, selectedTransitionId, selectedVoiceId, setCaptionPlacement,
-    setCaptionPosition, setCaptionSegments, setCaptionSize, setCaptionStyle, setCaptionsEnabled,
-    setAudioSegments, setCurrentTime, setFitMode, setImageClipCount, setImageDuration, setMusicStart, setMusicVolume, setSelectedAudioSegmentId,
+    setCaptionPosition, setCaptionSegments, setCaptionSize, setCaptionStyle, setCaptionStylePresetId, setCaptionStylePresets, setCaptionsEnabled,
+    setAudioSegments, setCurrentTime, setFitMode, setImageClipCount, setImageDuration, setMusicSegments, setMusicStart, setMusicVolume, setSelectedAudioSegmentId,
     setRatioId, setScript, setSelectedFilterId, setSelectedSegmentId, setSelectedStickerId,
     setSelectedStickerSegmentId, setSelectedTransitionId, setSelectedVoiceId, setShowFileMenu,
     setSourceAudioAssetId, setSourceAudioLinked, setSourceAudioVolume, setSourceAudioSpatialEffect, setSourceAudioSpatialAmount, setSpeed, setStickerSegments, setTimelineZoom, setTrackLocks, setTrackVisibility,
@@ -1297,6 +1299,30 @@ export function App() {
     setTimelineHorizon,
     stickerSegments, sourceAudioDuration, sourceAudioStart, musicDuration, musicStart, musicSegments, currentTime, setSnapGuide,
     visualOverlaySegments, setVisualOverlaySegments, setSelectedVisualOverlayId, trackScrollRef,
+  });
+
+  const anna = useAnnaEditor({
+    language: activeLanguage, visualSegments, rippleEditing, getProjectSnapshot,
+    createArchive: createCurrentArchive, importProject: handleImportProject,
+    hasMusic: Boolean(musicBlob), hasSourceAudio: Boolean(sourceAudioBlob),
+    renderVideo: handleExportVideo, exportSettings, exporting,
+    applyReview: (review) => {
+      const next = review.project;
+      const nextVisuals = restoreAnnaVisualMedia(next.visualSegments, visualSegments);
+      const nextAudio = restoreAnnaVisualMedia(next.audioSegments, audioSegments);
+      const nextOverlays = restoreAnnaVisualMedia(next.visualOverlaySegments, visualOverlaySegments);
+      checkpointHistory();
+      setIsPlaying(false);
+      setAudioSegments(nextAudio);
+      setCaptionSegments(next.captionSegments);
+      setVisualOverlaySegments(nextOverlays);
+      setStickerSegments(next.stickerSegments);
+      setMusicSegments(next.musicSegments);
+      setMusicStart(next.musicStart);
+      setSourceAudioStart(next.sourceAudioStart);
+      commitVisualSegments(nextVisuals, anna.t("applied"));
+      setCurrentTime(0);
+    },
   });
 
   return (
@@ -1375,7 +1401,7 @@ export function App() {
 
       <section className={`editor-grid ${compactRail ? "is-compact-rail" : ""}`}>
         <EditorSidebar model={{
-          activeLanguage, activeTool, analyzeCurrentVisual, analyzeEffectVisual, audioBlob, audioDuration,
+          activeLanguage, activeTool, anna, analyzeCurrentVisual, analyzeEffectVisual, audioBlob, audioDuration,
           builtInAssets, captionPosition, captionSegments, captionSize, captionStyle,
           captionStylePresetId, captionStylePresets,
           captionTargetDuration, captionsEnabled, clearMusicTrack, clearSourceAudioTrack,
@@ -1587,6 +1613,7 @@ export function App() {
           smartMode={smartMode}
           aiMusic={aiMusic}
           autoEdit={autoEdit}
+          anna={anna}
           uiLanguage={activeLanguage}
           captionStyle={captionStyle}
           setCaptionStyle={setCaptionStyle}

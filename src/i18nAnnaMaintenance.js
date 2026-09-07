@@ -52,7 +52,8 @@ export const ANNA_MAINTENANCE_COPY = {
     "cloudSaved": "工程已保存到 Anna",
     "backingUp": "正在保存恢复备份",
     "backedUp": "恢复备份已保存",
-    "listingFiles": "正在读取文件列表"
+    "listingFiles": "正在读取文件列表",
+    "sourceAudioUnavailable": "无法读取所选范围内的视频原声，已停止导出。请保留工程后重试；如只需画面，请在导出设置中将音频设为“静音”。"
   },
   "en": {
     "capabilityUnavailable": "This feature is currently unavailable",
@@ -106,7 +107,8 @@ export const ANNA_MAINTENANCE_COPY = {
     "cloudSaved": "Project saved to Anna",
     "backingUp": "Saving restore backup",
     "backedUp": "Restore backup saved",
-    "listingFiles": "Loading file list"
+    "listingFiles": "Loading file list",
+    "sourceAudioUnavailable": "The original video audio in the selected range could not be read, so export stopped. Keep your project and retry; for a silent video, set Audio to “Muted” in export settings."
   },
   "ja": {
     "capabilityUnavailable": "この機能は現在利用できません",
@@ -160,7 +162,8 @@ export const ANNA_MAINTENANCE_COPY = {
     "cloudSaved": "プロジェクトを Anna に保存しました",
     "backingUp": "復元用バックアップを保存中",
     "backedUp": "復元用バックアップを保存しました",
-    "listingFiles": "ファイル一覧を読み込み中"
+    "listingFiles": "ファイル一覧を読み込み中",
+    "sourceAudioUnavailable": "選択範囲の動画の元音声を読み込めないため、書き出しを停止しました。プロジェクトを保持して再試行してください。無音でよい場合は、書き出し設定の音声を「ミュート」にしてください。"
   },
   "ko": {
     "capabilityUnavailable": "현재 이 기능을 사용할 수 없습니다",
@@ -214,7 +217,8 @@ export const ANNA_MAINTENANCE_COPY = {
     "cloudSaved": "프로젝트를 Anna에 저장했습니다",
     "backingUp": "복원 백업 저장 중",
     "backedUp": "복원 백업을 저장했습니다",
-    "listingFiles": "파일 목록 불러오는 중"
+    "listingFiles": "파일 목록 불러오는 중",
+    "sourceAudioUnavailable": "선택한 구간의 영상 원본 오디오를 읽을 수 없어 내보내기를 중단했습니다. 프로젝트를 보존한 뒤 다시 시도하세요. 무음 영상이 필요하면 내보내기 설정에서 오디오를 “음소거”로 설정하세요."
   },
   "es": {
     "capabilityUnavailable": "Esta función no está disponible por ahora",
@@ -268,7 +272,8 @@ export const ANNA_MAINTENANCE_COPY = {
     "cloudSaved": "Proyecto guardado en Anna",
     "backingUp": "Guardando copia de restauración",
     "backedUp": "Copia de restauración guardada",
-    "listingFiles": "Cargando lista de archivos"
+    "listingFiles": "Cargando lista de archivos",
+    "sourceAudioUnavailable": "No se pudo leer el audio original del vídeo en el intervalo seleccionado y se detuvo la exportación. Conserva el proyecto y reinténtalo; para un vídeo sin sonido, selecciona “Silenciado” en Sonido, en los ajustes de exportación."
   },
   "fr": {
     "capabilityUnavailable": "Cette fonctionnalité est indisponible pour le moment",
@@ -322,7 +327,8 @@ export const ANNA_MAINTENANCE_COPY = {
     "cloudSaved": "Projet enregistré dans Anna",
     "backingUp": "Enregistrement de la sauvegarde de restauration",
     "backedUp": "Sauvegarde de restauration enregistrée",
-    "listingFiles": "Chargement de la liste des fichiers"
+    "listingFiles": "Chargement de la liste des fichiers",
+    "sourceAudioUnavailable": "L’audio d’origine de la vidéo dans la plage sélectionnée n’a pas pu être lu ; l’export a été arrêté. Conservez le projet et réessayez. Pour une vidéo muette, réglez Son sur « Muet » dans les paramètres d’export."
   },
   "de": {
     "capabilityUnavailable": "Diese Funktion ist derzeit nicht verfügbar",
@@ -376,7 +382,8 @@ export const ANNA_MAINTENANCE_COPY = {
     "cloudSaved": "Projekt in Anna gespeichert",
     "backingUp": "Wiederherstellungssicherung wird gespeichert",
     "backedUp": "Wiederherstellungssicherung gespeichert",
-    "listingFiles": "Dateiliste wird geladen"
+    "listingFiles": "Dateiliste wird geladen",
+    "sourceAudioUnavailable": "Der Originalton des Videos im ausgewählten Bereich konnte nicht gelesen werden. Der Export wurde gestoppt. Behalte das Projekt und versuche es erneut. Wähle für ein stummes Video in den Exporteinstellungen unter Ton die Option „Stumm“."
   },
   "pt": {
     "capabilityUnavailable": "Esta função está indisponível no momento",
@@ -430,7 +437,8 @@ export const ANNA_MAINTENANCE_COPY = {
     "cloudSaved": "Projeto salvo no Anna",
     "backingUp": "Salvando cópia de restauração",
     "backedUp": "Cópia de restauração salva",
-    "listingFiles": "Carregando lista de arquivos"
+    "listingFiles": "Carregando lista de arquivos",
+    "sourceAudioUnavailable": "Não foi possível ler o áudio original do vídeo no intervalo selecionado, por isso a exportação foi interrompida. Preserve o projeto e tente novamente. Para um vídeo sem som, selecione “Sem áudio” em Áudio nas configurações de exportação."
   },
   "th": {
     "capabilityUnavailable": "ฟีเจอร์นี้ยังไม่พร้อมใช้งาน",
@@ -484,7 +492,8 @@ export const ANNA_MAINTENANCE_COPY = {
     "cloudSaved": "บันทึกโปรเจกต์ไปยัง Anna แล้ว",
     "backingUp": "กำลังบันทึกข้อมูลสำรองสำหรับกู้คืน",
     "backedUp": "บันทึกข้อมูลสำรองสำหรับกู้คืนแล้ว",
-    "listingFiles": "กำลังโหลดรายการไฟล์"
+    "listingFiles": "กำลังโหลดรายการไฟล์",
+    "sourceAudioUnavailable": "ไม่สามารถอ่านเสียงต้นฉบับของวิดีโอในช่วงที่เลือกได้ จึงหยุดการส่งออก โปรดเก็บโปรเจกต์ไว้แล้วลองอีกครั้ง หากต้องการวิดีโอแบบไม่มีเสียง ให้เลือก “ปิดเสียง” ในช่องเสียงของการตั้งค่าการส่งออก"
   },
   "vi": {
     "capabilityUnavailable": "Tính năng này hiện chưa khả dụng",
@@ -538,7 +547,8 @@ export const ANNA_MAINTENANCE_COPY = {
     "cloudSaved": "Đã lưu dự án vào Anna",
     "backingUp": "Đang lưu bản sao lưu khôi phục",
     "backedUp": "Đã lưu bản sao lưu khôi phục",
-    "listingFiles": "Đang tải danh sách tệp"
+    "listingFiles": "Đang tải danh sách tệp",
+    "sourceAudioUnavailable": "Không thể đọc âm thanh gốc của video trong phạm vi đã chọn nên quá trình xuất đã dừng. Giữ lại dự án rồi thử lại; nếu muốn video không có tiếng, hãy chọn “Tắt tiếng” ở mục Âm thanh trong cài đặt xuất."
   },
   "ru": {
     "capabilityUnavailable": "Эта функция пока недоступна",
@@ -592,7 +602,8 @@ export const ANNA_MAINTENANCE_COPY = {
     "cloudSaved": "Проект сохранён в Anna",
     "backingUp": "Сохраняем копию для восстановления",
     "backedUp": "Копия для восстановления сохранена",
-    "listingFiles": "Загружаем список файлов"
+    "listingFiles": "Загружаем список файлов",
+    "sourceAudioUnavailable": "Не удалось прочитать исходный звук видео в выбранном диапазоне, поэтому экспорт остановлен. Сохраните проект и повторите попытку. Для видео без звука выберите «Без звука» в поле «Аудио» в настройках экспорта."
   },
   "it": {
     "capabilityUnavailable": "Questa funzione non è al momento disponibile",
@@ -646,7 +657,8 @@ export const ANNA_MAINTENANCE_COPY = {
     "cloudSaved": "Progetto salvato in Anna",
     "backingUp": "Salvataggio copia di ripristino",
     "backedUp": "Copia di ripristino salvata",
-    "listingFiles": "Caricamento elenco file"
+    "listingFiles": "Caricamento elenco file",
+    "sourceAudioUnavailable": "Non è stato possibile leggere l’audio originale del video nell’intervallo selezionato, quindi l’esportazione è stata interrotta. Conserva il progetto e riprova. Per un video muto, seleziona “Disattivato” per Audio nelle impostazioni di esportazione."
   },
   "id": {
     "capabilityUnavailable": "Fitur ini belum tersedia",
@@ -700,6 +712,7 @@ export const ANNA_MAINTENANCE_COPY = {
     "cloudSaved": "Proyek disimpan ke Anna",
     "backingUp": "Menyimpan cadangan pemulihan",
     "backedUp": "Cadangan pemulihan disimpan",
-    "listingFiles": "Memuat daftar file"
+    "listingFiles": "Memuat daftar file",
+    "sourceAudioUnavailable": "Audio asli video dalam rentang yang dipilih tidak dapat dibaca, sehingga ekspor dihentikan. Simpan proyek Anda dan coba lagi. Untuk video tanpa suara, pilih “Dibungkam” pada Audio di pengaturan ekspor."
   }
 };

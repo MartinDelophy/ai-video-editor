@@ -1277,6 +1277,7 @@ export function App() {
     sourceAudioTimelineEnd, stickerDuration, visualOverlaySegments, voiceTrackDuration,
   ]);
   const handleExportVideo = useVideoExport({
+    language: activeLanguage,
     audioSegments, captionDuration, captionPlacement, captionPosition, captionSegments, captionTargetDuration,
     captionSize, captionStyle, captionsEnabled, exporting, exportAbortControllerRef, exportStartRef, fitMode,
     imageDuration, imageSrc, musicBlob, musicDuration, musicSegments, musicStart, musicTimelineEnd, musicVolume, notify,

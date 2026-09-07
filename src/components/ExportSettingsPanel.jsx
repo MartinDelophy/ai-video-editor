@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { FileArrowDown } from "@phosphor-icons/react";
+import { isAnnaEdition } from "../lib/annaRuntime.js";
 
 import {
   formatEstimatedFileSize,
@@ -32,6 +33,7 @@ const SIMPLE_EXPORT_DEFAULTS = Object.freeze({
 const withSimpleExportDefaults = (settings) => ({
   ...settings,
   ...SIMPLE_EXPORT_DEFAULTS,
+  ...(isAnnaEdition && settings.audio === "none" ? { audio: "none" } : {}),
 });
 
 export function ExportSettingsPanel({
@@ -44,8 +46,10 @@ export function ExportSettingsPanel({
   handleExportVideo,
   onClose,
 }) {
-  const summary = getExportTechnicalSummary(exportSettings, ratio);
-  const estimate = getExportEstimate({ ...exportSettings, range: "full" }, ratio, timelineDuration);
+  const audioDisabled = isAnnaEdition && exportSettings.audio === "none";
+  const audioMode = audioDisabled ? "none" : "mix";
+  const summary = getExportTechnicalSummary({ ...exportSettings, audio: audioMode }, ratio);
+  const estimate = getExportEstimate({ ...exportSettings, audio: audioMode, range: "full" }, ratio, timelineDuration);
   const format = getExportFormatProfile(exportSettings.codec);
   const selectedVideoBitrate = exportSettings.bitrateMode === "custom"
     ? String(Math.round((Number(exportSettings.customVideoBitsPerSecond) || 12_000_000) / 1_000_000))
@@ -87,6 +91,14 @@ export function ExportSettingsPanel({
           />
         </label>
 
+        {isAnnaEdition ? <label className="export-setting-field">
+          <span>{t("exportAudio")}</span>
+          <select value={audioMode} onChange={(event) => update({ audio: event.target.value })}>
+            <option value="mix">{t("exportAudioMix")}</option>
+            <option value="none">{t("exportAudioNone")}</option>
+          </select>
+        </label> : null}
+
         <div className="export-setting-grid">
           <label className="export-setting-field">
             <span>{t("exportResolution")}</span>
@@ -125,13 +137,16 @@ export function ExportSettingsPanel({
           <label className="export-setting-field">
             <span>{t("exportAudioBitrate")}</span>
             <select
-              value={exportSettings.audioBitsPerSecond || 192_000}
+              value={audioDisabled ? "none" : exportSettings.audioBitsPerSecond || 192_000}
+              disabled={audioDisabled}
               onChange={(event) => update({ audioBitsPerSecond: Number(event.target.value) })}
             >
-              <option value="128000">128 kbps</option>
-              <option value="192000">192 kbps</option>
-              <option value="256000">256 kbps</option>
-              <option value="320000">320 kbps</option>
+              {audioDisabled ? <option value="none">{t("exportAudioNone")}</option> : <>
+                <option value="128000">128 kbps</option>
+                <option value="192000">192 kbps</option>
+                <option value="256000">256 kbps</option>
+                <option value="320000">320 kbps</option>
+              </>}
             </select>
           </label>
         </div>
@@ -140,7 +155,7 @@ export function ExportSettingsPanel({
           <span>{summary.width} × {summary.height}</span>
           <span>30 fps</span>
           <span>{summary.bitrateMbps} Mbps</span>
-          <span>{format.video} + {format.audio}</span>
+          <span>{summary.video}{summary.audio ? ` + ${summary.audio}` : ` · ${t("exportAudioNone")}`}</span>
           <span>≈ {formatEstimatedFileSize(estimate.estimatedBytes)}</span>
           <span>{timelineDuration.toFixed(1)}s</span>
         </div>

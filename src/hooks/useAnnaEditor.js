@@ -185,7 +185,7 @@ export function useAnnaEditor(deps) {
       });
       if (["canceled", "cancelled"].includes(result?.status)) throw Object.assign(new Error(), { code: "cancelled" });
       if (result?.status !== "success" || result.extension !== "mp4" || !videoArtifact)
-        throw Object.assign(new Error(), { code: "ANNA_EXPORT_FAILED" });
+        throw Object.assign(new Error(), { code: result?.errorCode === "ANNA_SOURCE_AUDIO_UNAVAILABLE" ? result.errorCode : "ANNA_EXPORT_FAILED" });
       if (!mounted.current) return;
       if (exportUrlRef.current) URL.revokeObjectURL(exportUrlRef.current);
       attachmentUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));

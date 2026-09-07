@@ -28,9 +28,12 @@ export function createEmbeddedVideoAudioSegments(visualSegments = [], audioAsset
   });
 }
 
-export async function prepareEmbeddedVideoAudio(visualSegments = [], onProgress, signal) {
+export async function prepareEmbeddedVideoAudio(visualSegments = [], onProgress, signal, { strict = false, range } = {}) {
   throwIfExportAborted(signal);
-  const candidates = visualSegments.filter((segment) => segment.type === "video" && !segment.sourceAudioDisabled);
+  const timeline = strict && range ? getVisualSegmentTimeline(visualSegments) : null;
+  const candidates = visualSegments.filter((segment, index) => segment.type === "video" && !segment.sourceAudioDisabled
+    && (!timeline || ((timeline[index]?.start || 0) < range.end
+      && (timeline[index]?.start || 0) + segment.duration > range.start)));
   const uniqueAssets = [...new Map(candidates.map((segment) => [getAssetKey(segment), segment])).entries()];
   if (!uniqueAssets.length) return { blob: null, segments: [] };
 
@@ -52,7 +55,26 @@ export async function prepareEmbeddedVideoAudio(visualSegments = [], onProgress,
               return response.blob();
             })
           : null;
-      if (!sourceBlob) continue;
+      if (!sourceBlob) {
+        if (strict) throw new Error("missing_video_media");
+        continue;
+      }
+      if (strict && !(segment.compatibilityAudioBlob instanceof Blob)) {
+        // Container metadata is parsed in JavaScript; no WASM or decoder is
+        // needed to distinguish a truly silent file from extraction failure.
+        const { ALL_FORMATS, BlobSource, Input } = await import("mediabunny");
+        const input = new Input({ source: new BlobSource(sourceBlob), formats: ALL_FORMATS });
+        const cancel = () => input.dispose();
+        signal?.addEventListener("abort", cancel, { once: true });
+        try {
+          const tracks = await input.getAudioTracks();
+          throwIfExportAborted(signal);
+          if (!tracks.length) continue;
+        } finally {
+          signal?.removeEventListener("abort", cancel);
+          input.dispose();
+        }
+      }
       const blob = segment.compatibilityAudioBlob instanceof Blob
         ? segment.compatibilityAudioBlob
         : await extractAudioFromVideo(sourceBlob, segment.name || "source-video.mp4");
@@ -60,8 +82,11 @@ export async function prepareEmbeddedVideoAudio(visualSegments = [], onProgress,
       const decoded = await decodeWaveform(blob, 24);
       throwIfExportAborted(signal);
       if (decoded.duration > 0) extracted.push({ key, blob, duration: decoded.duration });
+      else if (strict) throw new Error("empty_video_audio");
     } catch (error) {
+      throwIfExportAborted(signal);
       if (isExportAbortError(error)) throw error;
+      if (strict) throw Object.assign(new Error("ANNA_SOURCE_AUDIO_UNAVAILABLE", { cause: error }), { code: "ANNA_SOURCE_AUDIO_UNAVAILABLE" });
       console.warn("Embedded video audio extraction skipped", segment.name || segment.id, error);
     }
   }

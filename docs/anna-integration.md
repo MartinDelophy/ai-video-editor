@@ -1,13 +1,45 @@
 # Timeline Studio Anna Edition 开发与验证
 
-更新日期：2026-09-07。当前工作位于 `codex/anna-validation` 分支，属于 Anna 适配验证。已注册应用为 **`@martindelophy/timeline-studio`（app ID `254`）**，最后确认的私有 working draft 为 **revision `3` ready**。9 月 5 日生产私有容器的核心五步——素材导入、视频播放、一项真实 AI 剪辑、MP4 生成预览和刷新后恢复完整草稿——已通过；方案应用、撤销和重做也已验证。当天发现 **R2 存储桶 CORS 未配置**和**生产 CSP 阻止 WASM**两项平台兼容性阻塞，9 月 7 日没有重新访问生产容器确认其状态。下面的新维护改动仅在本地，未推送 Git 远端或 Anna 草稿。实际下载与云端恢复仍待验证；尚未冻结版本、提交审核或上线，不能描述为全功能兼容或已具备送审条件。
+更新日期：2026-09-07。当前工作位于 `codex/anna-validation` 分支，属于 Anna 适配验证。应用 **`@martindelophy/timeline-studio`（app ID `254`）** 的私有 working draft 已更新为 **revision `5` ready**。本轮用户授权生产复测和 Anna 草稿更新；没有推送 Git 远端，没有冻结版本、提交审核或公开上线。生产云存储 CORS 与完整工程样本往返现已通过；**WASM 仍被生产 CSP 阻止**，实际文件落盘与完整文件生命周期仍有验收缺口。不能描述为全功能兼容或已完成首发审核准备。
 
 独立站继续使用根目录 `index.html`、`vite.config.mjs` 和既有部署入口。Anna 构建直接进入同一编辑器，单独启用平台适配，不改变独立站 `/` 的直接编辑体验。
 
-## 2026-09-07 本地维护结果（未推送）
+## 2026-09-07 r5 原声保护与静音导出回归
+
+`apps push --if-match 4` 已将私有工作草稿更新到 **r5 ready**：159 文件、**170,897,427 字节**，内容哈希 **`e6bd6623cf95fec8ae98eeeaa58c651d53a38d8936eaffb886397a6c2584c61b`**。控制台确认 r5、ready 与 Unpublished，已执行 Working draft → Install & test。生产入口实际引用 `editor-BIu_J1eG.js`，与本地构建一致；仍未冻结版本或提交审核。
+
+| 验证 | 实际结果与边界 |
+| --- | --- |
+| r5 云恢复 | 新生产窗口从空时间轴显式恢复上述云端合成工程，恢复两秒主视觉及素材 |
+| 原声失败保护 | 已知含 AAC 原声的样本仍受生产 WASM 限制；Anna 面板显示 `ANNA_SOURCE_AUDIO_UNAVAILABLE` 和本地化说明，没有生成结果视频。顶栏导出也显示同一停止提示，不再将缺声成片报为成功 |
+| 明确静音 | Anna 专属音频选项默认混合轨道；选“静音”后，音频码率禁用，摘要显示 `H.264 · 静音`。关闭设置后从 Anna 面板生成，实际预览解码为 **1920×1080、duration=2、readyState=4**，显示“成片已生成” |
+| 本地检查 | 31 项临时原声/导出/组件事件检查通过，覆盖无音轨视频、静音、范围排除、取消、失败终止、普通版兼容及 13 语文案；脚本和样本只在 `/tmp`。Typecheck 通过；改动文件 ESLint 0 errors，App 中 7 条既有未使用变量 warnings |
+| 构建与校验 | 最终 Anna 构建 2 分 6 秒、普通站构建 2 分 9 秒均通过；官方普通 validate 通过。严格扫描仍保留已知 SDK 诊断字符串误报，不声称严格校验通过 |
+
+Anna 导出会先用纯 JavaScript 容器元数据区分“文件确实没有音轨”和“原声读取失败”；前者允许导出，后者停止。保护限定 Anna 版本，普通站保持现有行为。上述静音成片只验证生成和浏览器解码，不代替本机文件落盘、全量解码或带声交付验收。
+
+## 2026-09-07 云存储复测与 r4 草稿
+
+使用官方 CLI `0.1.51`、SDK `0.16.0`。`apps push --if-match 3` 成功推进到 **r4**；159 文件、**170,891,866 字节**，内容哈希 **`ce035068a8cdb62d17f5476774afdcc402e57c410c041500f6f1cfd87fdf7f85`**，bundle ready，应用状态仍为 `draft`。开发者控制台亦显示 r4 与 Unpublished。安装入口仍是 Working draft → Install & test；没有执行 `cut`、`submit-review`、`release`。
+
+| 复测 | 实际结果 |
+| --- | --- |
+| 存储 CORS | 使用真实生产来源 `https://anna.partners`、PUT 与 content-type 预检，返回 HTTP 204、精确 Allow-Origin、GET/PUT/HEAD；不代表 localhost 或任意头都被允许 |
+| 生产工程往返 | r3 的 2 秒合成工程显式上传成功；刷新成空时间轴后从 Anna 恢复成功；素材播放推进至 0.42 秒。没有使用本地草稿恢复按钮代替云端恢复 |
+| r4 存储回归 | 实际生产包为 `editor-CIrQsPI1.js`；新版云恢复通过，带已有引用 etag 条件的保存成功。文件列表显示四份工程与一份成片，没有因旧上传记录导致列表校验失败；可将已保存工程设为最新引用，无需重传媒体 |
+| WASM 与隔离 | 生产编译/实例化探针仍失败；实际入口 GET 为 200，`script-src 'self' 'self'`；SharedArrayBuffer 因未跨源隔离不可用。最新官方语义校验仍不支持 `'wasm-unsafe-eval'` |
+| 其它能力与导出 | Service Worker、Worker、IndexedDB、Cache Storage、WebGPU 通过；本次 H.264 探针曾超时，但同一生产窗口之后实际生成并解码了 1920×1080、duration=2、readyState=4 的 MP4。随后确认原声提取受 WASM 限制却被旧逻辑跳过，因此这里只证明画面生成，不证明音轨完整。探针超时也不能据此写成不支持 |
+| Host 下载 | 真实文件列表出现本轮 `ai-voiceover.mp4`（1.58 MiB），证明成片已上传；Host 下载动作没有给出可确认的本机文件，未将其记作下载交付通过 |
+| 首次引用并发 | 新代码保留 `if_match: ""` 的缺失行条件；公开生产文档没有明确保证该语义，首次写入仍待专项验证。没有为此创建更宽权限的临时 dev App、Executa 或存储令牌 |
+
+据真实文件往返证据，r4 将 `ANNA_CLOUD_TRANSFERS_VERIFIED` 设为 true，并同步 `app.json` 对云传输、恢复备份与模型限制的描述。此开关仅表示允许显式传输；不代表首次写入、删除、分页、版本冲突以及 Host 下载到本机等所有操作均已通过。
+
+审核流程已按较新的官方资料核对到 [`anna-release-readiness.md`](anna-release-readiness.md)：首发完整审核，后续版本仍须 release review；管理员可能批准即上线。送审前应先补齐材料和交付证据，不把草稿更新当作商店审核。
+
+## 2026-09-07 较早的本地维护记录（现已随 r4 推送）
 
 - **能力入口：**Anna 启动时实际编译并实例化最小 WASM 模块。受限时，依赖本地模型的音乐、语音、字幕、视觉分析等入口显示原因与重试操作，并阻止启动模型组件。手动编辑和平台剪辑方案仍保留。这个探针不代表模型下载、GPU 推理或所有导出回退均可用。
-- **云端传输：**`ANNA_CLOUD_TRANSFERS_VERIFIED = false` 是明确的发布策略，不是假探针；真实文件往返验收前，工程上传、云端恢复和 Host 下载均不可点击，运行时入口也拒绝传输。元数据文件管理与媒体传输分开。
+- **云端传输：**此前使用 `ANNA_CLOUD_TRANSFERS_VERIFIED = false` 明确关闭未验证的传输，而非伪造浏览器探针。完成上述生产样本往返后，r4 已开启显式云端传输；元数据文件管理与媒体传输仍分开。
 - **恢复保护：**显式草稿旁增加下载、删除确认，以及最多两份含素材的恢复前备份。配额失败不覆盖旧备份；恢复过程中检测工程变更。导入器先完成归档读取与全部音频解码，再同步检查并提交状态；失败会释放新建 URL，原工程继续可用。零音量和旧版配音起点也得到保留。
 - **云端文件生命周期：**新增限定应用目录的分页列表、带版本条件的删除、最新工程引用修复。文件已上传而引用失败时可仅修复引用，不重复上传；删除结果不确定时不声称成功或自动清理。首次引用写入使用 `if_match: ""`，仍需真实平台验证其缺失行语义。文件与引用是两次远端操作，不承诺事务性删除。
 - **错误与重连：**身份、权限、配额、网络、超时、冲突和存储错误有可读说明；重连丢弃旧握手，避免重放请求。用户取消导出不会变成导出失败。新增文案在全部 13 种界面语言中直接提供。
@@ -26,9 +58,9 @@
 | 代码检查 | 全量 ESLint 0 errors / 71 warnings；typecheck、独立站构建、Anna 构建及官方普通 validate 通过。Anna 包 159 文件、163.0 MiB；严格扫描的已知 SDK 文本误报仍保留 |
 | 临时故障检查 | 15 项模拟 Host 文件生命周期、4 组 SDK 重连、13 项草稿/配额/并发保护、5 项真实归档的原子导入、7 项编辑 Hook 检查通过；不替代真实云端或浏览器落盘验证 |
 
-合成媒体、验证脚本和临时工作区均留在仓库外。下一步是补齐实际下载文件验收、平台文件往返与版本冲突验证，以及生产受限入口复测。发布材料草案见 [`anna-release-readiness.md`](anna-release-readiness.md)。以下章节保留 9 月 5 日的生产基线，不能把其远端 revision 或耗时套用于本地新构建。
+合成媒体、验证脚本和临时工作区均留在仓库外。该表描述本轮生产复测前的本地验收，云端最新证据以上面的 r4 章节为准。以下兼容性章节保留 9 月 5 日历史基线，不能把旧阻塞、revision 或耗时当成当前状态。
 
-## 四个阶段与当前证据
+## 2026-09-05 四阶段基线（历史）
 
 | 阶段          | 已完成                                                                                                                                              | 待验证或完成                                                         |
 | ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
@@ -132,24 +164,24 @@ npx --yes @anna-ai/cli@0.1.51 dev --cwd anna --manifest manifest.json --bundle b
 
 结构与限制依据：[App Manifest](https://anna.partners/developers/apps/app-manifest)、[UI Manifest](https://anna.partners/developers/apps/app-ui-manifest)、[CLI 参考](https://anna.partners/developers/reference/cli)。
 
-## 尚需真实平台确认的事项
+## 当前仍需真实平台确认的事项（2026-09-07）
 
-本地真实模式与生产私有容器都已通过 LLM 方案应用、撤销和重做；生产 MP4 生成预览及完整浏览器草稿的刷新后显式恢复也已成功。当前明确的平台阻塞是 APS 上传的存储桶 CORS 配置，以及生产 CSP 对 WASM 的限制。实际下载和云端恢复仍待验证，不能用模拟响应或绕过浏览器安全机制补齐记录。
+生产来源的存储 CORS 和完整工程样本往返已通过，r4 亦完成已有引用的条件保存、文件列表及引用修复，r5 云恢复再次通过。当前明确的平台阻塞是生产 CSP 对 WASM 的限制；r5 已在生产验证原声失败时停止导出，并可明确选择静音生成预览。实际文件落盘、带声交付与完整文件生命周期尚未验收，不能用模拟响应或绕过浏览器安全机制补齐记录。
 
-1. **平台 LLM：**本地真实模式与生产私有容器的成功方案、应用、撤销和重做已验证；继续验证授权与用量错误、超时，以及用户中止后平台是否仍继续处理。剪辑与 MP4 预览通过仍不等于下载与云端恢复整条流程成功。
-2. **浏览器计算权限：**生产 WASM 探针已实际触发 CSP 拒绝。当前官方 schema 不接受把 `wasm-unsafe-eval` 填入 `script-src` 覆盖项，因此没有添加非法 CSP 或 `unsafe-eval`。需要平台提供正式支持 WASM 的 CSP 配置方式，才可继续验证依赖 WASM 的功能。本地容器的 WASM 成功不覆盖生产限制；生产 H.264 独立探针在 revision 3 复测已通过，实际 MP4 也已成功。SharedArrayBuffer 仍因缺少跨源隔离而不可用。[官方 UI CSP](https://anna.partners/developers/apps/app-ui-manifest)
-3. **文件 API 与精确域名：**`files.upload_init` 已返回实际存储 origin `https://5244841125c1e42784f5bda924751be6.r2.cloudflarestorage.com`。对该上传地址的只读 OPTIONS 预检返回 **403 Unauthorized**，明确提示 **“CORS not configured for this bucket”**。该精确 origin 已加入 `manifest.ui.bundle.external_origins` 并随 revision 3 推送；生产 GET 响应已确认 `connect-src` 和 `img-src` 含该 origin；这只能允许应用发起连接，不能替代存储桶的 CORS 配置。需要 Anna 存储维护方按实际 iframe origin、上传/读取方法及请求头配置 CORS 后，再验证 PUT、finalize、下载和工程恢复。未添加通配域名、未关闭浏览器安全限制，也未记录任何预签名 URL 查询参数。[Files API](https://anna.partners/developers/reference/host-api-files)
-4. **持久恢复：**官方本地容器和生产私有容器均已验证 IndexedDB 保存完整草稿后刷新、再显式恢复时间轴和素材；没有自动恢复行为。仍需在 CORS 修复后验证用户显式保存到 Anna 的工程恢复。云端文件字节、大小及版本身份需要一致；内存存储或仅保存文件名称不算工程恢复成功。
+1. **平台 LLM：**本地真实模式与生产私有容器的成功方案、应用、撤销和重做已验证；继续验证授权与用量错误、超时，以及用户中止后平台是否仍继续处理。仍需为最终候选保留从真实 AI 方案到实际成片交付的完整演示。
+2. **浏览器计算权限：**9 月 7 日生产 WASM 探针仍实际触发 CSP 拒绝。当前官方 schema 不接受把 `wasm-unsafe-eval` 填入 `script-src` 覆盖项，因此没有添加非法 CSP 或 `unsafe-eval`。需要平台提供正式支持 WASM 的 CSP 配置方式，才可继续验证依赖 WASM 的功能。本地容器的 WASM 成功不覆盖生产限制；H.264 探针本轮曾超时，但之后实际 MP4 画面生成与解码成功，不能以探针超时判定不支持，也不能把画面成功当成音轨完整。SharedArrayBuffer 仍因缺少跨源隔离而不可用。[官方 UI CSP](https://anna.partners/developers/apps/app-ui-manifest)
+3. **文件 API 与精确域名：**实际存储 origin `https://5244841125c1e42784f5bda924751be6.r2.cloudflarestorage.com` 已在 manifest 中声明。9 月 7 日以 `https://anna.partners` 为来源的 PUT/content-type 预检返回 204，真实工程上传及恢复通过；此前 403 的记录保留在历史章节。当前不需要扩大域名或绕过浏览器限制；仍应分别验证首次引用 CAS、版本冲突、条件删除、多页列表以及 Host 下载到本机。Localhost 和其它请求头组合没有因生产样本通过而自动获得验证。[Files API](https://anna.partners/developers/reference/host-api-files)
+4. **持久恢复：**IndexedDB 草稿和 Anna 云端工程都已完成显式恢复样本；启动后仍由用户选择恢复，没有自动恢复行为。r4 使用已有引用 etag 的条件保存、四份工程与一份成片的列表、最新工程引用重设均通过。更换环境、异常并发与删除后的恢复边界仍需验证；文件列表中的成片只证明上传，不能证明本机下载成功。
 5. **模型下载：**模型用途的 `external_origins` 为 `https://huggingface.co`、`https://us.aws.cdn.hf.co`、`https://www.modelscope.cn`；第二项来自自有镜像文件的实际重定向。另有上述已观察到的 Anna R2 存储 origin。继续验证其他模型是否出现不同 CDN；仅按实际用途补精确 origin，不加通配。
 6. **有效使用认定：**本地视频处理怎样计入 Qualified App Run，以及独立站并行运营安排，仍需平台方确认。工程成功保存、视频下载或本地模型完成不能直接被描述成有效 MAU 已认定。[Builder Program 原文](https://forum.anna.partners/t/turn-your-ai-agents-apps-into-recurring-monthly-grants-join-the-anna-ai-os-founding-builder-program-up-to-80k-month-pool/205)
 
-当前 CSP 另外只允许 `connect-src blob:` 和 `font-src blob:`，供用户本地媒体读取及镜像字体使用；R2 仅声明实际返回的精确 origin，没有扩大到任意云端生成服务或任意对象存储域名。revision 3 的生产响应头已确认该精确 origin 生效，`script-src` 仍为 `'self' 'self'`。
+当前 CSP 另外只允许 `connect-src blob:` 和 `font-src blob:`，供用户本地媒体读取及镜像字体使用；R2 仅声明实际返回的精确 origin，没有扩大到任意云端生成服务或任意对象存储域名。生产 `script-src` 仍为 `'self' 'self'`。
 
-已准备英文问题记录 [`anna-platform-issues.md`](anna-platform-issues.md)，用于与平台对接 CORS、WASM CSP 和严格扫描误报；目前尚未发送给 Anna。
+已准备英文问题记录 [`anna-platform-issues.md`](anna-platform-issues.md)，保留已解决的生产 CORS 证据及仍存在的 WASM CSP、严格扫描误报；目前尚未发送给 Anna。
 
 ## 验证完成后的审核流程
 
-已注册应用 `@martindelophy/timeline-studio`（app ID `254`）的私有草稿 **revision `3` 已 ready**。尚未执行 `cut` 版本冻结、审核或 release。
+已注册应用 `@martindelophy/timeline-studio`（app ID `254`）的私有草稿为 **revision `5` ready**。云恢复、原声失败保护与明确静音导出已完成本文开头的生产样本验证；其余首发证据仍待补齐。尚未执行 `cut` 版本冻结、审核或 release。
 
 私有草稿的正确试用入口为 **Developer Console → 应用 → Versions → Working draft → Install & test**。该路径已成功安装保留版本 `0.0.0-draft`，**不需要先执行 `cut`**。应用列表上的普通 Install 曾提示“暂无可用发布版本”，原因是那个入口面向发布版本，不能把它当作草稿试用失败或冻结版本的前置要求。草稿上传、安装成功仍不能替代生产窗口的逐项功能验收。
 
@@ -164,18 +196,18 @@ npx --yes @anna-ai/cli@0.1.51 dev --cwd anna --manifest manifest.json --bundle b
 - 点击生成计划时，将用户要求、输出语言、片段 ID、名称、类型、时长及裁剪许可发送给 Anna 平台 LLM。这个规划步骤不发送媒体字节，也不分析画面或音轨；不能把这条边界扩大成整个 Anna 应用永不上传媒体的承诺。
 - 本地草稿是包含素材字节的工程归档，按用户明确操作保存在浏览器 IndexedDB。说明与模型缓存、界面偏好不同，以及真实可用的清除方式。
 - 明确选择保存工程到 Anna 时，会上传含素材的完整归档；选择通过 Anna 下载时，会先上传导出视频。说明 Anna/其存储服务参与这些处理，且它们与浏览器本地导出是不同操作。
-- 云端归档保留多久，以及平台 LLM 的保留或训练政策，需要按 Anna 当前政策确认。9 月 7 日本地版本已有文件列表、删除确认和引用修复入口，但尚未推送，且删除仅做过模拟 Host 检查。现阶段没有证据支持“立即删除”“永不保留”或“不会用于训练”等承诺，也不能把本地实现写成已获生产验收的功能。
+- 云端归档保留多久，以及平台 LLM 的保留或训练政策，需要按 Anna 当前政策确认。文件列表、删除确认和引用修复入口已随 r4 推送；生产列表和引用重设通过，实际文件删除仍仅做过模拟 Host 检查。现阶段没有证据支持“立即删除”“永不保留”或“不会用于训练”等承诺，也不能把部分生产验收扩大成全部数据生命周期已验证。
 
 界面已有“保存到 Anna 会上传工程及全部素材”和 Host 下载上传提示。规划区域的隐私提示现已在所有 **13 种界面语言**中明确限定为**生成计划这一步不上传素材**，避免被理解为覆盖后面的显式云端操作；该文案改动已随 revision 3 构建推送，生产界面已确认显示。以上仍有待补全的公开隐私说明，本轮没有修改或发布隐私网页。
 
-流程为 **`push` 草稿 → `publish` 冻结版本 → `submit-review` 提交审核 → 审核通过 → `release` 上线**。其中 `apps publish` 本身是 `push + cut` 的组合；已经推送好的工作草稿也可以直接用 `apps cut VERSION` 冻结，避免重复推送。`publish` 不代表应用已在商店公开。[官方发布说明](https://anna.partners/developers/apps/app-publish)
+首发流程为 **`push` 草稿 → 安装验收 → `cut VERSION` 冻结 → `submit-review` 提交审核 → 管理员审批**。`apps publish` 是 `push + cut` 的组合，不代表公开上架。管理员可能在批准时同时发布；只有停留在 `APPROVED` 而未上线时，才需要后续 `release VERSION`。因此不能把提交审核视作保证私有的操作，本轮只授权更新和测试草稿。[官方发布说明](https://anna.partners/developers/apps/app-publish)
 
-`apps push` 已将私有草稿推进到 revision `3`。以下保留重新推送、冻结和提交审核的命令参考；`apps publish` 与 `apps submit-review` 本轮尚未执行，版本、商店介绍及审核候选须与当时验证过的构建一致：
+草稿操作和审核命令的完整说明见 [`anna-release-readiness.md`](anna-release-readiness.md)。以下是未来操作参考，不代表已执行。`REVISION` 必须取自当前服务器草稿，`VERSION` 和 `CHANGELOG` 必须对应已验收构建；执行后须核对 `review_candidate_version`：
 
 ```sh
-npx --yes @anna-ai/cli@0.1.51 apps push --cwd anna --bundle-dir bundle
-npx --yes @anna-ai/cli@0.1.51 apps publish --cwd anna --bundle-dir bundle
+npx --yes @anna-ai/cli@0.1.51 apps push --cwd anna --bundle-dir bundle --if-match REVISION
+npx --yes @anna-ai/cli@0.1.51 apps cut VERSION --cwd anna --slug timeline-studio --changelog CHANGELOG
 npx --yes @anna-ai/cli@0.1.51 apps submit-review --cwd anna
 ```
 
-`apps publish` 使用 `anna/app.json` 的预发布版本；如果已经冻结过同一版本，需要按平台版本规则更新版本号。审核获批后，才通过 `apps release VERSION --cwd anna` 发布实际批准的版本，并检查平台返回状态。后续更新也需遵守当时的版本审核规则，不能把首次通过理解为永久免审。[版本说明](https://anna.partners/developers/apps/app-versioning)、[官方版本审核讨论](https://forum.anna.partners/t/is-review-now-required-for-every-new-app-version-i-couldn-t-find-this-change-in-the-changelog/224)
+如果服务器已经冻结过同一版本，需要按平台规则选择更高 SemVer。已上架应用的后续版本也需轻量 release review；`apps release VERSION` 可能只进入待审状态，原线上版本继续服务。应读取 `release_review_state`、`is_latest` 和 `published_at` 判断结果，不能把命令成功或首次通过理解为立即上线、永久免审。[版本说明](https://anna.partners/developers/apps/app-versioning)、[官方版本审核讨论](https://forum.anna.partners/t/is-review-now-required-for-every-new-app-version-i-couldn-t-find-this-change-in-the-changelog/224)

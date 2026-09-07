@@ -19,6 +19,8 @@ import {
   embedGeneratedMediaMetadata,
 } from "../lib/generatedMediaMetadata.js";
 import { filterTimedSegmentsByLaneVisibility } from "../lib/timeline.js";
+import { isAnnaEdition } from "../lib/annaRuntime.js";
+import { createAnnaTranslator } from "../i18nAnna.js";
 
 export function useVideoExport(d) {
   return useCallback(async (options = {}) => {
@@ -106,7 +108,7 @@ export function useVideoExport(d) {
         }
       };
       const embeddedVideoAudio = exportAudio && !d.sourceAudioBlob && d.trackVisibility.source !== false
-        ? await prepareEmbeddedVideoAudio(d.renderedVisualSegments, progress, signal)
+        ? await prepareEmbeddedVideoAudio(d.renderedVisualSegments, progress, signal, { strict: isAnnaEdition, range: exportRange })
         : { blob: null, segments: [] };
       throwIfExportAborted(signal);
       const exportSourceAudioBlob = exportAudio && d.trackVisibility.source !== false
@@ -265,9 +267,12 @@ export function useVideoExport(d) {
         d.setStatus("ready"); d.setStatusText(canceled); d.setExportPhase(canceled); notify(canceled);
         return { status: "canceled", actualPipeline };
       } else {
-        const message = error instanceof Error ? error.message : localize("exportFailed");
+        const errorCode = isAnnaEdition && error?.code === "ANNA_SOURCE_AUDIO_UNAVAILABLE" ? error.code : "";
+        const message = errorCode ? createAnnaTranslator(d.language)("sourceAudioUnavailable")
+          : error instanceof Error ? error.message : localize("exportFailed");
         console.error(error); d.setStatus("error"); d.setStatusText(message); d.setExportPhase(localize("exportFailed"));
-        return { status: "failed", actualPipeline, error: message };
+        if (errorCode) notify(message);
+        return { status: "failed", actualPipeline, error: message, ...(errorCode ? { errorCode } : {}) };
       }
     } finally {
       if (d.exportAbortControllerRef.current === controller) d.exportAbortControllerRef.current = null;

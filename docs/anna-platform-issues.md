@@ -2,7 +2,7 @@
 
 Observed on 2026-09-05 with private app `@martindelophy/timeline-studio` (app ID `254`), working draft `0.0.0-draft`, CLI `0.1.51`, browser SDK `0.16.0`, and local runtime `0.2.0a23`.
 
-These are prepared reports, **not messages sent to Anna**. No session tokens, signed URLs, credentials, or user media are included.
+The follow-up [Developer Forum report](anna-forum-post.md) was submitted to Anna's Developers category on September 7, 2026. The forum confirmed receipt and showed one post pending moderator approval; no public topic URL is available yet. No session tokens, signed URLs, credentials, or user media are included.
 
 Production retest, 2026-09-07: the production-origin CORS preflight now returns 204, with `Access-Control-Allow-Origin: https://anna.partners`, methods GET/PUT/HEAD and header content-type. A complete two-second synthetic project was uploaded in production r3, then restored from Anna after refreshing to an empty timeline; playback advanced to 0.42 seconds. Explicit cloud media transfers were therefore enabled in private r4. This does not establish first-insert CAS, deletion, retention guarantees or filesystem delivery.
 
@@ -58,4 +58,6 @@ Default validation and private draft upload pass. Please make strict scanning di
 
 The earlier production test imported a three-second H.264/AAC sample, used real Anna AI to plan removal of 0.5 seconds from each end, reviewed and applied the two-second plan, and exercised undo/redo. A generated two-second 1080p MP4 decoded, and an explicitly saved local archive restored its media and timeline after refresh. The 2026-09-07 source-audio finding limits that export result to video/container generation; it does not establish complete audio delivery.
 
-Production cloud project upload and restore, existing-reference conditional save, listing and latest-reference reassignment have since passed the bounded r4 checks above. Remaining acceptance includes first-insert CAS, conflict handling, destructive deletion, multipage listing, downloaded-file verification and broader model/export paths. The next candidate's source-audio failure guard and explicit Anna no-audio choice still need production verification. No version has been frozen, submitted for review or released.
+Production cloud project upload and restore, existing-reference conditional save, listing and latest-reference reassignment have since passed the bounded r4 checks above. The source-audio failure guard and explicit muted preview path passed production r5 verification, as recorded above. Remaining acceptance includes first-insert CAS, conflict handling, destructive deletion, multipage listing, downloaded-file verification and broader model/export paths. No version has been frozen, submitted for review or released.
+
+The submitted [Developer Forum report](anna-forum-post.md) includes isolated local reproductions, precise tooling versions and the remaining platform-contract questions. The complete body was submitted once and is awaiting moderator approval. Its key reproduction code is included inline. The supplementary ZIP was not uploaded because the Chrome extension denied file upload; it remains available locally for a later attachment.

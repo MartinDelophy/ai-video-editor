@@ -23,11 +23,42 @@ export class AnnaRuntimeError extends Error {
 
 export function normalizeAnnaError(error) {
   if (error instanceof AnnaRuntimeError) return error;
-  const code = error?.name === "AbortError" ? "cancelled"
-    : error?.code || (/timed out/i.test(error?.message || "") ? "timeout" : "host_error");
+  const hostCode = /^[a-zA-Z0-9_.-]{1,80}$/.test(String(error?.code || "")) ? String(error.code) : "";
+  const normalizedCode = hostCode.toLowerCase().replace(/^app_(?:err_)?/, "");
+  const categories = {
+    unauthorized: ["auth_required", "auth"], unauthenticated: ["auth_required", "auth"],
+    auth_required: ["auth_required", "auth"], token_expired: ["auth_required", "auth"],
+    invalid_token: ["auth_required", "auth"], session_expired: ["auth_required", "auth"],
+    not_granted: ["permission_denied", "permission"], forbidden_scope: ["permission_denied", "permission"],
+    forbidden: ["permission_denied", "permission"], permission_denied: ["permission_denied", "permission"],
+    permission_denied_by_user: ["permission_denied", "permission"], "-32021": ["permission_denied", "permission"],
+    quota_exceeded: ["quota_exceeded", "quota"], insufficient_quota: ["quota_exceeded", "quota"],
+    rate_limited: ["rate_limited", "quota"], rate_limit_exceeded: ["rate_limited", "quota"],
+    precondition_failed: ["conflict", "conflict"], conflict: ["conflict", "conflict"], "-32023": ["conflict", "conflict"],
+    not_found: ["not_found", "storage"], "-32022": ["not_found", "storage"],
+    value_too_large: ["storage_full", "storage"], state_too_large: ["storage_full", "storage"],
+    storage_full: ["storage_full", "storage"], quotaexceedederror: ["storage_full", "storage"],
+    pending_upload: ["pending_upload", "storage"], storage_blocked: ["storage_blocked", "storage"],
+    network_error: ["network_error", "network"], networkerror: ["network_error", "network"],
+    offline: ["network_error", "network"], timeout: ["timeout", "network"], request_timeout: ["timeout", "network"],
+  };
+  const errorName = String(error?.name || "").toLowerCase();
+  const mapped = Object.hasOwn(categories, normalizedCode) ? categories[normalizedCode]
+    : Object.hasOwn(categories, errorName) ? categories[errorName] : null;
+  let code = mapped?.[0] || hostCode || "host_error";
+  if (error?.name === "AbortError") code = "cancelled";
+  else if (!mapped && /timed out|timeout/i.test(error?.message || "")) code = "timeout";
+  else if (!mapped && error?.name === "TypeError" && /failed to fetch|network|load failed/i.test(error?.message || "")) code = "network_error";
+  const details = {
+    ...(hostCode ? { hostCode } : {}),
+    ...(mapped ? { category: mapped[1] } : ["timeout", "network_error"].includes(code) ? { category: "network" } : {}),
+  };
+  const retryAfter = error?.details?.retry_after_seconds ?? error?.details?.retry_after;
+  if (Number.isFinite(retryAfter) && retryAfter >= 0 && retryAfter <= 86400) details.retryAfterSeconds = retryAfter;
+  if (typeof error?.details?.remoteMayContinue === "boolean") details.remoteMayContinue = error.details.remoteMayContinue;
   // Never expose provider messages, presigned URLs, host tokens, or network
   // implementation text as user-facing copy. The UI localizes this code.
-  return new AnnaRuntimeError(/^[a-zA-Z0-9_.-]{1,80}$/.test(String(code)) ? String(code) : "host_error");
+  return new AnnaRuntimeError(code, details);
 }
 
 export function getAnnaConnectionState() { return connection; }
@@ -94,7 +125,7 @@ export async function connectAnna({ signal } = {}) {
     throw error;
   }
   if (!runtimeAttempt) {
-    const attempt = { promise: null, runtime: null };
+    const attempt = { promise: null, runtime: null, controller: new AbortController(), reconnecting: false };
     runtimeAttempt = attempt;
     const operation = Promise.resolve().then(async () => {
       const { AnnaAppRuntime } = await import("@anna-ai/app-runtime");
@@ -110,7 +141,7 @@ export async function connectAnna({ signal } = {}) {
     });
     // Bound the SHARED promise, not just an individual caller's wait. Strict
     // Mode callers share this attempt; aborting one does not cancel the rest.
-    attempt.promise = waitFor(operation, { timeoutMs: 35000 }).then((runtime) => {
+    attempt.promise = waitFor(operation, { signal: attempt.controller.signal, timeoutMs: 35000 }).then((runtime) => {
       if (runtimeAttempt !== attempt) {
         discardRuntime(runtime);
         throw new AnnaRuntimeError("host_closed");
@@ -136,6 +167,25 @@ export async function connectAnna({ signal } = {}) {
     updateConnection({ status: "connecting", capabilities: null, error: null });
   }
   return waitFor(runtimeAttempt.promise, { signal, timeoutMs: 36000 });
+}
+
+/** User-requested local SDK handshake renewal. It never closes the Anna host
+ * window, renews credentials, or replays an interrupted RPC. Concurrent retry
+ * callers share the fresh handshake; cancelling one only stops its own wait.
+ */
+export async function reconnectAnna({ signal } = {}) {
+  requireEdition();
+  checkSignal(signal);
+  if (runtimeAttempt?.reconnecting && !runtimeAttempt.runtime) return connectAnna({ signal });
+  const previous = runtimeAttempt;
+  // Remove identity first: a synchronous discard or a late SDK hello/close
+  // must not clear the new attempt or republish the abandoned connection.
+  runtimeAttempt = undefined;
+  discardRuntime(previous?.runtime);
+  previous?.controller.abort();
+  const pending = connectAnna({ signal });
+  if (runtimeAttempt) runtimeAttempt.reconnecting = true;
+  return pending;
 }
 
 async function hostCall(namespace, method, args, { signal, timeoutMs = 60000 } = {}) {
@@ -229,9 +279,33 @@ function safeFilename(name, fallback) {
 }
 function validatePath(path) {
   if (typeof path !== "string" || !path.startsWith(FILE_PREFIX) || path.length > 1024
-    || path.split("/").some((part) => !part || part === "." || part === ".." || part.length > 128)
+    || path.includes("\\") || path.split("/").some((part) => !part || part === "." || part === ".." || part.length > 128 || part !== part.trim())
     || /[\u0000-\u001f\u007f\u200b-\u200f\u202a-\u202e\u2060-\u206f]/u.test(path)) throw new AnnaRuntimeError("invalid_file");
   return path;
+}
+
+/** Canonical, metadata-only descriptor. In particular, never retain arbitrary
+ * metadata, owner/scope overrides, URLs, or host response fields in UI state.
+ */
+export function validateAnnaFileDescriptor(file, { kind } = {}) {
+  const path = validatePath(file?.path);
+  const parts = path.split("/");
+  const fileKind = parts[1];
+  if (parts.length !== 4 || !["projects", "exports"].includes(fileKind) || (kind && fileKind !== kind)
+    || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(parts[2])
+    || !Number.isSafeInteger(file?.size) || file.size <= 0
+    || !isValidEtag(file?.etag) || (file.schemaVersion != null && file.schemaVersion !== 1)) throw new AnnaRuntimeError("invalid_file");
+  const savedAt = typeof file.savedAt === "string" && file.savedAt.length <= 64 && Number.isFinite(Date.parse(file.savedAt))
+    ? new Date(file.savedAt).toISOString() : null;
+  const type = typeof file.type === "string" && /^[a-z0-9!#$&^_.+-]+\/[a-z0-9!#$&^_.+-]+$/i.test(file.type)
+    ? file.type : "application/octet-stream";
+  return { schemaVersion: 1, path, name: safeFilename(parts[3], fileKind === "projects" ? "project.timeline" : "video.mp4"), size: file.size, type, etag: file.etag, savedAt, kind: fileKind };
+}
+function isValidEtag(etag) {
+  return typeof etag === "string" && etag.length > 0 && etag.length <= 512 && !/[\u0000-\u001f\u007f]/u.test(etag);
+}
+function sameFile(first, second) {
+  return first?.path === second?.path && first?.etag === second?.etag && first?.size === second?.size;
 }
 function validateTransferUrl(value) {
   let url;
@@ -323,6 +397,107 @@ export async function storeAnnaFile({ blob, name, kind = "exports", signal } = {
   return uploadAnnaFile({ blob, name: filename, path: `${FILE_PREFIX}${kind}/${crypto.randomUUID()}/${filename}`, signal });
 }
 
+/** One bounded metadata page; callers explicitly request the next page. */
+export async function listAnnaFiles({ cursor, signal } = {}) {
+  if (cursor != null && (typeof cursor !== "string" || !cursor || cursor.length > 4096 || /[\u0000-\u001f\u007f]/u.test(cursor))) throw new AnnaRuntimeError("invalid_file_response");
+  const result = await hostCall("files", "list", { prefix: FILE_PREFIX, limit: 100, ...(cursor ? { cursor } : {}) }, { signal });
+  if (!Array.isArray(result?.items) || result.items.length > 100
+    || (result.next_cursor != null && (typeof result.next_cursor !== "string" || !result.next_cursor || result.next_cursor.length > 4096 || /[\u0000-\u001f\u007f]/u.test(result.next_cursor)))) throw new AnnaRuntimeError("invalid_file_response");
+  const files = [];
+  const paths = new Set();
+  for (const item of result.items) {
+    // The app bucket may contain other features' files. They are not ours to
+    // manage; never broaden management to the rest of this app or another app.
+    if (typeof item?.path !== "string" || !/^timeline-studio\/(?:projects|exports)\//.test(item.path)) continue;
+    let file;
+    try { file = validateAnnaFileDescriptor({ path: item.path, size: item.size_bytes, type: item.content_type, etag: item.etag, savedAt: item.updated_at }); }
+    catch { throw new AnnaRuntimeError("invalid_file_response"); }
+    if (paths.has(file.path)) throw new AnnaRuntimeError("invalid_file_response");
+    paths.add(file.path);
+    files.push(file);
+  }
+  return { files, nextCursor: result.next_cursor || null };
+}
+
+async function verifyStoredFile(file, signal) {
+  // Metadata and identity only. A new GET URL is never returned or retained.
+  const stored = await hostCall("files", "download_url", { path: file.path }, { signal });
+  if (!isValidEtag(stored?.etag) || !Number.isSafeInteger(stored?.size_bytes) || stored.size_bytes <= 0) throw new AnnaRuntimeError("invalid_file_response");
+  if (stored.etag !== file.etag || stored.size_bytes !== file.size) throw new AnnaRuntimeError("file_changed");
+}
+
+function pointerMatch(pointer) {
+  // CLI 0.1.51's official APS memory adapter treats an empty if_match as an
+  // absent-row guard. Never omit the condition for first-insert races. A
+  // dispatcher that does not implement it must fail instead of blind-upsert.
+  if (!pointer || pointer.exists === false) return "";
+  if (!isValidEtag(pointer.etag)) throw new AnnaRuntimeError("concurrency_unavailable");
+  return pointer.etag;
+}
+
+/** Repair only the latest-project reference after an explicit user action.
+ * Upload is deliberately absent: the immutable file is already stored.
+ */
+export async function recoverAnnaProjectReference({ file: requestedFile, signal } = {}) {
+  const file = validateAnnaFileDescriptor(requestedFile, { kind: "projects" });
+  await verifyStoredFile(file, signal);
+  const prior = await readProjectPointer(signal);
+  if (prior?.exists !== false && sameFile(prior?.value, file)) return file;
+  try {
+    const ifMatch = pointerMatch(prior);
+    const updated = await hostCall("storage", "set", { key: PROJECT_KEY, scope: "app", value: file, if_match: ifMatch }, { signal });
+    if (!isValidEtag(updated?.etag)) throw new AnnaRuntimeError("invalid_storage_response");
+  } catch (error) {
+    const normalized = normalizeAnnaError(error);
+    throw new AnnaRuntimeError(normalized.code, { ...normalized.details, stage: "save_reference", fileState: "stored", savedFile: file });
+  }
+  return file;
+}
+
+/** Explicit, single-file deletion. Never auto-clean old files or choose a
+ * replacement latest project. Removing the current reference requires an
+ * additional caller confirmation and CAS; Files and KV are not transactional.
+ */
+export async function deleteAnnaFile({ file: requestedFile, allowCurrent = false, signal } = {}) {
+  const file = validateAnnaFileDescriptor(requestedFile);
+  let stage = "check_reference";
+  let referenceCleared = false;
+  try {
+    if (file.kind === "projects") {
+      const prior = await readProjectPointer(signal);
+      // Check the path too: a stale listing must not delete a newer version
+      // under a current pointer, even if a caller passed allowCurrent.
+      if (prior?.exists !== false && prior?.value?.path === file.path) {
+        if (!sameFile(prior.value, file)) throw new AnnaRuntimeError("file_changed");
+        if (!allowCurrent) throw new AnnaRuntimeError("file_is_current_project");
+        const ifMatch = pointerMatch(prior);
+        stage = "delete_reference";
+        const removed = await hostCall("storage", "delete", { key: PROJECT_KEY, scope: "app", if_match: ifMatch }, { signal });
+        if (removed?.deleted !== true) throw new AnnaRuntimeError("invalid_file_response");
+        referenceCleared = true;
+      }
+    }
+    stage = "delete_file";
+    const removed = await hostCall("files", "delete", { path: file.path, if_match: file.etag }, { signal });
+    if (removed?.deleted !== true) throw new AnnaRuntimeError("invalid_file_response");
+    return { deleted: true, file, referenceCleared };
+  } catch (error) {
+    const normalized = normalizeAnnaError(error);
+    const definiteFailure = ["conflict", "precondition_failed", "not_found", "permission_denied", "auth_required", "invalid_arg", "invalid_path", "file_changed", "file_is_current_project", "concurrency_unavailable", "not_implemented"].includes(normalized.code);
+    const unconfirmed = stage !== "check_reference" && !definiteFailure;
+    const fileState = stage !== "delete_file" ? "stored" : unconfirmed ? "unconfirmed"
+      : normalized.code === "not_found" ? "missing" : ["conflict", "precondition_failed"].includes(normalized.code) ? "changed" : "stored";
+    throw new AnnaRuntimeError(normalized.code, {
+      ...normalized.details, stage, path: file.path, referenceCleared,
+      referenceState: stage === "delete_reference" && unconfirmed ? "unconfirmed" : referenceCleared ? "cleared"
+        : stage === "delete_reference" && ["conflict", "precondition_failed", "not_found"].includes(normalized.code) ? "changed" : "unchanged",
+      fileState,
+      ...(unconfirmed ? { remoteMayContinue: true } : {}),
+      ...(referenceCleared && file.kind === "projects" && ["stored", "unconfirmed"].includes(fileState) ? { savedFile: file } : {}),
+    });
+  }
+}
+
 export async function readAnnaFile({ path, signal, expectedFile } = {}) {
   const download = await hostCall("files", "download_url", { path: validatePath(path) }, { signal });
   if (!Number.isSafeInteger(download?.size_bytes) || download.size_bytes <= 0) throw new AnnaRuntimeError("invalid_file_response");
@@ -334,8 +509,12 @@ export async function readAnnaFile({ path, signal, expectedFile } = {}) {
 
 export async function saveAnnaProject({ blob, name = "Timeline-Studio.timeline", signal } = {}) {
   const prior = await readProjectPointer(signal);
+  const ifMatch = pointerMatch(prior);
   const file = await storeAnnaFile({ blob, name, kind: "projects", signal });
-  try { await hostCall("storage", "set", { key: PROJECT_KEY, scope: "app", value: file, ...(prior?.etag ? { if_match: prior.etag } : {}) }, { signal }); }
+  try {
+    const updated = await hostCall("storage", "set", { key: PROJECT_KEY, scope: "app", value: file, if_match: ifMatch }, { signal });
+    if (!isValidEtag(updated?.etag)) throw new AnnaRuntimeError("invalid_storage_response");
+  }
   catch (error) {
     const normalized = normalizeAnnaError(error);
     // The immutable file is stored even if updating the latest-project
@@ -347,7 +526,11 @@ export async function saveAnnaProject({ blob, name = "Timeline-Studio.timeline",
 }
 
 async function readProjectPointer(signal) {
-  try { return await hostCall("storage", "get", { key: PROJECT_KEY, scope: "app" }, { signal }); }
+  try {
+    const stored = await hostCall("storage", "get", { key: PROJECT_KEY, scope: "app" }, { signal });
+    if (!stored || typeof stored !== "object" || (stored.exists !== false && !Object.hasOwn(stored, "value"))) throw new AnnaRuntimeError("invalid_storage_response");
+    return stored;
+  }
   catch (error) {
     // APS returns exists:false; older production dispatchers returned not_found.
     if (error?.code === "not_found") return null;
@@ -358,11 +541,7 @@ async function readProjectPointer(signal) {
 export async function loadAnnaProject({ signal } = {}) {
   const stored = await readProjectPointer(signal);
   if (stored?.exists === false || stored?.value == null) return null;
-  const file = stored.value;
-  if (file.schemaVersion !== 1 || !Number.isSafeInteger(file.size) || file.size <= 0
-    || typeof file.path !== "string" || !file.path.startsWith(`${FILE_PREFIX}projects/`)
-    || typeof file.etag !== "string" || !file.etag || typeof file.name !== "string") throw new AnnaRuntimeError("invalid_file");
-  validatePath(file.path);
+  const file = validateAnnaFileDescriptor(stored.value, { kind: "projects" });
   const blob = await readAnnaFile({ path: file.path, signal, expectedFile: file });
   return { file: new File([blob], safeFilename(file.name, "project.timeline"), { type: "application/zip" }), descriptor: file };
 }

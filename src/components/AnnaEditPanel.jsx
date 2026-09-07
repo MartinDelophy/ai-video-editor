@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   ArrowClockwise,
   CheckCircle,
@@ -23,16 +24,43 @@ const ERROR_COPY = {
   ANNA_COMPLEX_TIMING: "complex",
   ANNA_EXPORT_FAILED: "exportFailed",
   host_required: "hostHint",
+  auth_required: "authError",
+  permission_denied: "permissionError",
+  quota_exceeded: "quotaError",
+  rate_limited: "quotaError",
+  network_error: "networkError",
+  timeout: "timeoutError",
+  cancelled: "timeoutError",
+  storage_blocked: "storageError",
+  storage_full: "storageError",
+  conflict: "conflictError",
+  file_changed: "conflictError",
+  concurrency_unavailable: "conflictError",
+  invalid_file: "invalidFileError",
+  invalid_file_response: "invalidFileError",
+  invalid_storage_response: "invalidFileError",
+  file_is_current_project: "currentFileError",
+  file_transfer_failed: "cloudTransferError",
+  cloud_unverified: "cloudPending",
+  backup_failed: "backupError",
+  project_changed: "changedError",
 };
 const seconds = (value) => `${Number(value).toFixed(2)}s`;
+const safeCode = (value) => /^[a-zA-Z0-9_.-]{1,80}$/.test(String(value || "")) ? value : "";
+const draftErrorCopy = (code) => ({ quota: "storageError", unsupported: "storageError", blocked: "storageError", changed: "changedError", invalid: "invalidFileError", import: "invalidFileError", missing: "noDraft" })[code] || "retryHint";
+const draftStatusCopy = (status) => ({ clearing: "deleting", cleared: "cleared", downloading: "downloadStarted", downloaded: "downloadStarted", backingUp: "backingUp", backedUp: "backedUp" })[status] || status;
 const safeDiagnosticCode = (value) => typeof value === "string" && /^[a-z0-9_.-]{1,80}$/i.test(value) ? value : "";
 
 export function AnnaEditPanel({ anna }) {
   const { t, connection, job, review, exported, draft } = anna;
-  const busy = Boolean(
-    job || anna.exporting || ["saving", "restoring", "checking"].includes(draft.state.status),
-  );
+  const [confirm, setConfirm] = useState(null);
+  const busy = Boolean(job || anna.exporting || draft.busy);
   const connected = connection.status === "connected";
+  const confirmDelete = async () => {
+    const done = confirm?.kind === "cloud" ? await anna.removeCloudFile(confirm.file)
+      : confirm?.kind === "backups" ? await draft.clearBackup() : await draft.clear();
+    if (done) setConfirm(null);
+  };
   return (
     <div className="auto-edit-panel anna-edit-panel">
       <section className="auto-edit-intro">
@@ -91,7 +119,9 @@ export function AnnaEditPanel({ anna }) {
                       ? "saving"
                       : job === "rendering"
                         ? "render"
-                        : "connect",
+                        : job === "listing-files" ? "listingFiles"
+                          : job === "deleting-file" ? "deleting"
+                            : job === "repair-reference" ? "saving" : "connect",
             )}
           </span>
           {job === "planning" ? (
@@ -102,15 +132,24 @@ export function AnnaEditPanel({ anna }) {
         </div>
       ) : null}
       {anna.error ? (
-        <p className="anna-error" role="alert">
-          {t(ERROR_COPY[anna.error.code] || "failed")} <code>{anna.error.code}</code>
-        </p>
+        <div className="anna-error" role="alert">
+          <p>{t(ERROR_COPY[anna.error.code] || "retryHint")} <code>{safeCode(anna.error.code)}</code></p>
+          {anna.error.details?.fileState === "unconfirmed" && anna.error.details?.stage?.startsWith("delete") ? <p>{t("deleteUnconfirmed")}</p> : null}
+          <div className="anna-actions">
+            {["auth_required", "host_closed", "host_required"].includes(anna.error.code) ? <button type="button" className="panel-secondary" disabled={busy} onClick={anna.connect}>{t("connect")}</button> : null}
+            {anna.retry && !["cloud_unverified", "quota_exceeded", "permission_denied", "file_is_current_project"].includes(anna.error.code) ? <button type="button" className="panel-secondary" disabled={busy} onClick={anna.retry}>{t("retry")}</button> : null}
+          </div>
+        </div>
       ) : null}
       {anna.notice ? (
         <p className="anna-notice" role="status">
           {t(anna.notice)}
         </p>
       ) : null}
+      {anna.savedFile?.kind === "projects" ? <section className="anna-section anna-recovery" role="status">
+        <p>{t("referenceRecoveryHint")}</p><strong>{anna.savedFile.name}</strong>
+        <button type="button" className="panel-secondary" disabled={busy || !connected} onClick={() => anna.recoverReference()}>{t("recoverReference")}</button>
+      </section> : null}
       {review ? (
         <section className="anna-review">
           <h3>{t("review")}</h3>
@@ -172,28 +211,40 @@ export function AnnaEditPanel({ anna }) {
             <ArrowClockwise size={15} />
             {t("restore")}
           </button>
+          <button type="button" className="panel-secondary" disabled={busy || !draft.canDownload} onClick={draft.download}>{t("downloadDraft")}</button>
+          <button type="button" className="panel-secondary" disabled={busy || !draft.canClear} onClick={() => setConfirm({ kind: "draft" })}>{t("clearDraft")}</button>
         </div>
         <p role="status">
           {t(
             draft.state.status === "error"
-              ? "failed"
-              : ["saving", "saved", "restoring", "restored"].includes(draft.state.status)
-                ? draft.state.status
+              ? draftErrorCopy(draft.state.errorCode)
+              : ["checking", "saving", "saved", "restoring", "restored", "clearing", "cleared", "downloading", "downloaded", "backingUp", "backedUp"].includes(draft.state.status)
+                ? draftStatusCopy(draft.state.status)
                 : draft.available
                   ? "saved"
                   : "noDraft",
           )}
           {draft.state.savedAt ? ` · ${new Date(draft.state.savedAt).toLocaleString()}` : ""}
-          {draft.state.errorCode ? <code> {draft.state.errorCode}</code> : null}
+          {draft.state.errorCode ? <code> {safeCode(draft.state.errorCode)}</code> : null}
         </p>
+        <p>{t("backupHint")}</p>
+        {draft.backups?.map((backup) => <div className="anna-file-row" key={backup.id}>
+          <small>{new Date(backup.savedAt).toLocaleString()} · {(backup.bytes / 1048576).toFixed(2)} MiB</small>
+          <div className="anna-actions">
+            <button type="button" className="panel-secondary" disabled={busy || !draft.canRecover} onClick={() => draft.recoverPrevious(backup.id)}>{t("recoverPrevious")}</button>
+            <button type="button" className="panel-secondary" disabled={busy} onClick={() => draft.downloadBackup(backup.id)}>{t("downloadBackup")}</button>
+          </div>
+        </div>)}
+        {draft.backupAvailable ? <button type="button" className="panel-secondary" disabled={busy || !draft.canClearBackup} onClick={() => setConfirm({ kind: "backups" })}>{t("clearBackups")}</button> : null}
         <details>
           <summary>{t("cloudSave")}</summary>
           <p>{t("cloudHint")}</p>
+          {!anna.cloudTransfersAvailable ? <p className="anna-capability-notice" role="status">{t("cloudPending")}</p> : null}
           <div className="anna-actions">
             <button
               type="button"
               className="panel-secondary"
-              disabled={busy || !connected || !anna.hasVisual}
+              disabled={busy || !connected || !anna.hasVisual || !anna.cloudTransfersAvailable}
               onClick={anna.saveCloud}
             >
               {t("cloudSave")}
@@ -201,13 +252,33 @@ export function AnnaEditPanel({ anna }) {
             <button
               type="button"
               className="panel-secondary"
-              disabled={busy || !connected}
+              disabled={busy || !connected || !anna.cloudTransfersAvailable}
               onClick={anna.restoreCloud}
             >
               {t("cloudRestore")}
             </button>
           </div>
         </details>
+        <details>
+          <summary>{t("cloudFiles")}</summary>
+          <p>{t("cloudFilesHint")}</p>
+          <button type="button" className="panel-secondary" disabled={busy || !connected} onClick={() => anna.refreshFiles()}>{t("refreshFiles")}</button>
+          {anna.cloudFiles.loaded && !anna.cloudFiles.files.length ? <p>{t("noCloudFiles")}</p> : null}
+          {anna.cloudFiles.files.map((file) => <div className="anna-file-row" key={file.path}>
+            <strong>{file.name}</strong>
+            <small>{t(file.kind === "projects" ? "projectFile" : "exportFile")} · {(file.size / 1048576).toFixed(2)} MiB{file.savedAt ? ` · ${new Date(file.savedAt).toLocaleString()}` : ""}</small>
+            <div className="anna-actions">
+              {file.kind === "projects" ? <button type="button" className="panel-secondary" disabled={busy || !connected} onClick={() => anna.recoverReference(file)}>{t("recoverReference")}</button> : null}
+              <button type="button" className="panel-secondary" disabled={busy || !connected} onClick={() => setConfirm({ kind: "cloud", file })}>{t("delete")}</button>
+            </div>
+          </div>)}
+          {anna.cloudFiles.nextCursor ? <button type="button" className="panel-secondary" disabled={busy || !connected} onClick={() => anna.refreshFiles(true)}>{t("loadMore")}</button> : null}
+        </details>
+        {confirm ? <section className="anna-delete-confirm" role="group" aria-label={t("confirmDelete")}>
+          <strong>{t("confirmDelete")}{confirm.file ? ` · ${confirm.file.name}` : ""}</strong>
+          <p>{t(confirm.kind === "cloud" ? "cloudDeleteHint" : confirm.kind === "backups" ? "backupDeleteHint" : "draftDeleteHint")}</p>
+          <div className="anna-actions"><button type="button" className="panel-secondary" disabled={busy} onClick={() => setConfirm(null)}>{t("cancel")}</button><button type="button" className="panel-secondary" disabled={busy} onClick={confirmDelete}>{t("delete")}</button></div>
+        </section> : null}
       </section>
       <section className="anna-section">
         <h3>{t("render")}</h3>
@@ -234,10 +305,11 @@ export function AnnaEditPanel({ anna }) {
             <details>
               <summary>{t("hostDownload")}</summary>
               <p>{t("hostDownloadHint")}</p>
+              {!anna.cloudTransfersAvailable ? <p role="status">{t("cloudPending")}</p> : null}
               <button
                 type="button"
                 className="panel-secondary"
-                disabled={busy || !connected}
+                disabled={busy || !connected || !anna.cloudTransfersAvailable}
                 onClick={anna.downloadThroughHost}
               >
                 {t("hostDownload")}

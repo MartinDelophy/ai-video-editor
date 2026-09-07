@@ -189,6 +189,29 @@
 .anna-compatibility .is-unverified {
   color: #a5b1c2;
 }
+.anna-capability-notice,
+.anna-delete-confirm {
+  padding: 12px;
+  border: 1px solid #354654;
+  border-radius: 10px;
+  background: #14202b;
+  font-size: 12px;
+  line-height: 1.6;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.anna-capability-notice p { margin: 6px 0; }
+.anna-file-row {
+  display: grid;
+  gap: 7px;
+  padding: 12px 0;
+  border-bottom: 1px solid #2a3848;
+  min-width: 0;
+}
+.anna-file-row strong,
+.anna-recovery strong { overflow-wrap: anywhere; font-size: 12px; }
+.anna-file-row small { color: #a5b1c2; font-size: 11px; }
+.anna-recovery { display: grid; gap: 8px; }
 @keyframes anna-spin {
   to {
     transform: rotate(360deg);

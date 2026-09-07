@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal, flushSync } from "react-dom";
+import { AnnaModelGate } from "./AnnaCapabilityNotice.jsx";
 
 import {
   ArrowCounterClockwise,
@@ -1419,10 +1420,10 @@ export function ToolPanel(props) {
             <button className={smartMode === id ? "is-active" : ""} type="button" role="tab" aria-selected={smartMode === id} key={id} onClick={() => {
               setSmartMode(id);
               if (id === "avatar") openAvatarPanel();
-              if (id === "auto-edit" && anna?.enabled && window.matchMedia?.(COMPACT_WORKSPACE_QUERY).matches) openMobileInspector?.();
-              if (id === "ai-music" && window.matchMedia?.("(max-width: 760px)").matches) openMobileInspector?.();
+              if (anna?.enabled && window.matchMedia?.(COMPACT_WORKSPACE_QUERY).matches) openMobileInspector?.();
+              else if (id === "ai-music" && window.matchMedia?.("(max-width: 760px)").matches) openMobileInspector?.();
             }}>
-              <Icon size={24} weight="duotone" /><strong>{title}</strong><span>{hint}</span>
+              <Icon size={24} weight="duotone" /><strong>{title}</strong><span>{id !== "auto-edit" && anna?.enabled && anna.localComputeReason ? anna.t(anna.localCompute?.status === "checking" ? "checkingShort" : "localModelsShort") : hint}</span>
             </button>
           ))}
         </div>
@@ -1450,6 +1451,7 @@ export function ToolPanel(props) {
             <em>{t("aiVoiceEntryDesc")}</em>
           </span>
         </button>
+        <AnnaModelGate anna={anna}>
         <button
           className="audio-entry-card separation-entry-card"
           type="button"
@@ -1486,6 +1488,7 @@ export function ToolPanel(props) {
             </span>
           ) : null}
         </button>
+        </AnnaModelGate>
         <div className="metric-list">
           <div>
             <span>{t("currentVoice")}</span>
@@ -1989,6 +1992,7 @@ function VisualSpeedCurvePanel({ t, segment, localTime, onChange }) {
 
 export function VisualEffectsPanel({
   t,
+  anna,
   segment,
   localTime,
   onChange,
@@ -2243,6 +2247,7 @@ export function VisualEffectsPanel({
             <p className="repair-intro">{t("repairHubIntro")}</p>
             {singleSection ? <em>{t("repairLocalBadge")}</em> : null}
           </div>
+          <AnnaModelGate anna={anna}>
           <div className="repair-capability-list">
             <article className="repair-capability is-available is-featured">
               <span><MagicWand size={18} weight="duotone" /></span>
@@ -2260,6 +2265,7 @@ export function VisualEffectsPanel({
               <button className="panel-primary" type="button" onClick={hdRestoration?.openDialog}>{segment?.enhancement?.mode === "nanovsr-644k" ? t("repairEditAgain") : t("repairOpenEditor")}</button>
             </article>
           </div>
+          </AnnaModelGate>
           {segment?.repair ? <label className="switch-row repair-result-toggle"><input type="checkbox" checked={segment.repair.enabled !== false} onChange={(event) => onChange?.({ repairEnabled: event.target.checked })} />{t("repairUseResult")}</label> : null}
           {segment?.enhancement?.mode === "nanovsr-644k" ? <label className="switch-row repair-result-toggle"><input type="checkbox" checked={segment.enhancement.enabled !== false} onChange={(event) => onChange?.({ enhancementEnabled: event.target.checked })} />{t("hdRestoreUseResult")}</label> : null}
           {segment?.enhancement?.mode === "smart-denoise-drunet" ? <label className="switch-row repair-result-toggle"><input type="checkbox" checked={segment.enhancement.enabled !== false} onChange={(event) => onChange?.({ enhancementEnabled: event.target.checked })} />{t("denoiseUseResult")}</label> : null}
@@ -2467,7 +2473,17 @@ function StickerPanel({
   );
 }
 
-export function VoiceSynthesisPanel({
+export function VoiceSynthesisPanel({ anna, ...props }) {
+  return <>
+    <AnnaModelGate anna={anna}><VoiceSynthesisControls {...props} /></AnnaModelGate>
+    {anna?.enabled && anna.localComputeReason && props.audioBlob ? <div className="generated-voice-result">
+      {props.audioUrl ? <audio controls preload="metadata" src={props.audioUrl} /> : null}
+      <button className="panel-secondary" type="button" onClick={() => props.downloadBlob(props.audioBlob, "ai-voiceover.wav")}><DownloadSimple size={17} />{props.t("downloadCurrentWav")}</button>
+    </div> : null}
+  </>;
+}
+
+function VoiceSynthesisControls({
   script,
   updateScript,
   selectedVoiceId,
@@ -2706,6 +2722,7 @@ export function VoiceSynthesisPanel({
 }
 
 export function MyVoicesPanel({
+  anna,
   notify,
   t,
   selectedVoice,
@@ -2781,6 +2798,7 @@ export function MyVoicesPanel({
 
   return (
     <div className="history-panel">
+      <AnnaModelGate anna={anna}>
       <input ref={fileInputRef} hidden type="file" accept="audio/*" onChange={(event) => {
         const file = event.target.files?.[0]; if (file) chooseReference(file, file.name, "upload"); event.target.value = "";
       }} />
@@ -2819,6 +2837,8 @@ export function MyVoicesPanel({
         </section>
       ) : null}
 
+      </AnnaModelGate>
+
       {recordedVoices.length ? (
         <>
           <div className="panel-subtitle">{t("recordedVoices")}</div>
@@ -2830,7 +2850,7 @@ export function MyVoicesPanel({
                   {recording.createdAt} · {formatTime(recording.duration)}
                 </span>
               </div>
-              <button type="button" onClick={() => chooseReference(recording.blob, recording.name, "recording")}>
+              <button type="button" disabled={Boolean(anna?.enabled && anna.localComputeReason)} onClick={() => chooseReference(recording.blob, recording.name, "recording")}>
                 {t("useAsReference", "作为参考")}
               </button>
               <button

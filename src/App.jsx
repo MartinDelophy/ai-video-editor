@@ -1767,7 +1767,8 @@ export function App() {
         builtInImageCaptionAvailable={autoEdit.support.availability === "available"}
         generateImageCaption={autoEdit.generateImageCaption}
         extractVideoSourceAudio={extractVideoSourceAudio}
-        generateCaptionsFromAudioClip={generateCaptionsFromSourceAudio}
+        generateCaptionsFromAudioClip={anna.enabled && anna.localComputeReason ? undefined : generateCaptionsFromSourceAudio}
+        captionGenerationUnavailableLabel={anna.enabled && anna.localComputeReason ? anna.t(anna.localCompute.status === "checking" ? "checkingShort" : "localModelsShort") : ""}
         separateAudioClipVocals={separateAudioClipVocals}
         audioProcessingBusy={vocalSeparationJob.running || status === "captioning"}
         setSelectedVisualSegmentId={setSelectedVisualSegmentId}

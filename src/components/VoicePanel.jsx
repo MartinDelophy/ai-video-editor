@@ -1,4 +1,5 @@
 import { AnnaEditPanel } from "./AnnaEditPanel.jsx";
+import { AnnaModelGate } from "./AnnaCapabilityNotice.jsx";
 import {
   Armchair,
   ArrowCounterClockwise,
@@ -559,6 +560,7 @@ function VectorControls({ t, segment, onUpdate }) {
 
 function CaptionContextPanel({
   t,
+  anna,
   captionSegments,
   selectedCaptionSegment,
   selectedSegmentId,
@@ -781,7 +783,7 @@ function CaptionContextPanel({
       </div>
 
       {!captionSegments.length ? (
-        <button
+        <AnnaModelGate anna={anna}><button
           className="audio-entry-card caption-entry-card"
           type="button"
           disabled={!sourceAudioBlob || isGeneratingCaptions}
@@ -797,7 +799,7 @@ function CaptionContextPanel({
               <span style={{ width: `${automaticCaptionProgress}%` }} />
             </span>
           ) : null}
-        </button>
+        </button></AnnaModelGate>
       ) : null}
 
       <div className="caption-context-heading">
@@ -958,7 +960,7 @@ function AudioVoiceColorSection({ t, segment, voiceProfiles = [], onAssetReady, 
   </div>;
 }
 
-function AudioClipContextPanel({ t, segment, updateAudioSegment, toggleAudioSegmentReverse, deleteAudioSegment, downloadBlob, requestedSection = "", voiceProfiles, onVoiceColorAssetReady, onApplyVoiceColor, onRestoreVoiceColor }) {
+function AudioClipContextPanel({ t, anna, segment, updateAudioSegment, toggleAudioSegmentReverse, deleteAudioSegment, downloadBlob, requestedSection = "", voiceProfiles, onVoiceColorAssetReady, onApplyVoiceColor, onRestoreVoiceColor }) {
   const [activeTab, setActiveTab] = useState("audio");
   const isVoiceClip = segment.track === "audio";
   const canVoiceColor = segment.track !== "music" && Boolean(segment.blob);
@@ -1028,7 +1030,8 @@ function AudioClipContextPanel({ t, segment, updateAudioSegment, toggleAudioSegm
           </label> : null}
         </div>
       </div> : null}
-      {shownTab === "voice-color" && canVoiceColor ? <AudioVoiceColorSection t={t} segment={segment} voiceProfiles={voiceProfiles} onAssetReady={onVoiceColorAssetReady} onApply={onApplyVoiceColor} onRestore={onRestoreVoiceColor} /> : null}
+      {shownTab === "voice-color" && canVoiceColor ? <AnnaModelGate anna={anna}><AudioVoiceColorSection t={t} segment={segment} voiceProfiles={voiceProfiles} onAssetReady={onVoiceColorAssetReady} onApply={onApplyVoiceColor} onRestore={onRestoreVoiceColor} /></AnnaModelGate> : null}
+      {shownTab === "voice-color" && anna?.enabled && anna.localComputeReason && segment.voiceColorOriginalBlob ? <button className="voice-color-restore" type="button" onClick={() => onRestoreVoiceColor?.(segment)}>{t("voiceColorRestoreOriginal", "恢复原始声音")}</button> : null}
       {shownTab === "audio" ? <div className="audio-context-actions">
         {isVoiceClip ? <button className={`panel-secondary ${segment.reversed ? "is-active" : ""}`} type="button" disabled={segment.reversing} onClick={() => toggleAudioSegmentReverse(segment.id)}>
           {segment.reversing ? t("audioReversing") : segment.reversed ? t("audioReverseRestore") : t("audioReverse")}
@@ -1578,7 +1581,13 @@ export function VoicePanel({
     edge: t("effectEdgeCleanup"),
   }[mobileInspectorSection];
   const title = focusedSectionTitle || (isPluginsContext ? getPluginCopy(uiLanguage).title : isFaceSwapContext ? t("faceSwapTitle") : isOpticalFlowContext ? t("effectVectorTracking") : isCinematicDepthContext ? t("depthTitle") : isPhotoParallaxContext ? t("parallaxTitle") : isEffectsContext ? t("effectProperties") : isAiMusicContext ? (AI_MUSIC_COPY[uiLanguage] || AI_MUSIC_COPY.en).title : isSmartAutoContext ? t("smartAutoEdit") : isSmartFrameContext ? t("smartFrame") : isAvatarContext ? t("avatarTitle") : isVectorOverlay || isVectorVisual ? t("vectorProperties", "矢量图形") : isOverlayContext ? t("pictureInPicture", "画中画") : isStickerContext ? t("stickerProperties") : isVisualContext ? t("visualPanelTitle") : isCaptionContext ? t("caption") : isAudioClipContext ? t("audioClipProperties") : t("aiVoice"));
-  const panelStatusText = isFaceSwapContext
+  const isLocalInferenceContext = (isEffectsContext && !isClickRippleContext) || isAiMusicContext || isSmartFrameContext || isAvatarContext
+    || (isCaptionContext && captionPanelTab === "voice")
+    || (isAudioClipContext && mobileInspectorSection === "voice-color")
+    || (!isSmartContext && !isPluginsContext && !isEffectsContext && !isCaptionContext && !isAudioClipContext && !isVisualContext && !isStickerContext && !isOverlayContext && ["synthesis", "mine"].includes(voiceTab));
+  const panelStatusText = anna?.enabled && anna.localComputeReason && isLocalInferenceContext
+    ? anna.t(anna.localCompute?.status === "checking" ? "checkingShort" : "localModelsShort")
+    : isFaceSwapContext
     ? faceSwap?.job?.running ? `${faceSwap.job.progress}%` : hasVisual ? t("smartVisualReady") : t("smartWaitingVisual")
     : isOpticalFlowContext ? t("effectFlowExperimental")
     : isCinematicDepthContext ? cinematicDepth?.job?.running
@@ -1692,7 +1701,7 @@ export function VoicePanel({
 
       <div className={`voice-tab-body ${isVisualContext && !selectedVisualSegment ? "is-empty-visual-context" : ""}`}>
         {isPluginsContext ? <PluginInspector language={uiLanguage} plugins={generationPlugins} /> : null}
-        {isEffectsContext && !isFaceSwapContext && !isOpticalFlowContext && !isCinematicDepthContext && !isPhotoParallaxContext && !isClickRippleContext ? <SubjectEffectsInspector
+        {isEffectsContext && !isFaceSwapContext && !isOpticalFlowContext && !isCinematicDepthContext && !isPhotoParallaxContext && !isClickRippleContext ? <AnnaModelGate anna={anna}><SubjectEffectsInspector
           t={t}
           segment={effectSegment}
           analysis={effectAnalysis}
@@ -1703,16 +1712,16 @@ export function VoicePanel({
           onAnalyze={analyzeEffectVisual || analyzeCurrentVisual}
           onRemove={removeSelectedSubjectEffect}
           singleSection={mobileInspectorSection}
-        /> : null}
+        /></AnnaModelGate> : null}
         {isClickRippleContext ? <ClickRippleInspector t={t} segment={effectSegment} onChange={updateSelectedClickRipple} /> : null}
-        {isFaceSwapContext ? <FaceSwapContextPanel t={t} hasVisual={hasVisual} visualType={visualType} faceSwap={faceSwap} /> : null}
-        {isOpticalFlowContext ? <OpticalFlowTrackingPanel
+        {isFaceSwapContext ? <AnnaModelGate anna={anna}><FaceSwapContextPanel t={t} hasVisual={hasVisual} visualType={visualType} faceSwap={faceSwap} /></AnnaModelGate> : null}
+        {isOpticalFlowContext ? <AnnaModelGate anna={anna}><OpticalFlowTrackingPanel
           t={t}
           segment={effectSegment}
           localTime={visualLocalTime}
           onAssetReady={onOpticalFlowAssetReady}
-        /> : null}
-        {isCinematicDepthContext ? <CinematicDepthPanel
+        /></AnnaModelGate> : null}
+        {isCinematicDepthContext ? <AnnaModelGate anna={anna}><CinematicDepthPanel
           t={t}
           segment={effectSegment}
           analysis={cinematicDepth?.record}
@@ -1720,8 +1729,8 @@ export function VoicePanel({
           onAnalyze={cinematicDepth?.analyze}
           onCancel={cinematicDepth?.cancel}
           onChange={updateSelectedCinematicDepth}
-        /> : null}
-        {isPhotoParallaxContext ? <PhotoParallaxPanel
+        /></AnnaModelGate> : null}
+        {isPhotoParallaxContext ? <AnnaModelGate anna={anna}><PhotoParallaxPanel
           t={t}
           segment={effectSegment}
           analysis={photoParallaxDepth?.record}
@@ -1729,14 +1738,15 @@ export function VoicePanel({
           onAnalyze={photoParallaxDepth?.analyze}
           onCancel={photoParallaxDepth?.cancel}
           onChange={updateSelectedPhotoParallax}
-        /> : null}
+        /></AnnaModelGate> : null}
         {isSmartAutoContext ? anna?.enabled ? <AnnaEditPanel anna={anna} /> : <AutoEditPanel t={t} hasVisual={hasVisual} language={uiLanguage} autoEdit={autoEdit} /> : null}
-        {isSmartFrameContext ? <SmartFramePanel t={t} smartFrame={smartFrame} /> : null}
-        {isAiMusicContext ? <AiMusicGenerator language={uiLanguage} music={aiMusic} embedded /> : null}
+        {isSmartFrameContext ? <AnnaModelGate anna={anna}><SmartFramePanel t={t} smartFrame={smartFrame} /></AnnaModelGate> : null}
+        {isAiMusicContext ? <AnnaModelGate anna={anna}><AiMusicGenerator language={uiLanguage} music={aiMusic} embedded /></AnnaModelGate> : null}
         {isStickerContext ? <StickerContextPanel t={t} segment={selectedStickerSegment} updateStickerSegment={updateStickerSegment} deleteStickerSegment={deleteStickerSegment} /> : null}
         {isOverlayContext ? <div className="visual-overlay-inspector">
           {!mobileInspectorSection ? <div className={`sticker-properties-preview ${isVectorOverlay ? "is-vector" : ""}`}>{selectedVisualOverlay.type === "video" ? <video src={selectedVisualOverlay.src} muted playsInline /> : <img src={selectedVisualOverlay.src} alt="" style={isVectorOverlay ? { filter: vectorOverlayAppearance.filter, opacity: vectorOverlayAppearance.opacity, mixBlendMode: vectorOverlayAppearance.cssBlendMode } : undefined} />}</div> : null}
           <VisualEffectsPanel
+            anna={anna}
             contextMode
             mode="overlay"
             t={t}
@@ -1757,6 +1767,7 @@ export function VoicePanel({
         </div> : null}
         {isVisualContext && selectedVisualSegment ? (
           <VisualEffectsPanel
+            anna={anna}
             contextMode
             t={t}
             segment={selectedVisualSegment}
@@ -1800,6 +1811,7 @@ export function VoicePanel({
         ) : null}
         {isCaptionContext && captionPanelTab === "caption" && mobileInspectorSection !== "font" ? (
           <CaptionContextPanel
+            anna={anna}
             t={t}
             captionSegments={captionSegments}
             selectedCaptionSegment={selectedCaptionSegment}
@@ -1833,6 +1845,7 @@ export function VoicePanel({
                 : t("captionVoiceEmptyHint", "请先在时间线中选择一个字幕片段。")}
             </p>
             <VoiceSynthesisPanel
+              anna={anna}
               script={selectedCaptionSegment?.text ?? ""}
               updateScript={(text) => selectedCaptionSegment && updateCaptionSegmentText(selectedCaptionSegment.id, text)}
               selectedVoiceId={selectedVoiceId}
@@ -1867,12 +1880,13 @@ export function VoicePanel({
           </div>
         ) : null}
 
-        {isAvatarContext ? <AvatarContextPanel t={t} hasVisual={hasVisual} visualType={visualType} audioBlob={audioBlob} audioDuration={audioDuration} captionSegments={captionSegments} selectedVoice={selectedVoice} avatarJob={avatarJob} generateAvatarAcceptanceFrame={generateAvatarAcceptanceFrame} /> : null}
+        {isAvatarContext ? <AnnaModelGate anna={anna}><AvatarContextPanel t={t} hasVisual={hasVisual} visualType={visualType} audioBlob={audioBlob} audioDuration={audioDuration} captionSegments={captionSegments} selectedVoice={selectedVoice} avatarJob={avatarJob} generateAvatarAcceptanceFrame={generateAvatarAcceptanceFrame} /></AnnaModelGate> : null}
 
-        {isAudioClipContext ? <AudioClipContextPanel t={t} segment={{ ...audioPropertySegment, id: audioPropertySegment.id || audioPropertySegment.segmentId, track: audioPropertySegment.track || selectedTrack }} updateAudioSegment={selectedTrack === "audio" ? updateAudioSegment : updateSelectedTrackAudioSegment} toggleAudioSegmentReverse={toggleAudioSegmentReverse} deleteAudioSegment={selectedTrack === "audio" ? deleteAudioSegment : deleteSelectedTrackAudioSegment} downloadBlob={downloadBlob} requestedSection={mobileInspectorSection} voiceProfiles={voiceProfiles} onVoiceColorAssetReady={onVoiceColorAssetReady} onApplyVoiceColor={onApplyVoiceColor} onRestoreVoiceColor={onRestoreVoiceColor} /> : null}
+        {isAudioClipContext ? <AudioClipContextPanel t={t} anna={anna} segment={{ ...audioPropertySegment, id: audioPropertySegment.id || audioPropertySegment.segmentId, track: audioPropertySegment.track || selectedTrack }} updateAudioSegment={selectedTrack === "audio" ? updateAudioSegment : updateSelectedTrackAudioSegment} toggleAudioSegmentReverse={toggleAudioSegmentReverse} deleteAudioSegment={selectedTrack === "audio" ? deleteAudioSegment : deleteSelectedTrackAudioSegment} downloadBlob={downloadBlob} requestedSection={mobileInspectorSection} voiceProfiles={voiceProfiles} onVoiceColorAssetReady={onVoiceColorAssetReady} onApplyVoiceColor={onApplyVoiceColor} onRestoreVoiceColor={onRestoreVoiceColor} /> : null}
 
         {!isSmartContext && !isPluginsContext && !isEffectsContext && !isCaptionContext && !isAvatarContext && !isAudioClipContext && !isVisualContext && !isStickerContext && !isOverlayContext && voiceTab === "synthesis" ? (
           <VoiceSynthesisPanel
+              anna={anna}
             script={script}
             updateScript={updateScript}
             selectedVoiceId={selectedVoiceId}
@@ -1908,6 +1922,7 @@ export function VoicePanel({
 
         {!isSmartContext && !isPluginsContext && !isEffectsContext && !isCaptionContext && !isAvatarContext && !isAudioClipContext && !isVisualContext && !isStickerContext && !isOverlayContext && voiceTab === "mine" ? (
           <MyVoicesPanel
+            anna={anna}
             notify={notify}
             t={t}
             selectedVoice={selectedVoice}

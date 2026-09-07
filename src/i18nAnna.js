@@ -1,3 +1,5 @@
+import { ANNA_MAINTENANCE_COPY } from "./i18nAnnaMaintenance.js";
+
 const ANNA_COPY = {
   zh: {
     title: "Anna AI 剪辑",
@@ -667,5 +669,6 @@ const ANNA_COPY = {
 export function createAnnaTranslator(language) {
   const locale = String(language || "zh").toLowerCase().split(/[-_]/)[0];
   const copy = ANNA_COPY[locale] || ANNA_COPY.zh;
-  return (key) => copy[key] ?? key;
+  const maintenance = ANNA_MAINTENANCE_COPY[locale] || ANNA_MAINTENANCE_COPY.zh;
+  return (key) => maintenance[key] ?? copy[key] ?? key;
 }

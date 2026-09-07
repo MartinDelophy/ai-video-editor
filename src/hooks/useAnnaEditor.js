@@ -11,7 +11,13 @@ import {
   storeAnnaFile,
   downloadAnnaFile,
   subscribeAnnaConnection,
+  listAnnaFiles,
+  deleteAnnaFile,
+  recoverAnnaProjectReference,
+  validateAnnaFileDescriptor,
+  reconnectAnna,
 } from "../lib/annaRuntime.js";
+import { ANNA_CLOUD_TRANSFERS_VERIFIED, annaLocalComputeReason, checkAnnaLocalCompute } from "../lib/annaCapabilities.js";
 import {
   annaProjectFingerprint,
   buildAnnaTimelineReview,
@@ -32,24 +38,42 @@ export function useAnnaEditor(deps) {
   const [notice, setNotice] = useState("");
   const [report, setReport] = useState(null);
   const [exported, setExported] = useState(null);
+  const [localCompute, setLocalCompute] = useState({ status: "checking" });
+  const [cloudFiles, setCloudFiles] = useState({ files: [], nextCursor: null, loaded: false });
+  const [savedFile, setSavedFile] = useState(null);
+  const retryRef = useRef(null);
+  const computeGeneration = useRef(0);
   const abortRef = useRef(null);
   const exportUrlRef = useRef("");
   const attachmentUrlsRef = useRef([]);
   const mounted = useRef(true);
   const busyRef = useRef(false);
+  const snapshot = deps.getProjectSnapshot();
+  const hasProjectContent = ["visualSegments", "visualOverlaySegments", "audioSegments", "captionSegments", "stickerSegments", "musicSegments"]
+    .some((key) => snapshot[key]?.length) || deps.hasMusic || deps.hasSourceAudio || snapshot.audioDuration > 0;
   const draft = useAnnaDraft({
     enabled: isAnnaEdition,
     createArchive: deps.createArchive,
     importProject: deps.importProject,
-    hasContent: deps.visualSegments.length > 0,
+    hasContent: hasProjectContent,
+    externalBusy: Boolean(job || deps.exporting),
+    getFingerprint: () => annaProjectFingerprint(latest.current.getProjectSnapshot(), latest.current.rippleEditing, latest.current.visualSegments),
   });
+  const checkLocalCompute = async () => {
+    const generation = ++computeGeneration.current;
+    setLocalCompute({ status: "checking" });
+    const result = await checkAnnaLocalCompute();
+    if (mounted.current && generation === computeGeneration.current) setLocalCompute(result);
+  };
   useEffect(() => {
     mounted.current = true;
     if (!isAnnaEdition) return undefined;
     const unsubscribe = subscribeAnnaConnection(setConnection);
     connectAnna().catch(() => {});
+    checkLocalCompute();
     return () => {
       mounted.current = false;
+      computeGeneration.current += 1;
       unsubscribe();
       abortRef.current?.abort();
       if (exportUrlRef.current) URL.revokeObjectURL(exportUrlRef.current);
@@ -57,20 +81,34 @@ export function useAnnaEditor(deps) {
     };
   }, []);
   const execute = async (kind, task) => {
-    if (busyRef.current || !isAnnaEdition) return;
+    if (busyRef.current || latest.current.exporting || draft.isBusy?.() || !isAnnaEdition) return false;
     busyRef.current = true;
     const controller = new AbortController();
     abortRef.current = controller;
     setJob(kind);
     setError(null);
     setNotice("");
+    retryRef.current = null;
     try {
       await task(controller.signal);
+      return true;
     } catch (failure) {
       if (mounted.current) {
         const normalized = normalizeAnnaError(failure);
-        if (normalized.code !== "cancelled") setError(normalized);
+        // A cancelled/timed-out remote mutation may still have completed.
+        // Keep recovery information visible instead of discarding that state.
+        if (normalized.code !== "cancelled" || normalized.details?.remoteMayContinue) setError(normalized);
+        let recoveryFile = null;
+        if (normalized.details?.savedFile && normalized.details.fileState === "stored") {
+          try {
+            recoveryFile = validateAnnaFileDescriptor(normalized.details.savedFile);
+            setSavedFile(recoveryFile);
+          } catch { /* Ignore invalid recovery handles. */ }
+        }
+        if (recoveryFile?.kind === "projects" && normalized.details.stage === "save_reference") retryRef.current = () => recoverReference(recoveryFile);
+        else if (!["deleting-file", "planning"].includes(kind)) retryRef.current = () => execute(kind, task);
       }
+      return false;
     } finally {
       busyRef.current = false;
       if (mounted.current) setJob("");
@@ -113,7 +151,7 @@ export function useAnnaEditor(deps) {
       );
     });
   const apply = () => {
-    if (!review || busyRef.current) return;
+    if (!review || busyRef.current || latest.current.exporting || draft.isBusy?.()) return;
     const current = latest.current;
     if (
       review.fingerprint !==
@@ -126,10 +164,12 @@ export function useAnnaEditor(deps) {
       setError({ code: "ANNA_STALE_PLAN" });
       return;
     }
-    current.applyReview(review);
-    setReview(null);
-    setError(null);
-    setNotice("applied");
+    try {
+      current.applyReview(review);
+      setReview(null);
+      setError(null);
+      setNotice("applied");
+    } catch (failure) { setError(normalizeAnnaError(failure)); }
   };
   const render = (options = {}) =>
     execute("rendering", async () => {
@@ -143,6 +183,7 @@ export function useAnnaEditor(deps) {
           else attachments.push({ blob, name });
         },
       });
+      if (["canceled", "cancelled"].includes(result?.status)) throw Object.assign(new Error(), { code: "cancelled" });
       if (result?.status !== "success" || result.extension !== "mp4" || !videoArtifact)
         throw Object.assign(new Error(), { code: "ANNA_EXPORT_FAILED" });
       if (!mounted.current) return;
@@ -162,6 +203,31 @@ export function useAnnaEditor(deps) {
       });
       setNotice("exportReady");
     });
+  const requireCloudTransfer = () => {
+    if (!ANNA_CLOUD_TRANSFERS_VERIFIED) throw Object.assign(new Error(), { code: "cloud_unverified" });
+  };
+  const refreshFiles = (more = false) => execute("listing-files", async (signal) => {
+    const page = await listAnnaFiles({ cursor: more ? cloudFiles.nextCursor : undefined, signal });
+    if (!mounted.current) return;
+    setCloudFiles((current) => ({
+      files: [...new Map([...(more ? current.files : []), ...page.files].map((file) => [file.path, file])).values()],
+      nextCursor: page.nextCursor, loaded: true,
+    }));
+  });
+  const removeCloudFile = (file) => execute("deleting-file", async (signal) => {
+    setSavedFile((current) => current?.path === file.path ? null : current);
+    await deleteAnnaFile({ file, allowCurrent: true, signal });
+    if (!mounted.current) return;
+    setCloudFiles((current) => ({ ...current, files: current.files.filter((item) => item.path !== file.path) }));
+    setSavedFile((current) => current?.path === file.path ? null : current);
+    setNotice("deleted");
+  });
+  const recoverReference = (file = savedFile) => execute("repair-reference", async (signal) => {
+    if (!file) return;
+    setSavedFile((current) => current?.path === file.path ? null : current);
+    await recoverAnnaProjectReference({ file, signal });
+    if (mounted.current) { setSavedFile(null); setNotice("referenceSaved"); }
+  });
   return {
     enabled: isAnnaEdition,
     t,
@@ -175,6 +241,16 @@ export function useAnnaEditor(deps) {
     report,
     exported,
     draft,
+    localCompute,
+    localComputeReason: annaLocalComputeReason(localCompute),
+    checkLocalCompute,
+    cloudTransfersAvailable: ANNA_CLOUD_TRANSFERS_VERIFIED,
+    cloudFiles,
+    savedFile,
+    refreshFiles,
+    removeCloudFile,
+    recoverReference,
+    retry: retryRef.current ? () => retryRef.current?.() : null,
     hasVisual: deps.visualSegments.length > 0,
     exporting: deps.exporting,
     stale: Boolean(
@@ -185,7 +261,7 @@ export function useAnnaEditor(deps) {
     generate,
     apply,
     render,
-    connect: () => execute("connecting", (signal) => connectAnna({ signal })),
+    connect: () => execute("connecting", (signal) => reconnectAnna({ signal })),
     stop: () => {
       abortRef.current?.abort();
       setNotice("stopHint");
@@ -194,28 +270,44 @@ export function useAnnaEditor(deps) {
       execute("checking", async (signal) => {
         setReport(null);
         const result = await probeAnnaCompatibility({ signal });
-        if (mounted.current) setReport(result);
+        if (mounted.current) {
+          setReport(result);
+          const wasm = result.checks.find((item) => item.id === "wasm");
+          if (wasm) setLocalCompute({ status: wasm.status });
+        }
       }),
     saveCloud: () =>
       execute("saving", async (signal) => {
+        requireCloudTransfer();
         const blob = await latest.current.createArchive();
         await saveAnnaProject({ blob, signal });
-        if (mounted.current) setNotice("saved");
+        if (mounted.current) { setSavedFile(null); setNotice("cloudSaved"); }
       }),
     restoreCloud: () =>
       execute("restoring", async (signal) => {
+        requireCloudTransfer();
+        const before = annaProjectFingerprint(latest.current.getProjectSnapshot(), latest.current.rippleEditing, latest.current.visualSegments);
         const saved = await loadAnnaProject({ signal });
         if (!saved) {
           setNotice("noDraft");
           return;
         }
         if (signal.aborted || !mounted.current) return;
-        if (!(await latest.current.importProject(saved.file)))
-          throw Object.assign(new Error(), { code: "invalid_file" });
+        if (before !== annaProjectFingerprint(latest.current.getProjectSnapshot(), latest.current.rippleEditing, latest.current.visualSegments))
+          throw Object.assign(new Error(), { code: "project_changed" });
+        if (!(await draft.prepareRestore({ allowExternalBusy: true })))
+          throw Object.assign(new Error(), { code: "backup_failed" });
+        if (!(await latest.current.importProject(saved.file, {
+          beforeCommit: () => mounted.current && !signal.aborted && before === annaProjectFingerprint(latest.current.getProjectSnapshot(), latest.current.rippleEditing, latest.current.visualSegments),
+        }))) {
+          const changed = before !== annaProjectFingerprint(latest.current.getProjectSnapshot(), latest.current.rippleEditing, latest.current.visualSegments);
+          throw Object.assign(new Error(), { code: changed ? "project_changed" : "invalid_file" });
+        }
         if (mounted.current) setNotice("restored");
       }),
     downloadThroughHost: () =>
       execute("saving", async (signal) => {
+        requireCloudTransfer();
         if (!exported) return;
         const stored = await storeAnnaFile({ blob: exported.blob, name: exported.name, signal });
         await downloadAnnaFile({ path: stored.path, filename: exported.name, signal });

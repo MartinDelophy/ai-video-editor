@@ -4,6 +4,10 @@ Observed on 2026-09-05 with private app `@martindelophy/timeline-studio` (app ID
 
 These are prepared reports, **not messages sent to Anna**. No session tokens, signed URLs, credentials, or user media are included.
 
+Local follow-up, 2026-09-07: production was not rechecked and private draft r3 was not updated. The local edition now gates cloud media transfers until a real round trip passes, checks actual WASM compilation before mounting local-model controls, provides explicit local checkpoint download/clear and two pre-restore backups, and prepares conditional cloud file deletion/reference recovery. These are mitigations, not fixes to the platform findings below. Mock Host checks do not establish real storage deletion, first-insert CAS, or retention guarantees.
+
+The official local harness produced playable mixed-media MP4 previews at 1920×1080, 12.032 and 60.032 seconds. IAB download actions did not produce a discoverable local output file; Chrome import was blocked by its extension file-access setting. Full-file decode, cut alignment and mixed-audio acceptance therefore remain pending. Neither preview metadata nor a mock download event is treated as successful file delivery.
+
 ## 1. Browser uploads blocked by object-storage CORS
 
 The official local harness with real LLM and APS storage successfully returns `files.upload_init` with `put_url` and `headers.Content-Type = application/zip`. The editor sends the archive as a raw PUT using the returned headers. The browser upload fails before `files.upload_finalize` succeeds. The production private app also reports an incomplete file transfer.

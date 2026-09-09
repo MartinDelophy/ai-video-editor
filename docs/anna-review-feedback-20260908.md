@@ -19,6 +19,18 @@ The user authorized updating Anna with the local fixes and then making a local G
 
 This proves the updated draft is ready, its listing assets are associated on the server, and both screenshot URLs respond successfully. It does not prove a new production-window workflow pass or a platform WASM/permission fix. No Git remote push was performed.
 
+## Production draft retest — 2026-09-09
+
+After the upload checkpoint above, the real Anna production UI installed r6 through **Working draft → Install & test** as `0.0.0-draft`; the running entry was `assets/editor-B61QoiTy.js`. The full evidence and reproduction steps are in the [production retest report](anna-cloud-retest-20260909.md). The default Agent displayed Cloud, sleeping/waking on use; this frontend-only application has no Executa, so no Linux toolchain execution is claimed.
+
+Production checks now pass for Commons `nature` search (24 results) and real video preview, local upload with prepared thumbnails, real Anna AI trimming 35.886 seconds to 10 seconds with Apply/Undo/Redo, and a second real no-op request with Apply disabled. A 6.41 MiB project completed cloud save → full dashboard refresh → explicit restore, including its media and source trim 5–15 seconds. Silent H.264 export produced a decoded browser preview reporting 10 seconds, 1280 × 720 and `readyState: 4`; advancing playback time was not checked for the export. The Anna files list then showed its 5.91 MiB MP4.
+
+Three failures remain reproducible: WebAssembly reports `host_error` and AI Voice remains unavailable; the LLM-only permissions dialog still fails saving with `manifest does not declare agent.session.auto`; and a separately verified 12-second H.264/AAC input fails export with source audio at `ANNA_SOURCE_AUDIO_UNAVAILABLE`. That export stopped without a new result, preserving the 12-second timeline. Local MP4 delivery and independent decoding of an exported file remain unverified: the browser tool's download-event timeout alone does not establish an Anna download failure. The strict-validator false positive was not rerun in this UI pass. No new immutable version or review submission was created.
+
+The sections below retain their September 8 investigation and September 9 upload-checkpoint evidence. Their then-pending production checks should be read together with this later retest; none of these sample passes resolves the three failures or the remaining delivery checks.
+
+At closeout, the saved 10-second cloud project was restored again. Official read-only verification still returned r6 ready with the same hash, `status: rejected`, no review candidate, and only immutable version `684` / `0.1.0-alpha.1`, `published_at: null`.
+
 ## Five reported issues and repair state
 
 | Initial-review finding | This repair pass | Remaining evidence |

@@ -7,5 +7,9 @@
   "category": "productivity",
   "homepage_url": "https://video-editor.ai-creator.top/",
   "support_url": "https://github.com/MartinDelophy/ai-video-editor/issues",
-  "logo_file": "../public/icons/timeline-studio-icon-512.png"
+  "logo_file": "../public/icons/timeline-studio-icon-512.png",
+  "screenshots": [
+    "listing/editor-library.jpg",
+    "listing/export-settings.jpg"
+  ]
 }

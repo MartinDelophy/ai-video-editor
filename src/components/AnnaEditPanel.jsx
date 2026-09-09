@@ -22,6 +22,7 @@ const ERROR_COPY = {
   ANNA_STALE_PLAN: "stale",
   ANNA_TRACK_LOCKED: "locked",
   ANNA_COMPLEX_TIMING: "complex",
+  ANNA_NO_CHANGES: "noChanges",
   ANNA_EXPORT_FAILED: "exportFailed",
   ANNA_SOURCE_AUDIO_UNAVAILABLE: "sourceAudioUnavailable",
   host_required: "hostHint",
@@ -155,7 +156,12 @@ export function AnnaEditPanel({ anna }) {
         <section className="anna-review">
           <h3>{t("review")}</h3>
           <strong>{review.title}</strong>
-          <p>{review.summary}</p>
+          {review.hasChanges ? <p>{review.summary}</p> : null}
+          <p className={review.hasChanges ? "anna-change-summary" : "anna-capability-notice"} role="status">
+            {review.hasChanges
+              ? <>{t("reorderedClips")}: {review.changeSummary.reordered} · {t("trimmedClips")}: {review.changeSummary.trimmed}</>
+              : t("noChanges")}
+          </p>
           <div className="anna-duration">
             <span>
               {t("before")} {seconds(review.beforeDuration)}
@@ -175,6 +181,9 @@ export function AnnaEditPanel({ anna }) {
                 <small>
                   {seconds(row.start)} — {seconds(row.start + row.duration)}
                 </small>
+                {row.trimmed ? <small>
+                  {t("sourceRange")}: {seconds(row.beforeSourceStart)}–{seconds(row.beforeSourceStart + row.beforeDuration)} → {seconds(row.sourceStart)}–{seconds(row.sourceStart + row.duration)}
+                </small> : null}
               </li>
             ))}
           </ol>
@@ -182,11 +191,11 @@ export function AnnaEditPanel({ anna }) {
           <button
             type="button"
             className="auto-edit-generate"
-            disabled={busy || anna.stale}
+            disabled={busy || anna.stale || !review.hasChanges}
             onClick={anna.apply}
           >
             <CheckCircle size={17} />
-            <strong>{t("apply")}</strong>
+            <strong>{t(review.hasChanges ? "apply" : "noChangesApply")}</strong>
           </button>
         </section>
       ) : null}

@@ -258,7 +258,9 @@ export async function requestAnnaEditPlan({ instruction, assets, language = "en"
       + "Only videos explicitly marked trimAllowed:true may be trimmed. For every trimAllowed:false asset, sourceStart MUST be 0 and duration MUST exactly equal its supplied duration; preserve complex clips with speed curves, keyframes or effects intact. "
       + "Image sourceStart MUST be 0 and image duration MUST exactly match the supplied asset duration. Video segment duration must be at least 0.5 seconds. "
       + "At most 80 segments. No effects, speed changes, audio edits, or unsupported fields. "
-      + "The user will review this plan before explicitly applying it. Explain any limitation caused by having metadata only in the summary. Use the requested output language for title and summary.",
+      + "The user will review this plan before explicitly applying it. Describe only the actual proposed changes, never claim they have already been applied. "
+      + "Compare your segments with the supplied order and timings: if every clip stays unchanged, explicitly say there are no timeline changes and explain which request cannot be fulfilled or is already satisfied. Do not invent an edit merely to force a change. "
+      + "Explain any limitation caused by having metadata only in the summary. Use the requested output language for title and summary.",
     messages: [{ role: "user", content: { type: "text", text: JSON.stringify({ instruction: prompt, outputLanguage: String(language).slice(0, 20), assets: sources }) } }],
     maxTokens: 4096,
     temperature: 0.2,

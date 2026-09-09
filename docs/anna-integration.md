@@ -1,12 +1,34 @@
 # Timeline Studio Anna Edition 开发与验证
 
-更新日期：2026-09-07。当前工作位于 `codex/anna-validation` 分支，属于 Anna 适配验证。应用 **`@martindelophy/timeline-studio`（app ID `254`）** 的私有 working draft 已更新为 **revision `5` ready**。本轮用户授权生产复测和 Anna 草稿更新；没有推送 Git 远端，没有冻结版本、提交审核或公开上线。生产云存储 CORS 与完整工程样本往返现已通过；**WASM 仍被生产 CSP 阻止**，实际文件落盘与完整文件生命周期仍有验收缺口。不能描述为全功能兼容或已完成首发审核准备。
+更新日期：2026-09-09。当前工作位于 `codex/anna-validation`。应用 **`@martindelophy/timeline-studio`（app ID `254`）** 已于 9 月 7 日从已验证的 r5 草稿冻结 **`0.1.0-alpha.1`（版本 ID `684`）** 并首次送审；9 月 8 日 Anna Dev 邮件反馈初检未通过。9 月 9 日已按用户授权将修复上传至 **working draft r6 ready**，并关联两张产品截图。**未冻结新版本、未再次送审、未推送 Git 远端**。
+
+用户明确选择保留全部本地 AI 功能入口，等待平台正式解决生产 WASM 限制后再提交。云存储样本往返等 9 月 7 日证据继续有效，但不能证明新代码、完整模型与带声交付均已通过。9 月 9 日草稿更新后的服务器读回仍为 `rejected`，`review_candidate_version: null`，唯一不可变版本仍为 `684`、`published_at: null`，未发行。
 
 独立站继续使用根目录 `index.html`、`vite.config.mjs` 和既有部署入口。Anna 构建直接进入同一编辑器，单独启用平台适配，不改变独立站 `/` 的直接编辑体验。
 
+## 2026-09-09 r6 草稿与截图更新
+
+按用户授权，官方 CLI **`0.1.51`** 执行 `apps push --if-match 5` 成功，将工作草稿推进到 **r6 ready**。更新前重新执行 `build:anna` 和默认官方校验，均通过。包为 **159 文件、170,906,925 字节**，152 文件复用、仅 7 文件上传；服务器 `content_hash` **`895b1a892beefd96dc479142234e107adf1f7bfd4d4ca88e17720d6d9c330bb5`** 与本地官方 `bundleHash` 一致，入口为 `editor-B61QoiTy.js`。
+
+服务器已读回新增的 Commons API、upload、thumb 三个精确域名，并关联两张截图：[编辑器/素材库](https://cdn.anna.partners/production/app-screenshots/254-timeline-studio/20260909023730_fd3c4baf.webp)、[导出设置](https://cdn.anna.partners/production/app-screenshots/254-timeline-studio/20260909023731_e3afa8e1.webp)。两者 CDN HEAD 均为 HTTP 200、`image/webp`，分别为 **85,910** 和 **82,080 字节**。截图来自 9 月 8 日本地 Anna 版真实界面；来源详见 [`anna/listing/NOTES.md`](../anna/listing/NOTES.md)。
+
+r6 ready 证明草稿更新完成，截图关联与可访问性已确认；**不代表新生产窗口功能验收、平台 WASM 或权限保存错误已修复**。不可变版本 `684` 未被修改，没有执行新 `cut`、`submit-review`、`release` 或 Git 远端推送。以下 9 月 8 日章节保留当次尚未上传的历史状态，当前草稿和截图状态以本节为准。
+
+## 2026-09-08 初检反馈与本地修复
+
+| 官方初检问题 | 本轮状态 |
+| --- | --- |
+| 缺产品截图 | 已保存两张真实本地 Anna 版截图于 `anna/listing/`，并写入 `app.json` 的有序截图路径；尚未上传 Listing，最终候选需核对并补生产 AI 操作截图 |
+| 权限保存报 `manifest does not declare agent.session.auto` | 官方截图只显示已开启的 `llm.complete`，无 Agent 选项；应用仅调用单次补全，未添加无用 Agent 权限。现有 ACL 与显式拒绝 Agent 的隔离样本均通过本地 schema 校验，尚无证据证明能修复宿主保存错误 |
+| 素材库 Video → `nature` 报 `Failed to fetch` | 已补 Commons API、上传媒体和缩略图三项精确 origin，另声明视频预览的 `media-src`；Anna 图片、视频、音乐固定走 Commons，查询有超时、本地化恢复文案和重试 |
+| AI Voice 提示本地模型受限 | 保留全部功能入口、真实 WASM 检查与重试说明；仍待平台提供合法生产支持，不删除功能、不伪造结果或绕过 CSP |
+| 方案 Apply 后无明显变化 | 本地编译器区分无变化与真实重排/裁剪；无变化方案不产生新修订且禁止应用，真实方案显示变更统计和源范围，应用后定位首个变化片段 |
+
+Anna 和独立站最终构建均通过，普通官方校验通过，严格扫描仍为已上报的 SDK `anna.tools.getJob` 字符串误报。真实浏览器已通过视频搜索、预览、时间线导入和音乐预览、音乐轨道导入；官方本地容器真实 LLM 已完成 **35.886→10 秒 Apply→35.886 秒 Undo→10 秒 Redo**，另一次真实无变化方案明确提示并禁用 Apply。临时测试、React StrictMode history 回归及重点 ESLint 通过。两张截图为本地 Anna 版真实界面，未上传。这些证据不等于生产版本 `684` 已修复，也不覆盖本轮生产云存储、带声导出。详细构建哈希、复现与边界见 [`anna-review-feedback-20260908.md`](anna-review-feedback-20260908.md)。以下日期章节保留各次历史验证，不能把其中当时的“未冻结/未送审”当作当前状态。
+
 ## 2026-09-07 r5 原声保护与静音导出回归
 
-`apps push --if-match 4` 已将私有工作草稿更新到 **r5 ready**：159 文件、**170,897,427 字节**，内容哈希 **`e6bd6623cf95fec8ae98eeeaa58c651d53a38d8936eaffb886397a6c2584c61b`**。控制台确认 r5、ready 与 Unpublished，已执行 Working draft → Install & test。生产入口实际引用 `editor-BIu_J1eG.js`，与本地构建一致；仍未冻结版本或提交审核。
+`apps push --if-match 4` 已将私有工作草稿更新到 **r5 ready**：159 文件、**170,897,427 字节**，内容哈希 **`e6bd6623cf95fec8ae98eeeaa58c651d53a38d8936eaffb886397a6c2584c61b`**。当次控制台确认 r5、ready 与 Unpublished，已执行 Working draft → Install & test。生产入口实际引用 `editor-BIu_J1eG.js`，与本地构建一致；该次复测结束时尚未冻结版本。同日之后已冻结版本 `684` 并首次送审，见本文当前状态。
 
 | 验证 | 实际结果与边界 |
 | --- | --- |
@@ -58,7 +80,7 @@ Anna 导出会先用纯 JavaScript 容器元数据区分“文件确实没有音
 | 代码检查 | 全量 ESLint 0 errors / 71 warnings；typecheck、独立站构建、Anna 构建及官方普通 validate 通过。Anna 包 159 文件、163.0 MiB；严格扫描的已知 SDK 文本误报仍保留 |
 | 临时故障检查 | 15 项模拟 Host 文件生命周期、4 组 SDK 重连、13 项草稿/配额/并发保护、5 项真实归档的原子导入、7 项编辑 Hook 检查通过；不替代真实云端或浏览器落盘验证 |
 
-合成媒体、验证脚本和临时工作区均留在仓库外。该表描述本轮生产复测前的本地验收，云端最新证据以上面的 r4 章节为准。以下兼容性章节保留 9 月 5 日历史基线，不能把旧阻塞、revision 或耗时当成当前状态。
+合成媒体、验证脚本和临时工作区均留在仓库外。该表描述 9 月 7 日生产复测前的本地验收，生产功能证据见上面的 r4/r5 章节，审核与本轮修复状态见本文开头。以下兼容性章节保留 9 月 5 日历史基线，不能把旧阻塞、revision 或耗时当成当前状态。
 
 ## 2026-09-05 四阶段基线（历史）
 
@@ -69,7 +91,7 @@ Anna 导出会先用纯 JavaScript 容器元数据区分“文件确实没有音
 | 3. Anna 适配  | SDK、manifest、独立构建与缓存隔离完成；普通校验通过；`upload_init` 返回的精确 R2 origin 已随 revision 3 推送，生产 CSP 已确认生效                   | R2 未配置 CORS，生产 CSP 阻止 WASM；`--strict` 另有一条 SDK 文本误报 |
 | 4. 提交审核   | 用户已完成注册激活及 CLI 登录授权；应用 254 的私有 working draft r3 已 ready，且已通过 Working draft → Install & test 安装 `0.0.0-draft`            | 尚未冻结远端版本、提交审核或发布；待解决平台阻塞并补全发布材料       |
 
-2026-09-05 首次打包基线为 **158 个文件、162.8 MiB**；最大文件 `ffmpeg-core` WASM 为 **32,232,419 字节**。该初始包通过官方 CLI 严格校验。历史 revision 1 为 **159 个文件、170,809,266 字节**；revision 2 已完成上述生产核心流程验证。当前 **revision 3 为 159 个文件、170,810,875 字节**，服务器已确认 ready，状态为 `draft`，bundle hash 为 `254899bacc35669c3357189a77a28eb6b1e148988a419cbea4fb3e53f36c2837`。接入完整 SDK 后，普通校验仍通过，严格扫描出现下述一条已定位的文本误报，不能把最终包描述为严格校验全部通过。后续修改编辑器后必须重新构建，以新构建输出和验证结果为准。
+2026-09-05 首次打包基线为 **158 个文件、162.8 MiB**；最大文件 `ffmpeg-core` WASM 为 **32,232,419 字节**。该初始包通过官方 CLI 严格校验。历史 revision 1 为 **159 个文件、170,809,266 字节**；revision 2 已完成上述生产核心流程验证。当时 **revision 3 为 159 个文件、170,810,875 字节**，服务器确认 ready，状态为 `draft`，bundle hash 为 `254899bacc35669c3357189a77a28eb6b1e148988a419cbea4fb3e53f36c2837`。接入完整 SDK 后，普通校验仍通过，严格扫描出现下述一条已定位的文本误报，不能把当时最终包描述为严格校验全部通过。后续修改编辑器后必须重新构建，以新构建输出和验证结果为准。
 
 最终 Anna 构建通过，耗时约 1 分 28 秒；普通独立站构建通过，耗时约 3 分 28 秒。全量 ESLint 为 0 errors、71 warnings；现有 TypeScript 覆盖范围的 typecheck 通过。这些构建检查不能替代浏览器与平台功能验收。
 
@@ -107,6 +129,7 @@ Anna 导出会先用纯 JavaScript 容器元数据区分“文件确实没有音
 - 视频计划只接受合法范围内的裁剪，片段时长至少 0.5 秒。`sourceStart` 是相对于当前片段的偏移，应用时再转换为源文件时间。
 - 改变裁剪范围只适用于 1×、无速度曲线、无倒放、无变换关键帧及无相关复杂处理的片段；复杂片段的裁剪会被拒绝，不会被静默简化。
 - 模型结果经过结构与素材校验，再转成现有命令引擎的重排、裁剪操作。先展示时间、时长及顺序变更，用户明确应用后才改变时间轴。
+- 9 月 8 日本地修复会按实际项目差异区分无变化方案；无变化时保留原修订、禁用应用并解释原因，真实重排即使总时长不变也可应用。显示重排/裁剪片段数及源范围变化，应用后选中首个变化片段并定位播放头。此改动已随 9 月 9 日 r6 草稿上传，不改变不可变版本 `684`；新的生产运行验收仍待完成。
 - 应用前核对工程指纹；计划生成后发生编辑、撤销或涟漪模式变化时，不能把旧计划直接套到新状态。
 - 遵守主视觉和已关联源音频的轨道锁。时长变化沿用项目的涟漪编辑规则。
 - 此版本不让模型新增特效、变速、配音、字幕或自动发布视频。仍可由用户在完整编辑器内手动调整并使用现有导出功能。
@@ -127,7 +150,7 @@ npm run anna:validate
 npm run anna:dev -- --no-watch
 ```
 
-`build:anna` 生成 `anna/bundle`；`anna:validate` 使用固定 CLI 版本执行官方默认校验，当前包已通过；`anna:validate:strict` 单独保留严格扫描，仍有下述已知 SDK 文本误报，不能称为全部通过。`anna:dev` 在 5180 端口运行官方开发容器，并明确传入 `--no-llm`。这个默认入口用于检查容器与浏览器能力，不会产生真实 AI 结果。
+`build:anna` 生成 `anna/bundle`；`anna:validate` 使用固定 CLI 版本执行官方默认校验，9 月 8 日修复包及 9 月 9 日更新前重建均已通过；`anna:validate:strict` 单独保留严格扫描，仍有下述已知 SDK 文本误报，不能称为全部通过。`anna:dev` 在 5180 端口运行官方开发容器，并明确传入 `--no-llm`。这个默认入口用于检查容器与浏览器能力，不会产生真实 AI 结果。
 
 ### 官方严格扫描器的已知误报
 
@@ -135,7 +158,7 @@ npm run anna:dev -- --no-watch
 
 Timeline Studio 没有调用该方法。源码与产物核对已确认命中的是 SDK 错误文本。Manifest 的 `ui.host_api.tools` 接受的是已声明的 Executa ID，不能把 `getJob` 填入当作方法授权；本项目也不应为了消除误报引入无用 Executa 或扩大权限。当前保留原 SDK 文本和固定版本；使用 `npm run anna:validate:strict` 可单独复现严格扫描结果，没有屏蔽该错误。
 
-同一最终包执行普通 `anna-app validate --manifest anna/manifest.json --bundle anna/bundle` 已通过，证明该命令执行的 schema 与静态 UI/CSP 检查通过；它不能替代未通过的严格扫描。正式提交前需要平台修正扫描器，或由平台明确确认该可复现误报的处理方式。SDK 当前只提供整包入口；官方另有宿主提供的 `/static/anna-apps/_sdk/latest/index.js`，但它不固定版本，本项目没有为了改变扫描范围而改走该入口。[官方 SDK 文档](https://anna.partners/developers/apps/app-ui-sdk)
+9 月 7 日同一最终包执行普通 `anna-app validate --manifest anna/manifest.json --bundle anna/bundle` 已通过，证明该命令执行的 schema 与静态 UI/CSP 检查通过；它不能替代未通过的严格扫描，也不能覆盖后续新构建。再次提交前仍需平台修正扫描器，或明确确认该可复现误报的处理方式。SDK 当前只提供整包入口；官方另有宿主提供的 `/static/anna-apps/_sdk/latest/index.js`，但它不固定版本，本项目没有为了改变扫描范围而改走该入口。[官方 SDK 文档](https://anna.partners/developers/apps/app-ui-sdk)
 
 仅迭代界面时可用 `npm run dev:anna`，端口为 5181。它是直接运行的 Vite 编辑器预览，没有 Anna 宿主，不足以验证 Host SDK、生产沙箱权限或平台计费。正常独立站仍使用原来的 `npm run dev` 和 `npm run build`。
 
@@ -164,28 +187,28 @@ npx --yes @anna-ai/cli@0.1.51 dev --cwd anna --manifest manifest.json --bundle b
 
 结构与限制依据：[App Manifest](https://anna.partners/developers/apps/app-manifest)、[UI Manifest](https://anna.partners/developers/apps/app-ui-manifest)、[CLI 参考](https://anna.partners/developers/reference/cli)。
 
-## 当前仍需真实平台确认的事项（2026-09-07）
+## 当前仍需真实平台确认的事项（2026-09-08）
 
-生产来源的存储 CORS 和完整工程样本往返已通过，r4 亦完成已有引用的条件保存、文件列表及引用修复，r5 云恢复再次通过。当前明确的平台阻塞是生产 CSP 对 WASM 的限制；r5 已在生产验证原声失败时停止导出，并可明确选择静音生成预览。实际文件落盘、带声交付与完整文件生命周期尚未验收，不能用模拟响应或绕过浏览器安全机制补齐记录。
+9 月 7 日生产来源的存储 CORS 和完整工程样本往返已通过，r4 亦完成已有引用的条件保存、文件列表及引用修复，r5 云恢复再次通过。已确认的平台阻塞是生产 CSP 对 WASM 的限制；9 月 8 日初检还指出宿主权限保存报 Agent session 未声明。r5 已在生产验证原声失败时停止导出，并可明确选择静音生成预览。实际文件落盘、带声交付与完整文件生命周期尚未验收，不能用模拟响应或绕过浏览器安全机制补齐记录。
 
-1. **平台 LLM：**本地真实模式与生产私有容器的成功方案、应用、撤销和重做已验证；继续验证授权与用量错误、超时，以及用户中止后平台是否仍继续处理。仍需为最终候选保留从真实 AI 方案到实际成片交付的完整演示。
+1. **平台 LLM 与授权：**9 月 5 日/7 日已有本地及生产真实方案、应用、撤销和重做的历史样本。9 月 8 日审核截图在只有 `llm.complete` 开关时，保存权限仍报 `agent.session.auto` 未声明；需平台核对保存载荷或默认值，不能通过增加无用 Agent 权限消除错误。新 no-op 修复已通过官方本地容器的真实 AI 浏览器验收，仍需生产验收；授权、用量、超时、取消边界与完整交付演示继续保留为待验证项。
 2. **浏览器计算权限：**9 月 7 日生产 WASM 探针仍实际触发 CSP 拒绝。当前官方 schema 不接受把 `wasm-unsafe-eval` 填入 `script-src` 覆盖项，因此没有添加非法 CSP 或 `unsafe-eval`。需要平台提供正式支持 WASM 的 CSP 配置方式，才可继续验证依赖 WASM 的功能。本地容器的 WASM 成功不覆盖生产限制；H.264 探针本轮曾超时，但之后实际 MP4 画面生成与解码成功，不能以探针超时判定不支持，也不能把画面成功当成音轨完整。SharedArrayBuffer 仍因缺少跨源隔离而不可用。[官方 UI CSP](https://anna.partners/developers/apps/app-ui-manifest)
 3. **文件 API 与精确域名：**实际存储 origin `https://5244841125c1e42784f5bda924751be6.r2.cloudflarestorage.com` 已在 manifest 中声明。9 月 7 日以 `https://anna.partners` 为来源的 PUT/content-type 预检返回 204，真实工程上传及恢复通过；此前 403 的记录保留在历史章节。当前不需要扩大域名或绕过浏览器限制；仍应分别验证首次引用 CAS、版本冲突、条件删除、多页列表以及 Host 下载到本机。Localhost 和其它请求头组合没有因生产样本通过而自动获得验证。[Files API](https://anna.partners/developers/reference/host-api-files)
 4. **持久恢复：**IndexedDB 草稿和 Anna 云端工程都已完成显式恢复样本；启动后仍由用户选择恢复，没有自动恢复行为。r4 使用已有引用 etag 的条件保存、四份工程与一份成片的列表、最新工程引用重设均通过。更换环境、异常并发与删除后的恢复边界仍需验证；文件列表中的成片只证明上传，不能证明本机下载成功。
-5. **模型下载：**模型用途的 `external_origins` 为 `https://huggingface.co`、`https://us.aws.cdn.hf.co`、`https://www.modelscope.cn`；第二项来自自有镜像文件的实际重定向。另有上述已观察到的 Anna R2 存储 origin。继续验证其他模型是否出现不同 CDN；仅按实际用途补精确 origin，不加通配。
+5. **模型下载与素材域名：**模型用途的 `external_origins` 为 `https://huggingface.co`、`https://us.aws.cdn.hf.co`、`https://www.modelscope.cn`；第二项来自自有镜像文件的实际重定向。另有上述已观察到的 Anna R2 存储 origin。9 月 8 日依据实际 Commons 搜索响应增加 `https://commons.wikimedia.org`、`https://upload.wikimedia.org`、`https://thumb.wikimedia.org`，供图片、视频与音乐的查询、预览和导入；9 月 9 日 r6 上传后已从服务器读回这些声明，实际生产窗口运行仍待复测。继续按真实重定向补精确模型域名，不加通配。
 6. **有效使用认定：**本地视频处理怎样计入 Qualified App Run，以及独立站并行运营安排，仍需平台方确认。工程成功保存、视频下载或本地模型完成不能直接被描述成有效 MAU 已认定。[Builder Program 原文](https://forum.anna.partners/t/turn-your-ai-agents-apps-into-recurring-monthly-grants-join-the-anna-ai-os-founding-builder-program-up-to-80k-month-pool/205)
 
-当前 CSP 另外只允许 `connect-src blob:` 和 `font-src blob:`，供用户本地媒体读取及镜像字体使用；R2 仅声明实际返回的精确 origin，没有扩大到任意云端生成服务或任意对象存储域名。生产 `script-src` 仍为 `'self' 'self'`。
+当前本地 manifest 的 CSP 覆盖项为 `connect-src blob:`、`font-src blob:`，以及 9 月 8 日新增的 `media-src https://upload.wikimedia.org`；外部域名按实际用途精确列举，没有任意对象存储或通配。最后一次已记录的生产 `script-src` 仍为 `'self' 'self'`；本地声明变更不证明旧生产版本已经采用新 CSP。
 
-已准备英文问题记录 [`anna-platform-issues.md`](anna-platform-issues.md)，保留已解决的生产 CORS 证据及仍存在的 WASM CSP、严格扫描误报；目前尚未发送给 Anna。
+历史英文问题记录 [`anna-platform-issues.md`](anna-platform-issues.md) 保留生产 CORS、WASM CSP 与严格扫描证据。完整问题已发布为 [Developer Forum 帖子 #296](https://forum.anna.partners/t/timeline-studio-production-wasm-csp-blocker-and-strict-validator-false-positive-minimal-reproductions/296)；9 月 8 日新增初检反馈和本轮修复另见 [`anna-review-feedback-20260908.md`](anna-review-feedback-20260908.md)，尚未作为新一轮送审或回信发送。
 
-## 验证完成后的审核流程
+## 首次送审记录与后续审核流程
 
-已注册应用 `@martindelophy/timeline-studio`（app ID `254`）的私有草稿为 **revision `5` ready**。云恢复、原声失败保护与明确静音导出已完成本文开头的生产样本验证；其余首发证据仍待补齐。尚未执行 `cut` 版本冻结、审核或 release。
+应用 `@martindelophy/timeline-studio`（app ID `254`）的 r5 草稿已于 9 月 7 日冻结为不可变版本 **`0.1.0-alpha.1`（`684`）** 并首次送审。9 月 8 日 Anna Dev 告知初检未通过；修复已于 9 月 9 日更新到 **r6 ready**。云恢复、原声失败保护与明确静音导出仍只有上述历史样本证据，本轮没有新的生产运行验收或再次送审。现有版本不得覆盖；后续候选须读取版本列表后选用更高版本。
 
 私有草稿的正确试用入口为 **Developer Console → 应用 → Versions → Working draft → Install & test**。该路径已成功安装保留版本 `0.0.0-draft`，**不需要先执行 `cut`**。应用列表上的普通 Install 曾提示“暂无可用发布版本”，原因是那个入口面向发布版本，不能把它当作草稿试用失败或冻结版本的前置要求。草稿上传、安装成功仍不能替代生产窗口的逐项功能验收。
 
-继续准备真实操作截图、准确商店介绍和适用于 Anna 数据流的隐私说明，确认必要开发者资料并完成平台内完整试用，再推进冻结与审核。现有独立站隐私页不能未经核对就代表 Anna LLM 和显式云端保存的数据流。
+两张真实本地操作截图已于 9 月 9 日上传，服务器关联和 CDN HTTP 200 均已确认；继续补最终生产操作截图、准确商店介绍和适用于 Anna 数据流的隐私说明。遵守用户保留全部本地 AI、等待平台正式 WASM 修复后再提交的决定，再完成最终生产试用和下一候选的冻结/送审。现有独立站隐私页不能未经核对就代表 Anna LLM 和显式云端保存的数据流。
 
 ### 发布前的隐私说明核对
 
@@ -200,9 +223,9 @@ npx --yes @anna-ai/cli@0.1.51 dev --cwd anna --manifest manifest.json --bundle b
 
 界面已有“保存到 Anna 会上传工程及全部素材”和 Host 下载上传提示。规划区域的隐私提示现已在所有 **13 种界面语言**中明确限定为**生成计划这一步不上传素材**，避免被理解为覆盖后面的显式云端操作；该文案改动已随 revision 3 构建推送，生产界面已确认显示。以上仍有待补全的公开隐私说明，本轮没有修改或发布隐私网页。
 
-首发流程为 **`push` 草稿 → 安装验收 → `cut VERSION` 冻结 → `submit-review` 提交审核 → 管理员审批**。`apps publish` 是 `push + cut` 的组合，不代表公开上架。管理员可能在批准时同时发布；只有停留在 `APPROVED` 而未上线时，才需要后续 `release VERSION`。因此不能把提交审核视作保证私有的操作，本轮只授权更新和测试草稿。[官方发布说明](https://anna.partners/developers/apps/app-publish)
+首发流程为 **`push` 草稿 → 安装验收 → `cut VERSION` 冻结 → `submit-review` 提交审核 → 管理员审批**。`apps publish` 是 `push + cut` 的组合，不代表公开上架。管理员可能在批准时同时发布；只有停留在 `APPROVED` 而未上线时，才需要后续 `release VERSION`。9 月 7 日首次送审已有用户授权；9 月 8 日当前决定是等待平台修复后再提交，不执行新的送审。[官方发布说明](https://anna.partners/developers/apps/app-publish)
 
-草稿操作和审核命令的完整说明见 [`anna-release-readiness.md`](anna-release-readiness.md)。以下是未来操作参考，不代表已执行。`REVISION` 必须取自当前服务器草稿，`VERSION` 和 `CHANGELOG` 必须对应已验收构建；执行后须核对 `review_candidate_version`：
+草稿操作和审核命令的完整说明见 [`anna-release-readiness.md`](anna-release-readiness.md)。以下是未来新候选的操作参考，不代表本轮已再次执行。`REVISION` 必须取自当前服务器草稿，`VERSION` 和 `CHANGELOG` 必须对应已验收构建且不能复用版本 `684`；执行后须核对 `review_candidate_version`：
 
 ```sh
 npx --yes @anna-ai/cli@0.1.51 apps push --cwd anna --bundle-dir bundle --if-match REVISION

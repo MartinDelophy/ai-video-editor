@@ -14,6 +14,9 @@
         "https://huggingface.co",
         "https://us.aws.cdn.hf.co",
         "https://www.modelscope.cn",
+        "https://commons.wikimedia.org",
+        "https://upload.wikimedia.org",
+        "https://thumb.wikimedia.org",
         "https://5244841125c1e42784f5bda924751be6.r2.cloudflarestorage.com"
       ]
     },
@@ -40,6 +43,7 @@
     },
     "csp_overrides": {
       "connect-src": ["blob:"],
+      "media-src": ["https://upload.wikimedia.org"],
       "font-src": ["blob:"]
     },
     "state_merge": "last_writer_wins"

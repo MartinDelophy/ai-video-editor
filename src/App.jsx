@@ -564,7 +564,7 @@ export function App() {
   });
 
   const { builtInAssets, filteredVoices, libraryType, libraryQuery, setLibraryQuery,
-    selectLibraryType, libraryStatus, libraryError, libraryProvider, assetDownloadStates, prefetchLibraryAsset } = useEditorCatalog(voiceFilter);
+    selectLibraryType, libraryStatus, libraryError, retryLibrary, libraryProvider, assetDownloadStates, prefetchLibraryAsset } = useEditorCatalog(voiceFilter);
   const generationPlugins = useGenerationPlugins({
     imageUrlRefs,
     notify,
@@ -1308,6 +1308,8 @@ export function App() {
     hasMusic: Boolean(musicBlob), hasSourceAudio: Boolean(sourceAudioBlob),
     renderVideo: handleExportVideo, exportSettings, exporting,
     applyReview: (review) => {
+      if (!review.hasChanges) throw Object.assign(new Error(), { code: "ANNA_NO_CHANGES" });
+      const firstChanged = review.rows.find((row) => row.changed);
       const next = review.project;
       const nextVisuals = restoreAnnaVisualMedia(next.visualSegments, visualSegments);
       const nextAudio = restoreAnnaVisualMedia(next.audioSegments, audioSegments);
@@ -1321,8 +1323,8 @@ export function App() {
       setMusicSegments(next.musicSegments);
       setMusicStart(next.musicStart);
       setSourceAudioStart(next.sourceAudioStart);
-      commitVisualSegments(nextVisuals, anna.t("applied"));
-      setCurrentTime(0);
+      commitVisualSegments(nextVisuals, anna.t("applied"), firstChanged?.index ?? 0);
+      setCurrentTime(firstChanged?.start ?? 0);
     },
   });
 
@@ -1411,7 +1413,7 @@ export function App() {
           estimatedDuration, fileInputRef, generateCaptionsFromSourceAudio, handleAssetClick,
           handleAssetPointerDown, handleCaptionPositionChange, handleFiles, handleStickerClick, confirmStickerSelection,
           imageSrc, isDragging, mediaTab, musicBlob, musicDuration, musicName, musicVolume,
-          libraryType, libraryQuery, setLibraryQuery, selectLibraryType, libraryStatus, libraryError, libraryProvider,
+          libraryType, libraryQuery, setLibraryQuery, selectLibraryType, libraryStatus, libraryError, retryLibrary, libraryProvider,
           assetDownloadStates, prefetchLibraryAsset,
           notify, openAvatarPanel, previewVisionAnalysis, previewVisionKey, smartMode, setSmartMode,
           previewVisionOptions, previewVisualSrc, previewVisualType, progress, script,

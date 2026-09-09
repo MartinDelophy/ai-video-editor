@@ -128,6 +128,7 @@ export function buildAnnaTimelineReview(inputProject, response, options = {}) {
     .some((key) => !Object.is(clip[key], runtimeById.get(clip.id)[key])))) reject("ANNA_STALE_PLAN");
   const seen = new Set();
   const operations = [];
+  const orderedIds = originals.map((clip) => clip.id);
   const baseRevision = project.commandState?.revision || 0;
   const batch = crypto.randomUUID();
   const add = (operation) => operations.push({ ...operation, id: `${batch}-${operations.length}` });
@@ -148,7 +149,14 @@ export function buildAnnaTimelineReview(inputProject, response, options = {}) {
       offset + duration > clip.duration + TIME_EPSILON
     )
       reject("ANNA_INVALID_PLAN");
-    add({ type: "visual.reorder", clipId: clip.id, toIndex: index });
+    // Only compile effective moves. A model may return the current sequence;
+    // that is a reviewable no-op, not a successful edit or a new revision.
+    const fromIndex = orderedIds.indexOf(clip.id);
+    if (fromIndex !== index) {
+      add({ type: "visual.reorder", clipId: clip.id, toIndex: index });
+      orderedIds.splice(fromIndex, 1);
+      orderedIds.splice(index, 0, clip.id);
+    }
     const changed = offset > TIME_EPSILON || Math.abs(duration - clip.duration) > TIME_EPSILON;
     if (changed) {
       if (clip.type !== "video") reject("ANNA_INVALID_PLAN");
@@ -167,7 +175,9 @@ export function buildAnnaTimelineReview(inputProject, response, options = {}) {
       add({ type: "visual.trim", clipId: clip.id, sourceIn, sourceOut });
     }
   });
-  const result = applyCommandPlan(project, { schemaVersion: 1, baseRevision, operations });
+  const result = operations.length
+    ? applyCommandPlan(project, { schemaVersion: 1, baseRevision, operations })
+    : { ok: true, project: structuredClone(project) };
   if (!result.ok) reject("ANNA_INVALID_PLAN");
 
   // Apply each duration change to one accumulating snapshot, avoiding stale React setters.
@@ -223,11 +233,15 @@ export function buildAnnaTimelineReview(inputProject, response, options = {}) {
       start: previousStart,
       beforeDuration: Number(before.duration),
       duration: Number(clip.duration),
+      beforeSourceStart: Number(before.sourceStart) || 0,
       sourceStart: Number(clip.sourceStart) || 0,
+      reordered: beforeIndex !== index,
+      trimmed: Math.abs(delta) > TIME_EPSILON ||
+        Math.abs((Number(before.sourceStart) || 0) - (Number(clip.sourceStart) || 0)) > TIME_EPSILON,
       changed:
         beforeIndex !== index ||
         Math.abs(delta) > TIME_EPSILON ||
-        (Number(before.sourceStart) || 0) !== (Number(clip.sourceStart) || 0),
+        Math.abs((Number(before.sourceStart) || 0) - (Number(clip.sourceStart) || 0)) > TIME_EPSILON,
     };
     previousStart += Number(clip.duration);
     return row;
@@ -245,6 +259,11 @@ export function buildAnnaTimelineReview(inputProject, response, options = {}) {
     fingerprint: annaProjectFingerprint(inputProject, options.rippleEditing, options.visualSegments),
     project: completeAnnaProject(next),
     rows,
+    hasChanges: rows.some((row) => row.changed),
+    changeSummary: {
+      reordered: rows.filter((row) => row.reordered).length,
+      trimmed: rows.filter((row) => row.trimmed).length,
+    },
     changes: diffProjects(project, next),
     beforeDuration,
     duration: previousStart,

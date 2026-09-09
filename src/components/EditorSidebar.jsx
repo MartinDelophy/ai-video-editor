@@ -102,6 +102,7 @@ export function EditorSidebar({ model: d }) {
             selectLibraryType={d.selectLibraryType}
             libraryStatus={d.libraryStatus}
             libraryError={d.libraryError}
+            retryLibrary={d.retryLibrary}
             libraryProvider={d.libraryProvider}
             assetDownloadStates={d.assetDownloadStates}
             prefetchLibraryAsset={d.prefetchLibraryAsset}

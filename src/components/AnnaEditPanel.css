@@ -100,6 +100,7 @@
   color: #ffac9e;
 }
 .anna-edit-panel .anna-notice,
+.anna-edit-panel .anna-change-summary,
 .anna-edit-panel .is-ready,
 .anna-compatibility .is-passed {
   color: #76dfc3;

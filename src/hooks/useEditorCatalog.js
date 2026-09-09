@@ -4,6 +4,18 @@ import { getRemoteAssetBlob } from "../lib/remoteAssetCache.js";
 import { VECTOR_ASSETS } from "../lib/vectorAssets.js";
 
 const DEFAULT_QUERY = { image: "nature", video: "nature", audio: "ambient", vector: "" };
+const SEARCH_TIMEOUT_MS = 25_000;
+const ANNA_EDITION = import.meta.env.VITE_ANNA_EDITION === "true";
+
+async function fetchCatalogJson(url, { signal, headers } = {}) {
+  const response = await fetch(url, { signal, headers, mode: "cors", credentials: "omit" });
+  if (!response.ok) throw new Error(`catalog_http_${response.status}`);
+  const data = await response.json();
+  // MediaWiki can report an API error in an otherwise successful HTTP response.
+  // It must not be presented as a successful search with no matches.
+  if (data.error || data.errors) throw new Error("catalog_api_error");
+  return data;
+}
 
 const formatDuration = (seconds = 0) => {
   const value = Math.max(0, Number(seconds) || 0);
@@ -48,19 +60,25 @@ function mapCommonsPage(page, type) {
   const transferBoundedVideoDerivatives = duration > 0
     ? videoDerivatives.filter((item) => !item.bandwidth || item.bandwidth * duration / 8 <= 12 * 1024 * 1024)
     : [];
+  const audioDerivatives = type === "audio"
+    ? (info.derivatives || []).filter((item) => item.src && item.type?.startsWith("audio/"))
+    : [];
   const derivative = type === "video"
     ? transferBoundedVideoDerivatives.length
       ? [...transferBoundedVideoDerivatives].sort((a, b) => (b.width || 0) - (a.width || 0))[0]
       : [...videoDerivatives].sort((a, b) => (a.width || 0) - (b.width || 0))[0]
     : type === "audio"
-      ? (info.derivatives || []).find((item) => item.src && item.type?.startsWith("audio/"))
+      // Use Commons' real MP3 derivative when available for native browser
+      // preview/decoding without requiring Anna's restricted WASM runtime.
+      ? audioDerivatives.find((item) => item.type === "audio/mpeg") || audioDerivatives[0]
       : null;
   const editorSrc = type === "image" ? info.thumburl || info.url : derivative?.src || info.url;
   // Wikimedia only serves a fixed allowlist of thumbnail widths. Keep the
   // API-provided URL intact instead of rewriting it to an unsupported size.
   const thumbnail = type === "image" ? editorSrc : type === "video" ? info.thumburl : "";
   return {
-    id: `commons-${type}-${page.pageid}`, type, src: editorSrc, originalSrc: info.url, thumbnail,
+    id: `commons-${type}-${page.pageid}`, type, kind: type === "audio" ? "music" : undefined,
+    src: editorSrc, originalSrc: info.url, thumbnail,
     name: page.title?.replace(/^File:/, "") || `Commons ${type}`,
     meta: type === "audio"
       ? `${formatDuration(duration)} · ${license}`
@@ -91,31 +109,28 @@ async function searchCommons(type, query, signal) {
   const filetype = type === "image" ? "bitmap" : type;
   const timedMedia = type === "video" || type === "audio";
   const params = new URLSearchParams({
-    action: "query", generator: "search", gsrsearch: `${query} filetype:${filetype}`,
+    action: "query", generator: "search", gsrsearch: `${query}${type === "audio" ? " music" : ""} filetype:${filetype}`,
     gsrnamespace: "6", gsrlimit: "24", prop: timedMedia ? "videoinfo" : "imageinfo",
-    [timedMedia ? "viprop" : "iiprop"]: "url|size|mime|extmetadata|derivatives",
+    [timedMedia ? "viprop" : "iiprop"]: timedMedia ? "url|size|mime|extmetadata|derivatives" : "url|size|mime|extmetadata",
     [timedMedia ? "viurlwidth" : "iiurlwidth"]: "1280", format: "json", origin: "*",
   });
-  const response = await fetch(`https://commons.wikimedia.org/w/api.php?${params}`, { signal });
-  if (!response.ok) throw new Error(`Commons ${response.status}`);
-  const data = await response.json();
-  return Object.values(data.query?.pages || {}).map((page) => mapCommonsPage(page, type)).filter((asset) => asset.src);
+  const data = await fetchCatalogJson(`https://commons.wikimedia.org/w/api.php?${params}`, { signal });
+  return Object.values(data.query?.pages || {})
+    .sort((a, b) => (a.index ?? Infinity) - (b.index ?? Infinity))
+    .map((page) => mapCommonsPage(page, type))
+    .filter((asset) => asset.src && (type !== "audio" || (asset.duration >= 15 && asset.duration <= 600)));
 }
 
 async function searchPexels(type, query, key, signal) {
   const path = type === "video" ? "videos/search" : "search";
   const params = new URLSearchParams({ query, per_page: "24", orientation: "all" });
-  const response = await fetch(`https://api.pexels.com/v1/${path}?${params}`, { headers: { Authorization: key }, signal });
-  if (!response.ok) throw new Error(`Pexels ${response.status}`);
-  const data = await response.json();
+  const data = await fetchCatalogJson(`https://api.pexels.com/v1/${path}?${params}`, { headers: { Authorization: key }, signal });
   return type === "video" ? (data.videos || []).map(mapPexelsVideo) : (data.photos || []).map(mapPexelsPhoto);
 }
 
 async function searchOpenverseAudio(query, signal) {
   const params = new URLSearchParams({ q: query, page_size: "20", license: "cc0,by,pdm", categories: "music" });
-  const response = await fetch(`https://api.openverse.org/v1/audio/?${params}`, { signal });
-  if (!response.ok) throw new Error(`Openverse ${response.status}`);
-  const data = await response.json();
+  const data = await fetchCatalogJson(`https://api.openverse.org/v1/audio/?${params}`, { signal });
   return (data.results || []).map(mapOpenverseAudio)
     .filter((asset) => asset.src && asset.duration >= 15 && asset.duration <= 600)
     .slice(0, 24);
@@ -127,8 +142,12 @@ export function useEditorCatalog(voiceFilter) {
   const [builtInAssets, setBuiltInAssets] = useState([]);
   const [libraryStatus, setLibraryStatus] = useState("loading");
   const [libraryError, setLibraryError] = useState("");
+  const [searchAttempt, setSearchAttempt] = useState(0);
   const [assetDownloadStates, setAssetDownloadStates] = useState({});
-  const pexelsKey = String(import.meta.env.VITE_PEXELS_API_KEY || "").trim();
+  // Anna's manifest declares the Commons API and media CDNs. Keep its
+  // provider deterministic; independent-site build keys must not change the
+  // submitted app's permissions or send users to undeclared audio hosts.
+  const pexelsKey = ANNA_EDITION ? "" : String(import.meta.env.VITE_PEXELS_API_KEY || "").trim();
 
   const filteredVoices = useMemo(() => VOICES.filter((voice) => voiceFilter === "all" || voice.language === voiceFilter), [voiceFilter]);
 
@@ -145,24 +164,38 @@ export function useEditorCatalog(voiceFilter) {
       return () => controller.abort();
     }
     setLibraryStatus("loading"); setLibraryError("");
+    let searchTimeout;
+    let timedOut = false;
+    let canceled = false;
     const timer = setTimeout(async () => {
+      searchTimeout = setTimeout(() => {
+        timedOut = true;
+        controller.abort();
+      }, SEARCH_TIMEOUT_MS);
       try {
         const query = libraryQuery.trim() || DEFAULT_QUERY[libraryType];
-        const assets = libraryType === "audio"
+        const assets = libraryType === "audio" && !ANNA_EDITION
           ? await searchOpenverseAudio(query, controller.signal)
           : pexelsKey
             ? await searchPexels(libraryType, query, pexelsKey, controller.signal)
             : await searchCommons(libraryType, query, controller.signal);
+        if (controller.signal.aborted) return;
         setBuiltInAssets(assets); setLibraryStatus("ready");
-      } catch (error) {
-        if (error.name === "AbortError") return;
-        setBuiltInAssets([]); setLibraryStatus("error"); setLibraryError(error.message || "Unable to load media");
+      } catch {
+        if (canceled || (controller.signal.aborted && !timedOut)) return;
+        setBuiltInAssets([]); setLibraryStatus("error");
+        // Keep transport/CSP details out of the interface. The panel supplies
+        // translated recovery guidance and preserves the query for Retry.
+        setLibraryError("unavailable");
+      } finally {
+        clearTimeout(searchTimeout);
       }
     }, 320);
-    return () => { clearTimeout(timer); controller.abort(); };
-  }, [libraryQuery, libraryType, pexelsKey]);
+    return () => { canceled = true; clearTimeout(timer); clearTimeout(searchTimeout); controller.abort(); };
+  }, [libraryQuery, libraryType, pexelsKey, searchAttempt]);
 
   const selectLibraryType = (type) => { setLibraryType(type); setLibraryQuery(DEFAULT_QUERY[type]); };
+  const retryLibrary = () => setSearchAttempt((attempt) => attempt + 1);
   const prefetchLibraryAsset = async (asset) => {
     if (!asset?.src || !/^https?:/i.test(asset.src) || assetDownloadStates[asset.id]?.status === "ready") return;
     setAssetDownloadStates((states) => ({ ...states, [asset.id]: { status: "loading", progress: states[asset.id]?.progress || 0 } }));
@@ -178,5 +211,5 @@ export function useEditorCatalog(voiceFilter) {
       setAssetDownloadStates((states) => ({ ...states, [asset.id]: { status: "error", progress: 0 } }));
     }
   };
-  return { builtInAssets, filteredVoices, libraryType, libraryQuery, setLibraryQuery, selectLibraryType, libraryStatus, libraryError, assetDownloadStates, prefetchLibraryAsset, libraryProvider: libraryType === "vector" ? "Timeline Studio" : libraryType === "audio" ? "Openverse Music" : pexelsKey ? "Pexels" : "Wikimedia Commons" };
+  return { builtInAssets, filteredVoices, libraryType, libraryQuery, setLibraryQuery, selectLibraryType, libraryStatus, libraryError, retryLibrary, assetDownloadStates, prefetchLibraryAsset, libraryProvider: libraryType === "vector" ? "Timeline Studio" : libraryType === "audio" && !ANNA_EDITION ? "Openverse Music" : pexelsKey ? "Pexels" : "Wikimedia Commons" };
 }

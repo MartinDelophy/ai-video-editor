@@ -39,6 +39,7 @@ import {
   COMPACT_WORKSPACE_QUERY,
 } from "../config/editor.js";
 import { APP_LANGUAGES } from "../i18n.js";
+import { getCatalogCopy } from "../i18nCatalog.js";
 import { AI_MUSIC_PRESETS, buildEnglishMusicPrompt } from "../lib/aiMusicPrompt.js";
 import {
   ensureCaptionFontLoaded,
@@ -132,6 +133,7 @@ export function MediaPanel({
   selectLibraryType,
   libraryStatus,
   libraryError,
+  retryLibrary,
   libraryProvider,
   assetDownloadStates,
   prefetchLibraryAsset,
@@ -148,6 +150,7 @@ export function MediaPanel({
   onOpenAiMusic,
 }) {
   const assets = mediaTab === "library" ? builtInAssets : userAssets;
+  const catalogCopy = getCatalogCopy(language, libraryProvider);
   const [vectorCategory, setVectorCategory] = useState("all");
   const visibleAssets = libraryType === "vector" && vectorCategory !== "all"
     ? assets.filter((asset) => asset.category === vectorCategory)
@@ -221,7 +224,14 @@ export function MediaPanel({
           </div>
         ))
       ) : (
-        <div className="empty-state">{mediaTab === "library" ? (libraryError || t("libraryEmpty")) : t("emptyAssets")}</div>
+        mediaTab === "library" && libraryError ? (
+          <div className="empty-state" role="status">
+            <span>{catalogCopy.unavailable}</span>
+            <button className="panel-secondary" type="button" onClick={retryLibrary}>
+              <ArrowsClockwise size={15} />{catalogCopy.retry}
+            </button>
+          </div>
+        ) : <div className="empty-state">{mediaTab === "library" ? t("libraryEmpty") : t("emptyAssets")}</div>
       )}
     </div>
   );

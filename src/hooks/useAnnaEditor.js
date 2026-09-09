@@ -164,6 +164,10 @@ export function useAnnaEditor(deps) {
       setError({ code: "ANNA_STALE_PLAN" });
       return;
     }
+    if (!review.hasChanges) {
+      setError({ code: "ANNA_NO_CHANGES" });
+      return;
+    }
     try {
       current.applyReview(review);
       setReview(null);

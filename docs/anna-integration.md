@@ -1,5 +1,15 @@
 # Timeline Studio Anna Edition 开发与验证
 
+## 2026-09-11 当前适配状态
+
+CLI `0.1.52` 与 SDK `0.16.1` 的 r7 适配已完成 Anna 和普通构建，r7 Anna 包为 **169 文件、210,024,788 字节（200.3 MiB）**，新 CLI 默认与严格校验均通过；真实未授权调用仍被负例拒绝。typecheck 通过，全量 ESLint 0 errors、71 条既有 warnings。云存储首次引用的 17 项隔离检查通过，**不保证原子首写**；两套单线程 ORT 在 Node 无 SAB 条件下的 Identity 推理通过。本地无跨源隔离页面完成真实 Piper Siwis WAV 生成/下载，并完成 **12.032 秒 720p H.264/AAC 原声 MP4** 下载、全量解码与高相关性 PCM 核验；保留约 21.333 ms 编码延迟，不声称零误差同步或主观音质验收。
+
+`apps push --if-match 6` 已推进 **r7 ready**，08:56 UTC 读回哈希 `be3d1d579d2b1677d969bddbb1dc254f09d91acd4f9ffe9a6941f3a0fe771cef`。用户登录后已安装 r7，实际 CSP 含 WASM opt-in，SDK 和基础探针通过；真实 Piper 生成约 3.26 秒语音，Anna AI 规划并应用源 2–10 秒的 8 秒工程。12 秒及 8 秒工程分别云保存成功，完整刷新后显式恢复 8 秒主视觉、源文件、Piper 语音和字幕。**生产原声导出仍失败，权限 Save all 仍报 `manifest does not declare agent.session.auto`。** 生产 WAV 下载未确认；SAB 不可用如预期。Cloud Agent 浮层超时经 Dismiss 后继续静态应用，不代表 Linux 执行成功。
+
+直接读取的生产 FFmpeg 资源字节与本地一致；隔离复现确认旧 Worker 缓存 CSP 会阻止 WASM。缓存修复的 **r8 构建、严格校验、Service Worker 合同检查通过并已安装**；169 文件、210,025,786 字节，哈希 `d74673cd7f40a0f15cd0d8f9be69f8de7a4e573c712d6d2c57df2ad0737ca9d9`。两次完整刷新后恢复 8 秒工程，本次源 2–10 秒、Piper 静音的导出已显示 **成片已生成**，实际 MP4 预览 duration `8.021333`、readyState `4`；新 Service Worker 远端字节与本地一致。**未取得生产 MP4 本机文件，真实输出音轨、音质、完整解码及下载交付仍未确认。** 09:51:52 UTC 云状态仍为 r8 ready、`rejected`、无候选、版本 `684` 未发布；未重送审或推送 Git 远端。当前 Versions UI 提示获批即上架，不能依赖可选“仅批准不发布”。详见 [9 月 11 日平台更新适配](anna-rollout-adaptation-20260911.md)，旧日期与 r6/r7 记录保留历史边界。
+
+## 2026-09-09 状态摘要（历史）
+
 更新日期：2026-09-09。当前工作位于 `codex/anna-validation`。应用 **`@martindelophy/timeline-studio`（app ID `254`）** 已于 9 月 7 日从已验证的 r5 草稿冻结 **`0.1.0-alpha.1`（版本 ID `684`）** 并首次送审；9 月 8 日 Anna Dev 邮件反馈初检未通过。9 月 9 日已按用户授权将修复上传至 **working draft r6 ready**，并关联两张产品截图。**未冻结新版本、未再次送审、未推送 Git 远端**。
 
 用户明确选择保留全部本地 AI 功能入口，等待平台正式解决生产 WASM 限制后再提交。云存储样本往返等 9 月 7 日证据继续有效，但不能证明新代码、完整模型与带声交付均已通过。9 月 9 日草稿更新后的服务器读回仍为 `rejected`，`review_candidate_version: null`，唯一不可变版本仍为 `684`、`published_at: null`，未发行。

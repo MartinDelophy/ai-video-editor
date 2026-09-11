@@ -2,6 +2,7 @@ import * as ort from "onnxruntime-web/webgpu";
 import ortWasmMjsUrl from "onnxruntime-web/ort-wasm-simd-threaded.asyncify.mjs?url";
 import ortWasmUrl from "onnxruntime-web/ort-wasm-simd-threaded.asyncify.wasm?url";
 import { fetchFirstAvailableModel, mirroredModelFileUrls } from "../lib/modelSources.js";
+import { configureAnnaOnnxRuntime } from "../lib/annaWasmRuntime.js";
 
 const MODEL_REVISION = "d551be137b16ecdf12637387f2fb4776565e763f";
 const MODEL_PATHS = {
@@ -15,6 +16,7 @@ const WINDOW_SIZE = 5;
 const SCALE = 4;
 
 ort.env.wasm.wasmPaths = { mjs: ortWasmMjsUrl, wasm: ortWasmUrl };
+configureAnnaOnnxRuntime(ort.env);
 ort.env.webgpu.powerPreference = "high-performance";
 ort.env.webgpu.forceFallbackAdapter = false;
 

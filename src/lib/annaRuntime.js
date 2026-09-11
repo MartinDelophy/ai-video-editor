@@ -1,4 +1,4 @@
-/** Anna-only host adapter. Contracts: @anna-ai/app-runtime 0.16.0 and
+/** Anna-only host adapter. Contracts: @anna-ai/app-runtime 0.16.1 and
  * https://anna.partners/developers/reference/host-api-{llm,files,storage}.md
  * No SDK import, host discovery, media transfer, or LLM call happens on the
  * ordinary build. Cloud file operations require an explicit UI action.
@@ -96,7 +96,7 @@ function waitFor(operation, { signal, timeoutMs = 30000, remoteMayContinue = fal
   });
 }
 
-/** SDK 0.16.0's inspected dist/index.js has no local dispose method. Its
+/** SDK 0.16.1's inspected dist/index.js has no local dispose method. Its
  * connect() installs anonymous window listeners and starts _heartbeatTimer;
  * window.close() would close the user's actual Anna window. Deactivate only
  * a discarded instance, using the pinned version's fields, so a late hello
@@ -429,12 +429,38 @@ async function verifyStoredFile(file, signal) {
 }
 
 function pointerMatch(pointer) {
-  // CLI 0.1.51's official APS memory adapter treats an empty if_match as an
-  // absent-row guard. Never omit the condition for first-insert races. A
-  // dispatcher that does not implement it must fail instead of blind-upsert.
-  if (!pointer || pointer.exists === false) return "";
+  // Anna has no atomic create-if-absent operation: an empty if_match always
+  // fails. Omit it only for an absent pointer; existing rows require real CAS.
+  if (!pointer || pointer.exists === false) return undefined;
   if (!isValidEtag(pointer.etag)) throw new AnnaRuntimeError("concurrency_unavailable");
   return pointer.etag;
+}
+
+async function writeProjectPointer(file, prior, signal) {
+  const ifMatch = pointerMatch(prior);
+  if (ifMatch === undefined) {
+    // Uploading may take minutes. Do not knowingly replace a pointer that
+    // another editor created while this immutable project file was uploading.
+    const latest = await readProjectPointer(signal);
+    if (latest && latest.exists !== false) {
+      if (sameFile(latest.value, file)) return;
+      throw new AnnaRuntimeError("conflict");
+    }
+  }
+  const updated = await hostCall("storage", "set", {
+    key: PROJECT_KEY, scope: "app", value: file,
+    ...(ifMatch === undefined ? {} : { if_match: ifMatch }),
+  }, { signal });
+  if (!isValidEtag(updated?.etag)) throw new AnnaRuntimeError("invalid_storage_response");
+  if (ifMatch === undefined) {
+    // First-write upsert is NOT atomic. Read-back detects only races already
+    // visible now; a later first writer can still replace this pointer. Both
+    // UUID files remain in the cloud list, and failures retain the saved handle.
+    const confirmed = await readProjectPointer(signal);
+    if (confirmed?.exists === false || confirmed?.etag !== updated.etag || !sameFile(confirmed?.value, file)) {
+      throw new AnnaRuntimeError("conflict");
+    }
+  }
 }
 
 /** Repair only the latest-project reference after an explicit user action.
@@ -443,12 +469,10 @@ function pointerMatch(pointer) {
 export async function recoverAnnaProjectReference({ file: requestedFile, signal } = {}) {
   const file = validateAnnaFileDescriptor(requestedFile, { kind: "projects" });
   await verifyStoredFile(file, signal);
-  const prior = await readProjectPointer(signal);
-  if (prior?.exists !== false && sameFile(prior?.value, file)) return file;
   try {
-    const ifMatch = pointerMatch(prior);
-    const updated = await hostCall("storage", "set", { key: PROJECT_KEY, scope: "app", value: file, if_match: ifMatch }, { signal });
-    if (!isValidEtag(updated?.etag)) throw new AnnaRuntimeError("invalid_storage_response");
+    const prior = await readProjectPointer(signal);
+    if (prior?.exists !== false && sameFile(prior?.value, file)) return file;
+    await writeProjectPointer(file, prior, signal);
   } catch (error) {
     const normalized = normalizeAnnaError(error);
     throw new AnnaRuntimeError(normalized.code, { ...normalized.details, stage: "save_reference", fileState: "stored", savedFile: file });
@@ -511,11 +535,10 @@ export async function readAnnaFile({ path, signal, expectedFile } = {}) {
 
 export async function saveAnnaProject({ blob, name = "Timeline-Studio.timeline", signal } = {}) {
   const prior = await readProjectPointer(signal);
-  const ifMatch = pointerMatch(prior);
+  pointerMatch(prior);
   const file = await storeAnnaFile({ blob, name, kind: "projects", signal });
   try {
-    const updated = await hostCall("storage", "set", { key: PROJECT_KEY, scope: "app", value: file, if_match: ifMatch }, { signal });
-    if (!isValidEtag(updated?.etag)) throw new AnnaRuntimeError("invalid_storage_response");
+    await writeProjectPointer(file, prior, signal);
   }
   catch (error) {
     const normalized = normalizeAnnaError(error);

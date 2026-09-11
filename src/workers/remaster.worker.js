@@ -4,6 +4,7 @@ import ortWasmUrl from "onnxruntime-web/ort-wasm-simd-threaded.asyncify.wasm?url
 
 import { REMASTER_DRUNET_MODEL, REMASTER_DRUNET_MODEL_URL } from "../config/models.js";
 import { readFloat16TensorValue } from "../lib/float16.js";
+import { configureAnnaOnnxRuntime } from "../lib/annaWasmRuntime.js";
 
 const REMASTER_DRUNET_MODEL_LABEL = REMASTER_DRUNET_MODEL.label;
 
@@ -11,6 +12,7 @@ ort.env.wasm.numThreads = self.crossOriginIsolated
   ? Math.max(1, Math.min(4, Number(self.navigator?.hardwareConcurrency) || 1))
   : 1;
 ort.env.wasm.wasmPaths = { mjs: ortWasmMjsUrl, wasm: ortWasmUrl };
+configureAnnaOnnxRuntime(ort.env);
 ort.env.webgpu.powerPreference = "high-performance";
 ort.env.webgpu.forceFallbackAdapter = false;
 

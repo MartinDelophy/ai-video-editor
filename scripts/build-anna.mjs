@@ -44,6 +44,21 @@ worker = worker
     "",
   );
 worker += `
+// Executable responses carry the platform's current CSP. Reusing their old
+// headers can keep a Worker under a retired policy even after an Anna rollout.
+// Keep large model/WASM caches, but always re-fetch scoped runtime scripts.
+function isAnnaRuntimeScript(url) {
+  return url.origin === self.location.origin
+    && ["assets/", "models/"].some((directory) =>
+      url.pathname.startsWith(new URL(directory, self.registration.scope).pathname))
+    && /\\.(?:js|mjs|cjs)$/i.test(url.pathname);
+}
+async function removeCachedAnnaRuntimeScripts() {
+  const cache = await caches.open(MODEL_CACHE_NAME);
+  const keys = await cache.keys();
+  await Promise.all(keys.filter((request) => isAnnaRuntimeScript(new URL(request.url)))
+    .map((request) => cache.delete(request)));
+}
 self.addEventListener("install", (event) => {
   event.waitUntil(self.skipWaiting());
 });
@@ -52,14 +67,19 @@ self.addEventListener("activate", (event) => {
     caches.keys().then((keys) => Promise.all(
       keys.filter((key) => key.startsWith(ANNA_CACHE_PREFIX) && key !== MODEL_CACHE_NAME)
         .map((key) => caches.delete(key)),
-    )).catch(() => {}).then(() => self.clients.claim()),
+    )).then(removeCachedAnnaRuntimeScripts).catch(() => {}).then(() => self.clients.claim()),
   );
   event.waitUntil(removeLegacyPiperDuplicates().catch(() => {}));
   event.waitUntil(removeLegacyKokoroFp32Model().catch(() => {}));
   event.waitUntil(migratePreviousVoiceRevision().catch(() => {}));
 });
 self.addEventListener("fetch", (event) => {
-  if (event.request.mode === "navigate" || !shouldCacheRequest(event.request)) return;
+  if (event.request.mode === "navigate") return;
+  if (event.request.method === "GET" && isAnnaRuntimeScript(new URL(event.request.url))) {
+    event.respondWith(fetch(event.request, { cache: "no-store" }));
+    return;
+  }
+  if (!shouldCacheRequest(event.request)) return;
   event.respondWith(cacheFirst(event.request, event).catch(() => fetch(event.request)));
 });
 self.addEventListener("message", (event) => {

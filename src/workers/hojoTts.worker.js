@@ -2,6 +2,7 @@ import * as ort from "onnxruntime-web/webgpu";
 import ortWasmMjsUrl from "onnxruntime-web/ort-wasm-simd-threaded.asyncify.mjs?url";
 import ortWasmUrl from "onnxruntime-web/ort-wasm-simd-threaded.asyncify.wasm?url";
 import { PreTrainedTokenizer } from "@huggingface/transformers";
+import { configureAnnaOnnxRuntime } from "../lib/annaWasmRuntime.js";
 
 const LAYERS = 17;
 const HEAD = 128;
@@ -25,6 +26,7 @@ ort.env.logLevel = "warning";
 ort.env.webgpu.powerPreference = "high-performance";
 ort.env.wasm.numThreads = Math.min(4, self.navigator?.hardwareConcurrency || 1);
 ort.env.wasm.wasmPaths = { mjs: ortWasmMjsUrl, wasm: ortWasmUrl };
+configureAnnaOnnxRuntime(ort.env);
 
 const postProgress = (stage, value) => postMessage({ type: "progress", stage, value });
 const errorMessage = (error) => error instanceof Error ? error.message : String(error);

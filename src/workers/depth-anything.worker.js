@@ -6,6 +6,7 @@ import {
   DEPTH_MODEL_REPOSITORY,
 } from "../lib/depthOfField.js";
 import { loadFromMirroredRepository } from "../lib/modelSources.js";
+import { configureAnnaTransformers } from "../lib/annaWasmRuntime.js";
 
 env.allowLocalModels = false;
 env.useBrowserCache = true;
@@ -19,6 +20,7 @@ function progressValue(event) {
 }
 
 async function getEstimator() {
+  await configureAnnaTransformers(env);
   estimatorPromise ??= loadFromMirroredRepository(env, {
     repository: DEPTH_MODEL_REPOSITORY,
     modelPath: DEPTH_MODEL_PATH,

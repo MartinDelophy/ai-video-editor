@@ -3,6 +3,7 @@ import {
 } from "./modelSources.js";
 import { loadVoiceModelFromMirrors, voiceModelFileUrls } from "../config/voiceModels.js";
 import { prepareVoiceModelStorage } from "./voiceModelStorage.js";
+import { configureAnnaTransformers } from "./annaWasmRuntime.js";
 
 const MMS_MODEL_BY_VOICE = {
   "ko_KR-mms-medium": "mms-kor",
@@ -37,6 +38,7 @@ export async function predictMmsVoice(input, onProgress) {
         clearPiper: true,
       });
       const { env, pipeline } = await import("@huggingface/transformers");
+      await configureAnnaTransformers(env);
       env.useBrowserCache = false;
       const isRootOnnxModel = modelId === "mms-tha";
       return loadVoiceModelFromMirrors(env, modelId, (mirroredModelId) => pipeline("text-to-speech", mirroredModelId, {

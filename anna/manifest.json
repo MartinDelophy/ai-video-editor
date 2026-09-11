@@ -42,6 +42,7 @@
       "window": ["ready", "set_title"]
     },
     "csp_overrides": {
+      "script-src": ["'wasm-unsafe-eval'"],
       "connect-src": ["blob:"],
       "media-src": ["https://upload.wikimedia.org"],
       "font-src": ["blob:"]

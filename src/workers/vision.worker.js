@@ -7,6 +7,7 @@ import {
   YOLOS_TINY_MODEL_REVISION,
 } from "../config/models.js";
 import { normalizeDetections, selectPrimarySubject } from "../lib/visualGeometry.js";
+import { configureAnnaTransformers } from "../lib/annaWasmRuntime.js";
 
 let transformersPromise = null;
 let detectorPromise = null;
@@ -68,7 +69,8 @@ function createModelLoadProgressCallback(requestId, { start, end, label }) {
 }
 
 function getTransformers() {
-  transformersPromise ??= import("@huggingface/transformers").then((transformers) => {
+  transformersPromise ??= import("@huggingface/transformers").then(async (transformers) => {
+    await configureAnnaTransformers(transformers.env);
     transformers.env.useBrowserCache = true;
     if (transformers.env?.backends?.onnx?.wasm) {
       transformers.env.backends.onnx.wasm.numThreads = 1;

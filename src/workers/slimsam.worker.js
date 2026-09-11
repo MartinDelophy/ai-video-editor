@@ -4,6 +4,7 @@ import {
   SamModel,
   env,
 } from "@huggingface/transformers";
+import { configureAnnaTransformers } from "../lib/annaWasmRuntime.js";
 
 const MODEL_ID = "Xenova/slimsam-77-uniform";
 const MODEL_REVISION = "5850ab45f587c112167512ffef949107115e26a0";
@@ -18,7 +19,8 @@ function postStatus(requestId, phase, progress = null) {
   self.postMessage({ requestId, type: "progress", phase, progress });
 }
 
-function loadRuntime(requestId) {
+async function loadRuntime(requestId) {
+  await configureAnnaTransformers(env);
   const progress_callback = (event) => {
     if (event?.status !== "progress") return;
     postStatus(

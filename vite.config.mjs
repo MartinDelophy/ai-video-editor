@@ -1,9 +1,16 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
-import { resolve } from "node:path";
+import { createRequire } from "node:module";
+import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const projectRoot = fileURLToPath(new URL(".", import.meta.url));
+const require = createRequire(import.meta.url);
+const transformersRequire = createRequire(require.resolve("@huggingface/transformers"));
+// Transformers owns a different ORT version from the editor's direct imports.
+// Resolve its matching runtime assets through its dependency tree for both
+// the main bundle and workers instead of relying on a node_modules layout.
+const transformersOrtDist = dirname(transformersRequire.resolve("onnxruntime-web"));
 const isolationHeaders = {
   "Cross-Origin-Opener-Policy": "same-origin",
   "Cross-Origin-Embedder-Policy": "require-corp",
@@ -11,6 +18,10 @@ const isolationHeaders = {
 };
 
 export default defineConfig({
+  define: { "import.meta.env.VITE_ANNA_EDITION": JSON.stringify("false") },
+  resolve: {
+    alias: { "@timeline-studio/transformers-ort": transformersOrtDist },
+  },
   build: {
     rollupOptions: {
       input: {

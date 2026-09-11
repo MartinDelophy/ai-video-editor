@@ -2,6 +2,7 @@ import * as ort from "onnxruntime-web/webgpu";
 import ortWasmMjsUrl from "onnxruntime-web/ort-wasm-simd-threaded.asyncify.mjs?url";
 import ortWasmUrl from "onnxruntime-web/ort-wasm-simd-threaded.asyncify.wasm?url";
 import { fetchFirstAvailableModel, mirroredModelFileUrls } from "../lib/modelSources.js";
+import { configureAnnaOnnxRuntime } from "../lib/annaWasmRuntime.js";
 
 const MODEL_REPOSITORY = "timeline-studio-onnx-models";
 const MODEL_REVISION = "f1005093a90dec7a23746518f9623ee6aaba9cdc";
@@ -32,6 +33,7 @@ ort.env.wasm.numThreads = self.crossOriginIsolated
   : 1;
 ort.env.wasm.simd = true;
 ort.env.wasm.wasmPaths = { mjs: ortWasmMjsUrl, wasm: ortWasmUrl };
+configureAnnaOnnxRuntime(ort.env);
 
 let sessionPromise = null;
 let executionProvider = "wasm";

@@ -4,6 +4,7 @@ import ortWasmMjsUrl from "onnxruntime-web/ort-wasm-simd-threaded.asyncify.mjs?u
 import ortWasmUrl from "onnxruntime-web/ort-wasm-simd-threaded.asyncify.wasm?url";
 import { buildPingPongSchedule, pingPongStep } from "../lib/aiMusicSampling.js";
 import { fetchFirstAvailableModel, mirroredModelFileUrls } from "../lib/modelSources.js";
+import { configureAnnaOnnxRuntime } from "../lib/annaWasmRuntime.js";
 
 const MODEL_REVISION = "0b8a05e0bc3511e674b4cb3413d3ef6c48880cdb";
 const LEGACY_BASE = "https://huggingface.co/lsb/stable-audio-3-small-music-onnx/resolve/main";
@@ -28,6 +29,7 @@ env.allowRemoteModels = true;
 ort.env.wasm.numThreads = self.crossOriginIsolated ? Math.min(4, navigator.hardwareConcurrency || 4) : 1;
 ort.env.wasm.simd = true;
 ort.env.wasm.wasmPaths = { mjs: ortWasmMjsUrl, wasm: ortWasmUrl };
+configureAnnaOnnxRuntime(ort.env);
 ort.env.webgpu.powerPreference = "high-performance";
 ort.env.webgpu.forceFallbackAdapter = false;
 

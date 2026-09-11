@@ -1,5 +1,6 @@
 import { AUTOMATIC_CAPTION_MODEL_ID, AUTOMATIC_CAPTION_MODEL_LABEL } from "../config/models.js";
 import { makeId } from "./timeline.js";
+import { configureAnnaTransformers } from "./annaWasmRuntime.js";
 
 const ASR_SAMPLE_RATE = 16000;
 const MIN_CAPTION_DURATION = 0.45;
@@ -567,6 +568,7 @@ async function getTranscriber(onProgress) {
       modelId,
       promise: (async () => {
         const { env, pipeline } = await import("@huggingface/transformers");
+        await configureAnnaTransformers(env);
         env.useBrowserCache = false;
         const reportModelLoadProgress = createModelLoadProgressCallback(onProgress);
         return pipeline("automatic-speech-recognition", modelId, {

@@ -1,4 +1,5 @@
 import { AUTOMATIC_CAPTION_MODEL_ID, AUTOMATIC_CAPTION_MODEL_LABEL } from "../config/models.js";
+import { configureAnnaTransformers } from "../lib/annaWasmRuntime.js";
 
 const ASR_SAMPLE_RATE = 16000;
 const LANGUAGE_DETECTION_SECONDS = 20;
@@ -130,6 +131,7 @@ function getPreferredInferenceDevice() {
 
 async function createTranscriber(requestId, device) {
   const { env, pipeline } = await import("@huggingface/transformers");
+  await configureAnnaTransformers(env);
   // The app's service worker is the single cache owner for large model files.
   // A second Transformers Cache Storage copy can exhaust the site quota after
   // other local AI workflows have already downloaded their models.

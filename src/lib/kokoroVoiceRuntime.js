@@ -1,6 +1,7 @@
 import { loadVoiceModelFromMirrors, voiceModelFileUrls } from "../config/voiceModels.js";
 import { orderModelUrlsForNetwork } from "./modelSources.js";
 import { prepareVoiceModelStorage } from "./voiceModelStorage.js";
+import { configureAnnaTransformers } from "./annaWasmRuntime.js";
 
 const SHARED_MODEL_CACHE = "timeline-studio-model-cache-v4";
 const KOKORO_VOICE_CACHE = "kokoro-voices";
@@ -47,6 +48,7 @@ async function loadRuntime(onProgress) {
         import("@huggingface/transformers"),
         import("kokoro-js"),
       ]);
+      await configureAnnaTransformers(transformersEnv);
       // The service worker is the single persistent cache owner for model
       // files, so Transformers.js must not keep a second full model copy.
       transformersEnv.useBrowserCache = false;

@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import editorConfig from "./vite.config.mjs";
+import { annaPiperRuntimePlugin } from "./scripts/anna-piper-runtime.mjs";
 
 const projectRoot = fileURLToPath(new URL(".", import.meta.url));
 const assetPath = /^\/(?:assets|icons|vendor|models)(?:\/|$)/;
@@ -59,13 +60,22 @@ export default defineConfig(({ command }) => ({
   ...editorConfig,
   base: "./",
   define: { "import.meta.env.VITE_ANNA_EDITION": JSON.stringify("true") },
+  // Anna app iframes do not provide COOP/COEP or SharedArrayBuffer. Exercise
+  // that single-threaded environment locally instead of inheriting the
+  // independent editor's cross-origin-isolated development server.
+  server: { ...editorConfig.server, headers: {} },
+  preview: { ...editorConfig.preview, headers: {} },
   build: {
     ...editorConfig.build,
     outDir: "anna/bundle",
     emptyOutDir: true,
   },
-  worker: { ...editorConfig.worker, plugins: () => [annaReact(command)] },
+  worker: {
+    ...editorConfig.worker,
+    plugins: () => [annaPiperRuntimePlugin(), annaReact(command)],
+  },
   plugins: [
+    annaPiperRuntimePlugin(),
     {
       name: "timeline-studio-anna-entry",
       transformIndexHtml: {

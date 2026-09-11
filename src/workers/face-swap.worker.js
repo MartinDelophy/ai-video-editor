@@ -1,12 +1,14 @@
 import * as ort from "onnxruntime-web/webgpu";
 import ortWasmMjsUrl from "onnxruntime-web/ort-wasm-simd-threaded.asyncify.mjs?url";
 import ortWasmUrl from "onnxruntime-web/ort-wasm-simd-threaded.asyncify.wasm?url";
+import { configureAnnaOnnxRuntime } from "../lib/annaWasmRuntime.js";
 import {
   FACE_SWAP_MODELS,
   getFaceSwapModelUrls,
 } from "../config/faceSwap.js";
 
 ort.env.wasm.wasmPaths = { mjs: ortWasmMjsUrl, wasm: ortWasmUrl };
+configureAnnaOnnxRuntime(ort.env);
 ort.env.webgpu.powerPreference = "high-performance";
 ort.env.webgpu.forceFallbackAdapter = false;
 ort.env.logLevel = "error";

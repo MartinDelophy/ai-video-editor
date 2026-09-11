@@ -1,6 +1,6 @@
 # Anna 2026-09-11 平台更新适配
 
-记录日期：2026-09-11。工作分支：`codex/anna-validation`。本轮按用户要求适配 Anna 正式更新，继续保留全部本地 AI 功能。**r8 ready 已安装，生产导出显示“成片已生成”，MP4 预览为 8.021333 秒、readyState 4。** 新 Service Worker 响应字节与本地一致；此前原声准备失败已不再阻止本次渲染。但未取得生产 MP4 实际文件，独立解码、音轨和下载交付仍未验收；权限保存仍报 `agent.session.auto`。当前 Versions UI 提示获批即发布，本轮未重新送审。
+记录日期：2026-09-11。工作分支：`codex/anna-validation`。**生产 MP4 实际文件、H.264/AAC、完整解码及源音频一致性已经通过。** r11 同时声明 auto/fixed 时保存成功，UI 关闭两者及继承工具也成功；但恢复推送无 Agent 的 **r12 ready** 再执行 Install draft 后，三项 grant 又 true，声明仍 false，原样保存再次报 auto。只确认“恢复推送＋安装”整个流程重新启用授权，未隔离其中具体步骤，也未验证普通用户安装。未送审或发布。
 
 ## 当前状态
 
@@ -18,11 +18,11 @@
 | 本地真实 AI Voice | Piper Siwis 法语生成成功，预览播放时间推进，实际 WAV 文件已下载并核对格式/时长 | 未作主观听感质量验收，不是生产容器结果 |
 | 生产真实 AI Voice | r7 Piper 实际生成约 3.26 秒语音，云恢复后仍包含该语音片段及字幕 | 生产 WAV 下载及主观试听质量仍未确认 |
 | 本地源音频 MP4 | 12.032 秒、720p H.264/AAC 成片实际落盘，全量解码退出码 0，源音频相关性检查通过 | 仍有约 21.333 ms AAC 编码帧延迟；不是生产导出或零误差同步证明 |
-| 生产 MP4 渲染 | r8 完成原声准备及离线渲染，UI 显示“成片已生成”；实际 MP4 预览 duration `8.021333`、readyState `4` | 未取得输出文件，不确认实际音轨、音质、全量解码或下载交付 |
-| 权限保存 | Save all 仍报 `manifest does not declare agent.session.auto` | 已有授权下真实 AI 可调用，不代表权限保存正常 |
-| 最新私有草稿 | 09:51:52 UTC 再次读回 revision `8`、bundle ready 和同一新哈希；已安装并完成生产渲染 | 未冻结新版本、未重新送审、未发布；独立视频/音轨及下载交付仍待验收 |
+| 生产 MP4 与音轨 | 官方 Host 存储 API 取回既有 r8 成片；5,151,853 字节，720p H.264 / 240 帧、AAC 48 kHz 双声道，完整解码及源音频相关性检查通过 | 保留 21.333 ms AAC 帧延迟，不扩大为所有模型、复杂混音或浏览器下载通过 |
+| 权限对照实验 | r8 无 Agent / r9 仅 auto 均失败；r11 同时声明两者保存及 UI 清理均成功；r12 恢复推送＋安装后 grant 又 true，原样保存报 auto | 未在 push 与 Install draft 之间读 grant，不能归因单独某一步；清理不跨该流程保持 |
+| 最新私有草稿 | r12 ready 已执行 Install draft，169 文件、210,025,786 字节，哈希为 r8 的 `d74673cd7f40a0f15cd0d8f9be69f8de7a4e573c712d6d2c57df2ad0737ca9d9`，无 Agent 声明 | 10:47:37.435 UTC 读回声明 auto/fixed false，但 grant auto/fixed/继承工具 true；未送审或发布 |
 | 生产 Service Worker | 最终 GET 200、14,322 字节，SHA-256 与本地完全匹配 | 不以文件匹配代替所有旧客户端升级验收 |
-| 生产下载 | Host 下载操作结束且 UI 未显示错误；直接下载入口也已尝试 | 没有找到对应本机 MP4，不能标记下载成功或确认输出音轨 |
+| 浏览器下载 | Host 下载操作结束且 UI 未显示错误；直接下载入口也已尝试 | IAB 对应 Downloads 文件未找到；API 取回文件不等于浏览器交付通过，也不证明平台下载失败 |
 | 生产浏览器 | 用户已登录；Versions → Working draft → Install draft 显示安装 `0.0.0-draft`；入口哈希与本地匹配，SDK 已连接 | Cloud Agent 启动浮层超时后使用 Dismiss 继续静态应用；未证明 Cloud Agent/Linux 执行成功 |
 | 生产基础能力 | WASM、Service Worker、Worker、IndexedDB、Cache Storage、WebGPU、H.264 探针通过 | 各项仅证明所测试操作；`isolation_unavailable` 为预期 SAB 结果 |
 
@@ -48,12 +48,32 @@
 
 - **WASM：**在 manifest 中明确声明 `'wasm-unsafe-eval'`，打包所需 `.wasm` 并同源获取。这只允许 WebAssembly 编译，不需要启用一般 JavaScript `eval()`。
 - **线程与隔离：**Anna app iframe 仍不具备 COOP/COEP 跨源隔离，`SharedArrayBuffer` 不可用；使用单线程 WASM/FFmpeg 构建。不能把这一已说明的限制继续写成“等待本次发布修复 SAB”，也不能仅设置线程数后就假定原来的 pthread 产物兼容。
-- **严格校验：**CLI `0.1.52` 修复了字符串与注释中的调用形文本误报；SDK `0.16.1` 同时调整了超时诊断文本。官方说明原误报只在 CLI，服务器审核没有同等扫描器；不得为消除误报增加未使用的工具授权。
+- **严格校验：**CLI `0.1.52` 修复了字符串与注释中的调用形文本误报；SDK `0.16.1` 同时调整了超时诊断文本。官方第 2 段所说不必增加 phantom tools grants，指的是严格扫描误报，**不是对 `agent.session.auto` 权限弹窗错误的确认或修复承诺**。原误报只在 CLI，服务器审核没有同等扫描器；不得为消除误报增加未使用的工具授权。
 - **存储：**`if_match: ""` 不是 create-if-absent。空 etag 或对缺失行提供 `if_match` 均会失败；省略条件为 upsert，已有行使用真实 etag 做 CAS。目前没有原子首次创建合同。
-- **Host 下载：**`files.download` 成功只表示宿主已发起浏览器下载；不能确认文件最终落盘。本轮仍须检查 manifest 的实际授权和下载后文件。
+- **Host 下载：**官方第 4 段要求在 `manifest.ui.host_api.files` 声明 `download`；**r8 已经声明并接入这一能力**。成功只表示宿主已发起浏览器下载，不能确认文件最终落盘。另可经 Host 存储 API 获取签名 URL；本轮用该路线取回实际生产成片，仍与浏览器下载入口的交付验收分开。
 - **审核：**工程团队回复说明管理员可以批准而不发布，也可以批准并发布；送审绑定特定冻结版本，重新送审可显式更换候选。**本轮实际 Versions 页面却明确显示 “Approval publishes it to the App Store immediately.”** 因此不能将“支持管理员暂不发布”当作当前应用会停留在私有状态的保证；重新送审须按可能获批即公开理解。更新私有 working draft 本身不构成重新审核或上架，本轮没有重新送审。
 
-`agent.session.auto` 权限保存错误没有在上述更新中得到可据以验收的明确修复结论。**本次 r7 生产 Save all 复测仍返回 `manifest does not declare agent.session.auto`。** 继续保留 LLM-only 配置，不额外声明本应用没有使用的 Agent 权限；已有授权下真实 AI 规划已通过。
+完整官方回复没有明确确认或修复 `agent.session.auto` 权限弹窗问题。r8 Installed Apps → Timeline Studio → Permissions 显示 All permissions granted，仅 LLM complete 与 Storage 勾选、没有 Agent 项；原样保存仍报 auto。随后根据用户新增授权，依次对比仅 auto、auto/fixed 同时声明及恢复为两者均不声明的情况，结果见下节。已有授权下真实 AI 规划通过，不能据此推断权限保存正常。
+
+## 权限声明对照、UI 清理与恢复推送＋安装后的重置
+
+| 检查 | 声明/界面 | 实际保存结果 |
+| --- | --- | --- |
+| A：r8 基线 | 整个 `ui.host_api.agent` 未声明；仅 LLM complete、Storage 勾选，无 Agent 控件，原样保存 | `Save failed: manifest does not declare agent.session.auto` |
+| B：临时 r9 | 仅加 `ui.host_api.agent.session.auto: true`，未声明 fixed；Auto 与继承工具控件已勾选，保持原样保存 | `Save failed: manifest does not declare agent.session.fixed` |
+| C：临时 r11 | 声明 `agent.session: {"auto":true,"fixed":{}}`，严格校验与安装通过 | 原样 Save all 成功 |
+| D：r11 UI 清理 | 正常 UI 取消 auto、fixed、inherit tools 勾选，然后保存 | 保存成功；官方 API 读回三项均 false，LLM complete 及 Storage 仍启用 |
+| E：恢复 r12 | 恢复无 Agent 基线，推送 ready 后执行开发者 Install draft；界面只有 LLM/Storage 勾选，无 Agent，原样保存 | API 读回声明 auto/fixed false，但 grant auto/fixed/继承工具重新 true；`Save failed: manifest does not declare agent.session.auto` |
+
+r9 严格校验和安装均通过；169 文件、210,025,786 字节保持不变，含 manifest 的内容哈希为 `dc52739d7b7c926bebd5a29cdb949d84e44b107f57af60bab8522d09a74d18d0`。权限 API 读回的声明为 auto true / fixed false，但旧 `llm_grant.agent` 中 auto 与 fixed 均为 true。
+
+公开生产脚本 [`installed-apps.js?v=81832387`](https://anna.partners/static/js/installed-apps.js?v=81832387) 的 `collectAppUpdate`（1091–1099 行）先复制旧 `llm_grant.agent`，只根据**已声明模式**对应的复选框更新值，未声明模式的旧 true 因而保留；1212 行把收集结果 PATCH 到 `/api/v1/apps/{id}/grants`。原函数的隔离 Node 执行确认两种声明均会保留旧 fixed true。**这是公开前端函数的已复现行为，不是已截获实际生产 PATCH 请求体；旧授权最初为何为 true 尚未查明。**
+
+前两次检查结束时曾恢复 **r10 ready**；10:32:42.396 UTC 当时读回声明 auto/fixed false、旧 grant true。用户随后进一步要求对比“两者都声明”和“两者都不声明”，因此继续临时 r11 的对照实验。**不能把 r8/r9 的失败写成同时声明两种模式也会失败：r11 两者都声明确实保存成功。**
+
+r11 通过正常权限界面取消 auto、fixed 和继承工具，再次保存成功；官方 `getAppPermissions` 读回 auto false、fixed false、inherit false，complete true、Storage enabled。恢复本地无 Agent manifest、推送 **r12 ready** 并点击 Install draft 后，**2026-09-11T10:47:37.435Z** 的即时读回却显示：声明 auto false / fixed false；存储 grant auto true / fixed true / inherit true；complete 与 Storage 仍启用，`satisfied: true`。
+
+r12 最终 UI 复测只有 LLM 与 Storage 勾选，没有 Agent 控件；原样 Save all 再次报 **`Save failed: manifest does not declare agent.session.auto`**。这确认 **恢复推送＋Install draft 整个流程**重新启用了刚清理的 grant；因为没有在 push 和 Install draft 之间读取 grant，不能证明是按钮单独或某个特定后端步骤所致。清理不跨该流程保持；普通终端用户安装及最早 grant 来源尚未验证。当前无 Agent 的 r12 与已验收 r8 内容相同：169 文件、210,025,786 字节，哈希 `d74673cd7f40a0f15cd0d8f9be69f8de7a4e573c712d6d2c57df2ad0737ca9d9`；应用 `rejected`、无审核候选，没有新冻结版本、送审或发布。英文报告见 [`anna-permission-save-repro-20260911.md`](anna-permission-save-repro-20260911.md)，未自动发送。
 
 ## 云存储实现与并发边界
 
@@ -68,15 +88,23 @@
 
 本轮临时脚本位于 `/tmp/anna-storage-adaptation-20260911.mjs`，不进入产品仓库。17 项检查覆盖首次成功、兼容旧 `not_found`、上传期间新引用、写后竞争、etag 变化、引用消失、已有引用 CAS 与冲突、无效 etag、响应/读取失败、引用恢复和非原子首写的实际边界。全部通过；这不是生产首次写入或多窗口并发验收。
 
-## r8 构建与最新私有草稿
+## r8 构建与生产验收基线
 
 Anna 专属缓存修复完成后，**r8 完整 Anna 构建、CLI `0.1.52` 严格校验与最终生成 Service Worker 合同检查均通过**。新的包为 **169 文件、210,025,786 字节（约 200.3 MiB）**，不得与较早 r7 的 210,024,788 字节或旧哈希混用。
 
 私有 push 已成功，服务器读回 **revision `8`、bundle ready**，内容哈希为 **`d74673cd7f40a0f15cd0d8f9be69f8de7a4e573c712d6d2c57df2ad0737ca9d9`**。已点击 Install draft 更新测试安装，随后完整刷新生产页面两次并显式恢复云工程，得到 **8 秒源视频、约 3.26 秒 Piper 片段和字幕**。本次输出选择源视频 **2–10 秒**（原片 12 秒），Piper 轨保持静音。导出完成原声准备和离线渲染，UI 显示 **成片已生成**；实际 MP4 预览 DOM 为 **duration `8.021333`、readyState `4`**。
 
-最终生产 Service Worker GET 为 **HTTP 200、14,322 字节**，SHA-256 **`123368763214ea6d726b0dc9638bea6472e036ed34243204826befab18fdcb2d`** 与本地完全一致。Host 下载操作结束且 UI 未报错，但没有找到预期文件名的本机 MP4；直接下载入口也未取得可独立检查的文件。**生产渲染成功，不等于已确认音轨存在、音质正确、完整文件可解码或本机交付完成。**
+最终生产 Service Worker GET 为 **HTTP 200、14,322 字节**，SHA-256 **`123368763214ea6d726b0dc9638bea6472e036ed34243204826befab18fdcb2d`** 与本地完全一致。最初 Host 下载结束且 UI 未报错，直接下载也尝试过，但 IAB 中没有找到预期 Downloads 文件。随后通过官方 CLI 调用 **Host 存储 API** 取得已存在的 r8 导出文件签名 GET 地址并下载，完成下述独立验收；这一过程没有使用 Executa，也没有重新上传或改动草稿。
 
-**09:51:52 UTC（北京时间 17:51:52）**最终只读查询仍为 r8 ready、上述同一哈希、`rejected`、`review_candidate_version: null`；冻结版本仍为 `684` / `0.1.0-alpha.1`、未发布。没有冻结新版本、重新送审、公开发布或推送 Git 远端。
+### r8 生产文件独立验收与浏览器交付边界
+
+实际文件为 `/tmp/anna-r8-production-aac-20260911.mp4`，**5,151,853 字节**，SHA-256 **`695c4f5dade377872920e12438d06d3acd109cf3a6bfdda92384b41f208b014a`**。独立检查确认 **H.264 1280×720 / 30 fps / 240 帧 / 视频时长 8 秒**，以及 **AAC 48 kHz 双声道 / 音频时长 8.021333 秒**；完整 FFmpeg 解码退出码 **0**。
+
+音频全段平均电平 **−19.7 dBFS**、峰值 **−6.9 dBFS**；4 秒之后平均 **−21.2 dBFS**、峰值 **−7.8 dBFS**。与原始源音频 **2–10 秒**比较，检测到 **1,024 samples / 21.333 ms** 的 AAC 帧延迟；对齐后左右声道相关系数为 **0.9999701 / 0.99996913**。由此确认本次生产成片存在实际原声音轨、可以完整解码且与目标源片段高度一致，不声称逐采样零延迟或所有混音场景通过。
+
+**生产文件与原声音轨验收通过；浏览器下载交付仍待确认。** IAB 最初 850×913 视口中的 1440px 应用窗口裁切了部分控件；改为 1920×1080 并操作可见下载入口后仍未观察到对应 Downloads 文件，随后已还原测试视口。Host 下载与直接下载均没有 UI 错误，但不能据此标记落盘成功；也不能将 IAB 中未观察到文件直接解释为 Anna 平台下载失败。API 签名 GET 取回的文件证明内容及 API 路线成功，不代替这两条浏览器交付路径。
+
+**09:51:52 UTC（北京时间 17:51:52）的 r8 历史快照**为 r8 ready、上述同一哈希、`rejected`、`review_candidate_version: null`；冻结版本 `684` / `0.1.0-alpha.1` 未发布。当前最新草稿为本文开头的 r12。没有冻结新版本、重新送审、公开发布或推送 Git 远端。
 
 ## r7 私有草稿与云端读回（当日较早记录）
 
@@ -93,7 +121,7 @@ Anna 专属缓存修复完成后，**r8 完整 Anna 构建、CLI `0.1.52` 严格
 | 已冻结版本 | `0.1.0-alpha.1`，版本 ID `684` |
 | 冻结版本发布时间 | `published_at: null` |
 
-该节保留 r7 推送及安装时的证据；**最新工作草稿现为上节的 r8 ready**，不能用 r7 安装成功或基础探针结果替代 r8 的实际运行验证。没有冻结新版本、重新送审、公开发布或 Git 远端推送。
+该节保留 r7 推送及安装时的历史证据；r8 是其后完成生产文件验收的基线，**最新草稿为本文开头的 r12 ready**。各次安装与功能结果分别记录，不以旧探针结果替代新流程验收。没有冻结新版本、重新送审、公开发布或 Git 远端推送。
 
 ## r7 生产安装、响应与能力探针
 
@@ -109,7 +137,7 @@ Anna 专属缓存修复完成后，**r8 完整 Anna 构建、CLI `0.1.52` 严格
 
 这证明本轮生产 AI 规划、方案应用、已有引用的云保存及含媒体工程的显式刷新恢复通过。没有把恢复成功扩大为首次缺行竞争、所有文件生命周期操作、所有恢复媒体的播放检查或完整视频交付。权限弹窗的 **Save all** 则仍失败，准确错误为 `manifest does not declare agent.session.auto`。
 
-## r7 生产原声失败与 r8 缓存修复（尚待生产验收）
+## r7 生产原声失败与 r8 缓存修复
 
 r7 生产 AAC 原声提取仍失败，而同源 WASM 探针、真实 Piper 与本地同一源文件导出成功。直接匿名 Node GET 的 FFmpeg Worker、core JS 和 WASM 全部返回 HTTP 200，类型、字节数及 SHA-256 与本地 r7 相同：
 
@@ -125,7 +153,7 @@ r7 生产 AAC 原声提取仍失败，而同源 WASM 探针、真实 Piper 与�
 
 因此，“脚本字节不变，但 Service Worker 留下旧响应 CSP”的失败机制已在隔离环境得到直接复现和反向修复验证，与生产现象相符；**当前生产失败窗口中的旧缓存响应头尚未直接取证，不能把该机制当作生产修复完成。**
 
-`scripts/build-anna.mjs` 已增加 Anna 专属 Service Worker 适配：运行时 `.js`/`.mjs` 从网络以 `no-store` 获取，激活时在接管页面前只清理本应用作用域内缓存的脚本；保留 WASM、ONNX、bin、data、JSON 模型数据及权重，普通独立站 Service Worker 保持原行为。实际适配器生成源码和最终 Service Worker 合同检查通过，**r8 完整构建与严格校验通过并已推送、安装测试**。两次完整刷新后，生产导出通过此前失败的原声准备并完成渲染，新 Service Worker 的远端字节也与本地一致；**实际输出文件、音轨、音质与下载交付仍未独立验收**。
+`scripts/build-anna.mjs` 已增加 Anna 专属 Service Worker 适配：运行时 `.js`/`.mjs` 从网络以 `no-store` 获取，激活时在接管页面前只清理本应用作用域内缓存的脚本；保留 WASM、ONNX、bin、data、JSON 模型数据及权重，普通独立站 Service Worker 保持原行为。实际适配器生成源码和最终 Service Worker 合同检查通过，**r8 完整构建与严格校验通过并已推送、安装测试**。两次完整刷新后，生产导出通过此前失败的原声准备并完成渲染，新 Service Worker 字节与本地一致；通过 Host API 取回的真实生产 MP4 也完成全量解码和原声音轨一致性验收。浏览器直接/Host 下载交付仍待确认。
 
 ### 同日推送前只读基线（历史）
 
@@ -147,12 +175,16 @@ r7 生产 AAC 原声提取仍失败，而同源 WASM 探针、真实 Piper 与�
 - [x] r8 完整构建、严格校验及最终 Service Worker 合同检查通过；私有 push 后 revision 8、bundle ready 与新哈希已读回。
 - [x] r8 已安装；两次完整生产刷新后显式云恢复 8 秒视频、Piper 及字幕，导出完成原声准备和离线渲染，预览为 8.021333 秒、readyState 4。
 - [x] 最终生产 Service Worker GET 200、14,322 字节，SHA-256 与本地一致；最终云状态确认 r8 ready、无审核候选、未发布。
-- [ ] 取得 r8 生产 MP4 实际文件，独立核对尺寸、时长、真实音轨、音质与完整解码结果；预览就绪和渲染完成不能代替这些验收。
+- [x] 官方 Host 存储 API 签名 GET 取回既有 r8 生产 MP4；文件 SHA、720p H.264 240 帧、AAC 双声道、完整解码及与源 2–10 秒的音频一致性检查通过，保留 21.333 ms AAC 延迟边界。
 - [x] r7 生产 12 秒和 AI 裁剪后的 8 秒工程云保存成功，完整刷新后显式恢复 8 秒主视觉、源文件、语音和字幕。
 - [ ] 按明确场景补存储竞争、失败恢复及其它文件生命周期生产验证。不得为了制造首次写入场景而清除用户现有引用或工程。
-- [ ] 完成生产下载交付；本轮 Host 操作结束无 UI 错误，直接下载亦尝试，但未取得对应本机文件，不标记落盘通过。
+- [ ] 完成浏览器下载交付；Host 和直接下载无 UI 错误，但 IAB 对应 Downloads 文件未观察到。签名 GET 的实际文件验收不等于浏览器入口通过，也不说明平台下载失败。
 - [x] r7 真实 Anna AI 规划并应用源 2–10 秒裁剪，结果为 8 秒；本项不代表新候选的完整视频交付。
-- [ ] 权限 Save all 错误由平台解决后再复测；本轮已确认仍报 `manifest does not declare agent.session.auto`。
+- [x] r8 无 Agent 与 r9 仅 auto 声明的检查分别失败于 auto/fixed；随后按用户新增授权，r11 同时声明两者的 Save all 成功。
+- [x] r11 正常 UI 关闭 auto/fixed/继承工具并保存成功；API 确认三项 false，LLM complete/Storage 保持启用。
+- [x] 恢复无 Agent 的 r12 ready、同一 r8 哈希并 Install draft；即时 API 读回三项 grant 又 true，而声明 auto/fixed 均 false。
+- [x] r12 原样保存最终确认再次报 auto；只有 LLM/Storage 勾选，无 Agent 控件。
+- [ ] 向官方反馈恢复推送＋安装流程的 grant 重新启用和隐藏旧值保留问题；具体重置步骤及普通用户安装影响未隔离，报告已准备未发送。
 - [ ] 根据最终结果更新商店文案、截图、变更说明及审核候选。完成验证后再决定重新送审；当前 UI 提示获批即公开，不能依赖“仅批准不发布”。草稿成功不等于审核通过。
 
 ## 历史证据入口

@@ -2,11 +2,13 @@
 
 ## 2026-09-11 当前适配与发布状态
 
+**当前无 Agent 的 r12 ready 已重新安装，原样保存仍报 auto。** r11 同时声明 auto/fixed 时保存成功，UI 关闭两者及继承工具也成功并读回 false；但恢复推送 r12 再安装后，三项 grant 又 true、声明 false，只有 LLM/Storage 的界面保存再次失败。未在 push 与安装之间读取 grant，只确认整个流程重置，未隔离具体步骤或普通用户影响。[英文报告](anna-permission-save-repro-20260911.md)已更新未发送。生产文件/原声通过，浏览器交付及其它模型仍待验收；没有新送审或发布。
+
 CLI `0.1.52` 与 SDK `0.16.1` 的 r7 完整适配包已通过 Anna 和普通构建、typecheck、新 CLI 默认及严格校验；ESLint 0 errors、71 条既有 warnings。r7 Anna 包为 **169 文件、210,024,788 字节（200.3 MiB）**。17 项存储隔离检查及 Node 无 SAB 条件下两套 ORT 的最小推理通过；首次引用仍非原子。本地真实 Piper Siwis WAV 和 **12.032 秒 720p H.264/AAC 原声 MP4** 均已下载并检查，MP4 全量解码通过、与源音频高度相关，仍有约 21.333 ms AAC 编码延迟。**这些本地结果尚不涵盖生产模型/导出、Host 文件交付、权限保存或主观音质验收。**
 
 私有 **r7 ready** 已安装，生产入口匹配本地、实际 WASM CSP 与基础探针通过。生产 Piper 真实生成约 3.26 秒语音，Anna AI 将源 2–10 秒裁为 8 秒工程；12 秒及 8 秒工程云保存和完整刷新后的显式云恢复通过，恢复含主视觉源文件、Piper 语音与字幕。**生产原声导出仍失败，生产 WAV 下载未确认，权限 Save all 仍报 `manifest does not declare agent.session.auto`。** SAB/COOP/COEP 仍不支持。
 
-缓存修复的 **r8 构建、严格校验、Service Worker 合同检查通过，已私有 push 并安装**；169 文件、210,025,786 字节，完整哈希见 [适配记录](anna-rollout-adaptation-20260911.md)。生产完整刷新/云恢复后，源 2–10 秒且 Piper 静音的导出已显示 **成片已生成**，实际 MP4 预览为 **8.021333 秒、readyState 4**；新 Service Worker 远端 SHA 与本地一致。**Host 下载结束无 UI 错误，但未取得对应本机文件；生产真实音轨、音质、完整解码及下载交付仍未验收。** 09:51:52 UTC 云端仍为 r8 ready、`rejected`、无候选，版本 `684` / `0.1.0-alpha.1` 未发布；未冻结新版本、重送审或推送 Git 远端。
+缓存修复的 **r8 已完成生产 MP4 实际文件和原声音轨验收**：经官方 Host 存储 API 取回既有成片，5,151,853 字节、720p H.264 / 240 帧及 AAC 48 kHz 双声道，完整解码通过；源 2–10 秒音频高度相关，保留 21.333 ms 编码延迟。r8 构建、严格校验与 Service Worker 合同检查已有通过证据，169 文件、210,025,786 字节；完整哈希及文件验收见 [适配记录](anna-rollout-adaptation-20260911.md)。**浏览器直接/Host 下载的实际交付、其它模型仍待验收；r8 权限保存最新复测仍失败。** r8 已声明 `files.download`，官方回复的 phantom grants 段落只说明严格扫描器问题，没有明确确认权限弹窗错误。r8 验收时为 ready、`rejected`、无候选，`684` / `0.1.0-alpha.1` 未发布；当前为顶部记录的 r12，没有新送审或发布。
 
 **当前 Versions 页面明确写明 “Approval publishes it to the App Store immediately.”** 工程团队曾说明管理员可选择批准而不发布，但当前应用不能依赖这一可选路径保证延后上线。重新送审应按获批后可能立即公开理解；本轮仅更新、安装私有草稿，未重新送审。以下旧日期章节保留历史状态。
 

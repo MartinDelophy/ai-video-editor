@@ -3,6 +3,8 @@
  * No SDK import, host discovery, media transfer, or LLM call happens on the
  * ordinary build. Cloud file operations require an explicit UI action.
  */
+import { observeAnnaWindowLayout } from "./annaWindowLayout.js";
+
 export const isAnnaEdition = import.meta.env?.VITE_ANNA_EDITION === "true";
 
 const PROJECT_KEY = "timeline-studio/latest-project";
@@ -105,6 +107,7 @@ function waitFor(operation, { signal, timeoutMs = 30000, remoteMayContinue = fal
  */
 function discardRuntime(runtime) {
   if (!runtime || runtimeAttempt?.runtime === runtime) return;
+  runtime.stopWindowLayout?.();
   runtime._closed = true;
   clearInterval(runtime._heartbeatTimer);
   runtime._post = () => {};
@@ -147,6 +150,7 @@ export async function connectAnna({ signal } = {}) {
         throw new AnnaRuntimeError("host_closed");
       }
       attempt.runtime = runtime;
+      runtime.stopWindowLayout = observeAnnaWindowLayout(runtime);
       runtime.on("close", () => {
         if (runtimeAttempt !== attempt) return;
         runtimeAttempt = undefined;

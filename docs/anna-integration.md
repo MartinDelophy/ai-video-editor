@@ -1,14 +1,18 @@
 # Timeline Studio Anna Edition 开发与验证
 
-## 2026-09-11 当前适配状态
+## 2026-09-12 窗口适配状态
 
-**最新为无 Agent 的 r12 ready，内容与已验收 r8 相同。** r8 无 Agent 报 auto，r9 仅 auto 报 fixed；r11 同时声明两者保存成功，UI 清理三项也成功并读回 false。但恢复推送 r12 再 Install draft 后，10:47:37.435 UTC 读回声明 false、三项 grant 又 true；仅 LLM/Storage 勾选的界面原样保存再次报 auto。未在 push 与安装之间读取 grant，只确认整个流程重置，不能归因单独按钮或推断普通用户受影响。详见 [英文报告](anna-permission-save-repro-20260911.md)，未送审或发布。下述 r7/r8 为此前功能证据。
+**当前工作草稿为 r13 ready，已安装并完成真实 Anna 窗口初始自适应验证。** 保留 1440×900 默认尺寸，通过官方 `window.resize` 收缩超出宿主右侧或底部的窗口；编辑器同时适配矮桌面窗口和小尺寸 iframe。生产可见区域 851×914 中，原位于 (252,77) 的 1440×900 窗口自动缩至 587×825，关闭、导出及底部工具栏完整可见。没有新增 Agent 权限，之前的权限保存问题仍未解决。详细实现、尺寸矩阵、构建及范围限制见 [窗口适配验收记录](anna-window-layout-20260912.md)。未冻结新版本、未送审或发布。
+
+## 2026-09-11 适配状态（历史）
+
+**当时为无 Agent 的 r12 ready，内容与已验收 r8 相同。** r8 无 Agent 报 auto，r9 仅 auto 报 fixed；r11 同时声明两者保存成功，UI 清理三项也成功并读回 false。但恢复推送 r12 再 Install draft 后，10:47:37.435 UTC 读回声明 false、三项 grant 又 true；仅 LLM/Storage 勾选的界面原样保存再次报 auto。未在 push 与安装之间读取 grant，只确认整个流程重置，不能归因单独按钮或推断普通用户受影响。详见 [英文报告](anna-permission-save-repro-20260911.md)，未送审或发布。下述 r7/r8 为此前功能证据。
 
 CLI `0.1.52` 与 SDK `0.16.1` 的 r7 适配已完成 Anna 和普通构建，r7 Anna 包为 **169 文件、210,024,788 字节（200.3 MiB）**，新 CLI 默认与严格校验均通过；真实未授权调用仍被负例拒绝。typecheck 通过，全量 ESLint 0 errors、71 条既有 warnings。云存储首次引用的 17 项隔离检查通过，**不保证原子首写**；两套单线程 ORT 在 Node 无 SAB 条件下的 Identity 推理通过。本地无跨源隔离页面完成真实 Piper Siwis WAV 生成/下载，并完成 **12.032 秒 720p H.264/AAC 原声 MP4** 下载、全量解码与高相关性 PCM 核验；保留约 21.333 ms 编码延迟，不声称零误差同步或主观音质验收。
 
 `apps push --if-match 6` 已推进 **r7 ready**，08:56 UTC 读回哈希 `be3d1d579d2b1677d969bddbb1dc254f09d91acd4f9ffe9a6941f3a0fe771cef`。用户登录后已安装 r7，实际 CSP 含 WASM opt-in，SDK 和基础探针通过；真实 Piper 生成约 3.26 秒语音，Anna AI 规划并应用源 2–10 秒的 8 秒工程。12 秒及 8 秒工程分别云保存成功，完整刷新后显式恢复 8 秒主视觉、源文件、Piper 语音和字幕。**生产原声导出仍失败，权限 Save all 仍报 `manifest does not declare agent.session.auto`。** 生产 WAV 下载未确认；SAB 不可用如预期。Cloud Agent 浮层超时经 Dismiss 后继续静态应用，不代表 Linux 执行成功。
 
-缓存修复的 **r8 构建、严格校验、Service Worker 合同检查通过并已安装**；169 文件、210,025,786 字节，哈希 `d74673cd7f40a0f15cd0d8f9be69f8de7a4e573c712d6d2c57df2ad0737ca9d9`。源 2–10 秒、Piper 静音的生产成片已通过官方 Host 存储 API 取回：**5,151,853 字节、720p H.264 240 帧、AAC 48 kHz 双声道，完整解码通过**；与目标源音频高度相关，保留 21.333 ms AAC 帧延迟。**浏览器直接/Host 下载的 IAB 落盘仍未确认，不能用 API 成功替代或据此判定平台下载失败。** r8 已声明并接入 `files.download`。最新权限弹窗仅 LLM complete/Storage 勾选、无 Agent，原样保存仍失败；官方回复第 2 段的 phantom grants 只涉及严格扫描，不是对该弹窗问题的确认。该较早 r8 验收快照为 ready、`rejected`、无候选、版本 `684` 未发布；当前为顶部记录的 r12，本次取回文件没有新增送审。详见 [9 月 11 日平台更新适配](anna-rollout-adaptation-20260911.md)，其它模型与浏览器交付继续待验收。
+缓存修复的 **r8 构建、严格校验、Service Worker 合同检查通过并已安装**；169 文件、210,025,786 字节，哈希 `d74673cd7f40a0f15cd0d8f9be69f8de7a4e573c712d6d2c57df2ad0737ca9d9`。源 2–10 秒、Piper 静音的生产成片已通过官方 Host 存储 API 取回：**5,151,853 字节、720p H.264 240 帧、AAC 48 kHz 双声道，完整解码通过**；与目标源音频高度相关，保留 21.333 ms AAC 帧延迟。**浏览器直接/Host 下载的 IAB 落盘仍未确认，不能用 API 成功替代或据此判定平台下载失败。** r8 已声明并接入 `files.download`。最新权限弹窗仅 LLM complete/Storage 勾选、无 Agent，原样保存仍失败；官方回复第 2 段的 phantom grants 只涉及严格扫描，不是对该弹窗问题的确认。该较早 r8 验收快照为 ready、`rejected`、无候选、版本 `684` 未发布；9 月 11 日随后恢复为 r12，本次取回文件没有新增送审。详见 [9 月 11 日平台更新适配](anna-rollout-adaptation-20260911.md)，其它模型与浏览器交付继续待验收。
 
 ## 2026-09-09 状态摘要（历史）
 

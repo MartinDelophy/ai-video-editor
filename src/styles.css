@@ -53,7 +53,8 @@ button:disabled {
 }
 
 .app-shell {
-  --timeline-panel-height: 354px;
+  --timeline-preferred-height: 354px;
+  --timeline-panel-height: min(var(--timeline-preferred-height), var(--timeline-height-budget, 100dvh));
   display: grid;
   grid-template-rows: 52px minmax(360px, 1fr) var(--timeline-panel-height);
   width: 100vw;
@@ -9547,7 +9548,7 @@ button:disabled {
    property rows do not collapse into an unnecessarily narrow column. */
 @media (min-width: 1280px) and (max-width: 1439px) {
   .app-shell {
-    --timeline-panel-height: clamp(280px, 36vh, 320px);
+    --timeline-preferred-height: clamp(280px, 36vh, 320px);
     --timeline-track-row-height: 48px;
   }
 
@@ -9577,7 +9578,7 @@ button:disabled {
    the preview receives every remaining pixel. */
 @media (min-width: 1440px) and (max-width: 1919px) {
   .app-shell {
-    --timeline-panel-height: clamp(340px, 40vh, 380px);
+    --timeline-preferred-height: clamp(340px, 40vh, 380px);
     --timeline-track-row-height: 52px;
   }
 
@@ -9602,7 +9603,7 @@ button:disabled {
    width on the preview instead of scaling controls or typography. */
 @media (min-width: 1920px) {
   .app-shell {
-    --timeline-panel-height: clamp(400px, 40vh, 460px);
+    --timeline-preferred-height: clamp(400px, 40vh, 460px);
     --timeline-track-row-height: 56px;
   }
 
@@ -9668,7 +9669,7 @@ button:disabled {
 
   .app-shell {
     --compact-drawer-width: clamp(300px, 30vw, 360px);
-    --timeline-panel-height: clamp(270px, 38dvh, 330px);
+    --timeline-preferred-height: clamp(270px, 38dvh, 330px);
     --timeline-track-row-height: 46px;
     width: 100%;
     height: 100dvh;
@@ -9847,9 +9848,8 @@ button:disabled {
   }
 
   .topbar,
-  .editor-grid,
-  .timeline { width: 100%; min-width: 0; }
-  .timeline { min-height: 0; overflow: hidden; }
+  .editor-grid { width: 100%; min-width: 0; }
+  .timeline { width: auto; min-width: 0; min-height: 0; overflow: hidden; }
 
   @keyframes compact-drawer-enter {
     from { opacity: 0; transform: translateX(24px) scale(.99); }
@@ -10643,6 +10643,11 @@ button:disabled {
 
 @media (max-width: 390px) {
   .timeline { --mobile-track-label-width: 92px; }
+  .preview-stage .transport-row > span {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.2;
+  }
   .project-title { display: none; }
   .export-button { padding: 0 10px; }
   .app-shell { grid-template-rows: auto minmax(260px, 43dvh) minmax(0, 1fr) auto; }
@@ -10665,6 +10670,52 @@ button:disabled {
   .mobile-ratio-select { min-width: 52px; }
   .mobile-ratio-select select { padding-right: 20px; padding-left: 7px; }
   .mobile-ratio-select svg { right: 5px; }
+}
+
+/* Short desktop windows retain their width tier and control sizes. Give the
+   timeline its preferred height when it fits beside a 360px workspace, then
+   share tighter heights with the preview; extra lanes and panels scroll inside. */
+@media (min-width: 761px) and (max-height: 820px) {
+  .app-shell {
+    --timeline-height-budget: max(40dvh, calc(100dvh - 412px));
+    grid-template-rows: 52px minmax(0, 1fr) var(--timeline-panel-height);
+  }
+
+  .timeline { grid-template-rows: 40px minmax(0, 1fr); }
+  .timeline-board { max-height: none; }
+}
+
+@media (min-width: 761px) and (max-width: 1279px) and (max-height: 820px) {
+  .app-shell {
+    --timeline-height-budget: max(40dvh, calc(100dvh - 416px));
+    grid-template-rows: 56px minmax(0, 1fr) var(--timeline-panel-height);
+  }
+}
+
+/* A small app iframe has the same touch layout as a phone but may be much
+   shorter. Reserve room for the ruler and scrolling lanes below the preview
+   without shrinking playback controls or the bottom tool rail. */
+@media (max-width: 760px) and (max-height: 600px) {
+  .app-shell {
+    grid-template-rows: auto clamp(148px, 34dvh, 204px) minmax(0, 1fr) auto;
+  }
+
+  .preview-stage:not(.is-focus-preview) { min-height: 0; }
+}
+
+@media (max-height: 600px) {
+  .preview-stage:not(.is-focus-preview) .preview-canvas.is-empty { padding: 6px 10px; }
+  .preview-stage:not(.is-focus-preview) .preview-empty {
+    flex-direction: row;
+    gap: 12px;
+    width: min(420px, 100%);
+    height: 100%;
+    max-height: 96px;
+    padding: 8px 12px;
+    aspect-ratio: auto;
+  }
+  .preview-stage:not(.is-focus-preview) .preview-empty svg { flex: 0 0 auto; }
+  .preview-stage:not(.is-focus-preview) .preview-empty span { display: none; }
 }
 
 /* Tool panels remain wheel/trackpad scrollable without persistent scrollbar chrome. */

@@ -25,7 +25,7 @@
         "name": "main",
         "title": "Timeline Studio",
         "default": true,
-        "min_size": { "w": 800, "h": 600 },
+        "min_size": { "w": 360, "h": 480 },
         "default_size": { "w": 1440, "h": 900 },
         "max_size": { "w": 4096, "h": 2160 },
         "single_instance": true,
@@ -39,7 +39,7 @@
       "llm": ["complete"],
       "storage": ["get", "set", "delete", "list"],
       "files": ["upload_init", "upload_finalize", "download_url", "list", "delete", "download"],
-      "window": ["ready", "set_title"]
+      "window": ["ready", "set_title", "resize"]
     },
     "csp_overrides": {
       "script-src": ["'wasm-unsafe-eval'"],

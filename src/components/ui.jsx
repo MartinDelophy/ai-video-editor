@@ -1,7 +1,8 @@
-import { useEffect, useRef } from "react";
+import { memo, useEffect, useMemo, useRef } from "react";
 import { X } from "@phosphor-icons/react";
 import { getWaveformDisplayPeaks, isWaveformPlaceholder } from "../lib/waveform.js";
 import { formatShortcutLabel, releasePointerActivatedFocus } from "../lib/editorShortcuts.js";
+import { sliceSourceAudioPeaks } from "../lib/sourceAudioSync.js";
 
 export function IconButton({ label, children, active = false, disabled = false, onClick, tooltip = false, shortcut = "", releaseFocusOnPointer = false }) {
   const tooltipLabel = formatShortcutLabel(label, shortcut);
@@ -51,9 +52,14 @@ export function Popover({ children, onClose, closeLabel = "Close", className = "
   );
 }
 
-export function WaveformStrip({ peaks, active = false, hidden = false }) {
-  const safePeaks = getWaveformDisplayPeaks(peaks);
-  const placeholder = isWaveformPlaceholder(peaks);
+// The playhead updates its parent frequently; immutable peaks and CSS-driven
+// zoom sizing let the entire waveform subtree stay unchanged between edits.
+export const WaveformStrip = memo(function WaveformStrip({ peaks, active = false, hidden = false, sourceStart, sourceDuration, sourceAudioDuration = 0 }) {
+  const visiblePeaks = useMemo(() => Array.isArray(peaks) && sourceAudioDuration > 0
+    ? sliceSourceAudioPeaks(peaks, { sourceStart, sourceDuration }, sourceAudioDuration)
+    : peaks, [peaks, sourceStart, sourceDuration, sourceAudioDuration]);
+  const safePeaks = getWaveformDisplayPeaks(visiblePeaks);
+  const placeholder = isWaveformPlaceholder(visiblePeaks);
   return (
     <div
       className={`waveform-strip ${active ? "is-active" : ""} ${hidden ? "is-muted" : ""} ${placeholder ? "is-placeholder" : ""}`}
@@ -64,4 +70,4 @@ export function WaveformStrip({ peaks, active = false, hidden = false }) {
       ))}
     </div>
   );
-}
+});

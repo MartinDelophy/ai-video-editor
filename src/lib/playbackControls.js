@@ -1,6 +1,6 @@
 import { MAX_TIMELINE_DURATION_SECONDS } from "../config/editor.js";
-import { getAudioSegmentPreviewVolume, getTimelineTrackLocalTime, isTimelineTimeInsideTrack, requestTimelineMediaPlay, setTimelineAudioGain } from "./editorRuntime.js";
-import { getVisualSegmentIndexAtTime, isTimedSegmentLaneVisible } from "./timeline.js";
+import { getAudioSegmentPreviewVolume, getTimelineTrackLocalTime, isAudioSegmentAudible, isTimelineTimeInsideTrack, requestTimelineMediaPlay, setTimelineAudioGain } from "./editorRuntime.js";
+import { filterTimedSegmentsByLaneVisibility, getVisualSegmentIndexAtTime } from "./timeline.js";
 import { getLinkedSourceAudioState } from "./sourceAudioSync.js";
 import { getVisualPlaybackRateAtTime, getVisualSourceTime } from "./visualEffects.js";
 import { requestLatestVideoFrame } from "./videoFrameSync.js";
@@ -71,12 +71,28 @@ export function createPlaybackControls(deps) {
       deps.visualPlaybackLastUpdateRef.current = 0;
     }
     syncPreviewVideoTime(clamped, options);
+    const audibleAudioIds = shouldPlay ? new Set(
+      filterTimedSegmentsByLaneVisibility(deps.audioSegments, deps.trackVisibility)
+        .filter(isAudioSegmentAudible).map((segment) => segment.id),
+    ) : null;
+    // Paused audio has no visible frame to scrub. Seek only running, audible
+    // clips; every clip is aligned to its exact source time when it starts.
+    // This avoids seeking all offscreen clips and silent source backups on
+    // every pointer move in a large project.
     deps.audioSegments.forEach((segment) => {
       const audio = deps.audioSegmentRefs.current.get(segment.id);
-      if (audio) audio.currentTime = Math.max(0, Number(segment.sourceStart) || 0) + getTimelineTrackLocalTime(clamped, segment.start, segment.duration) * Math.max(0.25, Math.min(4, Number(segment.playbackRate) || 1));
+      if (!audio) return;
+      if (audibleAudioIds?.has(segment.id) && isTimelineTimeInsideTrack(clamped, segment.start, segment.duration)) {
+        audio.currentTime = Math.max(0, Number(segment.sourceStart) || 0) + getTimelineTrackLocalTime(clamped, segment.start, segment.duration) * Math.max(0.25, Math.min(4, Number(segment.playbackRate) || 1));
+      } else if (!audio.paused) audio.pause();
     });
-    if (deps.sourceAudioRef.current) deps.sourceAudioRef.current.currentTime = getSourceState(clamped).sourceTime;
-    if (deps.musicRef.current) deps.musicRef.current.currentTime = getMusicState(clamped).sourceTime;
+    const seekRunningTrack = (media, state, track) => {
+      if (!media) return;
+      if (shouldPlay && state.active && isTrackAudible(track)) media.currentTime = state.sourceTime;
+      else if (!media.paused) media.pause();
+    };
+    seekRunningTrack(deps.sourceAudioRef.current, getSourceState(clamped), "source");
+    seekRunningTrack(deps.musicRef.current, getMusicState(clamped), "music");
     if (shouldPlay) {
       const video = deps.previewVideoRef.current;
       const index = getVisualSegmentIndexAtTime(deps.visualSegments, clamped);
@@ -142,19 +158,38 @@ export function createPlaybackControls(deps) {
   };
   const handlePlayToggle = () => {
     const video = deps.previewVideoRef.current;
-    const voices = isTrackAudible("audio") ? deps.audioSegments
-      .filter((segment) => isTimedSegmentLaneVisible(deps.audioSegments, segment.id, deps.trackVisibility))
+    const voices = isTrackAudible("audio") ? filterTimedSegmentsByLaneVisibility(deps.audioSegments, deps.trackVisibility)
+      .filter(isAudioSegmentAudible)
       .map((segment) => ({ segment, audio: deps.audioSegmentRefs.current.get(segment.id) }))
       .filter(({ audio }) => audio) : [];
     const source = isTrackAudible("source") ? deps.sourceAudioRef.current : null;
     const music = isTrackAudible("music") ? deps.musicRef.current : null;
-    if (deps.isPlaying) { pauseTimelineMedia(); deps.setIsPlaying(false); return; }
+    if (deps.isPlaying) {
+      // Native playhead animation can advance while the UI thread is busy.
+      // Resolve its same wall clock before pausing instead of rewinding to
+      // currentTimeRef, which was last updated by a possibly delayed rAF.
+      const startedAt = Number(deps.visualPlaybackStartedAtRef?.current);
+      const startTime = Number(deps.visualPlaybackStartTimeRef?.current);
+      const liveTime = startedAt > 0 && Number.isFinite(startTime)
+        ? startTime + Math.max(0, performance.now() - startedAt) / 1000
+        : Number(deps.currentTimeRef.current) || 0;
+      pauseTimelineMedia();
+      const pausedTime = Math.max(0, Math.min(deps.estimatedDuration, liveTime));
+      deps.currentTimeRef.current = pausedTime;
+      deps.setCurrentTime(pausedTime);
+      deps.setIsPlaying(false);
+      return;
+    }
     if (!deps.canPreview) return void deps.notify("请先上传图片/视频素材、生成配音或上传背景音乐");
     if (deps.currentTimeRef.current >= deps.estimatedDuration - 0.02) seekTo(0);
     const timelineTime = deps.currentTimeRef.current;
     const playIf = (media, ready) => ready ? requestTimelineMediaPlay(media) : media?.pause();
     voices.forEach(({ segment, audio }) => {
       const active = isTimelineTimeInsideTrack(timelineTime, segment.start, segment.duration);
+      if (!active) {
+        if (!audio.paused) audio.pause();
+        return;
+      }
       const playbackRate = Math.max(0.25, Math.min(4, Number(segment.playbackRate) || 1));
       audio.currentTime = Math.max(0, Number(segment.sourceStart) || 0) + getTimelineTrackLocalTime(timelineTime, segment.start, segment.duration) * playbackRate;
       setTimelineAudioGain(audio, getAudioSegmentPreviewVolume(segment, timelineTime), segment.spatialEffect, segment.spatialAmount); audio.playbackRate = playbackRate;

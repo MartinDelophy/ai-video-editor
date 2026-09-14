@@ -204,7 +204,7 @@ async function prepareComposition(options) {
       ? await loadImage(segment.vision.cutoutUrl).catch(() => null) : null;
     const maskUrls = segment.type === "video"
       && (segment.vision?.options?.removeBackground || subjectMaskNeeded)
-      ? [...new Set((segment.vision.samples || []).map((sample) => sample.cutoutUrl).filter(Boolean))] : [];
+      ? [...new Set((segment.vision?.samples || []).map((sample) => sample.cutoutUrl).filter(Boolean))] : [];
     let sequentialFrames = null;
     if (segment.type === "video" && options.framePlan?.length) {
       try {

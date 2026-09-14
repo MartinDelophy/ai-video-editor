@@ -1,5 +1,7 @@
 import { getVisualSourceTime } from "./visualEffects.js";
 
+export const PLAYHEAD_FRAME_SYNC_TOLERANCE_SECONDS = 0.025;
+
 const MIN_PLAYBACK_RATE = 0.25;
 const MAX_PLAYBACK_RATE = 4;
 const frameIndexCache = new WeakMap();

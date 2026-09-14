@@ -1,3 +1,5 @@
+import { useMemo } from "react";
+
 import {
   getCaptionTimeline,
   getVisualAssetPayload,
@@ -9,22 +11,23 @@ export function shouldShowStickerTrack({ stickerSegments = [], assetDropTargetTr
   return stickerSegments.length > 0 || assetDropTargetTrack === "sticker" || assetDragPreview?.type === "sticker" || draggedAsset?.type === "sticker";
 }
 
-export function createTimelineViewModel(d) {
+export function useTimelineViewModel(d) {
+  const getCurrentVisualAssetSnapshot = d.getCurrentVisualAssetSnapshot;
   const progressPercent = Math.max(0, Math.min(100, d.progress));
   const playheadPercent = Math.max(
     0,
     Math.min(100, ((d.currentTime || 0) / Math.max(d.timelineDuration, 1)) * 100),
   );
   const previewRatio = `${d.ratio.width} / ${d.ratio.height}`;
-  const renderedVisualSegments = d.imageSrc
+  const renderedVisualSegments = useMemo(() => d.imageSrc
     ? d.visualSegments.length
       ? d.visualSegments
       : [{
           id: "visual-fallback",
           duration: d.imageDuration,
-          ...getVisualAssetPayload(d.getCurrentVisualAssetSnapshot()),
+          ...getVisualAssetPayload(getCurrentVisualAssetSnapshot()),
         }]
-    : [];
+    : [], [getCurrentVisualAssetSnapshot, d.imageDuration, d.imageSrc, d.visualSegments]);
   const activeTimelineClipDrag = d.timelineClipDrag?.dragging ? d.timelineClipDrag : null;
   const draggedAsset = d.draggedAssetId ? d.findAssetById(d.draggedAssetId) : null;
   const showStickerTrack = shouldShowStickerTrack({
@@ -33,15 +36,20 @@ export function createTimelineViewModel(d) {
     assetDragPreview: d.assetDragPreview,
     draggedAsset,
   });
-  const displayedVisualSegments = activeTimelineClipDrag?.track === "image" && activeTimelineClipDrag.mode !== "overlay"
+  const displayedVisualSegments = useMemo(() => activeTimelineClipDrag?.track === "image" && activeTimelineClipDrag.mode !== "overlay"
     ? reorderTimelineItems(
         renderedVisualSegments,
         activeTimelineClipDrag.fromIndex,
         activeTimelineClipDrag.overIndex,
       )
-    : renderedVisualSegments;
-  const renderedVisualTimeline = getVisualSegmentTimeline(displayedVisualSegments);
-  const displayedCaptionSegments = activeTimelineClipDrag?.track === "caption"
+    : renderedVisualSegments, [activeTimelineClipDrag?.fromIndex, activeTimelineClipDrag?.mode, activeTimelineClipDrag?.overIndex, activeTimelineClipDrag?.track, renderedVisualSegments]);
+  // The playback clock never changes clip ranges. Stable references also keep
+  // downstream lane packing, selection geometry and filmstrip effects cached.
+  const renderedVisualTimeline = useMemo(
+    () => getVisualSegmentTimeline(displayedVisualSegments),
+    [displayedVisualSegments],
+  );
+  const displayedCaptionSegments = useMemo(() => activeTimelineClipDrag?.track === "caption"
     ? activeTimelineClipDrag.mode === "move" || activeTimelineClipDrag.mode?.startsWith("resize-")
       ? activeTimelineClipDrag.previewSegments
       : reorderTimelineItems(
@@ -49,10 +57,10 @@ export function createTimelineViewModel(d) {
           activeTimelineClipDrag.fromIndex,
           activeTimelineClipDrag.overIndex,
         )
-    : d.captionSegments;
-  const displayedCaptionTimeline = activeTimelineClipDrag?.track === "caption"
+    : d.captionSegments, [activeTimelineClipDrag?.fromIndex, activeTimelineClipDrag?.mode, activeTimelineClipDrag?.overIndex, activeTimelineClipDrag?.previewSegments, activeTimelineClipDrag?.track, d.captionSegments]);
+  const displayedCaptionTimeline = useMemo(() => activeTimelineClipDrag?.track === "caption"
     ? getCaptionTimeline(displayedCaptionSegments, d.captionTargetDuration)
-    : d.captionTimeline;
+    : d.captionTimeline, [activeTimelineClipDrag?.track, d.captionTargetDuration, d.captionTimeline, displayedCaptionSegments]);
   const audioClipPercent = d.audioBlob && d.timelineDuration > 0
     ? Math.max(0.01, Math.min(100, (d.audioDuration / d.timelineDuration) * 100))
     : 0;
@@ -75,13 +83,13 @@ export function createTimelineViewModel(d) {
     ? Math.max(0, Math.min(100, (d.musicStart / d.timelineDuration) * 100))
     : 0;
   const exportPercent = Math.max(0, Math.min(100, Math.round(d.exportProgress)));
-  const previewFrameStyle = d.previewFrameSize.width > 0 && d.previewFrameSize.height > 0
+  const previewFrameStyle = useMemo(() => d.previewFrameSize.width > 0 && d.previewFrameSize.height > 0
     ? {
         "--preview-ratio": previewRatio,
         width: `${d.previewFrameSize.width}px`,
         height: `${d.previewFrameSize.height}px`,
       }
-    : { "--preview-ratio": previewRatio };
+    : { "--preview-ratio": previewRatio }, [d.previewFrameSize.height, d.previewFrameSize.width, previewRatio]);
 
   return {
     activeTimelineClipDrag, audioClipPercent, displayedCaptionSegments,

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { normalizeTimelineMarkers } from "../lib/timelineMarkers.js";
 
 import {
@@ -227,8 +227,80 @@ function restoreSnapshot(snapshot, d) {
 }
 
 export function useEditorHistory(d) {
-  const snapshot = createSnapshot(d);
-  const signature = createEditorSnapshotSignature(snapshot);
+  // Playback and selection update the restore position, but do not change the
+  // edit itself. Reuse the immutable content snapshot and its signature until
+  // actual project state changes instead of cloning/serializing every clip on
+  // each clock tick (including the background filmstrip/playback UI renders).
+  const contentSnapshot = useMemo(() => createSnapshot({
+    script: d.script,
+    captionSegments: d.captionSegments,
+    captionPosition: d.captionPosition,
+    captionPlacement: d.captionPlacement,
+    captionSize: d.captionSize,
+    captionStyle: d.captionStyle,
+    captionStylePresetId: d.captionStylePresetId,
+    captionStylePresets: d.captionStylePresets,
+    captionsEnabled: d.captionsEnabled,
+    visualSegments: d.visualSegments,
+    visualOverlaySegments: d.visualOverlaySegments,
+    imageSrc: d.imageSrc,
+    imageName: d.imageName,
+    imageMeta: d.imageMeta,
+    visualType: d.visualType,
+    imageDuration: d.imageDuration,
+    imageClipCount: d.imageClipCount,
+    fitMode: d.fitMode,
+    selectedFilterId: d.selectedFilterId,
+    selectedTransitionId: d.selectedTransitionId,
+    stickerSegments: d.stickerSegments,
+    timelineMarkers: d.timelineMarkers,
+    selectedStickerId: d.selectedStickerId,
+    audioSegments: d.audioSegments,
+    timelineHorizon: d.timelineHorizon,
+    musicBlob: d.musicBlob,
+    musicSegments: d.musicSegments,
+    musicStart: d.musicStart,
+    musicUrl: d.musicUrl,
+    musicName: d.musicName,
+    musicDuration: d.musicDuration,
+    musicPeaks: d.musicPeaks,
+    musicVolume: d.musicVolume,
+    sourceAudioBlob: d.sourceAudioBlob,
+    sourceAudioUrl: d.sourceAudioUrl,
+    sourceAudioName: d.sourceAudioName,
+    sourceAudioDuration: d.sourceAudioDuration,
+    sourceAudioPeaks: d.sourceAudioPeaks,
+    sourceAudioVolume: d.sourceAudioVolume,
+    sourceAudioStart: d.sourceAudioStart,
+    sourceAudioAssetId: d.sourceAudioAssetId,
+    sourceAudioLinked: d.sourceAudioLinked,
+    trackVisibility: d.trackVisibility,
+    trackLocks: d.trackLocks,
+    userAssets: d.userAssets,
+  }), [
+    d.script, d.captionSegments, d.captionPosition, d.captionPlacement,
+    d.captionSize, d.captionStyle, d.captionStylePresetId, d.captionStylePresets,
+    d.captionsEnabled, d.visualSegments, d.visualOverlaySegments, d.imageSrc,
+    d.imageName, d.imageMeta, d.visualType, d.imageDuration, d.imageClipCount,
+    d.fitMode, d.selectedFilterId, d.selectedTransitionId, d.stickerSegments,
+    d.timelineMarkers, d.selectedStickerId, d.audioSegments, d.timelineHorizon,
+    d.musicBlob, d.musicSegments, d.musicStart, d.musicUrl, d.musicName,
+    d.musicDuration, d.musicPeaks, d.musicVolume, d.sourceAudioBlob,
+    d.sourceAudioUrl, d.sourceAudioName, d.sourceAudioDuration, d.sourceAudioPeaks,
+    d.sourceAudioVolume, d.sourceAudioStart, d.sourceAudioAssetId,
+    d.sourceAudioLinked, d.trackVisibility, d.trackLocks, d.userAssets,
+  ]);
+  const signature = useMemo(() => createEditorSnapshotSignature(contentSnapshot), [contentSnapshot]);
+  const snapshot = {
+    ...contentSnapshot,
+    selectedTrack: d.selectedTrack,
+    selectedSegmentId: d.selectedSegmentId,
+    selectedVisualSegmentId: d.selectedVisualSegmentId,
+    selectedVisualOverlayId: d.selectedVisualOverlayId,
+    selectedStickerSegmentId: d.selectedStickerSegmentId,
+    selectedAudioSegmentId: d.selectedAudioSegmentId,
+    currentTime: d.currentTime,
+  };
   const historyRef = useRef(null);
   const latestSnapshotRef = useRef(snapshot);
   const pendingRef = useRef(null);

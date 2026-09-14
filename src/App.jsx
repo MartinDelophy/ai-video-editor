@@ -13,6 +13,7 @@ import { MiganRepairDialog } from "./components/MiganRepairDialog.jsx";
 import { NanoVsrRestorationDialog } from "./components/NanoVsrRestorationDialog.jsx";
 import { SmartDenoiseDialog } from "./components/SmartDenoiseDialog.jsx";
 import { WebMcpReview } from "./components/WebMcpReview.jsx";
+import ProjectImportOverlay from "./components/ProjectImportOverlay.jsx";
 import {
   canShowFirstVisualGuide,
   FIRST_VISUAL_GUIDE_MOBILE_QUERY,
@@ -70,7 +71,7 @@ import { createVisualTimelineActions } from "./lib/visualTimelineActions.js";
 import { createStickerTimelineActions } from "./lib/stickerTimelineActions.js";
 import { createAssetDropActions } from "./lib/assetDropActions.js";
 import { createEditorCommandActions } from "./lib/editorCommandActions.js";
-import { createTimelineViewModel } from "./lib/timelineViewModel.js";
+import { useTimelineViewModel } from "./lib/timelineViewModel.js";
 import { createTranslator, getStoredLanguage, translateOptionName } from "./i18n.js";
 import { decodeWaveform, downloadBlob } from "./lib/media.js";
 import { useAiMusicGeneration } from "./hooks/useAiMusicGeneration.js";
@@ -195,6 +196,7 @@ export function App() {
     status, statusText, timelineClipDrag, timelineZoom, trackLocks, trackVisibility,
     voiceFilter, voiceTab,
   } = useEditorUiState();
+  const [exportError, setExportError] = useState(null);
   const [userAssets, setUserAssets] = useState([]);
   const [timelineMarkers, setTimelineMarkers] = useState([]);
   const timelineMarkerEnd = useMemo(() => timelineMarkers.reduce(
@@ -1241,7 +1243,8 @@ export function App() {
     return { ...overlay, depthAnalysis: resolveDepthAnalysisAtTime(depthRecord, sourceTime) };
   }), [currentTime, depthRecords, previewVisualOverlays]);
 
-  const { getProjectSnapshot, createCurrentArchive, handleExportProject, handleImportProject, handleNewProject } = useProjectFiles({
+  const { projectImportProgress, getProjectSnapshot, createCurrentArchive, handleExportProject, handleImportProject, handleNewProject } = useProjectFiles({
+    language: activeLanguage, pauseTimelineMedia, setIsPlaying,
     timelineMarkers, setTimelineMarkers,
     audioBlob, audioDuration, audioSegments, captionPlacement, captionPosition, captionSegments, captionSize,
     captionStyle, captionsEnabled, captionStyleFallback: captionStyle, clearAllVisionState,
@@ -1267,7 +1270,7 @@ export function App() {
     playheadPercent, previewFrameStyle, previewRatio, progressPercent,
     renderedVisualSegments, renderedVisualTimeline, showStickerTrack,
     sourceAudioClipPercent, sourceAudioStartPercent,
-  } = createTimelineViewModel({
+  } = useTimelineViewModel({
     assetDragPreview, assetDropTargetTrack, audioBlob, audioDuration, captionSegments,
     captionTargetDuration, captionTimeline, currentTime, draggedAssetId, exportProgress,
     findAssetById, getCurrentVisualAssetSnapshot, imageDuration, imageSrc, musicBlob,
@@ -1292,7 +1295,7 @@ export function App() {
     captionSize, captionStyle, captionsEnabled, exporting, exportAbortControllerRef, exportStartRef, fitMode,
     imageDuration, imageSrc, musicBlob, musicDuration, musicSegments, musicStart, musicTimelineEnd, musicVolume, notify,
     previewFrameSize, ratio, renderedVisualSegments, script, selectedFilter,
-    selectedSticker, selectedTransitionId, setExporting, setExportPhase,
+    selectedSticker, selectedTransitionId, setExporting, setExportError, setExportPhase,
     setExportProgress, setStatus, setStatusText, sourceAudioBlob, sourceAudioDuration,
     linkedSourceAudioSegments, sourceAudioAssetId, sourceAudioLinked, sourceAudioStart, sourceAudioTimelineEnd, sourceAudioVolume, sourceAudioSpatialEffect, sourceAudioSpatialAmount, stickerDuration, stickerSegments,
     trackVisibility, visionRecords, depthRecords, visualType, voiceTrackDuration, volume, exportSettings: {
@@ -1300,7 +1303,7 @@ export function App() {
       ...getExportDimensions(ratio, Number(exportSettings.resolution)),
       videoBitsPerSecond: getEffectiveExportBitrate(exportSettings),
     },
-    visualOverlaySegments, t,
+    visualOverlaySegments, t, language: activeLanguage,
   });
   const { startCaptionResize, startTimelineClipDrag } = createTimelineReorderControls({
     timelineMarkers,
@@ -1376,7 +1379,7 @@ export function App() {
     applyReview: applyBrowserReview,
     undo: () => { pauseTimelineMedia(); undo(); },
     seek: (time) => { pauseTimelineMedia(); setIsPlaying(false); seekTo(time, { immediate: true }); },
-    isBusy: () => Boolean(exporting || timelineClipDragRef.current || pointerAssetDragRef.current ||
+    isBusy: () => Boolean(projectImportProgress || exporting || timelineClipDragRef.current || pointerAssetDragRef.current ||
       isDragging || draggedAssetId || visualSegments.some((clip) => clip.preparing) ||
       visualOverlaySegments.some((clip) => clip.preparing) || visionJob.running || avatarJob.running || autoEdit.job.running),
   });
@@ -1456,6 +1459,7 @@ export function App() {
       />
 
       <WebMcpReview agent={webMcp} language={activeLanguage} />
+      <ProjectImportOverlay progress={projectImportProgress} language={activeLanguage} />
       <section className={`editor-grid ${compactRail ? "is-compact-rail" : ""}`}>
         <EditorSidebar model={{
           activeLanguage, activeTool, analyzeCurrentVisual, analyzeEffectVisual, audioBlob, audioDuration,
@@ -1789,6 +1793,10 @@ export function App() {
         timelineContentDuration={Math.max(estimatedDuration, timelineHorizon, timelineMarkerEnd)}
         setTimelineHorizon={setTimelineHorizon}
         currentTime={currentTime}
+        currentTimeRef={currentTimeRef}
+        visualPlaybackStartTimeRef={visualPlaybackStartTimeRef}
+        visualPlaybackStartedAtRef={visualPlaybackStartedAtRef}
+        playbackDuration={estimatedDuration}
         previewVideoMediaTime={previewVideoMediaTime}
         playheadPercent={playheadPercent}
         snapGuide={snapGuide}
@@ -1938,6 +1946,10 @@ export function App() {
       />
       <ExportProgressOverlay
         exporting={exporting}
+        error={exportError}
+        language={activeLanguage}
+        onClose={() => setExportError(null)}
+        onRetry={() => { if (exportError?.settings) void handleExportVideo({ settings: exportError.settings }); }}
         percent={exportPercent}
         phase={exportPhase}
         elapsedSeconds={exportElapsedSeconds}

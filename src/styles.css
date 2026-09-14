@@ -9579,6 +9579,44 @@ button:disabled {
   opacity: 0.55;
 }
 
+.export-progress-overlay.is-failed .export-progress-card { border-color: rgba(237, 170, 123, 0.35); }
+.export-progress-overlay.is-failed .export-progress-header strong { color: #e9b696; }
+.export-progress-overlay.is-failed .export-progress-bar span { background: #bf8c72; }
+.export-progress-error {
+  margin: 18px 0 0;
+  color: #efded4;
+  font-size: 13px;
+  line-height: 1.7;
+  overflow-wrap: break-word;
+}
+.export-progress-error-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+}
+.export-progress-error-actions button {
+  min-height: 40px;
+  padding: 9px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #dce5e9;
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.5;
+  cursor: pointer;
+}
+.export-progress-error-actions button:hover { background: rgba(255, 255, 255, 0.1); }
+.export-progress-error-actions .is-primary {
+  border-color: rgba(53, 234, 217, 0.35);
+  background: rgba(53, 234, 217, 0.13);
+  color: #b8fff4;
+}
+.export-progress-error-actions .is-primary:hover { background: rgba(53, 234, 217, 0.22); }
+.export-progress-error-actions button:focus-visible { outline: 2px solid #60dccc; outline-offset: 3px; }
+
 .remaster-progress-overlay {
   position: fixed;
   inset: 0;

@@ -467,13 +467,14 @@ export async function createVideoTrackFramesFromBlobs(blobs, options = {}) {
   return frames;
 }
 
-export async function decodeWaveform(blob, barCount = 118) {
+export async function decodeWaveform(blob, barCount = 118, options = {}) {
   const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-  if (!AudioContextClass) {
+  const borrowedAudioContext = options.audioContext;
+  if (!borrowedAudioContext && !AudioContextClass) {
     return { duration: 0, peaks: [] };
   }
 
-  const audioContext = new AudioContextClass();
+  const audioContext = borrowedAudioContext || new AudioContextClass();
 
   try {
     const buffer = await blob.arrayBuffer();
@@ -529,7 +530,7 @@ export async function decodeWaveform(blob, barCount = 118) {
       peaks: peaks.map((peak) => Math.max(0.04, Math.min(1, Math.pow(peak / strongest, 0.72)))),
     };
   } finally {
-    await audioContext.close().catch(() => {});
+    if (!borrowedAudioContext) await audioContext.close().catch(() => {});
   }
 }
 
@@ -1606,7 +1607,7 @@ export async function exportBrowserVideo({
         )
           ? Array.from(
               new Set(
-                (segment.vision.samples ?? [])
+                (segment.vision?.samples ?? [])
                   .map((sample) => sample.cutoutUrl)
                   .filter(Boolean),
               ),

@@ -1,18 +1,18 @@
-import { useEffect } from "react";
-import { PLAYBACK_UI_FRAME_MS, getAudioSegmentPreviewVolume, getTimelineTrackLocalTime, isTimelineTimeInsideTrack, requestTimelineMediaPlay, setTimelineAudioGain, shouldCorrectPreviewMediaTime } from "../lib/editorRuntime.js";
+import { useEffect, useMemo } from "react";
+import { PLAYBACK_UI_FRAME_MS, getAudioSegmentPreviewVolume, getTimelineTrackLocalTime, isAudioSegmentAudible, isTimelineTimeInsideTrack, requestTimelineMediaPlay, setTimelineAudioGain, shouldCorrectPreviewMediaTime } from "../lib/editorRuntime.js";
 import { getLinkedSourceAudioState } from "../lib/sourceAudioSync.js";
-import { isTimedSegmentLaneVisible } from "../lib/timeline.js";
+import { filterTimedSegmentsByLaneVisibility } from "../lib/timeline.js";
 import { cancelLatestVideoFrameRequest, requestLatestVideoFrame } from "../lib/videoFrameSync.js";
 import { getVisualPlaybackRateAtTime } from "../lib/visualEffects.js";
 
 export function syncTimelineAudioElement(media, { active, shouldPlay, expectedTime, playbackRate = 1 }) {
   if (!media) return;
-  media.playbackRate = playbackRate;
-  if ("preservesPitch" in media) media.preservesPitch = true;
   if (!shouldPlay || !active) {
     if (!media.paused) media.pause();
     return;
   }
+  if (media.playbackRate !== playbackRate) media.playbackRate = playbackRate;
+  if ("preservesPitch" in media && !media.preservesPitch) media.preservesPitch = true;
   // React's timeline clock is intentionally throttled. Chasing it while the
   // native media clock is running causes repeated seeks and audible stutter.
   // Align only when starting (or entering a new segment), then let the browser
@@ -23,11 +23,14 @@ export function syncTimelineAudioElement(media, { active, shouldPlay, expectedTi
   }
 }
 
-export function syncVoiceAudioSegments({ segments, refs, timelineTime, isPlaying, visibility }) {
+export function syncVoiceAudioSegments({ segments, refs, timelineTime, isPlaying, visibility, visibleSegmentIds }) {
+  const visibleIds = visibleSegmentIds ?? new Set(
+    filterTimedSegmentsByLaneVisibility(segments, visibility).map((segment) => segment.id),
+  );
   segments.forEach((segment) => {
     const audio = refs.current.get(segment.id);
     if (!audio) return;
-    if (!isPlaying || !isTimedSegmentLaneVisible(segments, segment.id, visibility)) {
+    if (!isPlaying || !visibleIds.has(segment.id) || !isAudioSegmentAudible(segment)) {
       if (!audio.paused) audio.pause();
       return;
     }
@@ -39,6 +42,10 @@ export function syncVoiceAudioSegments({ segments, refs, timelineTime, isPlaying
 }
 
 export function useMediaSync(d) {
+  // Lane packing depends on edits and visibility, never on the playback clock.
+  const visibleAudioSegmentIds = useMemo(() => new Set(
+    filterTimedSegmentsByLaneVisibility(d.audioSegments, d.trackVisibility).map((segment) => segment.id),
+  ), [d.audioSegments, d.trackVisibility]);
   useEffect(() => {
     const video = d.previewVideoRef.current;
     return () => cancelLatestVideoFrameRequest(video);
@@ -51,8 +58,9 @@ export function useMediaSync(d) {
       timelineTime: d.currentTime,
       isPlaying: d.isPlaying,
       visibility: d.trackVisibility,
+      visibleSegmentIds: visibleAudioSegmentIds,
     });
-  }, [d.audioSegments, d.currentTime, d.isPlaying, d.trackVisibility]);
+  }, [d.audioSegments, d.currentTime, d.isPlaying, d.trackVisibility, visibleAudioSegmentIds]);
   useEffect(() => { if (d.sourceAudioRef.current) setTimelineAudioGain(d.sourceAudioRef.current, d.sourceAudioVolume, d.sourceAudioSpatialEffect, d.sourceAudioSpatialAmount); }, [d.sourceAudioSpatialAmount, d.sourceAudioSpatialEffect, d.sourceAudioVolume, d.sourceAudioUrl]);
   useEffect(() => {
     const a = d.sourceAudioRef.current; if (!a || !d.sourceAudioUrl) return;
@@ -114,6 +122,9 @@ export function useMediaSync(d) {
     const v = d.previewVideoRef.current; if (!v || d.previewVisualType !== "video") return;
     if (!d.isPlaying || d.trackVisibility?.image === false) v.pause(); else requestTimelineMediaPlay(v);
   }, [d.isPlaying, d.previewVisualSegment?.id, d.previewVisualSrc, d.previewVisualType, d.trackVisibility.image]);
+  // Clip changes and filmstrip refinement must not re-anchor the master clock.
+  // Explicit seeks update its refs directly; only playback state or the actual
+  // project duration starts a new clock session.
   useEffect(() => {
     if (!d.isPlaying || d.estimatedDuration <= 0) return undefined;
     const start = d.currentTimeRef.current >= d.estimatedDuration - 0.02 ? 0 : Math.max(0, d.currentTimeRef.current);
@@ -139,7 +150,7 @@ export function useMediaSync(d) {
     };
     d.visualPlaybackFrameRef.current = requestAnimationFrame(tick);
     return () => { if (d.visualPlaybackFrameRef.current) { cancelAnimationFrame(d.visualPlaybackFrameRef.current); d.visualPlaybackFrameRef.current = 0; } };
-  }, [d.estimatedDuration, d.isPlaying, d.previewVisualRange, d.previewVisualSegment, d.previewVisualType]);
+  }, [d.estimatedDuration, d.isPlaying]);
   useEffect(() => { d.setCurrentTime((time) => {
     const clamped = Math.min(time, d.timelineDuration);
     if (d.audioRef.current && clamped !== time) d.audioRef.current.currentTime = clamped;

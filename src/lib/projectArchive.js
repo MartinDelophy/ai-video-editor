@@ -1,6 +1,6 @@
-import { strFromU8, strToU8, unzipSync, zipSync } from "fflate";
 import { normalizeTrackLocks, normalizeTrackVisibility } from "./projectTrackState.js";
 import { normalizeTimelineMarkers } from "./timelineMarkers.js";
+import { packProjectArchive, unpackProjectArchive } from "./projectArchiveCodec.js";
 
 export const PROJECT_ARCHIVE_FORMAT = "timeline-studio-archive";
 export const PROJECT_ARCHIVE_VERSION = 3;
@@ -24,8 +24,35 @@ export async function readProjectFileAsText(file) {
   return typeof file?.text === "function" ? file.text() : readWithFileReader(file, "text");
 }
 
-async function readProjectFileAsArrayBuffer(file) {
-  return typeof file?.arrayBuffer === "function" ? file.arrayBuffer() : readWithFileReader(file, "arrayBuffer");
+function runArchiveOperation(operation, input, { onProgress } = {}) {
+  const fallback = () => operation === "pack" ? packProjectArchive(input) : unpackProjectArchive(input, { onProgress });
+  if (typeof Worker === "undefined") return fallback();
+  return new Promise((resolve, reject) => {
+    let worker;
+    try {
+      worker = new Worker(new URL("../workers/project-archive.worker.js", import.meta.url), { type: "module" });
+      worker.onmessage = ({ data }) => {
+        if (data.type === "progress") {
+          onProgress?.(data.progress);
+          return;
+        }
+        worker.terminate();
+        if (data.error) reject(new Error(data.error));
+        else resolve(data.result);
+      };
+      worker.onerror = (event) => {
+        event.preventDefault();
+        worker.terminate();
+        fallback().then(resolve, reject);
+      };
+      // Files/Blobs are immutable and structured-cloned without copying all
+      // media bytes onto the UI thread before the worker can start.
+      worker.postMessage({ operation, input });
+    } catch {
+      worker?.terminate();
+      fallback().then(resolve, reject);
+    }
+  });
 }
 
 function extensionFor(blob, fallback = "bin") {
@@ -61,7 +88,7 @@ export async function createProjectArchive({ project, visualSegments = [], audio
     const blob = await blobForSource(segment.src, segment.blob);
     if (!blob) continue;
     const path = `media/visuals/${String(index + 1).padStart(3, "0")}-${safeName(segment.name, "visual")}.${extensionFor(blob, segment.type === "video" ? "mp4" : "png")}`;
-    files[path] = new Uint8Array(await blob.arrayBuffer());
+    files[path] = blob;
     media.visuals.push({ id: segment.id, path, name: segment.name || "素材", type: blob.type, size: blob.size });
   }
 
@@ -70,7 +97,7 @@ export async function createProjectArchive({ project, visualSegments = [], audio
     const blob = await blobForSource(segment?.url, segment?.blob);
     if (!segment?.id || !blob) continue;
     const path = `media/audio/voice-${String(index + 1).padStart(3, "0")}-${safeName(segment.name, "voiceover")}.${extensionFor(blob, "wav")}`;
-    files[path] = new Uint8Array(await blob.arrayBuffer());
+    files[path] = blob;
     media.audioSegments.push({ id: segment.id, path, name: segment.name || "配音", type: blob.type, size: blob.size });
   }
 
@@ -78,7 +105,7 @@ export async function createProjectArchive({ project, visualSegments = [], audio
     if (key === "audio" && media.audioSegments.length) continue;
     if (!(track?.blob instanceof Blob)) continue;
     const path = `media/audio/${key}-${safeName(track.name, key)}.${extensionFor(track.blob, "webm")}`;
-    files[path] = new Uint8Array(await track.blob.arrayBuffer());
+    files[path] = track.blob;
     media[key] = { path, name: track.name || key, type: track.blob.type, size: track.blob.size };
   }
 
@@ -95,26 +122,14 @@ export async function createProjectArchive({ project, visualSegments = [], audio
     project: normalizedProject,
     media,
   };
-  files[PROJECT_FILE] = strToU8(JSON.stringify(payload));
-  return new Blob([zipSync(files, { level: 6 })], { type: "application/zip" });
+  files[PROJECT_FILE] = new Blob([JSON.stringify(payload)], { type: "application/json" });
+  return runArchiveOperation("pack", files);
 }
 
 /** Read and validate a portable project archive. Returns metadata plus media Blobs. */
-export async function readProjectArchive(file) {
-  const files = unzipSync(new Uint8Array(await readProjectFileAsArrayBuffer(file)));
-  if (!files[PROJECT_FILE]) throw new Error("缺少 project.json");
-  const payload = JSON.parse(strFromU8(files[PROJECT_FILE]));
-  if (payload?.format !== PROJECT_ARCHIVE_FORMAT || !payload.project) throw new Error("无效工程包");
+export async function readProjectArchive(file, { onProgress } = {}) {
+  const archive = await runArchiveOperation("unpack", file, { onProgress });
+  const { payload } = archive;
   payload.project = { ...payload.project, timelineMarkers: normalizeTimelineMarkers(payload.project.timelineMarkers) };
-  const getBlob = (entry) => entry?.path && files[entry.path]
-    ? new Blob([files[entry.path]], { type: entry.type || "application/octet-stream" })
-    : null;
-  return {
-    payload,
-    visualMedia: new Map((payload.media?.visuals || []).map((entry) => [entry.id, { ...entry, blob: getBlob(entry) }])),
-    audioSegmentMedia: new Map((payload.media?.audioSegments || []).map((entry) => [entry.id, { ...entry, blob: getBlob(entry) }])),
-    audio: getBlob(payload.media?.audio),
-    sourceAudio: getBlob(payload.media?.sourceAudio),
-    music: getBlob(payload.media?.music),
-  };
+  return archive;
 }

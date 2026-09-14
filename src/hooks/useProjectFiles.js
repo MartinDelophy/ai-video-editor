@@ -1,4 +1,4 @@
-import { useCallback, useRef } from "react";
+import { useCallback, useRef, useState } from "react";
 import { DEFAULT_SCRIPT, DEFAULT_TIMELINE_DURATION_SECONDS, normalizeVoiceId, RATIO_OPTIONS, VOICES } from "../config/editor.js";
 import { decodeWaveform, downloadBlob } from "../lib/media.js";
 import { createProjectArchive, readProjectArchive, readProjectFileAsText, resolveProjectVisualMedia } from "../lib/projectArchive.js";
@@ -6,8 +6,15 @@ import { createCaptionSegments, getImageThumbnailCount, getVisualSegmentsTotal }
 import { normalizeSmartFrame } from "../lib/smartFrame.js";
 import { normalizeTrackLocks, normalizeTrackVisibility } from "../lib/projectTrackState.js";
 import { normalizeTimelineMarkers } from "../lib/timelineMarkers.js";
+import { PROJECT_IMPORT_COPY } from "../i18nProjectImport.js";
+
+const waitForProjectPaint = () => new Promise((resolve) => {
+  requestAnimationFrame(() => requestAnimationFrame(resolve));
+});
 
 export function useProjectFiles(deps) {
+  const [projectImportProgress, setProjectImportProgress] = useState(null);
+  const importingRef = useRef(false);
   const commandStateRef = useRef({ schemaVersion: 1, revision: 0, appliedOperationIds: [] });
   const getProjectSnapshot = useCallback(() => {
     const visualSegments = deps.visualSegments.map(({ blob, trackFrames, src, cutoutVisual, enhancement: _enhancement, ...segment }) => segment);
@@ -42,6 +49,7 @@ export function useProjectFiles(deps) {
   }), [deps, getProjectSnapshot]);
 
   const handleExportProject = useCallback(async () => {
+    if (importingRef.current) return;
     deps.setShowFileMenu(false);
     try {
       deps.notify("正在打包工程与媒体素材…");
@@ -52,6 +60,7 @@ export function useProjectFiles(deps) {
   }, [deps, createCurrentArchive]);
 
   const handleNewProject = useCallback(() => {
+    if (importingRef.current) return;
     if (!window.confirm("新建工程将清空当前时间线，是否继续？")) return;
     commandStateRef.current = { schemaVersion: 1, revision: 0, appliedOperationIds: [] };
     deps.setScript(DEFAULT_SCRIPT); deps.setCaptionSegments(createCaptionSegments(DEFAULT_SCRIPT));
@@ -65,11 +74,44 @@ export function useProjectFiles(deps) {
   }, [deps]);
 
   const handleImportProject = useCallback(async (file) => {
+    if (importingRef.current) return;
     if (!file) { deps.projectFileInputRef.current?.click(); return; }
+    importingRef.current = true;
+    const createdUrls = new Set();
+    let committed = false;
+    let importAudioContext = null;
+    const reportProgress = (phase, completed = 0, total = 0) => {
+      setProjectImportProgress({ phase, fileName: file.name, completed, total });
+    };
+    const createImportedUrl = (blob) => {
+      const url = URL.createObjectURL(blob);
+      createdUrls.add(url);
+      return url;
+    };
+    deps.pauseTimelineMedia?.();
+    deps.setIsPlaying?.(false);
+    deps.setShowFileMenu(false);
+    reportProgress("archive", 0, file.size);
     try {
+      // Let the modal paint before starting any decoding or fallback work.
+      await waitForProjectPaint();
       let archive;
-      try { archive = await readProjectArchive(file); }
+      try { archive = await readProjectArchive(file, {
+        onProgress: ({ loaded, total }) => reportProgress("archive", loaded, total),
+      }); }
       catch (archiveError) {
+        // A damaged ZIP must not be copied into a hundreds-of-MB UTF-16
+        // string just to discover that it is not a legacy JSON project.
+        let legacyJsonFound = false;
+        const prefixChunkBytes = 4096;
+        for (let offset = 0; offset < file.size; offset += prefixChunkBytes) {
+          const prefix = (await readProjectFileAsText(file.slice(offset, offset + prefixChunkBytes))).trimStart();
+          if (!prefix) continue;
+          if (!prefix.startsWith("{")) throw archiveError;
+          legacyJsonFound = true;
+          break;
+        }
+        if (!legacyJsonFound) throw archiveError;
         const legacy = JSON.parse(await readProjectFileAsText(file));
         if (legacy?.format !== "timeline-studio-project" || !legacy.project) throw archiveError;
         archive = { payload: { ...legacy, media: { visuals: [] } }, visualMedia: new Map(), audio: null, sourceAudio: null, music: null, legacy: true };
@@ -77,6 +119,93 @@ export function useProjectFiles(deps) {
       const { payload, visualMedia, audioSegmentMedia, audio, sourceAudio, music } = archive;
       const data = payload.project;
       const markers = normalizeTimelineMarkers(data.timelineMarkers);
+      const visualUrls = new Map();
+      const restoreVisualMedia = (segment) => {
+        const media = resolveProjectVisualMedia(visualMedia, segment);
+        if (!media?.blob) {
+          return segment?.src ? segment : null;
+        }
+        if (!visualUrls.has(media.blob)) {
+          const src = createImportedUrl(media.blob);
+          visualUrls.set(media.blob, src);
+        }
+        return { ...segment, src: visualUrls.get(media.blob), blob: media.blob };
+      };
+      const restoredVisuals = Array.isArray(data.visualSegments) ? data.visualSegments.map((segment) => {
+        const restored = restoreVisualMedia(segment);
+        if (!restored) return null;
+        const smartFrame = normalizeSmartFrame(restored.smartFrame);
+        if (!smartFrame) {
+          const { smartFrame: _smartFrame, ...withoutSmartFrame } = restored;
+          return withoutSmartFrame;
+        }
+        return { ...restored, smartFrame };
+      }).filter(Boolean) : [];
+      const restoredOverlays = Array.isArray(data.visualOverlaySegments) ? data.visualOverlaySegments.map(restoreVisualMedia).filter(Boolean) : [];
+      // Restored Blobs are ready for native playback. Do not make opening a
+      // project wait for every video's decoded filmstrip: the timeline refines
+      // those progressively, prioritizing the viewport and exact playhead.
+      const visuals = restoredVisuals;
+      const overlays = restoredOverlays;
+      reportProgress("visuals", visualUrls.size, visualUrls.size);
+      const hasAudioSegments = Array.isArray(data.audioSegments) && data.audioSegments.length && (audioSegmentMedia?.size || audio);
+      const audioBlobs = new Set([sourceAudio, music].filter(Boolean));
+      if (hasAudioSegments) {
+        for (const segment of data.audioSegments) {
+          const blob = audioSegmentMedia?.get(segment.id)?.blob || audio;
+          if (blob) audioBlobs.add(blob);
+        }
+      } else if (audio) audioBlobs.add(audio);
+      let audioCompleted = 0;
+      reportProgress("audio", 0, audioBlobs.size);
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (audioBlobs.size && AudioContextClass) importAudioContext = new AudioContextClass();
+      const decodedAudio = new Map();
+      const decodeImportedAudio = (blob) => {
+        if (!decodedAudio.has(blob)) decodedAudio.set(blob, decodeWaveform(blob, 118, { audioContext: importAudioContext }).then((decoded) => {
+          reportProgress("audio", ++audioCompleted, audioBlobs.size);
+          return decoded;
+        }));
+        return decodedAudio.get(blob);
+      };
+      let restoredAudioSegments = null;
+      let standaloneAudio = null;
+      if (hasAudioSegments) {
+        const restoredAudio = new Array(data.audioSegments.length);
+        let nextAudioIndex = 0;
+        // Full native decodes can allocate many times the compressed size.
+        // Share one decoder context, with only two complete PCM allocations
+        // in flight at once even for projects containing many audio clips.
+        let decodeFailure = null;
+        const audioResults = await Promise.allSettled(Array.from({ length: Math.min(2, data.audioSegments.length) }, async () => {
+          while (!decodeFailure && nextAudioIndex < data.audioSegments.length) {
+            const index = nextAudioIndex++;
+            const segment = data.audioSegments[index];
+            const blob = audioSegmentMedia?.get(segment.id)?.blob || audio;
+            if (!blob) continue;
+            try {
+              const decoded = await decodeImportedAudio(blob);
+              restoredAudio[index] = { ...segment, blob, url: createImportedUrl(blob), peaks: decoded.peaks };
+            } catch (error) { decodeFailure = error; throw error; }
+          }
+        }));
+        const failedAudio = audioResults.find((result) => result.status === "rejected");
+        if (failedAudio) throw failedAudio.reason;
+        restoredAudioSegments = restoredAudio.filter(Boolean);
+      } else if (audio) {
+        standaloneAudio = await decodeImportedAudio(audio);
+      } else restoredAudioSegments = [];
+      const decodedSource = sourceAudio ? await decodeImportedAudio(sourceAudio) : null;
+      const decodedMusic = music ? await decodeImportedAudio(music) : null;
+      if (importAudioContext) {
+        await importAudioContext.close().catch(() => {});
+        importAudioContext = null;
+      }
+
+      // Publish one complete project only after media restoration and waveforms
+      // have succeeded. Failed imports leave the previous timeline intact.
+      reportProgress("ready");
+      await waitForProjectPaint();
       commandStateRef.current = data.commandState || { schemaVersion: 1, revision: 0, appliedOperationIds: [] };
       deps.setTimelineHorizon(DEFAULT_TIMELINE_DURATION_SECONDS);
       deps.setScript(typeof data.script === "string" ? data.script : DEFAULT_SCRIPT);
@@ -105,60 +234,46 @@ export function useProjectFiles(deps) {
       deps.setTrackVisibility(normalizeTrackVisibility(data.trackVisibility)); deps.setTrackLocks(normalizeTrackLocks(data.trackLocks)); deps.setTimelineZoom(Number(data.timelineZoom) || 1);
       deps.setSelectedFilterId(data.selectedFilterId || "none"); deps.setSelectedTransitionId(data.selectedTransitionId || "none");
       deps.setSelectedStickerId(data.selectedStickerId || "none"); deps.setStickerSegments(Array.isArray(data.stickerSegments) ? data.stickerSegments : []);
-      const visuals = Array.isArray(data.visualSegments) ? data.visualSegments.map((segment) => {
-        const media = resolveProjectVisualMedia(visualMedia, segment);
-        const restored = media?.blob ? { ...segment, src: URL.createObjectURL(media.blob), blob: media.blob } : segment?.src ? segment : null;
-        if (!restored) return null;
-        const smartFrame = normalizeSmartFrame(restored.smartFrame);
-        if (!smartFrame) {
-          const { smartFrame: _smartFrame, ...withoutSmartFrame } = restored;
-          return withoutSmartFrame;
-        }
-        return { ...restored, smartFrame };
-      }).filter(Boolean) : [];
-      visuals.filter((segment) => segment.src?.startsWith("blob:")).forEach((segment) => deps.imageUrlRefs.current.add(segment.src));
+      for (const url of visualUrls.values()) deps.imageUrlRefs.current.add(url);
+      for (const segment of [...visuals, ...overlays]) {
+        if (segment.src?.startsWith("blob:")) deps.imageUrlRefs.current.add(segment.src);
+      }
       deps.setVisualSegments(visuals); deps.setImageDuration(getVisualSegmentsTotal(visuals));
-      const overlays = Array.isArray(data.visualOverlaySegments) ? data.visualOverlaySegments.map((segment) => {
-        const media = resolveProjectVisualMedia(visualMedia, segment);
-        return media?.blob ? { ...segment, src: URL.createObjectURL(media.blob), blob: media.blob } : segment?.src ? segment : null;
-      }).filter(Boolean) : [];
       deps.setVisualOverlaySegments(overlays); deps.setSelectedVisualOverlayId("");
       deps.setImageClipCount(getImageThumbnailCount(getVisualSegmentsTotal(visuals))); deps.setCurrentVisualAsset(visuals[0] || null);
       deps.audioSegments.forEach((segment) => { if (segment.url?.startsWith("blob:")) URL.revokeObjectURL(segment.url); });
-      if (Array.isArray(data.audioSegments) && data.audioSegments.length && (audioSegmentMedia?.size || audio)) {
-        let legacyDecoded = null;
-        const restoredAudioSegments = (await Promise.all(data.audioSegments.map(async (segment) => {
-          const blob = audioSegmentMedia?.get(segment.id)?.blob || audio;
-          if (!blob) return null;
-          const decoded = blob === audio
-            ? (legacyDecoded ||= await decodeWaveform(blob))
-            : await decodeWaveform(blob);
-          return { ...segment, blob, url: URL.createObjectURL(blob), peaks: decoded.peaks };
-        }))).filter(Boolean);
+      if (restoredAudioSegments) {
         deps.setAudioSegments(restoredAudioSegments);
         deps.setSelectedAudioSegmentId(restoredAudioSegments[0]?.id || "");
-      } else if (audio) {
-        const decoded = await decodeWaveform(audio);
-        deps.replaceAudio(audio, Number(data.audioDuration) || decoded.duration, decoded.peaks, "已恢复工程配音");
-      } else {
-        deps.setAudioSegments([]);
-        deps.setSelectedAudioSegmentId("");
+      } else if (standaloneAudio) {
+        deps.replaceAudio(audio, Number(data.audioDuration) || standaloneAudio.duration, standaloneAudio.peaks, "");
       }
-      if (sourceAudio) { const decoded = await decodeWaveform(sourceAudio); deps.replaceSourceAudio(sourceAudio, Number(data.sourceAudioDuration) || decoded.duration, decoded.peaks, data.sourceAudioName || "source-audio", "", Number(data.sourceAudioStart) || 0, data.sourceAudioAssetId || "", { focusAudio: false }); } else deps.clearSourceAudioTrack("");
-      if (music) {
-        const decoded = await decodeWaveform(music);
-        deps.replaceMusic(music, Number(data.musicDuration) || decoded.duration, decoded.peaks, data.musicName || "background-music", "");
+      if (decodedSource) deps.replaceSourceAudio(sourceAudio, Number(data.sourceAudioDuration) || decodedSource.duration, decodedSource.peaks, data.sourceAudioName || "source-audio", "", Number(data.sourceAudioStart) || 0, data.sourceAudioAssetId || "", { focusAudio: false });
+      else deps.clearSourceAudioTrack("");
+      if (decodedMusic) {
+        deps.replaceMusic(music, Number(data.musicDuration) || decodedMusic.duration, decodedMusic.peaks, data.musicName || "background-music", "");
         deps.setMusicStart(Math.max(0, Number(data.musicStart) || 0));
-        if (Array.isArray(data.musicSegments) && data.musicSegments.length) deps.setMusicSegments(data.musicSegments.map((segment) => ({ ...segment, peaks: decoded.peaks })));
+        if (Array.isArray(data.musicSegments) && data.musicSegments.length) deps.setMusicSegments(data.musicSegments.map((segment) => ({ ...segment, peaks: decodedMusic.peaks })));
       } else deps.clearMusicTrack("");
       deps.setMusicVolume(Number(data.musicVolume) || 0.35); deps.setSourceAudioVolume(Number(data.sourceAudioVolume) || 1);
       deps.setSourceAudioSpatialEffect(data.sourceAudioSpatialEffect || "original"); deps.setSourceAudioSpatialAmount(Number.isFinite(Number(data.sourceAudioSpatialAmount)) ? Number(data.sourceAudioSpatialAmount) : 1);
       deps.setSourceAudioAssetId(data.sourceAudioAssetId || ""); deps.setSourceAudioLinked(data.sourceAudioLinked !== false);
       deps.setCurrentTime(0); deps.clearAllVisionState(); deps.setShowFileMenu(false);
+      committed = true;
+      // Dismiss loading in the same commit as the complete project, before
+      // newly mounted clips start their background filmstrip refinement.
       deps.notify(archive.legacy ? "旧版工程已导入；请重新添加未嵌入的本地媒体，然后导出为 .timeline 工程包" : "工程包已导入，媒体素材已恢复");
-    } catch (error) { deps.notify(`无法读取工程文件${error instanceof Error && error.message ? `：${error.message}` : ""}`); }
-    if (deps.projectFileInputRef.current) deps.projectFileInputRef.current.value = "";
+    } catch (error) {
+      console.error("Project import failed", error);
+      deps.notify((PROJECT_IMPORT_COPY[deps.language] || PROJECT_IMPORT_COPY.en).error);
+    } finally {
+      if (importAudioContext) await importAudioContext.close().catch(() => {});
+      if (!committed) createdUrls.forEach((url) => URL.revokeObjectURL(url));
+      if (deps.projectFileInputRef.current) deps.projectFileInputRef.current.value = "";
+      importingRef.current = false;
+      setProjectImportProgress(null);
+    }
   }, [deps]);
 
-  return { handleExportProject, handleImportProject, handleNewProject, getProjectSnapshot, createCurrentArchive };
+  return { projectImportProgress, handleExportProject, handleImportProject, handleNewProject, getProjectSnapshot, createCurrentArchive };
 }

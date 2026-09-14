@@ -20,6 +20,22 @@ import {
   embedGeneratedMediaMetadata,
 } from "../lib/generatedMediaMetadata.js";
 import { filterTimedSegmentsByLaneVisibility } from "../lib/timeline.js";
+import { EXPORT_FAILURE_COPY } from "../i18nExportFailure.js";
+
+function getExportFailureMessage(error, copy, localize) {
+  const messages = [];
+  for (let cause = error, depth = 0; cause && depth < 5; cause = cause.cause, depth += 1) {
+    messages.push(`${cause.name || ""} ${cause.message || ""}`);
+  }
+  const detail = messages.join(" ");
+  if (/out of memory|memory allocation|insufficient memory|array buffer allocation|allocation failed|内存/i.test(detail)) return copy.memory;
+  if (/failed to fetch|networkerror|err_network|load failed|network request|网络/i.test(detail)) return copy.network;
+  if (/NotReadableError|NotFoundError|MEDIA_ERR|media.*(?:missing|not found|unavailable)|音频媒体已丢失|素材.*(?:失效|丢失)/i.test(detail)) return copy.media;
+  if (/音轨|audio track|audio encoder|AudioEncoder/i.test(detail)) return copy.audio;
+  if (/NotSupportedError|not supported|unsupported|不支持/i.test(detail)) return copy.unsupported;
+  if (error?.message === localize("exportRangeInvalid")) return error.message;
+  return copy.generic;
+}
 
 export function useVideoExport(d) {
   return useCallback(async (options = {}) => {
@@ -48,18 +64,22 @@ export function useVideoExport(d) {
       // An observer must not interrupt encoding or turn a saved file into a failure.
       try { options.onProgress?.(value); } catch { /* The export remains authoritative. */ }
     };
+    d.setExportError(null);
     d.setExporting(true); d.exportStartRef.current = performance.now(); d.setExportProgress(1);
     const localize = (key, params = {}) => Object.entries(params).reduce(
       (text, [name, value]) => text.replaceAll(`{${name}}`, String(value)),
       d.t(key),
     );
     const preparingPhase = localize("exportPreparing");
+    let lastProgress = 1;
+    let lastPhase = preparingPhase;
     d.setExportPhase(preparingPhase); d.setStatus("generating"); d.setStatusText(preparingPhase);
     reportProgress({ progress: 1, phase: preparingPhase, phaseKey: "exportPreparing" });
     const progress = ({ progress, phase, phaseKey, phaseParams }) => {
+      lastProgress = Math.max(lastProgress, Math.min(100, Math.max(0, Math.round(progress))));
       d.setExportProgress((current) => Math.max(current, Math.min(100, Math.max(0, Math.round(progress)))));
       const localizedPhase = phaseKey ? localize(phaseKey, phaseParams) : phase;
-      if (localizedPhase) d.setExportPhase(localizedPhase);
+      if (localizedPhase) { lastPhase = localizedPhase; d.setExportPhase(localizedPhase); }
       reportProgress({ progress, phase: localizedPhase || "", phaseKey: phaseKey || "" });
     };
     const finish = async (phase) => {
@@ -300,7 +320,10 @@ export function useVideoExport(d) {
         return { status: "canceled", actualPipeline };
       } else {
         const message = error instanceof Error ? error.message : localize("exportFailed");
-        console.error(error); d.setStatus("error"); d.setStatusText(message); d.setExportPhase(localize("exportFailed"));
+        const copy = EXPORT_FAILURE_COPY[d.language] || EXPORT_FAILURE_COPY.en;
+        const displayMessage = getExportFailureMessage(error, copy, localize);
+        d.setExportError({ message: displayMessage, settings: requestedSettings, phase: lastPhase, percent: lastProgress });
+        console.error(error); d.setStatus("error"); d.setStatusText(displayMessage); d.setExportPhase(localize("exportFailed"));
         return { status: "failed", actualPipeline, error: message };
       }
     } finally {

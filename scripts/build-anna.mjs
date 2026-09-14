@@ -80,7 +80,7 @@ self.addEventListener("fetch", (event) => {
     return;
   }
   if (!shouldCacheRequest(event.request)) return;
-  event.respondWith(cacheFirst(event.request, event).catch(() => fetch(event.request)));
+  event.respondWith(cacheFirst(event.request, event));
 });
 self.addEventListener("message", (event) => {
   if (event.data?.type === "CLEAR_MODEL_CACHE") event.waitUntil(caches.delete(MODEL_CACHE_NAME));

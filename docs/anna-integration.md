@@ -1,5 +1,9 @@
 # Timeline Studio Anna Edition 开发与验证
 
+## 2026-09-14 语音模型下载修复（本地）
+
+已确认 alpha.2 的实际 CSP 缺少 ModelScope 分片 GET 重定向使用的 `cdn-lfs-cn-1.modelscope.cn`。本地补入精确域名，并修复可选缓存异常丢弃成功响应及同 URL 盲目重试；浏览器沿用生产 CSP 的前后对照由 `Failed to fetch` 变为真实 1 KB 分片下载成功。完整声音下载/合成仍待 Anna 登录后复测；本地修复尚未上传、未替换 alpha.2 审核候选。详见 [9 月 14 日下载修复](anna-voice-download-fix-20260914.md)。
+
 ## 2026-09-12 重新送审
 
 用户明确授权继续送审后，已从 r13 冻结 **`0.1.0-alpha.2`（版本 ID `750`）** 并提交审核。控制台确认 **`In review: v0.1.0-alpha.2`**，候选已锁定为该版本，目前仍未发布。冻结清单的完整内容哈希与 r13 一致，窗口最小尺寸、WASM opt-in、Commons 域名和无 Agent 声明均已核对。版本说明包含本轮修复、真实验收范围及待官方排查的权限保存问题。详见 [送审记录](anna-review-submission-20260912.md)。下方各次“未送审”描述均为当时的历史状态。

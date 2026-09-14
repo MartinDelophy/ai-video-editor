@@ -199,38 +199,65 @@ function isAiMusicModelRequest(url) {
 }
 
 function withCacheStatus(response, status) {
-  const headers = new Headers(response.headers);
-  headers.set("X-Timeline-Model-Cache", status);
-  return new Response(response.body, {
-    status: response.status,
-    statusText: response.statusText,
-    headers,
-  });
+  // Opaque responses cannot be reconstructed with their status of 0. Cache
+  // diagnostics are optional and must never discard an otherwise usable body.
+  if (response.status === 0) return response;
+  try {
+    const headers = new Headers(response.headers);
+    headers.set("X-Timeline-Model-Cache", status);
+    return new Response(response.body, {
+      status: response.status,
+      statusText: response.statusText,
+      headers,
+    });
+  } catch {
+    return response;
+  }
+}
+
+function runOptionalCacheTask(event, task) {
+  // Start immediately so response.clone() runs before its live body is handed
+  // to the caller. Both synchronous cache errors and rejected writes are local
+  // to this optional task, including failures during quota cleanup.
+  const pending = (async () => {
+    try { await task(); } catch { /* Continue with the live response. */ }
+  })();
+  try { event.waitUntil(pending); } catch { /* The event may already be ending. */ }
 }
 
 async function cacheFirst(request, event) {
-  const cache = await caches.open(MODEL_CACHE_NAME);
-  const cacheRequest = canonicalModelCacheRequest(request);
-  let cached = await cache.match(cacheRequest);
+  let cache;
+  let cacheRequest;
+  let cached;
   let needsCanonicalMigration = false;
-  if (!cached && cacheRequest.url !== request.url) {
-    cached = await cache.match(request);
-    needsCanonicalMigration = Boolean(cached);
-  }
-  if (!cached && cacheRequest.url !== request.url) {
-    const keys = await cache.keys();
-    const equivalent = keys.find((key) => canonicalModelCacheRequest(key).url === cacheRequest.url);
-    if (equivalent) {
-      cached = await cache.match(equivalent);
-      needsCanonicalMigration = Boolean(cached && equivalent.url !== cacheRequest.url);
+  try {
+    cache = await caches.open(MODEL_CACHE_NAME);
+    cacheRequest = canonicalModelCacheRequest(request);
+    cached = await cache.match(cacheRequest);
+    if (!cached && cacheRequest.url !== request.url) {
+      cached = await cache.match(request);
+      needsCanonicalMigration = Boolean(cached);
     }
+    if (!cached && cacheRequest.url !== request.url) {
+      const keys = await cache.keys();
+      const equivalent = keys.find((key) => canonicalModelCacheRequest(key).url === cacheRequest.url);
+      if (equivalent) {
+        cached = await cache.match(equivalent);
+        needsCanonicalMigration = Boolean(cached && equivalent.url !== cacheRequest.url);
+      }
+    }
+  } catch {
+    // Cache Storage can be unavailable or fail partway through lookup. Fetch
+    // once without persistence; leave network failures to the model loader's
+    // provider fallback rather than retrying the same URL in this worker.
+    cache = null;
   }
   if (cached) {
     // Only copy legacy source-specific entries into the canonical key. A
     // canonical hit must never overwrite itself while its body is streaming
     // to the requesting worker; doing so can leave reader.read() pending.
     if (needsCanonicalMigration) {
-      event.waitUntil(cache.put(cacheRequest, cached.clone()).catch(() => {}));
+      runOptionalCacheTask(event, () => cache.put(cacheRequest, cached.clone()));
     }
     return withCacheStatus(cached, "hit");
   }
@@ -239,7 +266,7 @@ async function cacheFirst(request, event) {
   // AI music downloads remain parallel, while its worker owns canonical,
   // cross-tab-deduplicated Cache Storage writes. Cloning several ~100 MB
   // streams here would create a second persistent copy of every artifact.
-  if ((response.ok || response.type === "opaque") && !isAiMusicModelRequest(new URL(request.url))) {
+  if (cache && (response.ok || response.type === "opaque") && !isAiMusicModelRequest(new URL(request.url))) {
     const requestUrl = new URL(request.url);
     if (requestUrl.pathname.includes("timeline-studio-voice-models")) {
       try {
@@ -267,10 +294,12 @@ async function cacheFirst(request, event) {
     }
     // Keep the service worker alive until the large model shard is durably
     // committed. The live response remains streaming and is not blocked.
-    event.waitUntil(cache.put(cacheRequest, response.clone()).catch(async (error) => {
-      if (error?.name !== "QuotaExceededError") {
-        console.warn("Model cache write failed.", error);
+    runOptionalCacheTask(event, async () => {
+      try {
+        await cache.put(cacheRequest, response.clone());
         return;
+      } catch (error) {
+        if (error?.name !== "QuotaExceededError") return;
       }
       const requestUrl = new URL(request.url);
       if (!requestUrl.pathname.includes("timeline-studio-voice-models")) return;
@@ -295,7 +324,7 @@ async function cacheFirst(request, event) {
       ));
       await Promise.all(staleVoiceKeys.map((key) => cache.delete(key)));
       await caches.delete("kokoro-voices").catch(() => false);
-    }));
+    });
   }
   return withCacheStatus(response, "miss");
 }

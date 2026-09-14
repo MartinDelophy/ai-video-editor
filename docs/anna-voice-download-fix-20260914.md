@@ -1,6 +1,6 @@
 # Anna 语音模型下载修复 · 2026-09-14
 
-用户报告 `model-cache-sw.js:329:66` 的 `Uncaught (in promise) TypeError: Failed to fetch`，并已确认本轮验证中文字幕与中文配音。本文修复已上传并安装为私有工作草稿 **r14 ready**，已完成同页两次晴岚中文配音生成及播放验证。审核候选仍为来源 r13 的 **`0.1.0-alpha.2 / 750`**，状态 `pending_review`、未发布；本轮未替换候选或重新送审。
+用户报告 `model-cache-sw.js:329:66` 的 `Uncaught (in promise) TypeError: Failed to fetch`，并已确认本轮验证中文字幕与中文配音。本文修复已上传并安装为私有工作草稿 **r14 ready**，已完成同页两次晴岚中文配音生成及播放验证。随后按用户要求将 r14 冻结为 **`0.1.0-alpha.3 / 759`** 并重新送审，服务器已确认它替换 alpha.2 成为 `pending_review` 候选，目前未公开发布。详见 [重新送审记录](anna-review-submission-20260914.md)；下方私有草稿状态为送审前的验收记录。
 
 ## 已确认的下载阻断
 

@@ -1,5 +1,9 @@
 # Timeline Studio Anna Edition 开发与验证
 
+## 2026-09-14 alpha.3 已替换旧候选重新送审
+
+已按用户要求把通过中文配音复测的 r14 冻结为 **`0.1.0-alpha.3`（版本 `759`）**，并通过官方 CLI 再次提交审核。服务器读回 **`pending_review`、`review_candidate_version: 0.1.0-alpha.3`**；alpha.2 已不再是本轮审核候选，旧版本记录保留。新候选包含 ModelScope CDN 与缓存错误处理修复，版本说明一并披露中文生成偏慢、权限保存及其它未验收范围。当前未公开发布，没有推送 Git 远端。详见 [9 月 14 日重新送审记录](anna-review-submission-20260914.md)。下方 r14 私有草稿及 alpha.2 描述为此次重新送审前的验收状态。
+
 ## 2026-09-14 语音模型下载修复（r14 私有草稿，晴岚连续生成与播放通过）
 
 ModelScope 分片 CDN 的 CSP 缺口、可选缓存异常丢弃成功响应及同 URL 盲目重试已修复，并成功上传、安装为 **r14 ready**。草稿为 **169 文件、210,030,022 字节**，内容哈希 `6f8e3f360b312875e5e001895b90c598f4dfa04363e3ade10f032477a725afdb`。线上 Worker 返回 HTTP 200、15,371 字节，SHA-256 与本地一致；实际 CSP 含 ModelScope CDN 和 `wasm-unsafe-eval`，没有一般 `unsafe-eval`。

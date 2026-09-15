@@ -19,11 +19,11 @@ Người dùng tự chịu mọi trách nhiệm pháp lý phát sinh từ việc
 
 ## Cập nhật dự án
 
+- **15 tháng 9, 2026 — Khôi phục phiên Anna trong trình duyệt:** dự án và nội dung đa phương tiện được lưu trong IndexedDB cục bộ để khôi phục bằng cùng trình duyệt và tài khoản Anna; KV có phạm vi chỉ lưu một không gian tên ngẫu nhiên, không đồng bộ giữa thiết bị. Trạng thái đã lưu chỉ xuất hiện sau khi giao dịch hoàn tất; lỗi và xung đột giữ nguyên công việc hiện có. Xóa dữ liệu trình duyệt hoặc lưu chưa xong có thể ngăn khôi phục. Việc kiểm chứng trên môi trường thực tế còn chờ hoàn tất.
 - **14 tháng 9, 2026 — Sửa lỗi tải mô hình:** cấu hình kết nối của Anna bổ sung CDN phân phối tệp mô hình ModelScope và giữ lại phản hồi tải xuống thành công khi việc lưu bộ nhớ đệm tùy chọn thất bại.
 - **11 tháng 9, 2026 — Thích ứng với cửa sổ máy tính và cửa sổ nhúng:** cửa sổ có chiều cao thấp vẫn hiển thị các điều khiển xem trước và dòng thời gian, đồng thời giữ nguyên kích thước bảng và kiểu chữ của giao diện máy tính thông thường. Anna tự động giảm kích thước cửa sổ quá lớn khi cạnh phải hoặc cạnh dưới vượt quá vùng làm việc khả dụng.
 - **3 tháng 9, 2026 — Giao diện tiếng Ý và tiếng Indonesia:** Timeline Studio hiện hỗ trợ 13 ngôn ngữ giao diện. Cả hai có từ điển trình chỉnh sửa và thông báo khi chạy đầy đủ, thuật ngữ đã rà soát cho phụ đề, dòng thời gian, Smart Frame, Nhạc AI, thiết kế vector và plugin tạo nội dung, cùng phông chữ và nhận dạng Whisper tương ứng.
 - **1 tháng 9, 2026 — Video sẵn sàng nhanh mà vẫn đồng bộ:** nhập cục bộ và trực tuyến chỉ chờ một nhóm nhỏ khung hình hạt giống có PTS thật, điều chỉnh theo thiết bị, thay vì bị chặn bởi 120–240 hình thu nhỏ. Sau đó các khung hình chính xác ưu tiên hoàn thiện vùng đang thấy rồi tiếp tục ngoài màn hình theo thứ tự chia đôi tại trung điểm. Mỗi hình thu nhỏ dùng khung hình cuối cùng trước thời gian nguồn yêu cầu, ô đầu phát theo bản xem trước trực tiếp và cập nhật nền tạm dừng khi tua.
-- **29 tháng 8, 2026 — Bộ kết nối tạo cục bộ:** bổ sung hai plugin riêng cho ComfyUI và Stable Diffusion WebUI/Forge. ComfyUI chạy quy trình API Format qua loopback và nhập đầu ra ảnh hoặc video; WebUI dùng API txt2img/img2img thực. Kết quả tự động vào My assets và phần nhúng Hugging Face Spaces chung đã được loại bỏ.
 
 Xem [Roadmap](ROADMAP.md) cho công việc dự kiến, [Releases](https://github.com/MartinDelophy/ai-video-editor/releases) cho thay đổi đã phát hành và [Issues](https://github.com/MartinDelophy/ai-video-editor/issues) cho nhiệm vụ và lỗi.
 

@@ -1231,7 +1231,9 @@ export function App() {
     return { ...overlay, depthAnalysis: resolveDepthAnalysisAtTime(depthRecord, sourceTime) };
   }), [currentTime, depthRecords, previewVisualOverlays]);
 
-  const { handleExportProject, handleImportProject, handleNewProject, getProjectSnapshot, createCurrentArchive } = useProjectFiles({
+  const { handleExportProject, handleImportProject, handleNewProject, getProjectSnapshot, createCurrentArchive, getSessionInput, captureSession, restoreSession, getProjectIntent } = useProjectFiles({
+    userAssets, setUserAssets, historyItems, setHistoryItems, recordedVoices, setRecordedVoices, favoriteVoiceIds, setFavoriteVoiceIds, rippleEditing, setRippleEditing,
+    sourceVoiceColorOriginalRef, visionRecords, setVisionRecords, visionObjectUrlsRef, depthRecords, setDepthRecords,
     audioBlob, audioDuration, audioSegments, captionPlacement, captionPosition, captionSegments, captionSize,
     captionStyle, captionStylePresetId, captionStylePresets, captionsEnabled, captionStyleFallback: captionStyle, clearAllVisionState,
     clearAudioTrack, clearImageTrack, clearMusicTrack, clearSourceAudioTrack, fitMode,
@@ -1304,6 +1306,7 @@ export function App() {
 
   const anna = useAnnaEditor({
     language: activeLanguage, visualSegments, rippleEditing, getProjectSnapshot,
+    getSessionInput, captureSession, restoreSession, getProjectIntent,
     createArchive: createCurrentArchive, importProject: handleImportProject,
     hasMusic: Boolean(musicBlob), hasSourceAudio: Boolean(sourceAudioBlob),
     renderVideo: handleExportVideo, exportSettings, exporting,
@@ -1365,6 +1368,7 @@ export function App() {
         compactRail={compactRail}
         setCompactRail={setCompactRail}
         lastSaved={lastSaved}
+        annaSession={anna.enabled ? anna.session : null}
         undo={undo}
         redo={redo}
         ratio={ratio}

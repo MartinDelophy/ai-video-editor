@@ -1,10 +1,12 @@
 import { useCallback, useRef } from "react";
+import { captureAnnaSessionAnalysis, prepareAnnaProjectSession, readAnnaProjectSession, restoreAnnaSessionItems, restoreAnnaSessionMetadata } from "../lib/annaProjectSession.js";
 import { DEFAULT_SCRIPT, DEFAULT_TIMELINE_DURATION_SECONDS, normalizeVoiceId, RATIO_OPTIONS, VOICES } from "../config/editor.js";
 import { decodeWaveform, downloadBlob } from "../lib/media.js";
 import { createProjectArchive, readProjectArchive, readProjectFileAsText, resolveProjectVisualMedia } from "../lib/projectArchive.js";
 import { createCaptionSegments, getImageThumbnailCount, getVisualSegmentsTotal } from "../lib/timeline.js";
 import { normalizeSmartFrame } from "../lib/smartFrame.js";
 import { normalizeTrackLocks, normalizeTrackVisibility } from "../lib/projectTrackState.js";
+import { getVisionKey } from "../lib/vision.js";
 
 const asArray = (value) => Array.isArray(value) ? value : [];
 const finiteOr = (value, fallback) => value !== null && value !== undefined && Number.isFinite(Number(value)) ? Number(value) : fallback;
@@ -47,6 +49,7 @@ export function createProjectSnapshotFromState(deps = {}, commandState) {
 export function useProjectFiles(deps = {}) {
   const commandStateRef = useRef({ schemaVersion: 1, revision: 0, appliedOperationIds: [] });
   const importGenerationRef = useRef(0);
+  const intentRef = useRef(0);
   const latestDeps = useRef(deps);
   latestDeps.current = deps;
   const getProjectSnapshot = useCallback(() => createProjectSnapshotFromState(deps, commandStateRef.current), [deps]);
@@ -58,6 +61,23 @@ export function useProjectFiles(deps = {}) {
     sourceAudio: deps.sourceAudioBlob ? { blob: deps.sourceAudioBlob, name: deps.sourceAudioName || "source-audio" } : null,
     music: deps.musicBlob ? { blob: deps.musicBlob, name: deps.musicName || "background-music" } : null,
   }), [deps, getProjectSnapshot]);
+
+  const getSessionInput = useCallback(() => {
+    const current = latestDeps.current;
+    return {
+      project: createProjectSnapshotFromState(current, commandStateRef.current),
+      visuals: asArray(current.visualSegments), overlays: asArray(current.visualOverlaySegments),
+      audioSegments: asArray(current.audioSegments), audio: current.audioBlob,
+      sourceAudio: current.sourceAudioBlob, music: current.musicBlob,
+      userAssets: asArray(current.userAssets), historyItems: asArray(current.historyItems),
+      recordedVoices: asArray(current.recordedVoices),
+      rippleEditing: current.rippleEditing,
+      sourceVoiceColorOriginal: current.sourceAudioBlob ? current.sourceVoiceColorOriginalRef?.current || null : null,
+      ...captureAnnaSessionAnalysis([...asArray(current.visualSegments), ...asArray(current.visualOverlaySegments)], current.visionRecords, current.depthRecords, getVisionKey),
+    };
+  }, []);
+  const captureSession = useCallback(() => prepareAnnaProjectSession(getSessionInput()), [getSessionInput]);
+  const getProjectIntent = useCallback(() => intentRef.current, []);
 
   const handleExportProject = useCallback(async () => {
     deps.setShowFileMenu(false);
@@ -71,6 +91,8 @@ export function useProjectFiles(deps = {}) {
 
   const handleNewProject = useCallback(() => {
     if (!window.confirm("新建工程将清空当前时间线，是否继续？")) return;
+    importGenerationRef.current += 1;
+    intentRef.current += 1;
     commandStateRef.current = { schemaVersion: 1, revision: 0, appliedOperationIds: [] };
     deps.setScript(DEFAULT_SCRIPT); deps.setCaptionSegments(createCaptionSegments(DEFAULT_SCRIPT));
     deps.setSelectedSegmentId(""); deps.clearImageTrack(""); deps.clearAudioTrack("");
@@ -82,7 +104,8 @@ export function useProjectFiles(deps = {}) {
   }, [deps]);
 
   const handleImportProject = useCallback(async (file, options = {}) => {
-    if (!file) { latestDeps.current.projectFileInputRef?.current?.click(); return false; }
+    if (!file && !options.session) { latestDeps.current.projectFileInputRef?.current?.click(); return false; }
+    if (!options.session) intentRef.current += 1;
     const generation = ++importGenerationRef.current;
     const preparedUrls = new Set();
     let committed = false;
@@ -93,8 +116,9 @@ export function useProjectFiles(deps = {}) {
     };
     try {
       let archive;
-      try { archive = await readProjectArchive(file); }
+      try { archive = options.session ? readAnnaProjectSession(options.session, mediaUrl) : await readProjectArchive(file); }
       catch (archiveError) {
+        if (options.session) throw archiveError;
         const legacy = JSON.parse(await readProjectFileAsText(file));
         if (legacy?.format !== "timeline-studio-project" || !legacy.project) throw archiveError;
         archive = { payload: { ...legacy, media: { visuals: [] } }, visualMedia: new Map(), audio: null, sourceAudio: null, music: null, legacy: true };
@@ -136,6 +160,14 @@ export function useProjectFiles(deps = {}) {
         return media?.blob ? { ...segment, src: mediaUrl(media.blob), blob: media.blob } : segment?.src ? segment : null;
       }).filter(Boolean) : [];
       const restoredAudioSegments = pendingAudioSegments.map(({ segment, blob }) => ({ ...segment, blob, url: mediaUrl(blob), peaks: decoded.get(blob).peaks }));
+      // Prepare recovery-only collections before the same guarded project commit.
+      const sessionCollections = options.session ? {
+        userAssets: restoreAnnaSessionItems(options.session.userAssets, mediaUrl),
+        historyItems: restoreAnnaSessionItems(options.session.historyItems, mediaUrl),
+        recordedVoices: restoreAnnaSessionItems(options.session.recordedVoices, mediaUrl),
+      } : null;
+      const sessionMetadata = options.session
+        ? restoreAnnaSessionMetadata(options.session, [...visuals, ...overlays], mediaUrl, getVisionKey) : null;
       const visualDuration = getVisualSegmentsTotal(visuals);
       const restoredMusicSegments = music && Array.isArray(data.musicSegments) && data.musicSegments.length
         ? data.musicSegments.map((segment) => ({ ...segment, peaks: decoded.get(music).peaks })) : null;
@@ -189,15 +221,39 @@ export function useProjectFiles(deps = {}) {
       current.setMusicVolume(finiteOr(data.musicVolume, 0.35)); current.setSourceAudioVolume(finiteOr(data.sourceAudioVolume, 1));
       current.setSourceAudioSpatialEffect(data.sourceAudioSpatialEffect || "original"); current.setSourceAudioSpatialAmount(finiteOr(data.sourceAudioSpatialAmount, 1));
       current.setSourceAudioAssetId(data.sourceAudioAssetId || ""); current.setSourceAudioLinked(data.sourceAudioLinked !== false);
+      if (sessionCollections) {
+        current.setUserAssets?.(sessionCollections.userAssets);
+        current.setHistoryItems?.(sessionCollections.historyItems);
+        current.setRecordedVoices?.(sessionCollections.recordedVoices);
+        current.setRippleEditing?.(options.session.rippleEditing === true);
+        Object.values(sessionCollections).flat().forEach((item) => {
+          if (preparedUrls.has(item.src)) current.imageUrlRefs.current.add(item.src);
+          if (preparedUrls.has(item.url)) current.imageUrlRefs.current.add(item.url);
+        });
+      }
       current.setCurrentTime(0); current.clearAllVisionState(); current.setShowFileMenu(false);
+      if (sessionMetadata) {
+        if (current.sourceVoiceColorOriginalRef) {
+          const previousUrl = current.sourceVoiceColorOriginalRef.current?.url;
+          current.sourceVoiceColorOriginalRef.current = sessionMetadata.sourceVoiceColorOriginal;
+          if (previousUrl?.startsWith("blob:") && !preparedUrls.has(previousUrl)) {
+            URL.revokeObjectURL(previousUrl);
+            current.imageUrlRefs.current.delete(previousUrl);
+          }
+        }
+        current.setVisionRecords?.(sessionMetadata.visionRecords);
+        current.setDepthRecords?.(sessionMetadata.depthRecords);
+        sessionMetadata.visionObjectUrls.forEach((urls, key) => current.visionObjectUrlsRef?.current.set(key, urls));
+      }
       committed = true;
+      if (options.session) preparedUrls.forEach((url) => current.imageUrlRefs.current.add(url));
       [...visuals, ...overlays].filter((segment) => preparedUrls.has(segment.src)).forEach((segment) => current.imageUrlRefs.current.add(segment.src));
       oldAudioUrls.forEach((url) => URL.revokeObjectURL(url));
-      current.notify(archive.legacy ? "旧版工程已导入；请重新添加未嵌入的本地媒体，然后导出为 .timeline 工程包" : "工程包已导入，媒体素材已恢复");
+      if (!options.session) current.notify(archive.legacy ? "旧版工程已导入；请重新添加未嵌入的本地媒体，然后导出为 .timeline 工程包" : "工程包已导入，媒体素材已恢复");
       return true;
     } catch (error) {
       if (generation !== importGenerationRef.current) return false;
-      latestDeps.current.notify(`无法读取工程文件${error instanceof Error && error.message ? `：${error.message}` : ""}`);
+      if (!options.session) latestDeps.current.notify(`无法读取工程文件${error instanceof Error && error.message ? `：${error.message}` : ""}`);
       return false;
     } finally {
       if (!committed) preparedUrls.forEach((url) => URL.revokeObjectURL(url));
@@ -206,5 +262,7 @@ export function useProjectFiles(deps = {}) {
     }
   }, []);
 
-  return { getProjectSnapshot, createCurrentArchive, handleExportProject, handleImportProject, handleNewProject };
+  const restoreSession = useCallback((session, options) => handleImportProject(null, { ...options, session }), [handleImportProject]);
+  return { getProjectSnapshot, createCurrentArchive, handleExportProject, handleImportProject, handleNewProject,
+    getSessionInput, captureSession, restoreSession, getProjectIntent };
 }

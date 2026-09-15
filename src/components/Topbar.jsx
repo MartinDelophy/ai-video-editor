@@ -21,6 +21,7 @@ import { RATIO_OPTIONS } from "../config/editor.js";
 import { APP_LANGUAGES, saveLanguagePreference } from "../i18n.js";
 import { getPrimaryShortcutModifier, releasePointerActivatedFocus } from "../lib/editorShortcuts.js";
 import { formatStorageBytes, inspectModelCache } from "../lib/modelCacheInspection.js";
+import { AnnaAutosaveStatus } from "./AnnaAutosaveStatus.jsx";
 import { ExportSettingsPanel } from "./ExportSettingsPanel.jsx";
 import { IconButton, Popover } from "./ui.jsx";
 
@@ -34,6 +35,7 @@ export function Topbar({
   compactRail,
   setCompactRail,
   lastSaved,
+  annaSession,
   undo,
   redo,
   ratio,
@@ -162,10 +164,10 @@ export function Topbar({
               <input ref={projectFileInputRef} className="project-file-input" type="file" accept="application/zip,.timeline" onChange={(event) => event.target.files?.[0] && handleImportProject(event.target.files[0])} />
             </div>
           </div>
-          <div className="autosave">
+          {annaSession ? <AnnaAutosaveStatus session={annaSession} language={activeLanguage} /> : <div className="autosave">
             <ShieldCheck size={13} weight="fill" />
             {t("autosave")} · {lastSaved}
-          </div>
+          </div>}
         </div>
       </div>
 

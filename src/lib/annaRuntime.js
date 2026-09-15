@@ -567,6 +567,30 @@ async function readProjectPointer(signal) {
   }
 }
 
+/** Only an opaque namespace enters account-scoped host KV. Project media stays local.
+ * Web Locks serialize first creation across windows in this browser. APS currently
+ * has no atomic create-if-absent, so always read back the host's chosen value.
+ */
+export async function resolveAnnaSessionScope() {
+  const key = "timeline-studio/browser-session-namespace-v1";
+  const read = async () => {
+    try { return await hostCall("storage", "get", { key, scope: "app" }); }
+    catch (error) { if (error?.code === "not_found") return null; throw error; }
+  };
+  const valid = (value) => value?.schemaVersion === 1 && /^[a-zA-Z0-9_-]{16,100}$/.test(value.id || "");
+  const resolve = async () => {
+    const prior = await read();
+    if (valid(prior?.value)) return prior.value.id;
+    if (prior?.exists !== false && prior?.value != null) throw new AnnaRuntimeError("invalid_storage_response");
+    await hostCall("storage", "set", { key, scope: "app", value: { schemaVersion: 1, id: crypto.randomUUID() } });
+    const stored = await read();
+    if (!valid(stored?.value)) throw new AnnaRuntimeError("invalid_storage_response");
+    return stored.value.id;
+  };
+  return globalThis.navigator?.locks?.request
+    ? navigator.locks.request("timeline-studio-anna-session-namespace", resolve) : resolve();
+}
+
 export async function loadAnnaProject({ signal } = {}) {
   const stored = await readProjectPointer(signal);
   if (stored?.exists === false || stored?.value == null) return null;

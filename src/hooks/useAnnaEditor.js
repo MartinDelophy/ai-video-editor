@@ -23,6 +23,8 @@ import {
   buildAnnaTimelineReview,
   getAnnaPlanningAssets,
 } from "../lib/annaEditPlan.js";
+import { useAnnaSession } from "./useAnnaSession.js";
+import { annaSessionFingerprint } from "../lib/annaProjectSession.js";
 import { useAnnaDraft } from "./useAnnaDraft.js";
 import { createAnnaTranslator } from "../i18nAnna.js";
 
@@ -58,6 +60,15 @@ export function useAnnaEditor(deps) {
     hasContent: hasProjectContent,
     externalBusy: Boolean(job || deps.exporting),
     getFingerprint: () => annaProjectFingerprint(latest.current.getProjectSnapshot(), latest.current.rippleEditing, latest.current.visualSegments),
+  });
+  const sessionInput = isAnnaEdition ? deps.getSessionInput() : null;
+  const session = useAnnaSession({
+    enabled: isAnnaEdition,
+    fingerprint: isAnnaEdition ? annaSessionFingerprint(sessionInput) : "",
+    hasContent: hasProjectContent || Boolean(sessionInput?.userAssets?.length || sessionInput?.historyItems?.length || sessionInput?.recordedVoices?.length || snapshot.script?.trim()),
+    capture: deps.captureSession, restoreProject: deps.restoreSession, getIntent: deps.getProjectIntent,
+    externalBusy: Boolean(job || deps.exporting || draft.busy),
+    isExternallyBusy: () => Boolean(busyRef.current || latest.current.exporting || draft.isBusy()),
   });
   const checkLocalCompute = async () => {
     const generation = ++computeGeneration.current;
@@ -245,6 +256,7 @@ export function useAnnaEditor(deps) {
     report,
     exported,
     draft,
+    session,
     localCompute,
     localComputeReason: annaLocalComputeReason(localCompute),
     checkLocalCompute,

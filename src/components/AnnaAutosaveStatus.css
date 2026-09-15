@@ -1,0 +1,124 @@
+.anna-session-status {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  min-width: 0;
+  max-width: 100%;
+  margin-top: 3px;
+  color: var(--text-muted, #98a6b9);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.anna-session-status__summary {
+  display: flex;
+  align-items: center;
+  flex: 1 1 160px;
+  gap: 5px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.anna-session-status__icon,
+.anna-session-status__action > svg {
+  flex: 0 0 auto;
+}
+
+.anna-session-status__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.anna-session-status__time {
+  flex: 0 0 auto;
+  font-variant-numeric: tabular-nums;
+}
+
+.anna-session-status[data-state="saved"] .anna-session-status__icon {
+  color: #76dfc3;
+}
+
+.anna-session-status[data-state="error"],
+.anna-session-status[data-state="conflict"] {
+  color: #edbf82;
+}
+
+.anna-session-status__actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.anna-session-status .anna-session-status__action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: 24px;
+  max-width: 100%;
+  margin: 0;
+  padding: 3px 6px;
+  border: 1px solid rgba(152, 166, 185, 0.28);
+  border-radius: 6px;
+  background: rgba(152, 166, 185, 0.08);
+  color: #e3edf7;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+  text-align: start;
+  cursor: pointer;
+}
+
+.anna-session-status .anna-session-status__action:hover:enabled {
+  border-color: rgba(93, 213, 229, 0.55);
+  background: rgba(93, 213, 229, 0.12);
+}
+
+.anna-session-status .anna-session-status__action:focus-visible {
+  outline: 2px solid #5dd5e5;
+  outline-offset: 2px;
+}
+
+.anna-session-status .anna-session-status__action:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.anna-session-status__scope {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.anna-session-status__icon.is-spinning {
+  animation: anna-session-status-spin 1s linear infinite;
+}
+
+@keyframes anna-session-status-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (max-width: 760px) {
+  .anna-session-status,
+  .anna-session-status .anna-session-status__action {
+    font-size: 11px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .anna-session-status__icon.is-spinning {
+    animation: none;
+  }
+}

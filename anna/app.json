@@ -1,7 +1,7 @@
 {
   "slug": "timeline-studio",
   "name": "Timeline Studio",
-  "version": "0.1.0-alpha.3",
+  "version": "0.1.0-alpha.4",
   "tagline": "Plan a video edit from your brief, then refine the timeline.",
   "description": "Validation preview for desktop Anna windows. Import media, describe an edit, and ask Anna for a plan based on your brief and clip metadata: names, types, durations, and trim eligibility. This planning step does not inspect video frames or audio. Review changes before applying supported ordering and simple 1x video trims, then refine the editable timeline and generate an MP4 with the browser's available encoder. When required video source audio cannot be read, export stops with an explanation; users can explicitly choose an export without audio. The current project and its media autosave to this browser and resume when the same Anna account reopens the app. This local recovery does not sync across devices. Save full local project checkpoints and restore them explicitly; up to two pre-restore backups help you return to earlier work. Explicit cloud-save and host-download actions upload the complete project archive, including its media, or exported video to Anna storage. Cloud project upload and restoration have passed a production sample check; broader file lifecycle and download delivery remain under validation. Local-model features show an explanation when container capabilities prevent them from running.",
   "category": "productivity",

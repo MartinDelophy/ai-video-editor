@@ -7,6 +7,8 @@ export const EXPORT_FORMAT_PROFILES = {
 
 export const EXPORT_SETTINGS_STORAGE_KEY = "timeline-studio-export-settings-v1";
 export const DEFAULT_EXPORT_SETTINGS = {
+  mediaType: "video",
+  audioFormat: "wav",
   resolution: "1080",
   frameRate: 30,
   codec: "h264",
@@ -97,7 +99,7 @@ export function getExportFormatProfile(codec) {
 export function sanitizeExportFileName(value, fallback = "ai-video") {
   const sanitized = String(value ?? "")
     .trim()
-    .replace(/\.(?:mp4|mov|webm|srt)$/i, "")
+    .replace(/\.(?:mp4|mov|webm|wav|mp3|srt)$/i, "")
     .replace(/[<>:"/\\|?*\u0000-\u001F]/g, "-")
     .replace(/[.\s]+$/g, "")
     .slice(0, 96);
@@ -107,6 +109,8 @@ export function sanitizeExportFileName(value, fallback = "ai-video") {
 export function normalizeExportSettings(value = {}) {
   const candidate = value && typeof value === "object" ? value : {};
   return {
+    mediaType: candidate.mediaType === "audio" ? "audio" : DEFAULT_EXPORT_SETTINGS.mediaType,
+    audioFormat: candidate.audioFormat === "mp3" ? "mp3" : DEFAULT_EXPORT_SETTINGS.audioFormat,
     resolution: ["720", "1080", "1440", "2160"].includes(String(candidate.resolution))
       ? String(candidate.resolution)
       : DEFAULT_EXPORT_SETTINGS.resolution,
@@ -232,8 +236,19 @@ export function getExportTechnicalSummary(settings, ratio) {
 }
 
 export function getExportEstimate(settings, ratio, duration) {
-  const summary = getExportTechnicalSummary(settings, ratio);
   const safeDuration = getExportRange(settings, duration).duration;
+  if (settings.mediaType === "audio") {
+    const isMp3 = settings.audioFormat === "mp3";
+    const bitsPerSecond = isMp3 ? Number(settings.audioBitsPerSecond) || 192_000 : 48_000 * 2 * 16;
+    return {
+      duration: safeDuration,
+      frameCount: 0,
+      estimatedBytes: isMp3
+        ? Math.ceil(bitsPerSecond * safeDuration / 8 * 1.03)
+        : 44 + Math.ceil(48_000 * safeDuration) * 2 * 2,
+    };
+  }
+  const summary = getExportTechnicalSummary(settings, ratio);
   const videoBitsPerSecond = getEffectiveExportBitrate(settings);
   const audioBitsPerSecond = settings.audio === "none"
     ? 0

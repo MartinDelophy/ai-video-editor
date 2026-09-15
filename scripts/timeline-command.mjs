@@ -7,7 +7,7 @@ import { tmpdir } from "node:os";
 import { basename, dirname, extname, isAbsolute, join, resolve, sep } from "node:path";
 import { promisify } from "node:util";
 import { strFromU8, strToU8, unzipSync, zipSync } from "fflate";
-import { applyCommandPlan, inspectClip, inspectProject, inspectTrack, inspectTranscript } from "../src/lib/projectCommandEngine.js";
+import { applyCommandPlan, inspectClip, inspectMarkers, inspectProject, inspectTrack, inspectTranscript } from "../src/lib/projectCommandEngine.js";
 import { buildFfmpegRenderPlan } from "../src/lib/projectRenderPlan.js";
 
 const PROJECT_FILE = "project.json";
@@ -138,18 +138,19 @@ async function renderProject(renderPath) {
 async function main() {
   const [rawCommand, argument, selector] = process.argv.slice(2);
   const command = rawCommand === "inspect" ? "project.inspect" : rawCommand === "run" ? "project.run" : rawCommand;
-  const supported = ["project.inspect", "track.inspect", "clip.inspect", "transcript.inspect", "project.diff", "project.run", "project.render"];
+  const supported = ["project.inspect", "track.inspect", "clip.inspect", "transcript.inspect", "marker.inspect", "project.diff", "project.run", "project.render"];
   if (!command || !argument || !supported.includes(command)) {
-    throw Object.assign(new Error("Usage: npm run agent -- project.inspect <project.timeline> | track.inspect <project.timeline> <track> | clip.inspect <project.timeline> <clipId> | transcript.inspect <project.timeline> [audioClipId] | project.diff <plan.json> | project.run <plan.json> | project.render <render.json>"), { exitCode: 2, code: "INVALID_COMMAND" });
+    throw Object.assign(new Error("Usage: npm run agent -- project.inspect <project.timeline> | track.inspect <project.timeline> <track> | clip.inspect <project.timeline> <clipId> | transcript.inspect <project.timeline> [audioClipId] | marker.inspect <project.timeline> [markerId] | project.diff <plan.json> | project.run <plan.json> | project.render <render.json>"), { exitCode: 2, code: "INVALID_COMMAND" });
   }
   if (command === "project.render") { print(await renderProject(argument)); return; }
-  if (["project.inspect", "track.inspect", "clip.inspect", "transcript.inspect"].includes(command)) {
+  if (["project.inspect", "track.inspect", "clip.inspect", "transcript.inspect", "marker.inspect"].includes(command)) {
     const { files, payload } = await readArchive(resolve(argument));
     if (command === "track.inspect" && !selector) throw Object.assign(new Error("track is required"), { code: "INVALID_ARGUMENT" });
     if (command === "clip.inspect" && !selector) throw Object.assign(new Error("clipId is required"), { code: "INVALID_ARGUMENT" });
     if (command === "track.inspect") print({ ok: true, ...inspectTrack(payload.project, selector) });
     else if (command === "clip.inspect") print({ ok: true, ...inspectClip(payload.project, selector) });
     else if (command === "transcript.inspect") print({ ok: true, ...inspectTranscript(payload.project, selector || "") });
+    else if (command === "marker.inspect") print({ ok: true, ...inspectMarkers(payload.project, selector || "") });
     else {
       const mediaPaths = Object.keys(files).filter((path) => path !== PROJECT_FILE).sort();
       print({ ok: true, archiveVersion: payload.version || 1, ...inspectProject(payload.project), mediaInventory: { count: mediaPaths.length, paths: mediaPaths } });
@@ -171,6 +172,9 @@ async function main() {
   const outputPath = plan.output?.project ? resolve(plan.output.project) : "";
   if (!isDiff && !plan.dryRun) {
     if (!outputPath) throw new Error("output.project is required unless dryRun is true");
+    if (outputPath === projectPath) {
+      throw Object.assign(new Error("output.project must differ from the input project path"), { code: "OUTPUT_OVERWRITE_BLOCKED" });
+    }
     const appliedImports = result.appliedOperationIds.flatMap((id) => prepared.imports.has(id) ? [prepared.imports.get(id)] : []);
     for (const imported of appliedImports) files[imported.manifest.path] = imported.bytes;
     const previousVisualMedia = Array.isArray(payload.media?.visuals) ? payload.media.visuals : [];
@@ -193,7 +197,14 @@ async function main() {
       },
     };
     files[PROJECT_FILE] = strToU8(JSON.stringify(nextPayload));
-    await writeFile(outputPath, zipSync(files, { level: 6 }));
+    try {
+      await writeFile(outputPath, zipSync(files, { level: 6 }), { flag: "wx" });
+    } catch (error) {
+      if (error?.code === "EEXIST") {
+        throw Object.assign(new Error(`output.project already exists: ${outputPath}`), { code: "OUTPUT_EXISTS" });
+      }
+      throw error;
+    }
   }
   print({
     ok: true,

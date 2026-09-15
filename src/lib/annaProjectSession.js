@@ -132,7 +132,7 @@ function validateSession(session) {
   for (const key of ["analysisBindings", "visionRecords", "depthRecords"]) {
     if (session[key] != null && (typeof session[key] !== "object" || Array.isArray(session[key]))) throw new Error("Invalid session analysis records");
   }
-  for (const key of ["visualSegments", "visualOverlaySegments", "audioSegments", "captionSegments", "musicSegments", "stickerSegments"]) {
+  for (const key of ["visualSegments", "visualOverlaySegments", "audioSegments", "captionSegments", "musicSegments", "stickerSegments", "timelineMarkers"]) {
     if (session.project[key] !== undefined && !Array.isArray(session.project[key])) throw new Error("Invalid session project collection");
   }
   const visualIds = new Set([...arrays(session.visuals), ...arrays(session.overlays)].map((item) => item.id));

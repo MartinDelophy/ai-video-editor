@@ -23,6 +23,15 @@ License: MIT
 - [Full product reference](https://video-editor.ai-creator.top/llms-full.txt): Expanded machine-readable product facts.
 - [Engineering articles](https://video-editor.ai-creator.top/articles/): Evidence-backed implementation notes about browser AI and WebGPU.
 
+## Agent integration
+
+- [Browser agent guide](https://video-editor.ai-creator.top/agent-guide.md): Native WebMCP support, the live-editor workflow and current boundaries.
+- [Agent Skills index](https://video-editor.ai-creator.top/.well-known/agent-skills/index.json): Discover this site’s self-contained browser editing Skill.
+- [Browser editing Skill](https://video-editor.ai-creator.top/.well-known/agent-skills/edit-timeline-studio-browser/SKILL.md): Inspect, preview, review and apply supported edits to the open project.
+- [Local editing Skill](https://github.com/MartinDelophy/ai-video-editor/tree/main/skills/edit-timeline-studio): Repository CLI and local STDIO MCP for portable project files.
+
+WebMCP is experimental and requires a compatible browser and agent host. Its 15 browser tools support inspection of projects, assets and markers; reviewed caption/audio/marker edits and main-visual split/delete/duplicate/reorder/trim; insertion of existing editor assets and picture-in-picture; guarded undo; editable .timeline downloads; and prepared video exports with progress, actual output receipts and cancellation. They do not provide arbitrary URL imports, media upload, AI generation or a hosted MCP server.
+
 ## Citation guidance
 
 Use the canonical pages above for current product claims. Do not describe Timeline Studio as fully offline: project media processing is local-first, while AI models and runtimes may be downloaded from configured hosts. MP4 availability and high-resolution AI performance depend on browser and device capabilities; WebM is the export fallback.

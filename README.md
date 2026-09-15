@@ -25,10 +25,10 @@ Users are solely responsible for any legal liability arising from violations of 
 ## Project updates
 
 - **September 15, 2026 — Anna browser session recovery:** projects and media stay in local IndexedDB for reopening with the same browser and Anna account; scoped KV stores only a random namespace, with no cross-device sync. Saved status waits for transaction completion, while failures and conflicts preserve existing work. Clearing browser data or an unfinished save can prevent recovery. Anna also preserves manually chosen window sizes while the editor remains responsive.
-- **September 14, 2026 — Model download fixes:** Anna’s connection configuration includes the CDN serving ModelScope model files, and successful download responses remain available when optional caching fails.
-- **September 11, 2026 — Adaptive desktop and embedded windows:** short windows keep preview controls and the timeline in view, while standard desktop panel sizes and typography are preserved.
-- **September 3, 2026 — Italian and Indonesian interfaces:** Timeline Studio now offers 13 interface languages. Italian and Indonesian include complete editor and runtime-message dictionaries, reviewed terminology for captions, timeline tools, Smart Frame, AI Music, vector design and generation plugins, matching fonts, and Whisper subtitle recognition.
-- **September 1, 2026 — Sync-safe instant video readiness:** local and online imports now block only for a small device-adaptive set of real-PTS seed frames instead of 120–240 thumbnails, so a prepared filmstrip becomes editable much sooner without stretching one poster across the clip. Exact frames then refine the visible viewport first and continue through offscreen cells in midpoint-bisection order; thumbnail selection remains strictly at-or-before the requested source time, the playhead uses the live preview frame, and batched background commits pause during scrubbing.
+- **2026-09-15 — Edited audio export:** exporting an audio clip now renders its trimmed range with playback speed, volume, fades and space effects applied. Clips and the complete timeline mix can be exported as WAV or MP3; audio-only export is available alongside video export.
+- **2026-09-14 — Export reliability:** clips with solid-color backgrounds and opacity keyframes now export correctly without a person mask. Failed exports keep the error visible and can be retried with the same settings. Anna’s connection configuration includes the CDN serving ModelScope model files, and successful download responses remain available when optional caching fails.
+- **2026-09-14 — Large-project performance:** project import reduces main-thread work, while cached audio-lane calculations, compact waveform rendering and fewer audio seeks make scrubbing and playback lighter. Media, clip timing, editing controls, effects and export behavior are preserved. Import shows real progress and opens the editor once media is restored; thumbnails continue refining in the background.
+- **September 11, 2026 — WebMCP editing and video delivery:** 15 browser tools now cover reviewed caption changes, audio volume and fades, markers, main-visual splitting/deletion/duplication, existing-asset discovery and insertion, and picture-in-picture. Agents can prepare export settings, start the real editor exporter, inspect progress and actual output metadata, or cancel. Multi-operation edits retain conflict checks, ripple behavior, track locks and undo; repeated export requests do not trigger duplicate downloads. Tool and review copy covers all 13 interface languages.
 
 See the public [Roadmap](ROADMAP.md) for planned work, [Releases](https://github.com/MartinDelophy/ai-video-editor/releases) for shipped changes, and [Issues](https://github.com/MartinDelophy/ai-video-editor/issues) for focused tasks and bugs.
 
@@ -111,7 +111,7 @@ It helps an agent:
 - verify track placement, transitions, captions, overlays, audible audio, and final export artifacts;
 - keep the editable `.timeline` project as the source of truth instead of returning only an opaque render.
 
-The versioned headless command runner loads and inspects portable projects, validates revisioned JSON plans, applies supported operations transactionally, supports dry runs and idempotent operation IDs, and writes a new `.timeline` archive without rewriting its media files. It also renders the documented portable Visuals + Voiceover + Music subset to a verified H.264/AAC MP4. Browser control remains the compatibility path for richer compositions and operations that are not in the command registry yet.
+The versioned headless command runner loads and inspects portable projects, validates revisioned JSON plans, applies supported operations transactionally, supports dry runs and idempotent operation IDs, and writes a new `.timeline` archive without rewriting its media files. It also renders the documented portable Visuals + Voiceover + Music subset to a verified H.264/AAC MP4. Browser control remains the compatibility path for operations that are not in the command registry yet. The [browser WebMCP integration](docs/webmcp.md) provides 15 tools for the open project: structured inspection, reviewed visual/caption/audio/marker edits, existing-asset and picture-in-picture insertion, guarded undo, project saving, and real video export with prepared settings, progress, output receipts and cancellation.
 
 ```bash
 npm run agent -- project.inspect /absolute/path/project.timeline
@@ -141,7 +141,7 @@ gh skill install MartinDelophy/ai-video-editor edit-timeline-studio --agent clau
 gh skill install MartinDelophy/ai-video-editor edit-timeline-studio --agent codex --scope user
 ```
 
-To install the tested release instead of following the latest release, add `--pin v1.0.0`. Preview the Skill before installing with:
+To install the tested release instead of following the latest release, add `--pin v1.0.8`. Preview the Skill before installing with:
 
 ```bash
 gh skill preview MartinDelophy/ai-video-editor edit-timeline-studio
@@ -150,7 +150,7 @@ gh skill preview MartinDelophy/ai-video-editor edit-timeline-studio
 ## Roadmap
 
 - **Now:** expand the versioned command registry, harden deterministic offline export, and improve timeline editing reliability.
-- **Next:** expand headless render parity and expose the shared command engine through MCP.
+- **Next:** expand headless render parity and the reviewed browser WebMCP command subset.
 - **Later:** add collaborative review workflows, a plugin extension surface, and more locally verified AI models.
 
 Roadmap priorities are shaped in [GitHub Discussions](https://github.com/MartinDelophy/ai-video-editor/discussions). Feature requests and real-world workflow feedback are welcome.

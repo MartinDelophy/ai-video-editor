@@ -1,6 +1,8 @@
 import { I18N_COMPLETION_COPY } from "./i18nCompletion.js";
 import { EFFECTS_LOCALIZED_COPY } from "./i18nEffects.js";
 import { DENOISE_HUB_HINT_COPY, DENOISE_LOCALIZED_COPY, REPAIR_LOCALIZED_COPY } from "./i18nRepair.js";
+import { TIMELINE_MARKER_COPY } from "./i18nTimelineMarkers.js";
+import { AUDIO_EXPORT_COPY } from "./i18nAudioExport.js";
 
 const PLUGIN_TOOL_COPY = {
   zh: { plugins: "插件" },
@@ -31,17 +33,35 @@ const MEDIA_COMPATIBILITY_COPY = {
 };
 
 const COMMUNITY_LINKS_COPY = {
-  zh: { communityLinks: "社区链接", discordCommunity: "Discord 社区", githubRepository: "GitHub 仓库", resourceLinks: "Timeline Studio 资源" },
-  en: { communityLinks: "Community links", discordCommunity: "Discord community", githubRepository: "GitHub repository", resourceLinks: "Timeline Studio resources" },
-  ja: { communityLinks: "コミュニティリンク", discordCommunity: "Discord コミュニティ", githubRepository: "GitHub リポジトリ", resourceLinks: "Timeline Studio リソース" },
-  ko: { communityLinks: "커뮤니티 링크", discordCommunity: "Discord 커뮤니티", githubRepository: "GitHub 저장소", resourceLinks: "Timeline Studio 리소스" },
-  es: { communityLinks: "Enlaces de la comunidad", discordCommunity: "Comunidad de Discord", githubRepository: "Repositorio de GitHub", resourceLinks: "Recursos de Timeline Studio" },
-  fr: { communityLinks: "Liens communautaires", discordCommunity: "Communauté Discord", githubRepository: "Dépôt GitHub", resourceLinks: "Ressources de Timeline Studio" },
-  de: { communityLinks: "Community-Links", discordCommunity: "Discord-Community", githubRepository: "GitHub-Repository", resourceLinks: "Timeline-Studio-Ressourcen" },
-  pt: { communityLinks: "Links da comunidade", discordCommunity: "Comunidade do Discord", githubRepository: "Repositório do GitHub", resourceLinks: "Recursos do Timeline Studio" },
-  th: { communityLinks: "ลิงก์ชุมชน", discordCommunity: "ชุมชน Discord", githubRepository: "ที่เก็บ GitHub", resourceLinks: "แหล่งข้อมูล Timeline Studio" },
-  vi: { communityLinks: "Liên kết cộng đồng", discordCommunity: "Cộng đồng Discord", githubRepository: "Kho GitHub", resourceLinks: "Tài nguyên Timeline Studio" },
-  ru: { communityLinks: "Ссылки сообщества", discordCommunity: "Сообщество Discord", githubRepository: "Репозиторий GitHub", resourceLinks: "Ресурсы Timeline Studio" },
+  zh: { communityLinks: "社区链接", discordCommunity: "Discord 社区", githubRepository: "GitHub 仓库", xProfile: "X 主页", resourceLinks: "Timeline Studio 资源" },
+  en: { communityLinks: "Community links", discordCommunity: "Discord community", githubRepository: "GitHub repository", xProfile: "X profile", resourceLinks: "Timeline Studio resources" },
+  ja: { communityLinks: "コミュニティリンク", discordCommunity: "Discord コミュニティ", githubRepository: "GitHub リポジトリ", xProfile: "X プロフィール", resourceLinks: "Timeline Studio リソース" },
+  ko: { communityLinks: "커뮤니티 링크", discordCommunity: "Discord 커뮤니티", githubRepository: "GitHub 저장소", xProfile: "X 프로필", resourceLinks: "Timeline Studio 리소스" },
+  es: { communityLinks: "Enlaces de la comunidad", discordCommunity: "Comunidad de Discord", githubRepository: "Repositorio de GitHub", xProfile: "Perfil de X", resourceLinks: "Recursos de Timeline Studio" },
+  fr: { communityLinks: "Liens communautaires", discordCommunity: "Communauté Discord", githubRepository: "Dépôt GitHub", xProfile: "Profil X", resourceLinks: "Ressources de Timeline Studio" },
+  de: { communityLinks: "Community-Links", discordCommunity: "Discord-Community", githubRepository: "GitHub-Repository", xProfile: "X-Profil", resourceLinks: "Timeline-Studio-Ressourcen" },
+  pt: { communityLinks: "Links da comunidade", discordCommunity: "Comunidade do Discord", githubRepository: "Repositório do GitHub", xProfile: "Perfil no X", resourceLinks: "Recursos do Timeline Studio" },
+  th: { communityLinks: "ลิงก์ชุมชน", discordCommunity: "ชุมชน Discord", githubRepository: "ที่เก็บ GitHub", xProfile: "โปรไฟล์ X", resourceLinks: "แหล่งข้อมูล Timeline Studio" },
+  vi: { communityLinks: "Liên kết cộng đồng", discordCommunity: "Cộng đồng Discord", githubRepository: "Kho GitHub", xProfile: "Hồ sơ X", resourceLinks: "Tài nguyên Timeline Studio" },
+  ru: { communityLinks: "Ссылки сообщества", discordCommunity: "Сообщество Discord", githubRepository: "Репозиторий GitHub", xProfile: "Профиль X", resourceLinks: "Ресурсы Timeline Studio" },
+  it: { xProfile: "Profilo X" },
+  id: { xProfile: "Profil X" },
+};
+
+const BEST_AI_TOOL_COPY = {
+  zh: { bestAiToolFeatured: "已收录于 Best AI Tool" },
+  en: { bestAiToolFeatured: "Featured on Best AI Tool" },
+  ja: { bestAiToolFeatured: "Best AI Tool に掲載" },
+  ko: { bestAiToolFeatured: "Best AI Tool에 소개됨" },
+  es: { bestAiToolFeatured: "Destacado en Best AI Tool" },
+  fr: { bestAiToolFeatured: "Présenté sur Best AI Tool" },
+  de: { bestAiToolFeatured: "Vorgestellt auf Best AI Tool" },
+  pt: { bestAiToolFeatured: "Em destaque no Best AI Tool" },
+  th: { bestAiToolFeatured: "ได้รับการแนะนำบน Best AI Tool" },
+  vi: { bestAiToolFeatured: "Được giới thiệu trên Best AI Tool" },
+  ru: { bestAiToolFeatured: "Представлено на Best AI Tool" },
+  it: { bestAiToolFeatured: "In evidenza su Best AI Tool" },
+  id: { bestAiToolFeatured: "Ditampilkan di Best AI Tool" },
 };
 
 const AUDIO_SPATIAL_COPY = {
@@ -3574,6 +3594,8 @@ export function getCopyLanguage(languageId) {
 }
 
 export function createTranslator(languageId) {
+  const audioExportCopy = AUDIO_EXPORT_COPY[languageId] ?? AUDIO_EXPORT_COPY.en;
+  const markerCopy = TIMELINE_MARKER_COPY[languageId] ?? TIMELINE_MARKER_COPY.en;
   const copyLanguage = getCopyLanguage(languageId);
   const copy = UI_COPY[copyLanguage] ?? UI_COPY.en;
   const fallback = UI_COPY.en;
@@ -3606,9 +3628,9 @@ export function createTranslator(languageId) {
     CAPTION_DEFAULT_COPY, SMART_WORKSPACE_COPY, AUTO_EDIT_COPY, AUTO_EDIT_BUTTON_COPY, AUTO_EDIT_READY_COPY,
     AUTO_EDIT_REVIEW_COPY, AUTO_EDIT_FLOW_COPY, AUTO_EDIT_SEGMENT_COPY,
     AUTO_EDIT_RESULT_COPY, IMAGE_AI_CAPTION_COPY, PICTURE_IN_PICTURE_COPY, EFFECTS_WORKSPACE_COPY, VECTOR_STATE_COPY, VECTOR_DOCUMENT_COPY, VECTOR_ADVANCED_COPY,
-    SRT_IMPORT_COPY, CLICK_RIPPLE_COPY,
+    SRT_IMPORT_COPY, CLICK_RIPPLE_COPY, BEST_AI_TOOL_COPY,
   ].map((source) => ({ ...(source.en ?? {}), ...(source[languageId] ?? {}) })));
-  return (key, fallbackText) => reviewedCopy[key] ?? completionCopy[key] ?? coreLabelCopy[key] ?? repairCopy[key] ?? specializedCopy[key] ?? exportOptionsCopy[key] ?? EXPORT_OPTIONS_COPY.en[key] ?? exportExtraStatusCopy[key] ?? EXPORT_EXTRA_STATUS_COPY.en[key] ?? projectChromeCopy[key] ?? PROJECT_CHROME_COPY.en[key] ?? captionAudioLinkCopy[key] ?? CAPTION_AUDIO_LINK_COPY.en[key] ?? ttsBackendCopy[key] ?? TTS_BACKEND_COPY.en[key] ?? mobileStickerCopy[key] ?? MOBILE_STICKER_COPY.en[key] ?? mobileClipActionCopy[key] ?? MOBILE_CLIP_ACTION_COPY.en[key] ?? mobileDrawerCopy[key] ?? MOBILE_DRAWER_COPY.en[key] ?? srtImportCopy[key] ?? exportCopy[key] ?? EXPORT_RENDER_COPY.en[key] ?? assetPreviewCopy[key] ?? ASSET_PREVIEW_COPY.en[key] ?? assetDropCopy[key] ?? ASSET_DROP_COPY.en[key] ?? autoCaptionStatusCopy[key] ?? AUTO_CAPTION_STATUS_COPY.en[key] ?? copy[key] ?? fallback[key] ?? UI_COPY.zh[key] ?? fallbackText ?? key;
+  return (key, fallbackText) => audioExportCopy[key] ?? markerCopy[key] ?? reviewedCopy[key] ?? completionCopy[key] ?? coreLabelCopy[key] ?? repairCopy[key] ?? specializedCopy[key] ?? exportOptionsCopy[key] ?? EXPORT_OPTIONS_COPY.en[key] ?? exportExtraStatusCopy[key] ?? EXPORT_EXTRA_STATUS_COPY.en[key] ?? projectChromeCopy[key] ?? PROJECT_CHROME_COPY.en[key] ?? captionAudioLinkCopy[key] ?? CAPTION_AUDIO_LINK_COPY.en[key] ?? ttsBackendCopy[key] ?? TTS_BACKEND_COPY.en[key] ?? mobileStickerCopy[key] ?? MOBILE_STICKER_COPY.en[key] ?? mobileClipActionCopy[key] ?? MOBILE_CLIP_ACTION_COPY.en[key] ?? mobileDrawerCopy[key] ?? MOBILE_DRAWER_COPY.en[key] ?? srtImportCopy[key] ?? exportCopy[key] ?? EXPORT_RENDER_COPY.en[key] ?? assetPreviewCopy[key] ?? ASSET_PREVIEW_COPY.en[key] ?? assetDropCopy[key] ?? ASSET_DROP_COPY.en[key] ?? autoCaptionStatusCopy[key] ?? AUTO_CAPTION_STATUS_COPY.en[key] ?? copy[key] ?? fallback[key] ?? UI_COPY.zh[key] ?? fallbackText ?? key;
 }
 
 export function translateOptionName(languageId, name) {

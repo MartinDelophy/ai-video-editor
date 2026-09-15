@@ -3,6 +3,7 @@ import {
 } from "../config/editor.js";
 import { createVisualSegment, estimateDuration, getImageThumbnailCount, getVisualSegmentsTotal } from "./timeline.js";
 import { createTimelineSnapGuide } from "./timelineSnap.js";
+import { normalizeTimelineMarkers } from "./timelineMarkers.js";
 import {
   createTimelineEdgeAutoScroller,
   getTimelineActiveDragHorizon,
@@ -45,6 +46,10 @@ export function createImageResizeControl(d) {
       d.audioBlob && d.audioDuration > 0 ? { time: Math.min(MAX_TIMELINE_DURATION_SECONDS, d.audioDuration), label: "配音结尾" } : null,
       d.sourceAudioBlob && d.sourceAudioDuration > 0 ? { time: Math.min(MAX_TIMELINE_DURATION_SECONDS, d.sourceAudioStart + d.sourceAudioDuration), label: "原声结尾" } : null,
       d.musicBlob && d.musicDuration > 0 ? { time: Math.min(MAX_TIMELINE_DURATION_SECONDS, (d.musicStart || 0) + d.musicDuration), label: "音乐结尾" } : null,
+      ...normalizeTimelineMarkers(d.timelineMarkers).flatMap((marker) => [
+        { time: marker.time, track: "marker", id: marker.id, edge: "start" },
+        ...(marker.type === "range" ? [{ time: marker.endTime, track: "marker", id: marker.id, edge: "end" }] : []),
+      ]),
     ].filter(Boolean);
     let activeLabel = "";
     let editingStarted = false;

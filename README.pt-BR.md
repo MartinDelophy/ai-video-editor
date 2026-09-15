@@ -20,10 +20,10 @@ O usuário é o único responsável por quaisquer consequências legais decorren
 ## Novidades do projeto
 
 - **15 de setembro de 2026 — Recuperação de sessões da Anna no navegador:** projetos e mídias ficam no IndexedDB local para recuperação no mesmo navegador e com a mesma conta Anna; o KV com escopo guarda apenas um namespace aleatório, sem sincronização entre dispositivos. O status salvo aguarda a conclusão da transação; falhas e conflitos preservam o trabalho existente. Limpar os dados do navegador ou não concluir o salvamento pode impedir a recuperação. Anna também respeita o tamanho de janela escolhido manualmente e mantém o editor responsivo.
-- **14 de setembro de 2026 — Correções no download de modelos:** a configuração de conexão da Anna inclui a CDN que distribui os arquivos de modelos do ModelScope e preserva as respostas de downloads bem-sucedidos quando o armazenamento opcional em cache falha.
-- **11 de setembro de 2026 — Adaptação a janelas de desktop e incorporadas:** janelas de pouca altura mantêm os controles de prévia e a linha do tempo visíveis, preservando os tamanhos dos painéis e a tipografia habituais do desktop.
-- **3 de setembro de 2026 — Interfaces em italiano e indonésio:** o Timeline Studio agora oferece 13 idiomas de interface. Ambos incluem dicionários completos do editor e mensagens de execução, terminologia revisada para legendas, linha do tempo, Smart Frame, Música por IA, design vetorial e plugins de geração, além de fontes e reconhecimento Whisper compatíveis.
-- **1º de setembro de 2026 — Vídeo pronto mais cedo sem perder sincronização:** importações locais e online aguardam apenas um pequeno conjunto de quadros-semente com PTS real, adaptado ao dispositivo, em vez de bloquear em 120–240 miniaturas. Depois, quadros exatos refinam primeiro a área visível e continuam fora da tela por subdivisão de pontos médios. Cada miniatura usa o último quadro anterior ao tempo de origem solicitado, o cursor acompanha a prévia ao vivo e as atualizações em segundo plano pausam durante a busca.
+- **2026-09-15 — Exportação do áudio editado:** a exportação de um clipe de áudio respeita o trecho recortado e aplica velocidade de reprodução, volume, fades e efeitos de espaço. Clipes individuais e a mixagem de toda a linha do tempo podem ser exportados em WAV ou MP3. A exportação de vídeo também oferece uma opção de somente áudio.
+- **2026-09-14 — Correção da exportação e novas tentativas:** clipes com fundos de cor sólida e quadros-chave de opacidade agora são exportados corretamente mesmo sem máscara de pessoa. Se a exportação falhar, a mensagem de erro permanece visível e é possível tentar novamente com as mesmas configurações. a configuração de conexão da Anna inclui a CDN que distribui os arquivos de modelos do ModelScope e preserva as respostas de downloads bem-sucedidos quando o armazenamento opcional em cache falha.
+- **2026-09-14 — Desempenho em projetos grandes:** a importação reduz o trabalho da thread principal. O cache dos cálculos de faixas de áudio, a renderização mais leve das formas de onda e menos reposicionamentos de áudio reduzem a carga ao arrastar o indicador de reprodução e reproduzir. Mídias, tempos dos clipes, controles de edição, efeitos e exportação são preservados. A importação mostra o progresso real e libera a edição assim que as mídias são restauradas; as miniaturas continuam sendo aprimoradas em segundo plano.
+- **11 de setembro de 2026 — Edição e exportação com WebMCP:** as 15 ferramentas do navegador permitem revisar alterações em legendas, volume e fades, marcadores, divisão/exclusão/duplicação de clipes principais, busca e inserção de mídias existentes e imagem sobre imagem. Agentes podem preparar a exportação, iniciar o exportador real do editor, acompanhar o progresso e os dados do arquivo gerado ou cancelar. Operações combinadas preservam verificações de conflitos, edição com deslocamento, bloqueios de faixas e Desfazer; novas tentativas não duplicam downloads. Ferramentas e revisão estão traduzidas para os 13 idiomas da interface.
 
 Consulte o [Roadmap](ROADMAP.md) para o trabalho planejado, [Releases](https://github.com/MartinDelophy/ai-video-editor/releases) para mudanças publicadas e [Issues](https://github.com/MartinDelophy/ai-video-editor/issues) para tarefas e erros.
 
@@ -77,12 +77,12 @@ gh skill install MartinDelophy/ai-video-editor edit-timeline-studio --agent clau
 gh skill install MartinDelophy/ai-video-editor edit-timeline-studio --agent codex --scope user
 ```
 
-Adicione `--pin v1.0.0` para instalar a versão verificada em vez de acompanhar a release mais recente. Antes de instalar, você pode conferir o conteúdo com `gh skill preview MartinDelophy/ai-video-editor edit-timeline-studio`.
+Adicione `--pin v1.0.8` para instalar a versão verificada em vez de acompanhar a release mais recente. Antes de instalar, você pode conferir o conteúdo com `gh skill preview MartinDelophy/ai-video-editor edit-timeline-studio`.
 
 ## Roteiro
 
 - **Agora:** fortalecer a exportação offline determinística, melhorar a confiabilidade da linha do tempo e ampliar os testes de ponta a ponta no navegador.
-- **Em seguida:** lançar o executor de comandos headless versionado para edição por agentes e facilitar o compartilhamento de modelos de projeto reutilizáveis.
+- **Em seguida:** ampliar a paridade da renderização headless, os comandos WebMCP que podem ser revisados e o compartilhamento de modelos de projeto.
 - **Mais adiante:** adicionar revisão colaborativa, uma interface de extensões e mais modelos de IA verificados localmente.
 
 As prioridades são definidas em [GitHub Discussions](https://github.com/MartinDelophy/ai-video-editor/discussions).

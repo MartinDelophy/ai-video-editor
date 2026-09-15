@@ -1,7 +1,36 @@
 import { getVisualSourceTime } from "./visualEffects.js";
 
+export const PLAYHEAD_FRAME_SYNC_TOLERANCE_SECONDS = 0.025;
+
 const MIN_PLAYBACK_RATE = 0.25;
 const MAX_PLAYBACK_RATE = 4;
+const frameIndexCache = new WeakMap();
+const sampledFrameCache = new WeakMap();
+
+function getTimedVideoTrackFrames(frames, duration) {
+  const safeDuration = Math.max(0, Number(duration) || 0);
+  let cached = frameIndexCache.get(frames);
+  if (!cached || cached.length !== frames.length) {
+    cached = { length: frames.length, durations: new Map() };
+    frameIndexCache.set(frames, cached);
+  }
+  if (cached.durations.has(safeDuration)) return cached.durations.get(safeDuration);
+
+  // Filmstrip refinement replaces the frame array. Index that immutable set
+  // once instead of sorting hundreds of PTS entries on every playhead tick.
+  const timedFrames = frames
+    .map((frame, index) => ({
+      frame,
+      sourceTime: getVideoTrackFrameTime(frame, index, frames.length, safeDuration),
+    }))
+    .filter(({ frame }) => Boolean(getVideoTrackFrameSource(frame)))
+    .sort((left, right) => left.sourceTime - right.sourceTime);
+  // Split legacy clips can share frames but use different implicit durations.
+  // Keep that case correct without retaining every intermediate trim value.
+  if (cached.durations.size >= 4) cached.durations.delete(cached.durations.keys().next().value);
+  cached.durations.set(safeDuration, timedFrames);
+  return timedFrames;
+}
 
 export function getVideoTrackFrameSource(frame) {
   if (typeof frame === "string") return frame;
@@ -39,13 +68,7 @@ function getFrameAtOrBefore(timedFrames, targetTime) {
 
 export function getVideoTrackFrameAtSourceTime(frames, targetTime, duration = 0) {
   if (!Array.isArray(frames) || !frames.length) return null;
-  const timedFrames = frames
-    .map((frame, index) => ({
-      frame,
-      sourceTime: getVideoTrackFrameTime(frame, index, frames.length, duration),
-    }))
-    .filter(({ frame }) => Boolean(getVideoTrackFrameSource(frame)))
-    .sort((left, right) => left.sourceTime - right.sourceTime);
+  const timedFrames = getTimedVideoTrackFrames(frames, duration);
   if (!timedFrames.length) return null;
 
   return getFrameAtOrBefore(timedFrames, targetTime);
@@ -69,20 +92,35 @@ export function getSampledVideoTrackFrames(frames, count, segment = null) {
     sourceStart + sourceSpan,
     Number(segment?.trackFrameDuration) || 0,
   );
-  const timedFrames = frames
-    .map((frame, index) => ({
-      frame,
-      sourceTime: getVideoTrackFrameTime(frame, index, frames.length, frameDuration),
-    }))
-    .filter(({ frame }) => Boolean(getVideoTrackFrameSource(frame)))
-    .sort((left, right) => left.sourceTime - right.sourceTime);
+  const duration = Math.max(0.001, Number(segment?.duration) || sourceSpan / playbackRate);
+  const cacheKey = segment && typeof segment === "object" ? segment : frames;
+  const cached = sampledFrameCache.get(cacheKey);
+  if (cached
+    && cached.frames === frames
+    && cached.frameCount === frames.length
+    && cached.count === safeCount
+    && cached.sourceStart === sourceStart
+    && cached.sourceSpan === sourceSpan
+    && cached.playbackRate === playbackRate
+    && cached.frameDuration === frameDuration
+    && cached.duration === duration
+    && cached.speedCurve === segment?.speedCurve) return cached.sampledFrames;
+
+  const timedFrames = getTimedVideoTrackFrames(frames, frameDuration);
   if (!timedFrames.length) return [];
 
-  return Array.from({ length: safeCount }, (_, index) => {
-    const localTime = (index / safeCount) * Math.max(0.001, Number(segment?.duration) || sourceSpan / playbackRate);
+  const sampledFrames = Array.from({ length: safeCount }, (_, index) => {
+    const localTime = (index / safeCount) * duration;
     const targetTime = segment
       ? getVisualSourceTime(segment, localTime)
       : sourceStart + (index / safeCount) * sourceSpan;
     return getFrameAtOrBefore(timedFrames, Math.min(sourceStart + sourceSpan, targetTime));
   });
+  // Callers treat this representative strip as read-only and copy it before
+  // replacing the live playhead cell. Keep only the latest density per clip.
+  sampledFrameCache.set(cacheKey, {
+    frames, frameCount: frames.length, count: safeCount, sourceStart, sourceSpan,
+    playbackRate, frameDuration, duration, speedCurve: segment?.speedCurve, sampledFrames,
+  });
+  return sampledFrames;
 }

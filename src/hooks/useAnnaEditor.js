@@ -51,14 +51,14 @@ export function useAnnaEditor(deps) {
   const mounted = useRef(true);
   const busyRef = useRef(false);
   const snapshot = deps.getProjectSnapshot();
-  const hasProjectContent = ["visualSegments", "visualOverlaySegments", "audioSegments", "captionSegments", "stickerSegments", "musicSegments"]
+  const hasProjectContent = ["visualSegments", "visualOverlaySegments", "audioSegments", "captionSegments", "stickerSegments", "musicSegments", "timelineMarkers"]
     .some((key) => snapshot[key]?.length) || deps.hasMusic || deps.hasSourceAudio || snapshot.audioDuration > 0;
   const draft = useAnnaDraft({
     enabled: isAnnaEdition,
     createArchive: deps.createArchive,
     importProject: deps.importProject,
     hasContent: hasProjectContent,
-    externalBusy: Boolean(job || deps.exporting),
+    externalBusy: Boolean(job || deps.exporting || deps.projectImportProgress),
     getFingerprint: () => annaProjectFingerprint(latest.current.getProjectSnapshot(), latest.current.rippleEditing, latest.current.visualSegments),
   });
   const sessionInput = isAnnaEdition ? deps.getSessionInput() : null;
@@ -67,8 +67,8 @@ export function useAnnaEditor(deps) {
     fingerprint: isAnnaEdition ? annaSessionFingerprint(sessionInput) : "",
     hasContent: hasProjectContent || Boolean(sessionInput?.userAssets?.length || sessionInput?.historyItems?.length || sessionInput?.recordedVoices?.length || snapshot.script?.trim()),
     capture: deps.captureSession, restoreProject: deps.restoreSession, getIntent: deps.getProjectIntent,
-    externalBusy: Boolean(job || deps.exporting || draft.busy),
-    isExternallyBusy: () => Boolean(busyRef.current || latest.current.exporting || draft.isBusy()),
+    externalBusy: Boolean(job || deps.exporting || draft.busy || deps.projectImportProgress),
+    isExternallyBusy: () => Boolean(busyRef.current || latest.current.exporting || latest.current.isProjectImporting?.() || draft.isBusy()),
   });
   const checkLocalCompute = async () => {
     const generation = ++computeGeneration.current;
@@ -92,7 +92,7 @@ export function useAnnaEditor(deps) {
     };
   }, []);
   const execute = async (kind, task) => {
-    if (busyRef.current || latest.current.exporting || draft.isBusy?.() || !isAnnaEdition) return false;
+    if (busyRef.current || latest.current.exporting || latest.current.isProjectImporting?.() || draft.isBusy?.() || !isAnnaEdition) return false;
     busyRef.current = true;
     const controller = new AbortController();
     abortRef.current = controller;
@@ -162,7 +162,7 @@ export function useAnnaEditor(deps) {
       );
     });
   const apply = () => {
-    if (!review || busyRef.current || latest.current.exporting || draft.isBusy?.()) return;
+    if (!review || busyRef.current || latest.current.exporting || latest.current.isProjectImporting?.() || draft.isBusy?.()) return;
     const current = latest.current;
     if (
       review.fingerprint !==
@@ -192,7 +192,9 @@ export function useAnnaEditor(deps) {
       const attachments = [];
       const result = await latest.current.renderVideo({
         ...options,
-        settings: { ...latest.current.exportSettings, ...options.settings, codec: "h264" },
+        // Anna's video preview/storage contract always expects an MP4, even
+        // when the shared export menu was last used for an audio-only file.
+        settings: { ...latest.current.exportSettings, ...options.settings, mediaType: "video", codec: "h264" },
         onArtifact: async (blob, name) => {
           if (name.endsWith(".mp4")) videoArtifact = { blob, name };
           else attachments.push({ blob, name });

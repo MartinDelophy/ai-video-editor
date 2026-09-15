@@ -2,6 +2,23 @@
   command = "npm run build"
   publish = "dist"
 
+# Existing public files shadow this rule. Missing protocol documents must never
+# become a successful HTML editor response through the SPA fallback below.
+[[redirects]]
+  from = "/.well-known/*"
+  to = "/agent-protocol-not-found.txt"
+  status = 404
+
+[[redirects]]
+  from = "/.well-known"
+  to = "/agent-protocol-not-found.txt"
+  status = 404
+
+[[redirects]]
+  from = "/auth.md"
+  to = "/agent-protocol-not-found.txt"
+  status = 404
+
 [[redirects]]
   from = "/*"
   to = "/index.html"
@@ -13,3 +30,25 @@
     Cross-Origin-Opener-Policy = "same-origin"
     Cross-Origin-Embedder-Policy = "require-corp"
     Cross-Origin-Resource-Policy = "same-origin"
+    Link = '</agent-guide.md>; rel="service-doc"; type="text/markdown"; title="Timeline Studio agent guide", </.well-known/agent-skills/index.json>; rel="https://agentskills.io/discovery"; type="application/json", </llms.txt>; rel="describedby"; type="text/plain"'
+
+[[headers]]
+  for = "/.well-known/agent-skills/index.json"
+  [headers.values]
+    Content-Type = "application/json; charset=utf-8"
+    Cache-Control = "public, max-age=0, must-revalidate"
+    X-Content-Type-Options = "nosniff"
+
+[[headers]]
+  for = "/.well-known/agent-skills/*/SKILL.md"
+  [headers.values]
+    Content-Type = "text/markdown; charset=utf-8"
+    Cache-Control = "public, max-age=0, must-revalidate"
+    X-Content-Type-Options = "nosniff"
+
+[[headers]]
+  for = "/agent-guide.md"
+  [headers.values]
+    Content-Type = "text/markdown; charset=utf-8"
+    Cache-Control = "public, max-age=0, must-revalidate"
+    X-Content-Type-Options = "nosniff"

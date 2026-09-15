@@ -1,4 +1,4 @@
-import { useCallback, useRef } from "react";
+import { useCallback, useRef, useState } from "react";
 import { captureAnnaSessionAnalysis, prepareAnnaProjectSession, readAnnaProjectSession, restoreAnnaSessionItems, restoreAnnaSessionMetadata } from "../lib/annaProjectSession.js";
 import { DEFAULT_SCRIPT, DEFAULT_TIMELINE_DURATION_SECONDS, normalizeVoiceId, RATIO_OPTIONS, VOICES } from "../config/editor.js";
 import { decodeWaveform, downloadBlob } from "../lib/media.js";
@@ -7,9 +7,14 @@ import { createCaptionSegments, getImageThumbnailCount, getVisualSegmentsTotal }
 import { normalizeSmartFrame } from "../lib/smartFrame.js";
 import { normalizeTrackLocks, normalizeTrackVisibility } from "../lib/projectTrackState.js";
 import { getVisionKey } from "../lib/vision.js";
+import { normalizeTimelineMarkers } from "../lib/timelineMarkers.js";
+import { PROJECT_IMPORT_COPY } from "../i18nProjectImport.js";
 
 const asArray = (value) => Array.isArray(value) ? value : [];
 const finiteOr = (value, fallback) => value !== null && value !== undefined && Number.isFinite(Number(value)) ? Number(value) : fallback;
+const waitForProjectPaint = () => new Promise((resolve) => {
+  requestAnimationFrame(() => requestAnimationFrame(resolve));
+});
 
 // Archive and in-memory command callers share one complete snapshot contract.
 // Optional tracks must remain arrays even when a caller has no media for them.
@@ -18,6 +23,7 @@ export function createProjectSnapshotFromState(deps = {}, commandState) {
   const visualSegments = asArray(state.visualSegments).map(({ blob: _blob, trackFrames: _trackFrames, src: _src, cutoutVisual: _cutoutVisual, enhancement: _enhancement, ...segment }) => segment);
   const visualOverlaySegments = asArray(state.visualOverlaySegments).map(({ blob: _blob, src: _src, ...segment }) => segment);
   const audioSegments = asArray(state.audioSegments).map(({ blob: _blob, url: _url, peaks: _peaks, ...segment }) => segment);
+  const musicSegments = asArray(state.musicSegments).map(({ blob: _blob, src: _src, url: _url, peaks: _peaks, ...segment }) => segment);
   return {
     script: state.script ?? DEFAULT_SCRIPT,
     commandState: {
@@ -32,8 +38,9 @@ export function createProjectSnapshotFromState(deps = {}, commandState) {
     captionStyle: state.captionStyle ?? state.captionStyleFallback ?? { fontId: "default" },
     captionStylePresetId: state.captionStylePresetId ?? "classic", captionStylePresets: asArray(state.captionStylePresets),
     captionsEnabled: state.captionsEnabled !== false, captionSegments: asArray(state.captionSegments),
-    audioSegments, musicSegments: asArray(state.musicSegments), visualSegments, visualOverlaySegments,
+    audioSegments, musicSegments, visualSegments, visualOverlaySegments,
     stickerSegments: asArray(state.stickerSegments), selectedFilterId: state.selectedFilterId ?? "none",
+    timelineMarkers: normalizeTimelineMarkers(state.timelineMarkers),
     selectedTransitionId: state.selectedTransitionId ?? "none", selectedStickerId: state.selectedStickerId ?? "none",
     trackVisibility: normalizeTrackVisibility(state.trackVisibility), trackLocks: normalizeTrackLocks(state.trackLocks),
     timelineZoom: finiteOr(state.timelineZoom, 1), audioDuration: finiteOr(state.audioDuration, 0),
@@ -47,6 +54,10 @@ export function createProjectSnapshotFromState(deps = {}, commandState) {
 }
 
 export function useProjectFiles(deps = {}) {
+  const [projectImportProgress, setProjectImportProgress] = useState(null);
+  // Only file imports count as external work. A session's own guarded restore
+  // must not block itself when useAnnaSession checks isProjectImporting().
+  const importingRef = useRef(false);
   const commandStateRef = useRef({ schemaVersion: 1, revision: 0, appliedOperationIds: [] });
   const importGenerationRef = useRef(0);
   const intentRef = useRef(0);
@@ -78,8 +89,10 @@ export function useProjectFiles(deps = {}) {
   }, []);
   const captureSession = useCallback(() => prepareAnnaProjectSession(getSessionInput()), [getSessionInput]);
   const getProjectIntent = useCallback(() => intentRef.current, []);
+  const isProjectImporting = useCallback(() => importingRef.current, []);
 
   const handleExportProject = useCallback(async () => {
+    if (importingRef.current) return;
     deps.setShowFileMenu(false);
     try {
       deps.notify("正在打包工程与媒体素材…");
@@ -90,6 +103,7 @@ export function useProjectFiles(deps = {}) {
   }, [deps, createCurrentArchive]);
 
   const handleNewProject = useCallback(() => {
+    if (importingRef.current) return;
     if (!window.confirm("新建工程将清空当前时间线，是否继续？")) return;
     importGenerationRef.current += 1;
     intentRef.current += 1;
@@ -98,33 +112,66 @@ export function useProjectFiles(deps = {}) {
     deps.setSelectedSegmentId(""); deps.clearImageTrack(""); deps.clearAudioTrack("");
     deps.setVisualOverlaySegments([]); deps.setSelectedVisualOverlayId("");
     deps.clearSourceAudioTrack(""); deps.clearMusicTrack(""); deps.setStickerSegments([]);
+    deps.setTimelineMarkers?.([]);
     deps.setSelectedStickerSegmentId(""); deps.clearAllVisionState(); deps.setCurrentTime(0);
     deps.setTimelineHorizon(DEFAULT_TIMELINE_DURATION_SECONDS); deps.setTimelineZoom(1);
     deps.setShowFileMenu(false); deps.notify("已新建空白工程");
   }, [deps]);
 
   const handleImportProject = useCallback(async (file, options = {}) => {
+    if (importingRef.current) return false;
     if (!file && !options.session) { latestDeps.current.projectFileInputRef?.current?.click(); return false; }
     if (!options.session) intentRef.current += 1;
     const generation = ++importGenerationRef.current;
+    if (!options.session) importingRef.current = true;
     const preparedUrls = new Set();
     let committed = false;
+    let importAudioContext = null;
+    const reportProgress = (phase, completed = 0, total = 0) => {
+      if (!options.session && generation === importGenerationRef.current) {
+        setProjectImportProgress({ phase, fileName: file.name, completed, total });
+      }
+    };
     const mediaUrl = (blob) => {
       const url = URL.createObjectURL(blob);
       preparedUrls.add(url);
       return url;
     };
     try {
+      if (!options.session) {
+        const current = latestDeps.current;
+        current.pauseTimelineMedia?.();
+        current.setIsPlaying?.(false);
+        current.setShowFileMenu(false);
+        reportProgress("archive", 0, file.size);
+        // Paint progress before any decode or synchronous archive fallback.
+        await waitForProjectPaint();
+      }
       let archive;
-      try { archive = options.session ? readAnnaProjectSession(options.session, mediaUrl) : await readProjectArchive(file); }
+      try { archive = options.session ? readAnnaProjectSession(options.session, mediaUrl) : await readProjectArchive(file, {
+        onProgress: ({ loaded, total }) => reportProgress("archive", loaded, total),
+      }); }
       catch (archiveError) {
         if (options.session) throw archiveError;
+        // Reject damaged binary archives before converting the whole file to
+        // a large UTF-16 string. Only legacy JSON needs a full text read.
+        let legacyJsonFound = false;
+        const prefixChunkBytes = 4096;
+        for (let offset = 0; offset < file.size; offset += prefixChunkBytes) {
+          const prefix = (await readProjectFileAsText(file.slice(offset, offset + prefixChunkBytes))).trimStart();
+          if (!prefix) continue;
+          if (!prefix.startsWith("{")) throw archiveError;
+          legacyJsonFound = true;
+          break;
+        }
+        if (!legacyJsonFound) throw archiveError;
         const legacy = JSON.parse(await readProjectFileAsText(file));
         if (legacy?.format !== "timeline-studio-project" || !legacy.project) throw archiveError;
         archive = { payload: { ...legacy, media: { visuals: [] } }, visualMedia: new Map(), audio: null, sourceAudio: null, music: null, legacy: true };
       }
       const { payload, visualMedia, audioSegmentMedia, audio, sourceAudio, music } = archive;
       const data = payload.project;
+      const markers = normalizeTimelineMarkers(data.timelineMarkers);
       const legacyFontId = data.captionStyle?.fontId || "default";
       let inheritedCaptionFontId = legacyFontId;
       const captions = (Array.isArray(data.captionSegments) ? data.captionSegments : createCaptionSegments(data.script || DEFAULT_SCRIPT))
@@ -138,15 +185,16 @@ export function useProjectFiles(deps = {}) {
         const blob = audioSegmentMedia?.get(segment.id)?.blob || audio;
         return blob ? [{ segment, blob }] : [];
       }) : [];
-      // Decode every dependency before changing any editor state or releasing
-      // current media. Shared legacy blobs are decoded once per import.
-      const decoded = new Map();
-      const audioBlobs = new Set([...pendingAudioSegments.map((item) => item.blob), ...(!hasAudioSegments && audio ? [audio] : []), sourceAudio, music].filter(Boolean));
-      await Promise.all([...audioBlobs].map(async (blob) => { decoded.set(blob, await decodeWaveform(blob)); }));
       if (generation !== importGenerationRef.current) return false;
-      const visuals = Array.isArray(data.visualSegments) ? data.visualSegments.map((segment) => {
+      const visualUrls = new Map();
+      const restoreVisualMedia = (segment) => {
         const media = resolveProjectVisualMedia(visualMedia, segment);
-        const restored = media?.blob ? { ...segment, src: mediaUrl(media.blob), blob: media.blob } : segment?.src ? segment : null;
+        if (!media?.blob) return segment?.src ? segment : null;
+        if (!visualUrls.has(media.blob)) visualUrls.set(media.blob, mediaUrl(media.blob));
+        return { ...segment, src: visualUrls.get(media.blob), blob: media.blob };
+      };
+      const visuals = Array.isArray(data.visualSegments) ? data.visualSegments.map((segment) => {
+        const restored = restoreVisualMedia(segment);
         if (!restored) return null;
         const smartFrame = normalizeSmartFrame(restored.smartFrame);
         if (!smartFrame) {
@@ -155,10 +203,36 @@ export function useProjectFiles(deps = {}) {
         }
         return { ...restored, smartFrame };
       }).filter(Boolean) : [];
-      const overlays = Array.isArray(data.visualOverlaySegments) ? data.visualOverlaySegments.map((segment) => {
-        const media = resolveProjectVisualMedia(visualMedia, segment);
-        return media?.blob ? { ...segment, src: mediaUrl(media.blob), blob: media.blob } : segment?.src ? segment : null;
-      }).filter(Boolean) : [];
+      const overlays = asArray(data.visualOverlaySegments).map(restoreVisualMedia).filter(Boolean);
+      // Playback can use restored Blobs immediately. Timeline filmstrips refine
+      // progressively after the complete project commits, not during import.
+      reportProgress("visuals", visualUrls.size, visualUrls.size);
+      const decoded = new Map();
+      const audioBlobs = [...new Set([...pendingAudioSegments.map((item) => item.blob), ...(!hasAudioSegments && audio ? [audio] : []), sourceAudio, music].filter(Boolean))];
+      let audioCompleted = 0;
+      let nextAudioIndex = 0;
+      let decodeFailure = null;
+      reportProgress("audio", 0, audioBlobs.length);
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (audioBlobs.length && AudioContextClass) importAudioContext = new AudioContextClass();
+      // Decode every distinct dependency before changing editor state. Reuse
+      // one native context and bound full PCM allocations to two at a time.
+      const results = await Promise.allSettled(Array.from({ length: Math.min(2, audioBlobs.length) }, async () => {
+        while (!decodeFailure && generation === importGenerationRef.current && nextAudioIndex < audioBlobs.length) {
+          const blob = audioBlobs[nextAudioIndex++];
+          try {
+            decoded.set(blob, await decodeWaveform(blob, 118, { audioContext: importAudioContext }));
+            reportProgress("audio", ++audioCompleted, audioBlobs.length);
+          } catch (error) { decodeFailure = error; throw error; }
+        }
+      }));
+      const failedAudio = results.find((result) => result.status === "rejected");
+      if (failedAudio) throw failedAudio.reason;
+      if (importAudioContext) {
+        await importAudioContext.close().catch(() => {});
+        importAudioContext = null;
+      }
+      if (generation !== importGenerationRef.current) return false;
       const restoredAudioSegments = pendingAudioSegments.map(({ segment, blob }) => ({ ...segment, blob, url: mediaUrl(blob), peaks: decoded.get(blob).peaks }));
       // Prepare recovery-only collections before the same guarded project commit.
       const sessionCollections = options.session ? {
@@ -171,6 +245,10 @@ export function useProjectFiles(deps = {}) {
       const visualDuration = getVisualSegmentsTotal(visuals);
       const restoredMusicSegments = music && Array.isArray(data.musicSegments) && data.musicSegments.length
         ? data.musicSegments.map((segment) => ({ ...segment, peaks: decoded.get(music).peaks })) : null;
+      if (!options.session) {
+        reportProgress("ready");
+        await waitForProjectPaint();
+      }
       // The guard is synchronous, immediately adjacent to the commit. A caller
       // can reject edits/unmounts that happened during archive reads or decoding.
       if (generation !== importGenerationRef.current || (options.beforeCommit && options.beforeCommit() !== true)) return false;
@@ -179,8 +257,9 @@ export function useProjectFiles(deps = {}) {
       commandStateRef.current = data.commandState || { schemaVersion: 1, revision: 0, appliedOperationIds: [] };
       current.setTimelineHorizon(DEFAULT_TIMELINE_DURATION_SECONDS);
       current.setScript(typeof data.script === "string" ? data.script : DEFAULT_SCRIPT);
-      current.markTimelineViewRestored?.(Boolean(captions.length || visuals.length || overlays.length || restoredAudioSegments.length || audio || sourceAudio || music));
+      current.markTimelineViewRestored?.(Boolean(captions.length || visuals.length || overlays.length || markers.length || restoredAudioSegments.length || audio || sourceAudio || music));
       current.setCaptionSegments(captions); current.setSelectedSegmentId(captions[0]?.id ?? "");
+      current.setTimelineMarkers?.(markers);
       current.setSelectedVoiceId(importedVoice.id);
       current.setSpeed(Number.isFinite(Number(data.speed)) && Number(data.speed) > 0
         ? Number(data.speed) : importedVoice.defaultSpeed ?? 1);
@@ -253,16 +332,25 @@ export function useProjectFiles(deps = {}) {
       return true;
     } catch (error) {
       if (generation !== importGenerationRef.current) return false;
-      if (!options.session) latestDeps.current.notify(`无法读取工程文件${error instanceof Error && error.message ? `：${error.message}` : ""}`);
+      if (!options.session) {
+        console.error("Project import failed", error);
+        const current = latestDeps.current;
+        current.notify((PROJECT_IMPORT_COPY[current.language] || PROJECT_IMPORT_COPY.en).error);
+      }
       return false;
     } finally {
+      if (importAudioContext) await importAudioContext.close().catch(() => {});
       if (!committed) preparedUrls.forEach((url) => URL.revokeObjectURL(url));
       const input = latestDeps.current.projectFileInputRef?.current;
       if (input && generation === importGenerationRef.current) input.value = "";
+      if (!options.session) {
+        importingRef.current = false;
+        setProjectImportProgress(null);
+      }
     }
   }, []);
 
   const restoreSession = useCallback((session, options) => handleImportProject(null, { ...options, session }), [handleImportProject]);
-  return { getProjectSnapshot, createCurrentArchive, handleExportProject, handleImportProject, handleNewProject,
-    getSessionInput, captureSession, restoreSession, getProjectIntent };
+  return { projectImportProgress, getProjectSnapshot, createCurrentArchive, handleExportProject, handleImportProject, handleNewProject,
+    getSessionInput, captureSession, restoreSession, getProjectIntent, isProjectImporting };
 }

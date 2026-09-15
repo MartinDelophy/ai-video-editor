@@ -4,7 +4,7 @@ import { getVisualSegmentTimeline } from "./timeline.js";
 
 const getAssetKey = (segment) => segment?.assetId || segment?.src || segment?.id || "";
 
-export function createEmbeddedVideoAudioSegments(visualSegments = [], audioAssets = new Map()) {
+export function createEmbeddedVideoAudioSegments(visualSegments = [], audioAssets = new Map(), { preserveTimelineStarts = false } = {}) {
   const timeline = getVisualSegmentTimeline(visualSegments);
   return visualSegments.flatMap((segment, index) => {
     if (segment.type !== "video" || segment.sourceAudioDisabled) return [];
@@ -19,21 +19,26 @@ export function createEmbeddedVideoAudioSegments(visualSegments = [], audioAsset
     return [{
       id: segment.id,
       assetId: segment.assetId,
-      start: timeline[index]?.start || 0,
+      start: preserveTimelineStarts ? Math.max(0, Number(segment.start) || 0) : timeline[index]?.start || 0,
       duration: Math.min(segment.duration, sourceDuration / playbackRate),
       sourceStart: audio.offset + sourceStart,
       sourceDuration,
       playbackRate,
+      speedCurve: segment.speedCurve,
     }];
   });
 }
 
-export async function prepareEmbeddedVideoAudio(visualSegments = [], onProgress, signal, { strict = false, range } = {}) {
+export async function prepareEmbeddedVideoAudio(visualSegments = [], onProgress, signal, options = {}) {
+  const { strict = false, range, preserveTimelineStarts = false } = options;
   throwIfExportAborted(signal);
-  const timeline = strict && range ? getVisualSegmentTimeline(visualSegments) : null;
-  const candidates = visualSegments.filter((segment, index) => segment.type === "video" && !segment.sourceAudioDisabled
-    && (!timeline || ((timeline[index]?.start || 0) < range.end
-      && (timeline[index]?.start || 0) + segment.duration > range.start)));
+  const timeline = strict && range && !preserveTimelineStarts ? getVisualSegmentTimeline(visualSegments) : null;
+  const candidates = visualSegments.filter((segment, index) => {
+    if (segment.type !== "video" || segment.sourceAudioDisabled) return false;
+    if (!strict || !range) return true;
+    const start = preserveTimelineStarts ? Math.max(0, Number(segment.start) || 0) : timeline[index]?.start || 0;
+    return start < range.end && start + segment.duration > range.start;
+  });
   const uniqueAssets = [...new Map(candidates.map((segment) => [getAssetKey(segment), segment])).entries()];
   if (!uniqueAssets.length) return { blob: null, segments: [] };
 
@@ -103,6 +108,6 @@ export async function prepareEmbeddedVideoAudio(visualSegments = [], onProgress,
   throwIfExportAborted(signal);
   return {
     blob,
-    segments: createEmbeddedVideoAudioSegments(visualSegments, audioAssets),
+    segments: createEmbeddedVideoAudioSegments(visualSegments, audioAssets, options),
   };
 }

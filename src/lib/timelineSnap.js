@@ -1,4 +1,5 @@
 import { getVisualSegmentTimeline, materializeCaptionTimings } from "./timeline.js";
+import { normalizeTimelineMarkers } from "./timelineMarkers.js";
 
 const addRange = (points, track, id, start, duration) => {
   const safeStart = Math.max(0, Number(start) || 0);
@@ -20,6 +21,10 @@ export function collectTimelineSnapPoints(d, exclude = {}) {
   if (currentTime > 0 && currentTime < timelineDuration) {
     points.push({ time: currentTime, track: "playhead", id: "playhead", edge: "playhead" });
   }
+  normalizeTimelineMarkers(d.timelineMarkers).forEach((marker) => {
+    points.push({ time: marker.time, track: "marker", id: marker.id, edge: "start" });
+    if (marker.type === "range") points.push({ time: marker.endTime, track: "marker", id: marker.id, edge: "end" });
+  });
   getVisualSegmentTimeline(d.visualSegments ?? []).forEach((range, index) => {
     const segment = d.visualSegments[index];
     addRange(points, "image", segment?.id, range.start, range.end - range.start);

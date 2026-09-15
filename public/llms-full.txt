@@ -1,6 +1,6 @@
 # Timeline Studio — Full Product Reference
 
-Last verified: 2026-09-02
+Last verified: 2026-09-10
 Canonical URL: https://video-editor.ai-creator.top/
 GitHub: https://github.com/MartinDelophy/ai-video-editor
 License: MIT
@@ -94,7 +94,24 @@ Timeline Studio is a free, open-source, local-first AI video editor that runs in
 
 ## Supported interface languages
 
-Chinese, English, Japanese, Korean, Spanish, French, German, Portuguese, Thai, Vietnamese and Russian.
+Chinese, English, Japanese, Korean, Spanish, French, German, Portuguese, Thai, Vietnamese, Russian, Italian and Indonesian.
+
+## Agent integration
+
+- Native WebMCP is a progressive enhancement for compatible browsers and agent hosts. The normal editor remains usable without it.
+- The 15 browser tools inspect the open project, tracks, clips, serialized captions, timeline markers and available editor assets; seek the preview; undo the latest unchanged agent edit; and download an editable .timeline copy.
+- Reviewed operation plans support caption add/update/delete, audio/music volume and fades, muting, markers, main-visual split/delete/duplicate/reorder/trim, insertion of ready editor assets, and picture-in-picture insertion with an initial transform.
+- Edit previews use an opaque live-state token and either an operation list or a legacy complete main-visual clip permutation. Apply requires the returned preview ID and rejects intervening project or asset changes. Split offsets are clip-relative; source trims use absolute original-source seconds. Complex timing, transitions, keyframes and effects constrain supported edits.
+- Changes reuse the shared command engine, current ripple mode, track locks and editor history. Main visuals remain gapless, caption/audio associations are preserved, and marker range ends do not extend rendered content duration.
+- Video export has prepare/start/inspect/cancel tools over the real editor pipeline. Prepare resolves settings, range and estimates; start revalidates the project and uses an idempotent request key. Inspect reports progress, actual extension, bytes, pipeline and any WebM fallback for an MP4 request. Cancellation reaches the encoder/transcoder. Browser download initiation is reported separately from verified disk persistence.
+- Project and video delivery use browser downloads. Asset insertion references media already available in the editor; browser tools expose no arbitrary URL or filesystem import, media upload, AI generation or cloud rendering.
+- The separate repository Skill, CLI and local STDIO MCP operate on project files. The website does not host a remote MCP or OAuth server.
+- Tool results can include project metadata and caption text, which the browser agent receives under its own data-handling terms. Media bytes are not returned by inspection tools.
+- Browser guide: https://video-editor.ai-creator.top/agent-guide.md
+- Agent Skills index: https://video-editor.ai-creator.top/.well-known/agent-skills/index.json
+- Browser Skill: https://video-editor.ai-creator.top/.well-known/agent-skills/edit-timeline-studio-browser/SKILL.md
+- Full local Skill: https://github.com/MartinDelophy/ai-video-editor/tree/main/skills/edit-timeline-studio
+- Integration reference: https://github.com/MartinDelophy/ai-video-editor/blob/main/docs/webmcp.md
 
 ## Technology
 

@@ -29,7 +29,7 @@ export function attachSourceAudioOffset(visualSegments = [], source = {}, source
     const matchesAssetFallback = !hasExactClipTarget && Boolean(assetId && segment.assetId === assetId);
     const matchesUnboundClip = !hasExactClipTarget && Boolean(clipId && !segment.assetId && segment.id === clipId);
     return matchesExactClip || matchesAssetFallback || matchesUnboundClip
-      ? { ...segment, sourceAudioOffset: offset }
+      ? { ...segment, sourceAudioOffset: offset, sourceAudioUnmapped: false }
       : segment;
   });
 }
@@ -43,7 +43,7 @@ export function getLinkedSourceAudioSegments(visualSegments = [], sourceAudioAss
   return visualSegments.flatMap((segment, index) => {
     const hasSegmentMapping = Number.isFinite(segment.sourceAudioOffset);
     const matchesLegacyAssetMapping = !hasMappedOffsets && segment.assetId === linkedAssetId;
-    if (segment.type !== "video" || segment.sourceAudioDisabled || (!hasSegmentMapping && !matchesLegacyAssetMapping)) return [];
+    if (segment.type !== "video" || segment.sourceAudioDisabled || segment.sourceAudioUnmapped || (!hasSegmentMapping && !matchesLegacyAssetMapping)) return [];
     const range = timeline[index];
     const playbackRate = normalizeVisualPlaybackRate(segment.playbackRate);
     const sourceStart = Math.max(0, Number(segment.sourceAudioOffset) || 0) + Math.max(0, Number(segment.sourceStart) || 0);
@@ -96,11 +96,12 @@ export function getLinkedSourceAudioEnd(linkedSegments = []) {
   return linkedSegments.reduce((end, segment) => Math.max(end, segment.start + segment.duration), 0);
 }
 
-export function shouldMuteEmbeddedVideoAudio(segment, { sourceAudioBlob = null, sourceAudioAssetId = "", linkedSegments = [] } = {}) {
+export function shouldMuteEmbeddedVideoAudio(segment, { sourceAudioBlob = null, sourceAudioAssetId = "", sourceAudioLinked = true, linkedSegments = [] } = {}) {
   if (!segment || segment.type !== "video" || segment.sourceAudioDisabled) return true;
+  if (segment.sourceAudioUnmapped) return false;
   if (!sourceAudioBlob) return false;
   return Number.isFinite(segment.sourceAudioOffset) ||
-    Boolean(sourceAudioAssetId && segment.assetId === sourceAudioAssetId) ||
+    Boolean(!sourceAudioLinked && sourceAudioAssetId && segment.assetId === sourceAudioAssetId) ||
     linkedSegments.some((item) => item.id === segment.id);
 }
 

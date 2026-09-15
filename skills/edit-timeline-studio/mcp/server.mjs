@@ -146,7 +146,7 @@ export function createTimelineStudioMcpServer() {
     { name: "timeline-studio", version: "1.0.0" },
     {
       instructions:
-        "Use the edit-timeline-studio Skill for editorial planning. Inspect a .timeline project before editing, then call timeline_project_diff before timeline_project_apply with the same revision and operations. Writes always create a new archive; never replace the input. Use stable operation IDs. Render only the supported headless subset and keep unsupported effects in the editor workflow.",
+        "Use the edit-timeline-studio Skill for editorial planning. Inspect a .timeline project before editing, then call timeline_project_diff before timeline_project_apply with the same revision and operations. Inspect timeline markers to review beats, chapters, ranges, and notes; edit them with marker.add, marker.update, and marker.delete in the same diff/apply workflow. Annotations do not extend rendered media duration. Writes always create a new archive; never replace the input. Use stable operation IDs. Render only the supported headless subset and keep unsupported effects in the editor workflow.",
     },
   );
 
@@ -154,7 +154,7 @@ export function createTimelineStudioMcpServer() {
     "timeline_project_inspect",
     {
       title: "Inspect Timeline Studio project",
-      description: "Read a portable .timeline archive's revision, duration, ratio, tracks, warnings, and media inventory before planning edits.",
+      description: "Read a portable .timeline archive's revision, duration, ratio, tracks, marker summary, warnings, and media inventory before planning edits.",
       inputSchema: { project: absolutePath },
       outputSchema: resultSchema,
       annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
@@ -217,10 +217,30 @@ export function createTimelineStudioMcpServer() {
   );
 
   server.registerTool(
+    "timeline_marker_inspect",
+    {
+      title: "Inspect Timeline Studio markers",
+      description: "Read time-ordered point markers, chapters, ranges, and review notes from a portable .timeline archive, optionally limited to one stable marker ID. Returns annotation timing, titles, notes, and colors without changing media duration.",
+      inputSchema: {
+        project: absolutePath,
+        markerId: z.string().min(1).optional().describe("Optional stable Timeline Studio marker ID"),
+      },
+      outputSchema: resultSchema,
+      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    },
+    safeHandler(async ({ project, markerId }) =>
+      runTimelineCommand("marker.inspect", [
+        requireAbsolutePath(project, "project"),
+        ...(markerId ? [markerId] : []),
+      ]),
+    ),
+  );
+
+  server.registerTool(
     "timeline_project_diff",
     {
       title: "Preview Timeline Studio edits",
-      description: "Validate a versioned operation plan against the project and return its field-level dry-run diff without writing files.",
+      description: "Validate a versioned operation plan against the project and return its field-level dry-run diff without writing files. Supports marker.add, marker.update, and marker.delete alongside the shared editing command registry.",
       inputSchema: {
         project: absolutePath,
         baseRevision: z.number().int().nonnegative(),
@@ -240,7 +260,7 @@ export function createTimelineStudioMcpServer() {
     "timeline_project_apply",
     {
       title: "Apply Timeline Studio edits",
-      description: "Apply a previously previewed, revision-checked operation plan transactionally and write a new portable .timeline archive.",
+      description: "Apply a previously previewed, revision-checked operation plan transactionally and write a new portable .timeline archive. Marker annotations use marker.add, marker.update, and marker.delete in the same guarded workflow.",
       inputSchema: {
         project: absolutePath,
         outputProject: absolutePath.describe("New .timeline archive path; existing files are never overwritten"),

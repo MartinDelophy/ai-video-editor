@@ -12,6 +12,8 @@ import { FirstVisualGuide } from "./components/FirstVisualGuide.jsx";
 import { MiganRepairDialog } from "./components/MiganRepairDialog.jsx";
 import { NanoVsrRestorationDialog } from "./components/NanoVsrRestorationDialog.jsx";
 import { SmartDenoiseDialog } from "./components/SmartDenoiseDialog.jsx";
+import { WebMcpReview } from "./components/WebMcpReview.jsx";
+import ProjectImportOverlay from "./components/ProjectImportOverlay.jsx";
 import {
   canShowFirstVisualGuide,
   FIRST_VISUAL_GUIDE_MOBILE_QUERY,
@@ -36,6 +38,8 @@ import { useAutoCaptions } from "./hooks/useAutoCaptions.js";
 import { useAutoEdit } from "./hooks/useAutoEdit.js";
 import { useAnnaEditor } from "./hooks/useAnnaEditor.js";
 import { restoreAnnaVisualMedia } from "./lib/annaEditPlan.js";
+import { useWebMcpEditor } from "./hooks/useWebMcpEditor.js";
+import { browserProjectFingerprint, restoreBrowserProjectMedia } from "./lib/browserEditPlan.js";
 import { useSourceAudioExtraction } from "./hooks/useSourceAudioExtraction.js";
 import { useVocalSeparation } from "./hooks/useVocalSeparation.js";
 import { useAvatarGeneration } from "./hooks/useAvatarGeneration.js";
@@ -69,7 +73,7 @@ import { createVisualTimelineActions } from "./lib/visualTimelineActions.js";
 import { createStickerTimelineActions } from "./lib/stickerTimelineActions.js";
 import { createAssetDropActions } from "./lib/assetDropActions.js";
 import { createEditorCommandActions } from "./lib/editorCommandActions.js";
-import { createTimelineViewModel } from "./lib/timelineViewModel.js";
+import { useTimelineViewModel } from "./lib/timelineViewModel.js";
 import { createTranslator, getStoredLanguage, translateOptionName } from "./i18n.js";
 import { decodeWaveform, downloadBlob } from "./lib/media.js";
 import { useAiMusicGeneration } from "./hooks/useAiMusicGeneration.js";
@@ -194,7 +198,12 @@ export function App() {
     status, statusText, timelineClipDrag, timelineZoom, trackLocks, trackVisibility,
     voiceFilter, voiceTab,
   } = useEditorUiState();
+  const [exportError, setExportError] = useState(null);
   const [userAssets, setUserAssets] = useState([]);
+  const [timelineMarkers, setTimelineMarkers] = useState([]);
+  const timelineMarkerEnd = useMemo(() => timelineMarkers.reduce(
+    (end, marker) => Math.max(end, marker.type === "range" ? marker.endTime : marker.time), 0,
+  ), [timelineMarkers]);
   const { notify, toast } = useToast(2600, uiLanguage || "zh");
   const [previewVideoMediaTime, setPreviewVideoMediaTime] = useState(0);
   const [sourceAudioDragTargetLane, setSourceAudioDragTargetLane] = useState(null);
@@ -214,7 +223,7 @@ export function App() {
     script, imageSrc, visualType, imageDuration, captionPlacement, selectedVoiceId, speed,
     volume, musicName, musicDuration, musicStart, musicVolume, sourceAudioName, sourceAudioDuration,
     sourceAudioStart, sourceAudioVolume, sourceAudioSpatialEffect, sourceAudioSpatialAmount, ratioId, fitMode, selectedFilterId, selectedStickerId,
-    captionSegments, visualSegments, visualOverlaySegments, visionRecords, timelineZoom,
+    captionSegments, visualSegments, visualOverlaySegments, visionRecords, timelineZoom, timelineMarkers,
   ]);
 
   const {
@@ -239,8 +248,11 @@ export function App() {
     setSelectedLibraryAssetId,
     setUserAssets,
   });
-  const { redo, undo, checkpoint: checkpointHistory } = useEditorHistory({
+  const { redo, undo, checkpoint: checkpointHistory, signature: historySignature } = useEditorHistory({
+    autoRatioSourceKeyRef,
+    timelineMarkers, setTimelineMarkers,
     audioSegments, captionPlacement, captionPosition, captionSegments, captionSize,
+    captionStylePresetId, captionStylePresets, setCaptionStylePresetId, setCaptionStylePresets,
     captionStyle, captionsEnabled, currentTime, fitMode, imageClipCount, imageDuration,
     imageMeta, imageName, imageSrc, imageUrlRefs, musicBlob, musicDuration, musicName, musicSegments, musicStart,
     musicPeaks, musicUrl, musicUrlRef, musicVolume, notify, selectedAudioSegmentId,
@@ -325,6 +337,7 @@ export function App() {
     selectedSticker, selectedStickerSegmentIndex, selectedVisualSegmentIndex, selectedVoice,
     stickerDuration, timelineDuration, visualTimeline, voiceTrackDuration,
   } = useTimelineModel({
+    timelineMarkers,
     audioSegments, captionSegments, currentTime, imageDuration, imageSrc, musicBlob,
     musicDuration, musicTimelineEnd, musicUrl, ratioId, script, selectedAudioSegmentId, selectedFilterId,
     selectedSegmentId, selectedStickerId, selectedStickerSegmentId,
@@ -1073,6 +1086,7 @@ export function App() {
   });
 
   const { startAudioSegmentMove, startMusicMove, startSourceAudioMove, startStickerSegmentMove, startStickerSegmentResize } = createTimelineMoveControls({
+    timelineMarkers, timelineDuration,
     audioSegments, captionSegments, captionTargetDuration, estimatedDuration, notify, seekTo, setActiveTool,
     setAudioSegments, setCaptionSegments, setSelectedAudioSegmentId, setSelectedStickerId,
     setSelectedStickerSegmentId, setSelectedTrack, setStickerSegments, setTimelineHorizon,
@@ -1083,6 +1097,7 @@ export function App() {
   });
 
   const startImageResize = createImageResizeControl({
+    timelineMarkers,
     audioBlob, audioDuration, captionDuration, getCurrentVisualAssetSnapshot,
     imageDuration, imageSrc, musicBlob, musicDuration, musicStart, notify, rippleTimelineAfter, script,
     setCurrentTime, setImageClipCount, setImageDuration, setSelectedTrack,
@@ -1231,9 +1246,11 @@ export function App() {
     return { ...overlay, depthAnalysis: resolveDepthAnalysisAtTime(depthRecord, sourceTime) };
   }), [currentTime, depthRecords, previewVisualOverlays]);
 
-  const { handleExportProject, handleImportProject, handleNewProject, getProjectSnapshot, createCurrentArchive, getSessionInput, captureSession, restoreSession, getProjectIntent } = useProjectFiles({
+  const { projectImportProgress, isProjectImporting, handleExportProject, handleImportProject, handleNewProject, getProjectSnapshot, createCurrentArchive, getSessionInput, captureSession, restoreSession, getProjectIntent } = useProjectFiles({
     userAssets, setUserAssets, historyItems, setHistoryItems, recordedVoices, setRecordedVoices, favoriteVoiceIds, setFavoriteVoiceIds, rippleEditing, setRippleEditing,
     sourceVoiceColorOriginalRef, visionRecords, setVisionRecords, visionObjectUrlsRef, depthRecords, setDepthRecords,
+    language: activeLanguage, pauseTimelineMedia, setIsPlaying,
+    timelineMarkers, setTimelineMarkers,
     audioBlob, audioDuration, audioSegments, captionPlacement, captionPosition, captionSegments, captionSize,
     captionStyle, captionStylePresetId, captionStylePresets, captionsEnabled, captionStyleFallback: captionStyle, clearAllVisionState,
     clearAudioTrack, clearImageTrack, clearMusicTrack, clearSourceAudioTrack, fitMode,
@@ -1258,7 +1275,7 @@ export function App() {
     playheadPercent, previewFrameStyle, previewRatio, progressPercent,
     renderedVisualSegments, renderedVisualTimeline, showStickerTrack,
     sourceAudioClipPercent, sourceAudioStartPercent,
-  } = createTimelineViewModel({
+  } = useTimelineViewModel({
     assetDragPreview, assetDropTargetTrack, audioBlob, audioDuration, captionSegments,
     captionTargetDuration, captionTimeline, currentTime, draggedAssetId, exportProgress,
     findAssetById, getCurrentVisualAssetSnapshot, imageDuration, imageSrc, musicBlob,
@@ -1284,9 +1301,9 @@ export function App() {
     captionSize, captionStyle, captionsEnabled, exporting, exportAbortControllerRef, exportStartRef, fitMode,
     imageDuration, imageSrc, musicBlob, musicDuration, musicSegments, musicStart, musicTimelineEnd, musicVolume, notify,
     previewFrameSize, ratio, renderedVisualSegments, script, selectedFilter,
-    selectedSticker, selectedTransitionId, setExporting, setExportPhase,
+    selectedSticker, selectedTransitionId, setExporting, setExportError, setExportPhase,
     setExportProgress, setStatus, setStatusText, sourceAudioBlob, sourceAudioDuration,
-    linkedSourceAudioSegments, sourceAudioLinked, sourceAudioStart, sourceAudioTimelineEnd, sourceAudioVolume, sourceAudioSpatialEffect, sourceAudioSpatialAmount, stickerDuration, stickerSegments,
+    linkedSourceAudioSegments, sourceAudioAssetId, sourceAudioLinked, sourceAudioStart, sourceAudioTimelineEnd, sourceAudioVolume, sourceAudioSpatialEffect, sourceAudioSpatialAmount, stickerDuration, stickerSegments,
     trackVisibility, visionRecords, depthRecords, visualType, voiceTrackDuration, volume, exportSettings: {
       ...exportSettings,
       ...getExportDimensions(ratio, Number(exportSettings.resolution)),
@@ -1295,6 +1312,7 @@ export function App() {
     visualOverlaySegments, t,
   });
   const { startCaptionResize, startTimelineClipDrag } = createTimelineReorderControls({
+    timelineMarkers,
     audioSegments, captionSegments, captionTargetDuration, commitCaptionSegments, commitVisualSegments,
     notify, renderedVisualSegments, seekTo, setSelectedSegmentId, setSelectedTrack,
     setSelectedVisualSegmentId, setTimelineClipDrag, suppressTimelineClipClickRef,
@@ -1306,7 +1324,7 @@ export function App() {
 
   const anna = useAnnaEditor({
     language: activeLanguage, visualSegments, rippleEditing, getProjectSnapshot,
-    getSessionInput, captureSession, restoreSession, getProjectIntent,
+    getSessionInput, captureSession, restoreSession, getProjectIntent, projectImportProgress, isProjectImporting,
     createArchive: createCurrentArchive, importProject: handleImportProject,
     hasMusic: Boolean(musicBlob), hasSourceAudio: Boolean(sourceAudioBlob),
     renderVideo: handleExportVideo, exportSettings, exporting,
@@ -1329,6 +1347,74 @@ export function App() {
       commitVisualSegments(nextVisuals, anna.t("applied"), firstChanged?.index ?? 0);
       setCurrentTime(firstChanged?.start ?? 0);
     },
+  });
+
+  // Browser agents use the live editor action and normal undo history.
+  const getBrowserRuntimeProject = () => ({
+    ...getProjectSnapshot(), visualSegments, visualOverlaySegments, audioSegments, musicSegments,
+    musicBlob, musicUrl, musicPeaks, sourceAudioBlob, sourceAudioUrl, audioBlob,
+  });
+  const applyBrowserReview = (review, message) => {
+    if (!review.hasChanges) throw Object.assign(new Error(), { code: "NO_CHANGES" });
+    const snapshot = getProjectSnapshot();
+    const runtime = getBrowserRuntimeProject();
+    if (review.fingerprint !== browserProjectFingerprint(snapshot, rippleEditing, visualSegments, runtime)) {
+      throw Object.assign(new Error(), { code: "BROWSER_EDIT_STALE_PLAN" });
+    }
+    const firstChanged = review.rows?.find((row) => row.changed);
+    const next = restoreBrowserProjectMedia(review.project, runtime, review.mediaOrigins, userAssets);
+    const nextVisuals = next.visualSegments;
+    const visualsChanged = JSON.stringify(snapshot.visualSegments) !== JSON.stringify(review.project.visualSegments);
+    checkpointHistory();
+    // Reordering existing media keeps the reviewed canvas ratio. Auto-detection
+    // remains available when the user uploads a new first source later.
+    const ratioSource = nextVisuals.find((clip) => clip.width > 0 && clip.height > 0);
+    if (ratioSource) autoRatioSourceKeyRef.current = `${ratioSource.assetId || ratioSource.id}:${ratioSource.width}x${ratioSource.height}`;
+    pauseTimelineMedia();
+    setIsPlaying(false);
+    setScript(next.script);
+    setAudioSegments(next.audioSegments);
+    setCaptionSegments(next.captionSegments);
+    setTimelineMarkers(next.timelineMarkers);
+    setCaptionsEnabled(next.captionsEnabled);
+    setVisualOverlaySegments(next.visualOverlaySegments);
+    setStickerSegments(next.stickerSegments);
+    setMusicSegments(next.musicSegments);
+    setMusicStart(next.musicStart);
+    setMusicVolume(next.musicVolume);
+    setMusicName(next.musicName || "");
+    setMusicDuration(next.musicDuration || 0);
+    if (next.musicBlob !== musicBlob) {
+      const nextMusicUrl = next.musicUrl || (next.musicBlob ? URL.createObjectURL(next.musicBlob) : "");
+      musicUrlRef.current = nextMusicUrl;
+      setMusicBlob(next.musicBlob);
+      setMusicUrl(nextMusicUrl);
+      setMusicPeaks(next.musicPeaks || []);
+    }
+    setSourceAudioStart(next.sourceAudioStart);
+    setTrackVisibility(next.trackVisibility);
+    if (visualsChanged) {
+      if (nextVisuals.length) commitVisualSegments(nextVisuals, message, firstChanged?.index ?? 0);
+      else clearImageTrack(message);
+    } else notify(message);
+    const focusTime = Number.isFinite(review.focusTime) ? review.focusTime : firstChanged?.start ?? currentTime;
+    const nextTime = Math.min(Math.max(0, focusTime), Math.max(0, review.duration));
+    currentTimeRef.current = nextTime;
+    setCurrentTime(nextTime);
+  };
+  const webMcp = useWebMcpEditor({
+    language: activeLanguage, visualSegments, visualOverlaySegments, audioSegments, musicSegments,
+    sourceAudioBlob, musicBlob, audioBlob, rippleEditing, getProjectSnapshot,
+    assets: userAssets, getRuntimeProject: getBrowserRuntimeProject,
+    currentTime, duration: exportContentDuration, historySignature,
+    createArchive: createCurrentArchive, download: downloadBlob, notify,
+    exportVideo: handleExportVideo, exportSettings, exportContentDuration, ratio, exporting,
+    applyReview: applyBrowserReview,
+    undo: () => { pauseTimelineMedia(); undo(); },
+    seek: (time) => { pauseTimelineMedia(); setIsPlaying(false); seekTo(time, { immediate: true }); },
+    isBusy: () => Boolean(isProjectImporting() || projectImportProgress || anna.job || anna.draft?.busy || anna.session?.busy || exporting || timelineClipDragRef.current || pointerAssetDragRef.current ||
+      isDragging || draggedAssetId || visualSegments.some((clip) => clip.preparing) ||
+      visualOverlaySegments.some((clip) => clip.preparing) || visionJob.running || avatarJob.running || autoEdit.job.running),
   });
 
   return (
@@ -1406,6 +1492,8 @@ export function App() {
         projectFileInputRef={projectFileInputRef}
       />
 
+      <WebMcpReview agent={webMcp} language={activeLanguage} />
+      <ProjectImportOverlay progress={projectImportProgress} language={activeLanguage} />
       <section className={`editor-grid ${compactRail ? "is-compact-rail" : ""}`}>
         <EditorSidebar model={{
           activeLanguage, activeTool, anna, analyzeCurrentVisual, analyzeEffectVisual, audioBlob, audioDuration,
@@ -1450,6 +1538,7 @@ export function App() {
           previewVisualMuted={shouldMuteEmbeddedVideoAudio(previewVisualSegment, {
             sourceAudioBlob,
             sourceAudioAssetId,
+            sourceAudioLinked,
             linkedSegments: linkedSourceAudioSegments,
           })}
           previewTransition={previewTransition}
@@ -1690,6 +1779,8 @@ export function App() {
       </section>
 
       <Timeline
+        timelineMarkers={timelineMarkers}
+        setTimelineMarkers={setTimelineMarkers}
         t={t}
         trOption={trOption}
         notify={notify}
@@ -1734,9 +1825,13 @@ export function App() {
         trackScrollRef={trackScrollRef}
         startTimelineSeek={startTimelineSeek}
         timelineDuration={timelineDuration}
-        timelineContentDuration={Math.max(estimatedDuration, timelineHorizon)}
+        timelineContentDuration={Math.max(estimatedDuration, timelineHorizon, timelineMarkerEnd)}
         setTimelineHorizon={setTimelineHorizon}
         currentTime={currentTime}
+        currentTimeRef={currentTimeRef}
+        visualPlaybackStartTimeRef={visualPlaybackStartTimeRef}
+        visualPlaybackStartedAtRef={visualPlaybackStartedAtRef}
+        playbackDuration={estimatedDuration}
         previewVideoMediaTime={previewVideoMediaTime}
         playheadPercent={playheadPercent}
         snapGuide={snapGuide}
@@ -1887,6 +1982,10 @@ export function App() {
       />
       <ExportProgressOverlay
         exporting={exporting}
+        error={exportError}
+        language={activeLanguage}
+        onClose={() => setExportError(null)}
+        onRetry={() => { if (exportError?.settings) void handleExportVideo({ settings: exportError.settings }); }}
         percent={exportPercent}
         phase={exportPhase}
         elapsedSeconds={exportElapsedSeconds}

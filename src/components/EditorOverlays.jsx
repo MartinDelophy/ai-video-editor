@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { translateRemasterPhase } from "../lib/remasterProgress.js";
 import { formatClock } from "../lib/timeline.js";
+import { EXPORT_FAILURE_COPY } from "../i18nExportFailure.js";
 
 export function AssetDragPreview({ preview, t }) {
   if (!preview) return null;
@@ -14,15 +15,35 @@ export function AssetDragPreview({ preview, t }) {
   </div>;
 }
 
-export function ExportProgressOverlay({ exporting, percent, phase, elapsedSeconds, onCancel, canceling, t }) {
-  if (!exporting) return null;
-  return <div className="export-progress-overlay" role="dialog" aria-modal="true" aria-labelledby="export-progress-title"><div className="export-progress-card">
-    <div className="export-progress-header"><span id="export-progress-title">{t("exportInProgress")}</span><strong>{percent}%</strong></div>
-    <div className="export-progress-bar" role="progressbar" aria-label={t("exportProgress")} aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent}>
-      <span style={{ width: `${percent}%` }} />
+export function ExportProgressOverlay({ exporting, error, language = "en", percent, phase, elapsedSeconds, onCancel, canceling, onClose, onRetry, t }) {
+  if (!exporting && !error) return null;
+  const failureCopy = EXPORT_FAILURE_COPY[language] || EXPORT_FAILURE_COPY.en;
+  const displayPercent = error ? error.percent : percent;
+  return <div className={`export-progress-overlay${error ? " is-failed" : ""}`} role="dialog" aria-modal="true" aria-labelledby="export-progress-title" aria-describedby={error ? "export-progress-error" : undefined} onKeyDown={(event) => {
+    event.stopPropagation();
+    if (error && event.key === "Escape") { event.preventDefault(); onClose?.(); }
+    if (error && event.key === "Tab") {
+      const buttons = event.currentTarget.querySelectorAll("button:not(:disabled)");
+      const target = event.shiftKey ? buttons[buttons.length - 1] : buttons[0];
+      const edge = event.shiftKey ? buttons[0] : buttons[buttons.length - 1];
+      if (target && (document.activeElement === edge || !event.currentTarget.contains(document.activeElement))) {
+        event.preventDefault();
+        target.focus();
+      }
+    }
+  }}><div className="export-progress-card">
+    <div className="export-progress-header"><span id="export-progress-title">{error ? failureCopy.title : t("exportInProgress")}</span><strong>{displayPercent}%</strong></div>
+    <div className="export-progress-bar" role="progressbar" aria-label={error ? failureCopy.title : t("exportProgress")} aria-valuemin={0} aria-valuemax={100} aria-valuenow={displayPercent}>
+      <span style={{ width: `${displayPercent}%` }} />
     </div>
-    <div className="export-progress-meta"><span>{phase || t("preparingExport")}</span><span>{formatClock(elapsedSeconds)}</span></div>
-    {percent < 100 ? (
+    <div className="export-progress-meta"><span>{(error ? error.phase : phase) || t("preparingExport")}</span><span>{formatClock(elapsedSeconds)}</span></div>
+    {error ? <>
+      <p id="export-progress-error" className="export-progress-error" role="alert">{error.message}</p>
+      <div className="export-progress-error-actions">
+        <button type="button" onClick={onClose}>{failureCopy.close}</button>
+        <button className="is-primary" type="button" onClick={onRetry} autoFocus>{failureCopy.retry}</button>
+      </div>
+    </> : percent < 100 ? (
       <button className="export-progress-cancel" type="button" disabled={canceling} onClick={onCancel}>
         {canceling ? t("exportCanceling") : t("exportCancel")}
       </button>

@@ -106,16 +106,19 @@ export function useTimelineModel(d) {
     d.musicDuration, d.musicStart, d.musicTimelineEnd, d.sourceAudioBlob, d.sourceAudioDuration,
     d.sourceAudioStart, d.sourceAudioTimelineEnd, stickerDuration, visualOverlayDuration,
   ]);
-  const timelineDuration = useMemo(() => estimatedDuration <= 0
-    ? DEFAULT_TIMELINE_DURATION_SECONDS
-    : Math.min(
+  // Annotations can extend the navigable ruler, never the rendered media.
+  const markerExtent = useMemo(() => (d.timelineMarkers ?? []).reduce(
+    (end, marker) => Math.max(end, marker.type === "range" ? marker.endTime : marker.time), 0,
+  ), [d.timelineMarkers]);
+  const timelineDuration = useMemo(() => Math.min(
         MAX_TIMELINE_DURATION_SECONDS,
         Math.max(
-          d.timelineHorizon,
-          getTimelineProjectDuration(estimatedDuration),
+          markerExtent > 0 ? markerExtent + Math.min(2, getTimelineVisibleDuration(d.timelineZoom) / 10) : 0,
+          estimatedDuration > 0 ? d.timelineHorizon : DEFAULT_TIMELINE_DURATION_SECONDS,
+          estimatedDuration > 0 ? getTimelineProjectDuration(estimatedDuration) : 0,
           getTimelineVisibleDuration(d.timelineZoom),
         ),
-      ), [estimatedDuration, d.timelineHorizon, d.timelineZoom]);
+      ), [estimatedDuration, d.timelineHorizon, d.timelineZoom, markerExtent]);
   d.timelineDurationRef.current = timelineDuration;
 
   const currentSegmentIndex = getSegmentIndexAtTime(

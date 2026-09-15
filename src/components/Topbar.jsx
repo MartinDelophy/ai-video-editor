@@ -15,6 +15,7 @@ import {
   Play,
   ShieldCheck,
   SlidersHorizontal,
+  XLogo,
 } from "@phosphor-icons/react";
 
 import { RATIO_OPTIONS } from "../config/editor.js";
@@ -28,6 +29,7 @@ import { IconButton, Popover } from "./ui.jsx";
 const COMMUNITY_LINKS = Object.freeze({
   discord: "https://discord.gg/uq2uvUTBr",
   github: "https://github.com/MartinDelophy/ai-video-editor",
+  x: "https://x.com/marindeloph",
 });
 
 export function Topbar({
@@ -76,6 +78,8 @@ export function Topbar({
   const [modelCacheInspection, setModelCacheInspection] = useState({ state: "idle", result: null });
   const shortcutModifier = getPrimaryShortcutModifier();
   const shortcutRows = [
+    ["markersAdd", "M"],
+    ["markersTitle", "Shift+M"],
     ["shortcutPlayPause", "Space"],
     ["shortcutSplit", `${shortcutModifier}+B`],
     ["shortcutDuplicate", `${shortcutModifier}+D`],
@@ -235,6 +239,15 @@ export function Topbar({
           >
             <GithubLogo size={19} weight="fill" aria-hidden="true" />
           </a>
+          <a
+            href={COMMUNITY_LINKS.x}
+            target="_blank"
+            rel="noreferrer"
+            aria-label={t("xProfile", "X 个人主页")}
+            title={t("xProfile", "X 个人主页")}
+          >
+            <XLogo size={19} weight="fill" aria-hidden="true" />
+          </a>
         </nav>
         <button className="preview-button" type="button" title={`${t("shortcutPlayPause")} · Space`} onClick={(event) => { handlePlayToggle(); releasePointerActivatedFocus(event); }}>
           {isPlaying ? <Pause size={16} weight="fill" /> : <Play size={16} weight="fill" />}
@@ -249,7 +262,7 @@ export function Topbar({
             onClick={() => setShowExportMenu((open) => !open)}
           >
             <FileArrowDown size={17} weight="bold" />
-            {exporting ? t("exporting") : t("exportVideo")}
+            {exporting ? t("exporting") : t(exportSettings.mediaType === "audio" ? "audioExportTitle" : "exportVideo")}
             {!exporting ? <CaretDown size={13} weight="bold" /> : null}
           </button>
           {showExportMenu ? (

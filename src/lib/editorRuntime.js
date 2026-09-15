@@ -1,5 +1,5 @@
 import { RATIO_OPTIONS } from "../config/editor.js";
-import { applyAudioSpatialEffect, createAudioSpatialGraph } from "./audioSpatialEffects.js";
+import { applyAudioSpatialEffect, createAudioSpatialGraph, normalizeAudioSpatialAmount, normalizeAudioSpatialEffect } from "./audioSpatialEffects.js";
 import {
   BufferTarget,
   CanvasSource,
@@ -7,8 +7,8 @@ import {
   WebMOutputFormat,
 } from "mediabunny";
 
-// Update on each ordinary display frame so the visible playhead stays attached
-// to the media clock. The previous 80 ms cadence visibly lagged behind video.
+// Preserve display-frame updates for preview effects and keyframes. The
+// timeline playhead paints independently through useTimelinePlayhead.
 export const PLAYBACK_UI_FRAME_MS = 15;
 export const DEFAULT_VISION_OPTIONS = Object.freeze({ removeBackground: false });
 export const EMPTY_VISION_OPTIONS = Object.freeze({ removeBackground: false });
@@ -18,6 +18,7 @@ export function shouldCorrectPreviewMediaTime({ isPlaying, currentTime, targetTi
 }
 
 export function getAudioSegmentPreviewVolume(segment, timelineTime) {
+  if (segment.muted === true) return 0;
   const volume = Math.max(0, Math.min(4, segment.volume ?? 1));
   const localTime = Math.max(0, Math.min(segment.duration, timelineTime - segment.start));
   const fadeIn = Math.max(0, Math.min(segment.duration, segment.fadeIn || 0));
@@ -25,6 +26,11 @@ export function getAudioSegmentPreviewVolume(segment, timelineTime) {
   const fadeInGain = fadeIn > 0 ? Math.min(1, localTime / fadeIn) : 1;
   const fadeOutGain = fadeOut > 0 ? Math.min(1, (segment.duration - localTime) / fadeOut) : 1;
   return volume * Math.max(0, Math.min(fadeInGain, fadeOutGain));
+}
+
+export function isAudioSegmentAudible(segment) {
+  // A fade starting at zero still needs its media clock running.
+  return segment.muted !== true && Number(segment.volume ?? 1) > 0;
 }
 
 let timelineAudioContext = null;
@@ -41,9 +47,9 @@ export function setTimelineAudioGain(media, value, spatialEffect = "original", s
       if (timelineAudioContext) {
         const source = timelineAudioContext.createMediaElementSource(media);
         const gain = timelineAudioContext.createGain();
-        const spatialGraph = createAudioSpatialGraph(timelineAudioContext, source, gain);
+        source.connect(gain);
         gain.connect(timelineAudioContext.destination);
-        entry = { context: timelineAudioContext, gain, spatialGraph };
+        entry = { context: timelineAudioContext, source, gain, spatialGraph: null };
         timelineAudioGainNodes.set(media, entry);
       }
     } catch {
@@ -51,11 +57,22 @@ export function setTimelineAudioGain(media, value, spatialEffect = "original", s
     }
   }
   if (entry) {
-    media.volume = 1;
-    entry.gain.gain.value = gainValue;
-    applyAudioSpatialEffect(entry.spatialGraph, spatialEffect, spatialAmount);
+    if (media.volume !== 1) media.volume = 1;
+    if (entry.gainValue !== gainValue) {
+      entry.gain.gain.value = gainValue;
+      entry.gainValue = gainValue;
+    }
+    // Original audio needs only the source and gain nodes. Allocate the six
+    // spatial-processing nodes when this clip actually uses a space effect.
+    if (!entry.spatialGraph && normalizeAudioSpatialEffect(spatialEffect) !== "original" && normalizeAudioSpatialAmount(spatialAmount) > 0) {
+      entry.source.disconnect(entry.gain);
+      entry.spatialGraph = createAudioSpatialGraph(entry.context, entry.source, entry.gain);
+      applyAudioSpatialEffect(entry.spatialGraph, "original", 1, { smooth: false });
+    }
+    if (entry.spatialGraph) applyAudioSpatialEffect(entry.spatialGraph, spatialEffect, spatialAmount);
   } else {
-    media.volume = Math.min(1, gainValue);
+    const nativeVolume = Math.min(1, gainValue);
+    if (media.volume !== nativeVolume) media.volume = nativeVolume;
   }
 }
 

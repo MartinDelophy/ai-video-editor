@@ -20,10 +20,10 @@ Người dùng tự chịu mọi trách nhiệm pháp lý phát sinh từ việc
 ## Cập nhật dự án
 
 - **15 tháng 9, 2026 — Khôi phục phiên Anna trong trình duyệt:** dự án và nội dung đa phương tiện được lưu trong IndexedDB cục bộ để khôi phục bằng cùng trình duyệt và tài khoản Anna; KV có phạm vi chỉ lưu một không gian tên ngẫu nhiên, không đồng bộ giữa thiết bị. Trạng thái đã lưu chỉ xuất hiện sau khi giao dịch hoàn tất; lỗi và xung đột giữ nguyên công việc hiện có. Xóa dữ liệu trình duyệt hoặc lưu chưa xong có thể ngăn khôi phục. Anna cũng giữ kích thước cửa sổ do người dùng tự chỉnh và tiếp tục điều chỉnh bố cục bên trong trình biên tập theo không gian.
-- **14 tháng 9, 2026 — Sửa lỗi tải mô hình:** cấu hình kết nối của Anna bổ sung CDN phân phối tệp mô hình ModelScope và giữ lại phản hồi tải xuống thành công khi việc lưu bộ nhớ đệm tùy chọn thất bại.
-- **11 tháng 9, 2026 — Thích ứng với cửa sổ máy tính và cửa sổ nhúng:** cửa sổ có chiều cao thấp vẫn hiển thị các điều khiển xem trước và dòng thời gian, đồng thời giữ nguyên kích thước bảng và kiểu chữ của giao diện máy tính thông thường.
-- **3 tháng 9, 2026 — Giao diện tiếng Ý và tiếng Indonesia:** Timeline Studio hiện hỗ trợ 13 ngôn ngữ giao diện. Cả hai có từ điển trình chỉnh sửa và thông báo khi chạy đầy đủ, thuật ngữ đã rà soát cho phụ đề, dòng thời gian, Smart Frame, Nhạc AI, thiết kế vector và plugin tạo nội dung, cùng phông chữ và nhận dạng Whisper tương ứng.
-- **1 tháng 9, 2026 — Video sẵn sàng nhanh mà vẫn đồng bộ:** nhập cục bộ và trực tuyến chỉ chờ một nhóm nhỏ khung hình hạt giống có PTS thật, điều chỉnh theo thiết bị, thay vì bị chặn bởi 120–240 hình thu nhỏ. Sau đó các khung hình chính xác ưu tiên hoàn thiện vùng đang thấy rồi tiếp tục ngoài màn hình theo thứ tự chia đôi tại trung điểm. Mỗi hình thu nhỏ dùng khung hình cuối cùng trước thời gian nguồn yêu cầu, ô đầu phát theo bản xem trước trực tiếp và cập nhật nền tạm dừng khi tua.
+- **2026-09-15 — Xuất âm thanh đã chỉnh sửa:** khi xuất clip âm thanh, bản xuất dùng đúng phần đã cắt và áp dụng tốc độ phát, âm lượng, hiệu ứng tăng/giảm âm cùng hiệu ứng không gian. Có thể xuất từng clip hoặc bản trộn của toàn bộ dòng thời gian sang WAV hay MP3. Tùy chọn chỉ xuất âm thanh được bổ sung bên cạnh xuất video.
+- **2026-09-14 — Sửa lỗi xuất và hỗ trợ thử lại:** các clip có nền màu đồng nhất và khung hình chính điều chỉnh độ mờ đục nay xuất đúng ngay cả khi không có mặt nạ người. Khi xuất thất bại, thông báo lỗi vẫn hiển thị và có thể thử lại với cùng cài đặt. cấu hình kết nối của Anna bổ sung CDN phân phối tệp mô hình ModelScope và giữ lại phản hồi tải xuống thành công khi việc lưu bộ nhớ đệm tùy chọn thất bại.
+- **2026-09-14 — Cải thiện hiệu năng dự án lớn:** nhập dự án giảm tải cho luồng chính. Bộ nhớ đệm tính toán làn âm thanh, cách vẽ dạng sóng nhẹ hơn và ít thao tác tua âm thanh không cần thiết giúp giảm tải khi kéo đầu phát và phát video. Toàn bộ phương tiện, thời điểm clip, công cụ chỉnh sửa, hiệu ứng và cách xuất vẫn được giữ nguyên. Quá trình nhập hiển thị tiến độ thực tế và cho phép chỉnh sửa ngay sau khi khôi phục phương tiện; hình thu nhỏ tiếp tục được hoàn thiện trong nền.
+- **11 tháng 9, 2026 — Biên tập và xuất video qua WebMCP:** 15 công cụ trình duyệt hỗ trợ xem xét chỉnh sửa phụ đề, âm lượng và hiệu ứng tăng/giảm âm, dấu mốc, chia/xóa/nhân bản clip chính, tìm và chèn tư liệu có sẵn cùng hình trong hình. Tác nhân có thể chuẩn bị thiết lập xuất, chạy bộ xuất thực của trình biên tập, xem tiến độ và thông tin tệp kết quả hoặc hủy. Các thao tác kết hợp giữ nguyên kiểm tra xung đột, dịch chuyển clip theo chỉnh sửa, khóa rãnh và hoàn tác; thử lại không gây tải xuống trùng lặp. Công cụ và màn hình xem xét được dịch đủ 13 ngôn ngữ giao diện.
 
 Xem [Roadmap](ROADMAP.md) cho công việc dự kiến, [Releases](https://github.com/MartinDelophy/ai-video-editor/releases) cho thay đổi đã phát hành và [Issues](https://github.com/MartinDelophy/ai-video-editor/issues) cho nhiệm vụ và lỗi.
 
@@ -77,12 +77,12 @@ gh skill install MartinDelophy/ai-video-editor edit-timeline-studio --agent clau
 gh skill install MartinDelophy/ai-video-editor edit-timeline-studio --agent codex --scope user
 ```
 
-Thêm `--pin v1.0.0` để cài bản phát hành đã được kiểm chứng thay vì luôn theo bản mới nhất. Có thể xem trước nội dung bằng `gh skill preview MartinDelophy/ai-video-editor edit-timeline-studio`.
+Thêm `--pin v1.0.8` để cài bản phát hành đã được kiểm chứng thay vì luôn theo bản mới nhất. Có thể xem trước nội dung bằng `gh skill preview MartinDelophy/ai-video-editor edit-timeline-studio`.
 
 ## Lộ trình
 
 - **Hiện tại:** củng cố quy trình xuất ngoại tuyến xác định, tăng độ tin cậy của dòng thời gian và mở rộng kiểm thử đầu-cuối trong trình duyệt.
-- **Tiếp theo:** phát hành trình chạy lệnh headless có phiên bản cho chỉnh sửa bằng tác nhân và giúp chia sẻ mẫu dự án tái sử dụng dễ dàng hơn.
+- **Tiếp theo:** mở rộng tính tương đương giữa kết xuất headless và trình duyệt, các lệnh WebMCP có thể xem xét và việc chia sẻ mẫu dự án.
 - **Sau này:** bổ sung quy trình đánh giá cộng tác, giao diện tiện ích mở rộng và thêm các mô hình AI được xác minh cục bộ.
 
 Các ưu tiên được thảo luận tại [GitHub Discussions](https://github.com/MartinDelophy/ai-video-editor/discussions).

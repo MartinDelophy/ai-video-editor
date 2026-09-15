@@ -2,7 +2,7 @@ const DATABASE_NAME = "timeline-studio-anna-sessions";
 const DATABASE_VERSION = 1;
 const STORE_NAME = "sessions";
 const SCOPE_PATTERN = /^[a-zA-Z0-9_-]{16,100}$/;
-const ERROR_CODES = new Set(["blocked", "unsupported", "quota", "read", "write", "invalid", "conflict"]);
+const ERROR_CODES = new Set(["blocked", "unsupported", "quota", "read", "write", "invalid", "conflict", "auth", "network", "permission"]);
 
 function sessionError(code, cause) {
   return Object.assign(new Error(`Anna session storage: ${code}`), { sessionCode: code, cause });
@@ -10,6 +10,11 @@ function sessionError(code, cause) {
 
 export function getAnnaSessionErrorCode(error, fallback = "read") {
   if (ERROR_CODES.has(error?.sessionCode)) return error.sessionCode;
+  const hostCode = {
+    auth_required: "auth", permission_denied: "permission", network_error: "network",
+    timeout: "network", quota_exceeded: "quota", storage_full: "quota", conflict: "conflict",
+  };
+  if (Object.hasOwn(hostCode, error?.code)) return hostCode[error.code];
   if (error?.name === "QuotaExceededError") return "quota";
   if (["SecurityError", "NotSupportedError", "InvalidStateError", "VersionError"].includes(error?.name)) return "unsupported";
   if (["DataCloneError", "DataError"].includes(error?.name)) return "invalid";

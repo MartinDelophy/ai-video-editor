@@ -1,11 +1,12 @@
 /** Anna-only host adapter. Contracts: @anna-ai/app-runtime 0.16.1 and
  * https://anna.partners/developers/reference/host-api-{llm,files,storage}.md
  * No SDK import, host discovery, media transfer, or LLM call happens on the
- * ordinary build. Cloud file operations require an explicit UI action.
+ * ordinary build. Cloud file operations run only for user-authorized features.
  */
 export const isAnnaEdition = import.meta.env?.VITE_ANNA_EDITION === "true";
 
 const PROJECT_KEY = "timeline-studio/latest-project";
+const CLOUD_SESSION_KEY = "timeline-studio/cloud-session-v1";
 const FILE_PREFIX = "timeline-studio/";
 const PLAN_VERSION = 1;
 const listeners = new Set();
@@ -296,7 +297,7 @@ export function validateAnnaFileDescriptor(file, { kind } = {}) {
   const path = validatePath(file?.path);
   const parts = path.split("/");
   const fileKind = parts[1];
-  if (parts.length !== 4 || !["projects", "exports"].includes(fileKind) || (kind && fileKind !== kind)
+  if (parts.length !== 4 || !["projects", "exports", "sessions"].includes(fileKind) || (kind && fileKind !== kind)
     || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(parts[2])
     || !Number.isSafeInteger(file?.size) || file.size <= 0
     || !isValidEtag(file?.etag) || (file.schemaVersion != null && file.schemaVersion !== 1)) throw new AnnaRuntimeError("invalid_file");
@@ -367,7 +368,7 @@ async function transferFile(url, options, { signal, timeoutMs = 300000, expected
   }
 }
 
-/** Uploads bytes only when explicitly invoked by a user action. */
+/** Uploads bytes for an explicitly invoked or user-enabled cloud feature. */
 export async function uploadAnnaFile({ blob, path: requestedPath, name, signal } = {}) {
   requireEdition();
   if (!(blob instanceof Blob) || !blob.size) throw new AnnaRuntimeError("invalid_file");
@@ -397,7 +398,7 @@ export async function uploadAnnaFile({ blob, path: requestedPath, name, signal }
 }
 
 export async function storeAnnaFile({ blob, name, kind = "exports", signal } = {}) {
-  if (!["exports", "projects"].includes(kind)) throw new AnnaRuntimeError("invalid_file");
+  if (!["exports", "projects", "sessions"].includes(kind)) throw new AnnaRuntimeError("invalid_file");
   const filename = safeFilename(name, kind === "projects" ? "project.timeline" : "video.mp4");
   return uploadAnnaFile({ blob, name: filename, path: `${FILE_PREFIX}${kind}/${crypto.randomUUID()}/${filename}`, signal });
 }
@@ -564,6 +565,30 @@ async function readProjectPointer(signal) {
     if (error?.code === "not_found") return null;
     throw error;
   }
+}
+
+/** Separate from manual project archives and browser-local session namespaces.
+ * These narrow wrappers cannot select another KV scope or project key.
+ */
+export async function readAnnaCloudSessionPointer() {
+  let stored;
+  try { stored = await hostCall("storage", "get", { key: CLOUD_SESSION_KEY, scope: "app" }); }
+  catch (error) { if (error?.code === "not_found") return null; throw error; }
+  if (!stored || typeof stored !== "object") throw new AnnaRuntimeError("invalid_storage_response");
+  if (stored.exists === false) return null;
+  if (!Object.hasOwn(stored, "value") || !isValidEtag(stored.etag)) throw new AnnaRuntimeError("invalid_storage_response");
+  return { value: stored.value, etag: stored.etag };
+}
+
+export async function writeAnnaCloudSessionPointer({ value, ifMatch } = {}) {
+  if (!value || typeof value !== "object" || Array.isArray(value)
+    || (ifMatch !== undefined && !isValidEtag(ifMatch))) throw new AnnaRuntimeError("invalid_storage_response");
+  const stored = await hostCall("storage", "set", {
+    key: CLOUD_SESSION_KEY, scope: "app", value,
+    ...(ifMatch === undefined ? {} : { if_match: ifMatch }),
+  });
+  if (!isValidEtag(stored?.etag)) throw new AnnaRuntimeError("invalid_storage_response");
+  return { etag: stored.etag };
 }
 
 /** Only an opaque namespace enters account-scoped host KV. Project media stays local.

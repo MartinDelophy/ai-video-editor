@@ -21,6 +21,11 @@
   max-width: 100%;
 }
 
+.project-cluster:has(.anna-session-status) > div {
+  flex: 1;
+  min-width: 0;
+}
+
 .anna-session-status__icon,
 .anna-session-status__action > svg {
   flex: 0 0 auto;
@@ -102,12 +107,31 @@
   white-space: nowrap;
 }
 
+.anna-session-status__migration {
+  min-width: 0;
+  max-width: 100%;
+  color: #edbf82;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
 .anna-session-status__icon.is-spinning {
   animation: anna-session-status-spin 1s linear infinite;
 }
 
 @keyframes anna-session-status-spin {
   to { transform: rotate(360deg); }
+}
+
+@media (min-width: 761px) {
+  .app-shell:has(.anna-session-status) {
+    grid-template-rows: minmax(52px, max-content) minmax(0, 1fr) var(--timeline-panel-height);
+  }
+
+  .topbar:has(.anna-session-status) {
+    padding-block: 6px;
+  }
 }
 
 @media (max-width: 760px) {

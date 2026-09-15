@@ -15,7 +15,6 @@ import {
   Play,
   ShieldCheck,
   SlidersHorizontal,
-  XLogo,
 } from "@phosphor-icons/react";
 
 import { RATIO_OPTIONS } from "../config/editor.js";
@@ -29,7 +28,6 @@ import { IconButton, Popover } from "./ui.jsx";
 const COMMUNITY_LINKS = Object.freeze({
   discord: "https://discord.gg/uq2uvUTBr",
   github: "https://github.com/MartinDelophy/ai-video-editor",
-  x: "https://x.com/marindeloph",
 });
 
 export function Topbar({
@@ -238,15 +236,6 @@ export function Topbar({
             title={t("githubRepository", "GitHub 仓库")}
           >
             <GithubLogo size={19} weight="fill" aria-hidden="true" />
-          </a>
-          <a
-            href={COMMUNITY_LINKS.x}
-            target="_blank"
-            rel="noreferrer"
-            aria-label={t("xProfile", "X 个人主页")}
-            title={t("xProfile", "X 个人主页")}
-          >
-            <XLogo size={19} weight="fill" aria-hidden="true" />
           </a>
         </nav>
         <button className="preview-button" type="button" title={`${t("shortcutPlayPause")} · Space`} onClick={(event) => { handlePlayToggle(); releasePointerActivatedFocus(event); }}>

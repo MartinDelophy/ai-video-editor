@@ -34,15 +34,23 @@ export function AnnaAutosaveStatus({ session, language }) {
   const { state } = session;
   const status = Object.hasOwn(STATUS_ICONS, state.status) ? state.status : "waiting";
   const copy = getAnnaSessionCopy(language);
+  const storage = state.storage === "cloud" ? "cloud" : "local";
+  const statusCopy = storage === "cloud" ? copy.cloud : copy;
   const StatusIcon = STATUS_ICONS[status];
   const busy = status === "checking" || status === "restoring" || status === "saving";
   const time = status === "saved" ? savedTime(state.savedAt) : "";
-  const description = `${copy[status]}${time ? ` · ${time}` : ""}\n${copy.scope}`;
+  const errorReason = status === "error" && Object.hasOwn(statusCopy.errorReasons, state.errorCode)
+    ? statusCopy.errorReasons[state.errorCode]
+    : "";
+  const label = errorReason || statusCopy[status];
+  const migrationWarning = state.migrationErrorCode ? copy.cloud.migrationWarning : "";
+  const description = `${statusCopy[status]}${time ? ` · ${time}` : ""}${errorReason ? `\n${errorReason}` : ""}\n${statusCopy.scope}${migrationWarning ? `\n${migrationWarning}` : ""}`;
 
   return (
     <div
       className="anna-session-status"
       data-state={status}
+      data-storage={storage}
       role="status"
       aria-live="polite"
       aria-atomic="true"
@@ -55,10 +63,15 @@ export function AnnaAutosaveStatus({ session, language }) {
           weight={status === "saved" ? "fill" : "regular"}
           aria-hidden="true"
         />
-        <span className="anna-session-status__label">{copy[status]}</span>
+        <span className="anna-session-status__label">{label}</span>
         {time ? <time className="anna-session-status__time" dateTime={state.savedAt}>{time}</time> : null}
       </span>
-      <span className="anna-session-status__scope">{copy.scope}</span>
+      <span className="anna-session-status__scope">{statusCopy.scope}</span>
+      {migrationWarning ? (
+        <span className="anna-session-status__migration" style={{ flexBasis: "100%" }} role="note">
+          {migrationWarning}
+        </span>
+      ) : null}
       {status === "error" ? (
         <button
           type="button"

@@ -24,11 +24,11 @@ Users are solely responsible for any legal liability arising from violations of 
 
 ## Project updates
 
+- **2026-09-15 — Edited audio export:** exporting an audio clip now renders its trimmed range with playback speed, volume, fades and space effects applied. Clips and the complete timeline mix can be exported as WAV or MP3; audio-only export is available alongside video export.
 - **2026-09-14 — Export reliability:** clips with solid-color backgrounds and opacity keyframes now export correctly without a person mask. Failed exports keep the error visible and can be retried with the same settings.
 - **2026-09-14 — Large-project performance:** project import reduces main-thread work, while cached audio-lane calculations, compact waveform rendering and fewer audio seeks make scrubbing and playback lighter. Media, clip timing, editing controls, effects and export behavior are preserved. Import shows real progress and opens the editor once media is restored; thumbnails continue refining in the background.
 - **September 12, 2026 — Best AI Tool badge:** the first-run language chooser now shows the Best AI Tool badge beside the Timeline Studio brand. The layout adapts to desktop and mobile, and the badge opens the external site in a new tab.
 - **September 11, 2026 — WebMCP editing and video delivery:** 15 browser tools now cover reviewed caption changes, audio volume and fades, markers, main-visual splitting/deletion/duplication, existing-asset discovery and insertion, and picture-in-picture. Agents can prepare export settings, start the real editor exporter, inspect progress and actual output metadata, or cancel. Multi-operation edits retain conflict checks, ripple behavior, track locks and undo; repeated export requests do not trigger duplicate downloads. Tool and review copy covers all 13 interface languages.
-- **September 10, 2026 — WebMCP for the live editor:** supported browsers can expose the open project to agents for structured inspection, preview seeking, and reviewed visual reorder/trim plans. The browser adapter reuses the shared command engine, checks for concurrent edits before applying, and preserves editor undo. Agent discovery and integration documentation are included; the root URL still opens directly into the editor.
 
 See the public [Roadmap](ROADMAP.md) for planned work, [Releases](https://github.com/MartinDelophy/ai-video-editor/releases) for shipped changes, and [Issues](https://github.com/MartinDelophy/ai-video-editor/issues) for focused tasks and bugs.
 

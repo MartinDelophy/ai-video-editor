@@ -32,12 +32,13 @@ import {
 } from "./timeline.js";
 import { resolveVisionAnalysisAtTime } from "./vision.js";
 import { getVisualSourceTime } from "./visualEffects.js";
-import { createPitchPreservedAudioBuffer } from "./pitchPreservingTimeStretch.js";
 import { getVectorRenderSource } from "./vectorDesign.js";
 import { hasSubjectEffect } from "./subjectEffects.js";
 import { getGeneratedMediaTags } from "./generatedMediaMetadata.js";
 import { resolveDepthAnalysisAtTime } from "./depthOfField.js";
-import { connectAudioSpatialEffect } from "./audioSpatialEffects.js";
+import { mixOfflineAudio } from "./audioExport.js";
+
+export { mixOfflineAudio } from "./audioExport.js";
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 let aacFallbackRegistered = false;
@@ -71,116 +72,6 @@ export function getOfflineVisualOverlaysAtTime(segments = [], time = 0) {
   return segments
     .filter((segment) => time >= segment.start && time < segment.start + segment.duration)
     .sort((left, right) => (left.layer || 1) - (right.layer || 1));
-}
-
-async function decodeAudioInputs(inputs) {
-  if (!inputs.length) return [];
-  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-  if (!AudioContextClass) throw new Error("当前浏览器不支持音频解码。");
-  const context = new AudioContextClass();
-  const cache = new Map();
-  try {
-    return await Promise.all(inputs.map(async (input) => {
-      if (!cache.has(input.blob)) {
-        cache.set(input.blob, input.blob.arrayBuffer().then((data) => context.decodeAudioData(data.slice(0))));
-      }
-      return { ...input, decoded: await cache.get(input.blob) };
-    }));
-  } finally {
-    await context.close().catch(() => {});
-  }
-}
-
-export async function mixOfflineAudio({
-  duration,
-  voiceAudioSegments = [],
-  sourceAudioBlob = null,
-  sourceAudioSegments = [],
-  sourceAudioVolume = 1,
-  sourceAudioSpatialEffect = "original",
-  sourceAudioSpatialAmount = 1,
-  sourceAudioStart = 0,
-  musicBlob = null,
-  musicVolume = 0.35,
-  musicStart = 0,
-  musicSegments = [],
-  timelineOffset = 0,
-}) {
-  const inputs = [
-    ...voiceAudioSegments.filter((item) => item.blob).map((item) => ({
-      blob: item.blob, start: Math.max(0, item.start || 0), volume: item.muted === true ? 0 : item.volume ?? 1,
-      sourceOffset: Math.max(0, item.sourceStart || 0), sourceDuration: Math.max(0, item.sourceDuration || (item.duration || 0) * (Number(item.playbackRate) || 1)), playbackRate: clamp(Number(item.playbackRate) || 1, 0.25, 4),
-      fadeIn: Math.max(0, item.fadeIn || 0), fadeOut: Math.max(0, item.fadeOut || 0),
-      spatialEffect: item.spatialEffect, spatialAmount: item.spatialAmount,
-    })),
-    ...(sourceAudioBlob && sourceAudioSegments.length ? sourceAudioSegments.map((item) => ({
-      blob: sourceAudioBlob, start: Math.max(0, item.start || 0), volume: sourceAudioVolume,
-      sourceOffset: Math.max(0, item.sourceStart || 0), sourceDuration: Math.max(0, item.sourceDuration || 0),
-      playbackRate: clamp(Number(item.playbackRate) || 1, 0.25, 4), fadeIn: 0, fadeOut: 0,
-      spatialEffect: sourceAudioSpatialEffect, spatialAmount: sourceAudioSpatialAmount,
-    })) : sourceAudioBlob ? [{ blob: sourceAudioBlob, start: Math.max(0, sourceAudioStart), volume: sourceAudioVolume, sourceOffset: 0, sourceDuration: 0, playbackRate: 1, fadeIn: 0, fadeOut: 0, spatialEffect: sourceAudioSpatialEffect, spatialAmount: sourceAudioSpatialAmount }] : []),
-    ...(musicBlob ? (musicSegments.length ? musicSegments.map((item) => ({
-      blob: musicBlob, start: Math.max(0, item.start || 0), volume: item.muted === true ? 0 : item.volume ?? musicVolume,
-      sourceOffset: Math.max(0, item.sourceStart || 0), sourceDuration: Math.max(0, item.sourceDuration || (item.duration || 0) * (Number(item.playbackRate) || 1)),
-      playbackRate: clamp(Number(item.playbackRate) || 1, 0.25, 4), fadeIn: Math.max(0, item.fadeIn || 0), fadeOut: Math.max(0, item.fadeOut || 0),
-      spatialEffect: item.spatialEffect, spatialAmount: item.spatialAmount,
-    })) : [{ blob: musicBlob, start: Math.max(0, musicStart), volume: musicVolume, sourceOffset: 0, sourceDuration: 0, playbackRate: 1, fadeIn: 0, fadeOut: 0 }]) : []),
-  ];
-  if (!inputs.length) return null;
-  const decoded = await decodeAudioInputs(inputs);
-  const sampleRate = 48_000;
-  const OfflineContextClass = window.OfflineAudioContext || window.webkitOfflineAudioContext;
-  if (!OfflineContextClass) throw new Error("当前浏览器不支持离线音频混合。");
-  const context = new OfflineContextClass(2, Math.ceil(Math.max(0.01, duration) * sampleRate), sampleRate);
-  const rangeStart = Math.max(0, Number(timelineOffset) || 0);
-  const rangeEnd = rangeStart + Math.max(0.01, duration);
-  decoded.forEach((input) => {
-    const playbackRate = clamp(Number(input.playbackRate) || 1, 0.25, 4);
-    const originalOffset = Math.min(input.decoded.duration, input.sourceOffset);
-    const available = Math.max(0, input.decoded.duration - originalOffset);
-    const originalSourceDuration = Math.min(available, input.sourceDuration || available);
-    const originalOutputDuration = originalSourceDuration / playbackRate;
-    const visibleStart = Math.max(input.start, rangeStart);
-    const visibleEnd = Math.min(input.start + originalOutputDuration, rangeEnd);
-    if (visibleEnd <= visibleStart) return;
-    const trimOutput = visibleStart - input.start;
-    const outputDuration = visibleEnd - visibleStart;
-    const offset = originalOffset + trimOutput * playbackRate;
-    const sourceDuration = Math.min(input.decoded.duration - offset, outputDuration * playbackRate);
-    if (!(sourceDuration > 0)) return;
-    const source = context.createBufferSource();
-    const gain = context.createGain();
-    const preservePitch = Math.abs(playbackRate - 1) > 0.0001;
-    source.buffer = preservePitch
-      ? createPitchPreservedAudioBuffer(context, input.decoded, {
-          sourceOffset: offset,
-          sourceDuration,
-          playbackRate,
-        })
-      : input.decoded;
-    source.playbackRate.value = 1;
-    const outputStart = visibleStart - rangeStart;
-    const fadeInRemaining = Math.max(0, input.fadeIn - trimOutput);
-    const originalOutputEnd = input.start + originalOutputDuration;
-    const fadeOutStart = originalOutputEnd - input.fadeOut;
-    gain.gain.setValueAtTime(input.volume, outputStart);
-    if (fadeInRemaining > 0) {
-      gain.gain.setValueAtTime(input.volume * clamp(trimOutput / input.fadeIn, 0, 1), outputStart);
-      gain.gain.linearRampToValueAtTime(input.volume, outputStart + Math.min(fadeInRemaining, outputDuration));
-    }
-    if (input.fadeOut > 0 && visibleEnd > fadeOutStart) {
-      const localFadeStart = Math.max(outputStart, fadeOutStart - rangeStart);
-      gain.gain.setValueAtTime(input.volume, localFadeStart);
-      gain.gain.linearRampToValueAtTime(
-        input.volume * clamp((originalOutputEnd - visibleEnd) / input.fadeOut, 0, 1),
-        outputStart + outputDuration,
-      );
-    }
-    source.connect(gain);
-    connectAudioSpatialEffect(context, gain, context.destination, input.spatialEffect, input.spatialAmount, { smooth: false });
-    source.start(outputStart, preservePitch ? 0 : offset, preservePitch ? outputDuration : sourceDuration);
-  });
-  return context.startRendering();
 }
 
 async function prepareComposition(options) {

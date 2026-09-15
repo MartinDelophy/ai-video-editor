@@ -545,9 +545,17 @@ button:disabled {
 .export-settings-heading > span { border: 1px solid rgba(69,245,228,.22); border-radius: 5px; padding: 3px 7px; color: #45e8d8; background: rgba(69,245,228,.08); font-size: 10px; font-weight: 750; }
 .export-setting-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .export-setting-field { display: grid; gap: 7px; color: #aebbc3; font-size: 12px; }
+.export-setting-field > span:not(.export-select-control) { -webkit-user-select: none; user-select: none; }
 .export-setting-field select, .export-setting-field input { width: 100%; height: 36px; border: 1px solid rgba(255,255,255,.1); border-radius: 7px; padding: 0 10px; color: #eaf5f6; outline: 0; background: #20252d; }
 .export-setting-field select:focus, .export-setting-field input:focus { border-color: rgba(69,245,228,.48); }
 .export-setting-field select:disabled { color: #657078; background: #171b21; cursor: not-allowed; }
+.export-select-control { position: relative; display: block; min-width: 0; }
+.export-select-control select { -webkit-appearance: none; appearance: none; padding-right: 38px; }
+.export-select-control select:is(:focus, :focus-visible) { border-color: rgba(69,245,228,.7); outline: 1px solid rgba(69,245,228,.7); outline-offset: -1px; box-shadow: none; }
+.export-select-control > svg { position: absolute; top: 50%; right: 12px; width: 14px; height: 14px; color: #aebbc3; pointer-events: none; transform: translateY(-50%); }
+.export-select-control select:not(:disabled):hover + svg { color: #eaf5f6; }
+.export-select-control select:focus-visible + svg { color: #35ead9; }
+.export-select-control select:disabled + svg { color: #657078; }
 .export-technical-summary { display: flex; flex-wrap: wrap; gap: 5px; }
 .export-technical-summary span { padding: 4px 7px; border: 1px solid rgba(69,245,228,.12); border-radius: 5px; color: #9fb7b7; background: rgba(69,245,228,.045); font-size: 10px; font-variant-numeric: tabular-nums; }
 .export-settings-note { padding: 9px 10px; border-radius: 7px; background: rgba(255,255,255,.035); }
@@ -2754,7 +2762,15 @@ button:disabled {
 .face-swap-result em { overflow: hidden; color: #849b9b; font-size: 10px; font-style: normal; text-overflow: ellipsis; white-space: nowrap; }
 .face-swap-result button { display: inline-flex; flex: none; align-items: center; gap: 5px; }
 .avatar-generation-progress small { color: #7f909c; font-size: 9px; line-height: 1.4; }
-.audio-clip-context-panel { display: grid; gap: 14px; }
+.audio-clip-context-panel { display: flex; flex-direction: column; height: 100%; min-height: 0; gap: 14px; overflow: hidden; }
+.audio-clip-context-panel > .audio-context-tabs { flex: 0 0 auto; }
+.voice-panel.is-audio-clip-context:not(.is-focused-mobile-section) > .voice-tab-body { padding: 0; overflow: hidden; scrollbar-gutter: auto; }
+.audio-context-tab-body { display: grid; align-content: start; flex: 1 1 0; min-height: 0; gap: 14px; padding: 0 6px 18px 0; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
+.audio-context-tab-body::-webkit-scrollbar { width: 8px; }
+.audio-context-tab-body::-webkit-scrollbar-thumb { border: 2px solid rgba(17,21,27,.96); border-radius: 999px; background: rgba(143,157,169,.52); }
+.audio-context-tab-body::-webkit-scrollbar-track { background: transparent; }
+.audio-clip-context-panel.is-single-section { height: auto; overflow: visible; }
+.audio-clip-context-panel.is-single-section > .audio-context-tab-body { flex: 0 0 auto; overflow: visible; padding: 0; scrollbar-gutter: auto; }
 .audio-identity-hero {
   display: grid;
   grid-template-columns: 42px minmax(0,1fr);
@@ -2870,6 +2886,7 @@ button:disabled {
   background: transparent;
   transition: color 150ms ease, background-color 150ms ease;
 }
+.audio-spatial-grid button:not(:disabled) { cursor: pointer; }
 .audio-spatial-grid button:nth-child(odd) { border-right: 1px solid rgba(255,255,255,.06); }
 .audio-spatial-grid button:nth-last-child(-n+2) { border-bottom: 0; }
 .audio-spatial-grid button > svg { color: #68747a; }
@@ -2900,6 +2917,13 @@ button:disabled {
 .audio-property-slider b { color: #dce7eb; font-weight: 650; }.audio-property-slider em { color: #69e4d9; font-style: normal; }
 .audio-property-slider input { width: 100%; accent-color: #35ead9; }
 .audio-context-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }.audio-context-actions button { display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 36px; font-size: 12px; }.audio-context-actions .is-danger { color: #ff969b; }
+.audio-clip-export { grid-column: 1 / -1; display: grid; gap: 8px; min-width: 0; }
+.audio-clip-export > .audio-context-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.audio-clip-export > .audio-context-actions > button { min-width: 0; }
+.audio-clip-export-hint, .audio-clip-export-status { margin: 0; color: #9aa8b8; font-size: 11px; line-height: 1.5; overflow-wrap: break-word; }
+.audio-clip-export-status[role="alert"] { color: #ff969b; }
+.audio-clip-export button:not(:disabled), .audio-clip-export select:not(:disabled) { cursor: pointer; }
+.audio-clip-export :disabled { cursor: not-allowed; }
 .audio-voice-color-section {
   display: grid;
   gap: 10px;
@@ -2962,31 +2986,12 @@ button:disabled {
 .voice-color-profile-grid button.is-selected > svg:last-child { color: #45e5d7; }
 .voice-color-empty-target { margin: -1px 0 0; color: #7f8d95; font-size: 10px; line-height: 1.45; }
 .voice-color-reference-actions,
-.voice-color-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
-.voice-color-reference-actions button,
-.voice-color-actions button,
-.voice-color-restore {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  min-width: 0;
-  min-height: 34px;
-  border: 1px solid rgba(255, 255, 255, .09);
-  border-radius: 7px;
-  padding: 0 8px;
-  overflow: hidden;
-  color: #aab6bd;
-  font-size: 10px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  background: rgba(255, 255, 255, .045);
-}
-.voice-color-reference-actions button.is-recording { border-color: rgba(255, 104, 120, .42); color: #ffadb4; background: rgba(255, 104, 120, .1); }
-.voice-color-actions button.is-primary { border-color: rgba(53, 234, 217, .28); color: #072522; font-weight: 750; background: rgba(53, 234, 217, .78); }
-.voice-color-actions button.is-primary.is-applied { border-color: rgba(53, 234, 217, .24); color: #82e8df; background: rgba(53, 234, 217, .1); opacity: 1; }
-.voice-color-actions button:disabled,
-.voice-color-reference-actions button:disabled { cursor: not-allowed; opacity: .4; }
+.voice-color-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.voice-color-reference-actions > button,
+.voice-color-actions > button { min-width: 0; }
+.voice-color-reference-actions > button > svg { flex-shrink: 0; }
+.voice-color-reference-actions .panel-secondary.is-recording:not(:disabled) { border-color: rgba(255, 104, 120, .42); color: #ffadb4; background: rgba(255, 104, 120, .1); }
+.voice-color-actions .panel-secondary.is-applied { border-color: rgba(53, 234, 217, .24); color: #82e8df; background: rgba(53, 234, 217, .1); opacity: 1; filter: none; }
 .voice-color-reference { display: grid; gap: 2px; min-width: 0; border-radius: 7px; padding: 8px 9px; background: rgba(53, 234, 217, .055); }
 .voice-color-reference strong { overflow: hidden; color: #dce8eb; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
 .voice-color-reference span { color: #83919a; font-size: 9px; }
@@ -2994,7 +2999,7 @@ button:disabled {
 .voice-color-result { display: grid; gap: 8px; border: 1px solid rgba(53, 234, 217, .2); border-radius: 9px; padding: 9px; background: rgba(53, 234, 217, .05); }
 .voice-color-result > span { display: flex; align-items: center; gap: 6px; color: #91e6df; font-size: 10px; }
 .voice-color-result audio { display: block; width: 100%; min-height: 40px; }
-.voice-color-restore { width: 100%; border-color: rgba(112, 139, 255, .22); color: #adbaf0; background: rgba(112, 139, 255, .07); }
+.voice-color-restore { grid-column: 1 / -1; }
 .clone-test-language {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);

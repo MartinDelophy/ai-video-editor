@@ -260,7 +260,7 @@ export function Topbar({
             onClick={() => setShowExportMenu((open) => !open)}
           >
             <FileArrowDown size={17} weight="bold" />
-            {exporting ? t("exporting") : t("exportVideo")}
+            {exporting ? t("exporting") : t(exportSettings.mediaType === "audio" ? "audioExportTitle" : "exportVideo")}
             {!exporting ? <CaretDown size={13} weight="bold" /> : null}
           </button>
           {showExportMenu ? (

@@ -27,22 +27,28 @@ function findAlignedSourceStart(input, previousStart, expectedStart, frameSize, 
   return bestStart;
 }
 
-export function timeStretchChannelData(input, playbackRate, { frameSize = 2048 } = {}) {
+export function timeStretchChannelData(input, playbackRate, {
+  frameSize = 2048,
+  outputSampleCount = 0,
+  sourcePositionAtOutputSample = null,
+} = {}) {
   const rate = clampRate(playbackRate);
   const source = input instanceof Float32Array ? input : Float32Array.from(input || []);
   if (!source.length) return new Float32Array(1);
-  if (Math.abs(rate - 1) < 0.0001) return source.slice();
+  if (!sourcePositionAtOutputSample && Math.abs(rate - 1) < 0.0001) return source.slice();
 
   const safeFrameSize = Math.max(256, Math.min(frameSize, source.length));
   const synthesisHop = Math.max(64, Math.floor(safeFrameSize / 4));
   const analysisHop = synthesisHop * rate;
-  const outputLength = Math.max(1, Math.round(source.length / rate));
+  const outputLength = Math.max(1, Math.round(outputSampleCount || source.length / rate));
   const output = new Float32Array(outputLength);
   const weights = new Float32Array(outputLength);
   let previousSourceStart = 0;
 
   for (let outputStart = 0, grain = 0; outputStart < outputLength; outputStart += synthesisHop, grain += 1) {
-    const expectedSourceStart = grain * analysisHop;
+    const expectedSourceStart = sourcePositionAtOutputSample
+      ? sourcePositionAtOutputSample(outputStart)
+      : grain * analysisHop;
     if (expectedSourceStart >= source.length) break;
     const sourceStart = grain === 0
       ? 0
@@ -66,6 +72,8 @@ export function createPitchPreservedAudioBuffer(context, decoded, {
   sourceOffset = 0,
   sourceDuration = 0,
   playbackRate = 1,
+  outputDuration = 0,
+  sourceTimeAtOutputTime = null,
 } = {}) {
   const rate = clampRate(playbackRate);
   const sampleRate = decoded.sampleRate;
@@ -73,11 +81,18 @@ export function createPitchPreservedAudioBuffer(context, decoded, {
   const availableSamples = Math.max(0, decoded.length - offsetSamples);
   const requestedSamples = sourceDuration > 0 ? Math.round(sourceDuration * sampleRate) : availableSamples;
   const sourceSamples = Math.max(1, Math.min(availableSamples, requestedSamples));
-  const outputLength = Math.max(1, Math.round(sourceSamples / rate));
+  const outputLength = Math.max(1, Math.round(sourceTimeAtOutputTime && outputDuration > 0
+    ? outputDuration * sampleRate
+    : sourceSamples / rate));
   const output = context.createBuffer(decoded.numberOfChannels, outputLength, sampleRate);
   for (let channel = 0; channel < decoded.numberOfChannels; channel += 1) {
     const input = decoded.getChannelData(channel).subarray(offsetSamples, offsetSamples + sourceSamples);
-    output.copyToChannel(timeStretchChannelData(input, rate), channel);
+    output.copyToChannel(timeStretchChannelData(input, rate, {
+      outputSampleCount: outputLength,
+      sourcePositionAtOutputSample: sourceTimeAtOutputTime
+        ? (sample) => (sourceTimeAtOutputTime(sample / sampleRate) - sourceOffset) * sampleRate
+        : null,
+    }), channel);
   }
   return output;
 }

@@ -534,7 +534,7 @@ export async function decodeWaveform(blob, barCount = 118, options = {}) {
   }
 }
 
-function encodeAudioBufferAsWav(buffer) {
+export function encodeAudioBufferAsWav(buffer) {
   const channels = Math.max(1, buffer.numberOfChannels);
   const frames = buffer.length;
   const bytesPerSample = 2;
@@ -2398,6 +2398,54 @@ export async function normalizeVideoForEditing(videoBlob, filename = "source-vid
       await ffmpeg.deleteFile(inputName).catch(() => {});
       if (decodedAudioBlob) await ffmpeg.deleteFile(audioInputName).catch(() => {});
       await ffmpeg.deleteFile(outputName).catch(() => {});
+    }
+  });
+}
+
+// Share the serialized FFmpeg instance with video export and media import.
+export async function transcodeAudioToMp3(audioBlob, { signal, onProgress, audioBitsPerSecond = 192_000 } = {}) {
+  throwIfExportAborted(signal);
+  return runFfmpegTask(async () => {
+    throwIfExportAborted(signal);
+    const stamp = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const bitrates = [128_000, 192_000, 256_000, 320_000];
+    const requestedBitrate = Number(audioBitsPerSecond) || 192_000;
+    const bitrate = bitrates.reduce((closest, candidate) => Math.abs(candidate - requestedBitrate) < Math.abs(closest - requestedBitrate) ? candidate : closest);
+    const inputName = `audio-export-${stamp}.wav`;
+    const outputName = `audio-export-${stamp}.mp3`;
+    let ffmpeg = null;
+    let terminated = false;
+    const abort = () => {
+      terminated = true;
+      try { ffmpeg?.terminate(); } catch { /* The worker may already be stopped. */ }
+      ffmpegLoadPromise = null;
+    };
+    const progress = ({ progress }) => onProgress?.(Math.max(0, Math.min(1, Number(progress) || 0)));
+    try {
+      ffmpeg = await getAbortableFfmpeg(signal);
+      throwIfExportAborted(signal);
+      signal?.addEventListener("abort", abort, { once: true });
+      ffmpeg.on("progress", progress);
+      await ffmpeg.writeFile(inputName, new Uint8Array(await audioBlob.arrayBuffer()));
+      throwIfExportAborted(signal);
+      const exitCode = await ffmpeg.exec([
+        "-i", inputName, "-vn", "-c:a", "libmp3lame", "-b:a", String(bitrate), "-ar", "48000", "-ac", "2", outputName,
+      ]);
+      throwIfExportAborted(signal);
+      if (exitCode !== 0) throw new Error("MP3 audio encoding failed");
+      const data = await ffmpeg.readFile(outputName);
+      throwIfExportAborted(signal);
+      return new Blob([data], { type: "audio/mpeg" });
+    } catch (error) {
+      throwIfExportAborted(signal);
+      throw error;
+    } finally {
+      signal?.removeEventListener("abort", abort);
+      if (ffmpeg) ffmpeg.off("progress", progress);
+      if (ffmpeg && !terminated) {
+        await ffmpeg.deleteFile(inputName).catch(() => {});
+        await ffmpeg.deleteFile(outputName).catch(() => {});
+      }
     }
   });
 }

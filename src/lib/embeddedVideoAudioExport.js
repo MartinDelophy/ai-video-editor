@@ -4,7 +4,7 @@ import { getVisualSegmentTimeline } from "./timeline.js";
 
 const getAssetKey = (segment) => segment?.assetId || segment?.src || segment?.id || "";
 
-export function createEmbeddedVideoAudioSegments(visualSegments = [], audioAssets = new Map()) {
+export function createEmbeddedVideoAudioSegments(visualSegments = [], audioAssets = new Map(), { preserveTimelineStarts = false } = {}) {
   const timeline = getVisualSegmentTimeline(visualSegments);
   return visualSegments.flatMap((segment, index) => {
     if (segment.type !== "video" || segment.sourceAudioDisabled) return [];
@@ -19,16 +19,17 @@ export function createEmbeddedVideoAudioSegments(visualSegments = [], audioAsset
     return [{
       id: segment.id,
       assetId: segment.assetId,
-      start: timeline[index]?.start || 0,
+      start: preserveTimelineStarts ? Math.max(0, Number(segment.start) || 0) : timeline[index]?.start || 0,
       duration: Math.min(segment.duration, sourceDuration / playbackRate),
       sourceStart: audio.offset + sourceStart,
       sourceDuration,
       playbackRate,
+      speedCurve: segment.speedCurve,
     }];
   });
 }
 
-export async function prepareEmbeddedVideoAudio(visualSegments = [], onProgress, signal) {
+export async function prepareEmbeddedVideoAudio(visualSegments = [], onProgress, signal, options = {}) {
   throwIfExportAborted(signal);
   const candidates = visualSegments.filter((segment) => segment.type === "video" && !segment.sourceAudioDisabled);
   const uniqueAssets = [...new Map(candidates.map((segment) => [getAssetKey(segment), segment])).entries()];
@@ -78,6 +79,6 @@ export async function prepareEmbeddedVideoAudio(visualSegments = [], onProgress,
   throwIfExportAborted(signal);
   return {
     blob,
-    segments: createEmbeddedVideoAudioSegments(visualSegments, audioAssets),
+    segments: createEmbeddedVideoAudioSegments(visualSegments, audioAssets, options),
   };
 }

@@ -57,6 +57,10 @@ export function validateWebMcpExportSettings(input = {}, defaults = DEFAULT_EXPO
       || sanitizeExportFileName(value) !== value)) fail("INVALID_ARGUMENT");
   }
   const settings = normalizeExportSettings({ ...normalizeExportSettings(defaults), ...input });
+  // This command's reviewed contract is video-only. Audio UI preferences must
+  // neither change its output type nor leak unknown fields into a second review.
+  delete settings.mediaType;
+  delete settings.audioFormat;
   // The real exporter forces MOV through WebCodecs; make that visible in the plan.
   if (settings.codec === "h264-mov") {
     if (input.pipeline === "compatible") fail("INVALID_ARGUMENT");

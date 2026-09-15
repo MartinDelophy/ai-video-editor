@@ -55,6 +55,7 @@ import { createPortal } from "react-dom";
 
 import { formatTime, getSegmentStartTime } from "../lib/timeline.js";
 import { decodeWaveform } from "../lib/media.js";
+import { AudioClipExportControl } from "./AudioClipExportControl.jsx";
 import { cancelOpenVoiceTasks, convertVoiceBlob, extractVoiceEmbedding } from "../lib/openVoiceRuntime.js";
 import { LIVE_PORTRAIT_WEB_MODEL } from "../config/livePortrait.js";
 import { probeLivePortraitWebEnvironment } from "../lib/livePortraitWeb.js";
@@ -942,23 +943,27 @@ function AudioVoiceColorSection({ t, segment, voiceProfiles = [], onAssetReady, 
       {voiceProfiles.length ? <div className="voice-color-profile-grid">
         {voiceProfiles.map((profile) => <button type="button" className={profileId === profile.id ? "is-selected" : ""} key={profile.id} onClick={() => { setProfileId(profile.id); setReference(null); setAuthorized(false); setResult(null); }}><Waveform size={16} weight="duotone" /><span>{profile.name}</span><CheckCircle size={14} weight={profileId === profile.id ? "fill" : "regular"} /></button>)}
       </div> : <p className="voice-color-empty-target">{t("voiceColorChooseTemporary", "上传或录制参考声音")}</p>}
-      <div className="voice-color-reference-actions"><button type="button" onClick={() => fileInputRef.current?.click()}><UploadSimple size={16} />{t("uploadVoice", "上传声音")}</button><button type="button" className={recording ? "is-recording" : ""} onClick={toggleRecording}><Waveform size={16} />{recording ? t("stopRecording") : t("recordVoice")}</button></div>
+      <div className="audio-context-actions voice-color-reference-actions">
+        <button className="panel-secondary" type="button" onClick={() => fileInputRef.current?.click()}><UploadSimple size={15} />{t("uploadVoice", "上传声音")}</button>
+        <button className={`panel-secondary${recording ? " is-recording" : ""}`} type="button" onClick={toggleRecording}><Waveform size={15} />{recording ? t("stopRecording") : t("recordVoice")}</button>
+      </div>
       {reference ? <div className="voice-color-reference"><strong>{reference.name}</strong><span>{t("voiceColorTemporaryReference", "仅用于本次音色迁移")}</span></div> : null}
       {reference ? <label className="clone-consent"><input type="checkbox" checked={authorized} onChange={(event) => setAuthorized(event.target.checked)} /><span>{t("cloneConsent")}</span></label> : null}
     </div>
     {job.state === "running" ? <div className="voice-generation-loading voice-color-progress" role="status"><i className="voice-generation-spinner" /><div><strong>{job.phase}</strong><span>{t("cloneLocalHint", "声音只在当前浏览器中处理")}</span></div><em>{job.progress}%</em><div className="progress-track"><span style={{ width: `${job.progress}%` }} /></div></div> : null}
     {job.error ? <div className="clone-inline-error">{job.error}</div> : null}
     {resultUrl ? <div className="voice-color-result"><span><CheckCircle size={17} weight="fill" /><strong>{t("voiceColorSavedToAssets", "结果已保存到我的素材")}</strong></span><audio controls preload="metadata" src={resultUrl} /></div> : null}
-    <div className="voice-color-actions">
-      {job.state === "running" ? <button type="button" onClick={cancel}>{t("cancel")}</button> : <button type="button" disabled={!selectedProfile?.embedding && (!reference?.blob || !authorized)} onClick={runConversion}>{result ? t("voiceColorRetry", "重新转换") : t("voiceColorPreview", "试听迁移")}</button>}
-      <button type="button" className={`is-primary ${applied ? "is-applied" : ""}`} disabled={!result || applied} onClick={applyResult}>{applied ? t("voiceColorApplied", "已替换") : t("voiceColorReplaceClip", "替换当前片段")}</button>
+    <div className="audio-context-actions voice-color-actions">
+      {job.state === "running" ? <button className="panel-secondary" type="button" onClick={cancel}>{t("cancel")}</button> : <button className="panel-secondary" type="button" disabled={!selectedProfile?.embedding && (!reference?.blob || !authorized)} onClick={runConversion}>{result ? t("voiceColorRetry", "重新转换") : t("voiceColorPreview", "试听迁移")}</button>}
+      <button type="button" className={`panel-secondary${applied ? " is-applied" : ""}`} disabled={!result || applied} onClick={applyResult}>{applied ? t("voiceColorApplied", "已替换") : t("voiceColorReplaceClip", "替换当前片段")}</button>
+      {applied || segment.voiceColorOriginalBlob ? <button className="panel-secondary voice-color-restore" type="button" onClick={restoreOriginal}>{t("voiceColorRestoreOriginal", "恢复原始声音")}</button> : null}
     </div>
-    {applied || segment.voiceColorOriginalBlob ? <button className="voice-color-restore" type="button" onClick={restoreOriginal}>{t("voiceColorRestoreOriginal", "恢复原始声音")}</button> : null}
   </div>;
 }
 
 function AudioClipContextPanel({ t, segment, updateAudioSegment, toggleAudioSegmentReverse, deleteAudioSegment, downloadBlob, requestedSection = "", voiceProfiles, onVoiceColorAssetReady, onApplyVoiceColor, onRestoreVoiceColor }) {
   const [activeTab, setActiveTab] = useState("audio");
+  const tabBodyRef = useRef(null);
   const isVoiceClip = segment.track === "audio";
   const canVoiceColor = segment.track !== "music" && Boolean(segment.blob);
   const canSpatial = true;
@@ -967,15 +972,19 @@ function AudioClipContextPanel({ t, segment, updateAudioSegment, toggleAudioSegm
   useEffect(() => {
     if (["audio", "fade", "spatial", "voice-color"].includes(requestedSection)) setActiveTab(requestedSection);
   }, [requestedSection, segment.id]);
+  useEffect(() => {
+    tabBodyRef.current?.scrollTo({ top: 0 });
+  }, [shownTab, segment.id]);
   const tabCount = 1 + Number(canFade) + Number(canSpatial) + Number(canVoiceColor);
   return (
-    <div className="audio-clip-context-panel">
+    <div className={`audio-clip-context-panel${requestedSection ? " is-single-section" : ""}`}>
       {!requestedSection && (canFade || canSpatial || canVoiceColor) ? <div className={`audio-context-tabs has-${tabCount}-tabs`} role="tablist" aria-label={t("audioClipProperties")}>
         <button className={shownTab === "audio" ? "is-active" : ""} type="button" role="tab" aria-selected={shownTab === "audio"} onClick={() => setActiveTab("audio")}>{t("mobileClipAudio")}</button>
         {canFade ? <button className={shownTab === "fade" ? "is-active" : ""} type="button" role="tab" aria-selected={shownTab === "fade"} onClick={() => setActiveTab("fade")}>{t("mobileClipFade")}</button> : null}
         {canSpatial ? <button className={shownTab === "spatial" ? "is-active" : ""} type="button" role="tab" aria-selected={shownTab === "spatial"} onClick={() => setActiveTab("spatial")}>{t("audioSpaceTab")}</button> : null}
         {canVoiceColor ? <button className={shownTab === "voice-color" ? "is-active" : ""} type="button" role="tab" aria-selected={shownTab === "voice-color"} onClick={() => setActiveTab("voice-color")}>{t("voiceColorTab", "音色")}</button> : null}
       </div> : null}
+      <div ref={tabBodyRef} className="audio-context-tab-body">
       {shownTab === "audio" ? <div className="audio-context-section">
         {segment.canChangeStart !== false ? <label className="audio-property-row">
           <span>{t("audioClipStart")}</span>
@@ -1032,9 +1041,11 @@ function AudioClipContextPanel({ t, segment, updateAudioSegment, toggleAudioSegm
         {isVoiceClip ? <button className={`panel-secondary ${segment.reversed ? "is-active" : ""}`} type="button" disabled={segment.reversing} onClick={() => toggleAudioSegmentReverse(segment.id)}>
           {segment.reversing ? t("audioReversing") : segment.reversed ? t("audioReverseRestore") : t("audioReverse")}
         </button> : null}
-        <button className="panel-secondary" type="button" onClick={() => downloadBlob(segment.blob, `${segment.name || "audio"}.wav`)}>{t("downloadAudioClip")}</button>
-        <button className="panel-secondary is-danger" type="button" onClick={() => deleteAudioSegment(segment.id)}><Trash size={15} />{t("deleteAudioClip")}</button>
+        <AudioClipExportControl segment={segment} t={t} downloadBlob={downloadBlob}>
+          <button className="panel-secondary is-danger" type="button" onClick={() => deleteAudioSegment(segment.id)}><Trash size={15} />{t("deleteAudioClip")}</button>
+        </AudioClipExportControl>
       </div> : null}
+      </div>
     </div>
   );
 }

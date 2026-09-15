@@ -11,6 +11,7 @@ import {
 } from "../lib/exportSettings.js";
 import { downloadBlob, exportBrowserVideo, transcodeWebmToMp4 } from "../lib/media.js";
 import { exportOfflineVideo } from "../lib/offlineVideoExport.js";
+import { exportAudioMix } from "../lib/audioExport.js";
 import { serializeSrt } from "../lib/subtitles.js";
 import { getVisionKey } from "../lib/vision.js";
 import { prepareEmbeddedVideoAudio } from "../lib/embeddedVideoAudioExport.js";
@@ -42,13 +43,15 @@ export function useVideoExport(d) {
     // The ref closes the gap before React has committed the exporting state.
     if (d.exporting || d.exportAbortControllerRef.current) return { status: "busy" };
     if (options.signal?.aborted) return { status: "canceled" };
-    if (!d.imageSrc) {
+    const requestedSettings = normalizeExportSettings(options.settings || d.exportSettings);
+    const audioOnly = requestedSettings.mediaType === "audio";
+    if (!audioOnly && !d.imageSrc) {
       d.notify(d.t("exportVisualRequired"));
       return { status: "blocked", error: d.t("exportVisualRequired") };
     }
-    const requestedSettings = normalizeExportSettings(options.settings || d.exportSettings);
     const exportSettings = {
       ...requestedSettings,
+      ...(audioOnly ? { range: "full", audio: "mix", captions: "none" } : {}),
       ...getExportDimensions(d.ratio, Number(requestedSettings.resolution)),
       videoBitsPerSecond: getEffectiveExportBitrate(requestedSettings),
     };
@@ -91,7 +94,7 @@ export function useVideoExport(d) {
     try {
       const exportAudio = exportSettings.audio !== "none";
       const captionDelivery = exportSettings.captions || "burned";
-      const burnCaptions = captionDelivery !== "none" && d.captionsEnabled && d.trackVisibility.caption;
+      const burnCaptions = !audioOnly && captionDelivery !== "none" && d.captionsEnabled && d.trackVisibility.caption;
       if (burnCaptions) {
         const captionsByFont = new Map();
         d.captionSegments.forEach((segment) => {
@@ -192,6 +195,18 @@ export function useVideoExport(d) {
                 ...(depth ? { depth } : {}),
               };
             });
+      const overlayAudio = exportAudio
+        ? await prepareEmbeddedVideoAudio(
+            exportedOverlaySegments.map((segment) => ({
+              ...segment,
+              sourceAudioDisabled: segment.muted === true || segment.sourceAudioDisabled === true,
+            })),
+            progress,
+            signal,
+            { preserveTimelineStarts: true },
+          )
+        : { blob: null, segments: [] };
+      throwIfExportAborted(signal);
       const generationMetadata = createGeneratedExportMetadata({
         visualSegments: exportedVisualSegments,
         visualOverlaySegments: exportedOverlaySegments,
@@ -210,10 +225,13 @@ export function useVideoExport(d) {
         imageSrc: d.imageSrc, visualType: d.visualType,
         visualSegments: exportedVisualSegments,
         audioBlob: null,
-        voiceAudioSegments: d.sourceAudioBlob && embeddedVideoAudio.blob ? [
+        voiceAudioSegments: [
           ...voiceAudioSegments,
-          ...embeddedVideoAudio.segments.map((segment) => ({ ...segment, blob: embeddedVideoAudio.blob, volume: 1, sourceKind: "embedded-source" })),
-        ] : voiceAudioSegments,
+          ...(d.sourceAudioBlob && embeddedVideoAudio.blob
+            ? embeddedVideoAudio.segments.map((segment) => ({ ...segment, blob: embeddedVideoAudio.blob, volume: 1, sourceKind: "embedded-source" }))
+            : []),
+          ...overlayAudio.segments.map((segment) => ({ ...segment, blob: overlayAudio.blob, volume: 1, sourceKind: "embedded-overlay" })),
+        ],
         voiceVolume: d.volume,
         sourceAudioBlob: exportSourceAudioBlob, sourceAudioVolume: d.sourceAudioBlob ? d.sourceAudioVolume : 1,
         sourceAudioSpatialEffect: d.sourceAudioSpatialEffect, sourceAudioSpatialAmount: d.sourceAudioSpatialAmount,
@@ -236,6 +254,21 @@ export function useVideoExport(d) {
         generationMetadata,
         transitionId: "none", exportSettings, onProgress: progress, signal,
       };
+      if (audioOnly) {
+        actualPipeline = "offline-audio";
+        const audio = await exportAudioMix({
+          ...exportOptions,
+          format: exportSettings.audioFormat,
+          audioBitsPerSecond: exportSettings.audioBitsPerSecond,
+        });
+        throwIfExportAborted(signal);
+        const fileName = `${exportBaseName}.${audio.extension}`;
+        progress({ progress: 99, phaseKey: "exportSaveFile", phaseParams: { format: audio.extension.toUpperCase() } });
+        downloadBlob(audio.blob, fileName);
+        d.setStatus("done"); d.setStatusText(localize("exportComplete"));
+        await finish(localize("exportComplete")); notify(localize("exportComplete"));
+        return { status: "success", fileName, extension: audio.extension, byteSize: audio.blob.size, mimeType: audio.blob.type, sidecars: [], actualPipeline };
+      }
       let video;
       // MediaRecorder cannot produce a trustworthy MOV file. MOV therefore
       // stays on the native H.264/AAC WebCodecs path instead of changing format.
@@ -321,7 +354,7 @@ export function useVideoExport(d) {
       } else {
         const message = error instanceof Error ? error.message : localize("exportFailed");
         const copy = EXPORT_FAILURE_COPY[d.language] || EXPORT_FAILURE_COPY.en;
-        const displayMessage = getExportFailureMessage(error, copy, localize);
+        const displayMessage = getExportFailureMessage(error, audioOnly ? { ...copy, generic: localize("audioExportFailed") } : copy, localize);
         d.setExportError({ message: displayMessage, settings: requestedSettings, phase: lastPhase, percent: lastProgress });
         console.error(error); d.setStatus("error"); d.setStatusText(displayMessage); d.setExportPhase(localize("exportFailed"));
         return { status: "failed", actualPipeline, error: message };

@@ -93,10 +93,6 @@ export function LanguageIntro({ t, closing, onChoose }) {
               <small>{t("languageKicker")}</small>
             </span>
           </div>
-          <a className="language-intro-badge" href="https://www.bestaitool.co" target="_blank" rel="noopener noreferrer">
-            {/* Official https://www.bestaitool.co/badge/badge_dark.svg, served locally for cross-origin isolation. */}
-            <img src="/badges/best-ai-tool-dark.svg" alt={t("bestAiToolFeatured")} width="200" height="54" />
-          </a>
         </div>
         <h1>
           <span className="language-title-en">Choose interface language</span>

@@ -48,22 +48,6 @@ const COMMUNITY_LINKS_COPY = {
   id: { xProfile: "Profil X" },
 };
 
-const BEST_AI_TOOL_COPY = {
-  zh: { bestAiToolFeatured: "已收录于 Best AI Tool" },
-  en: { bestAiToolFeatured: "Featured on Best AI Tool" },
-  ja: { bestAiToolFeatured: "Best AI Tool に掲載" },
-  ko: { bestAiToolFeatured: "Best AI Tool에 소개됨" },
-  es: { bestAiToolFeatured: "Destacado en Best AI Tool" },
-  fr: { bestAiToolFeatured: "Présenté sur Best AI Tool" },
-  de: { bestAiToolFeatured: "Vorgestellt auf Best AI Tool" },
-  pt: { bestAiToolFeatured: "Em destaque no Best AI Tool" },
-  th: { bestAiToolFeatured: "ได้รับการแนะนำบน Best AI Tool" },
-  vi: { bestAiToolFeatured: "Được giới thiệu trên Best AI Tool" },
-  ru: { bestAiToolFeatured: "Представлено на Best AI Tool" },
-  it: { bestAiToolFeatured: "In evidenza su Best AI Tool" },
-  id: { bestAiToolFeatured: "Ditampilkan di Best AI Tool" },
-};
-
 const AUDIO_SPATIAL_COPY = {
   zh: { audioSpaceTab: "空间音效", audioSpaceHint: "模拟声音所在空间；试听与导出会保持一致。", audioSpaceStrength: "效果强度", audioSpaceOriginal: "原声", audioSpaceBedroom: "卧室", audioSpaceLivingRoom: "客厅", audioSpaceBathroom: "浴室", audioSpaceHall: "大厅", audioSpaceCorridor: "走廊", audioSpacePlaza: "广场", audioSpaceValley: "山谷", audioSpaceStudio: "录音棚", audioSpaceOffice: "办公室", audioSpaceCafe: "咖啡馆", audioSpaceClassroom: "教室", audioSpaceTheater: "剧院", audioSpaceChurch: "教堂", audioSpaceForest: "森林", audioSpaceSubway: "地铁" },
   en: { audioSpaceTab: "Space", audioSpaceHint: "Simulate the acoustic space around this clip. Preview and export stay matched.", audioSpaceStrength: "Effect strength", audioSpaceOriginal: "Original", audioSpaceBedroom: "Bedroom", audioSpaceLivingRoom: "Living room", audioSpaceBathroom: "Bathroom", audioSpaceHall: "Hall", audioSpaceCorridor: "Corridor", audioSpacePlaza: "Plaza", audioSpaceValley: "Valley", audioSpaceStudio: "Recording studio", audioSpaceOffice: "Office", audioSpaceCafe: "Café", audioSpaceClassroom: "Classroom", audioSpaceTheater: "Theater", audioSpaceChurch: "Church", audioSpaceForest: "Forest", audioSpaceSubway: "Subway" },
@@ -3628,7 +3612,7 @@ export function createTranslator(languageId) {
     CAPTION_DEFAULT_COPY, SMART_WORKSPACE_COPY, AUTO_EDIT_COPY, AUTO_EDIT_BUTTON_COPY, AUTO_EDIT_READY_COPY,
     AUTO_EDIT_REVIEW_COPY, AUTO_EDIT_FLOW_COPY, AUTO_EDIT_SEGMENT_COPY,
     AUTO_EDIT_RESULT_COPY, IMAGE_AI_CAPTION_COPY, PICTURE_IN_PICTURE_COPY, EFFECTS_WORKSPACE_COPY, VECTOR_STATE_COPY, VECTOR_DOCUMENT_COPY, VECTOR_ADVANCED_COPY,
-    SRT_IMPORT_COPY, CLICK_RIPPLE_COPY, BEST_AI_TOOL_COPY,
+    SRT_IMPORT_COPY, CLICK_RIPPLE_COPY,
   ].map((source) => ({ ...(source.en ?? {}), ...(source[languageId] ?? {}) })));
   return (key, fallbackText) => audioExportCopy[key] ?? markerCopy[key] ?? reviewedCopy[key] ?? completionCopy[key] ?? coreLabelCopy[key] ?? repairCopy[key] ?? specializedCopy[key] ?? exportOptionsCopy[key] ?? EXPORT_OPTIONS_COPY.en[key] ?? exportExtraStatusCopy[key] ?? EXPORT_EXTRA_STATUS_COPY.en[key] ?? projectChromeCopy[key] ?? PROJECT_CHROME_COPY.en[key] ?? captionAudioLinkCopy[key] ?? CAPTION_AUDIO_LINK_COPY.en[key] ?? ttsBackendCopy[key] ?? TTS_BACKEND_COPY.en[key] ?? mobileStickerCopy[key] ?? MOBILE_STICKER_COPY.en[key] ?? mobileClipActionCopy[key] ?? MOBILE_CLIP_ACTION_COPY.en[key] ?? mobileDrawerCopy[key] ?? MOBILE_DRAWER_COPY.en[key] ?? srtImportCopy[key] ?? exportCopy[key] ?? EXPORT_RENDER_COPY.en[key] ?? assetPreviewCopy[key] ?? ASSET_PREVIEW_COPY.en[key] ?? assetDropCopy[key] ?? ASSET_DROP_COPY.en[key] ?? autoCaptionStatusCopy[key] ?? AUTO_CAPTION_STATUS_COPY.en[key] ?? copy[key] ?? fallback[key] ?? UI_COPY.zh[key] ?? fallbackText ?? key;
 }

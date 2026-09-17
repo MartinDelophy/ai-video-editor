@@ -15,7 +15,7 @@ import {
 } from "@phosphor-icons/react";
 
 import { formatTime } from "../lib/timeline.js";
-import { getVisualMaskInsets, getVisualMaskSvgDataUrl, resolveVisualTransform, snapVisualScaleToFrameEdges } from "../lib/visualEffects.js";
+import { getVisualMaskInsets, getVisualMaskSvgDataUrl, getVisualSourceTime, getVisualPlaybackRateAtTime, resolveVisualTransform, snapVisualScaleToFrameEdges } from "../lib/visualEffects.js";
 import { resolveVisualClipAnimation } from "../lib/visualClipAnimations.js";
 import { getStickerBaseSize } from "../lib/stickerGeometry.js";
 import { resolveCaptionStyleForSegment } from "../lib/captionFonts.js";
@@ -79,13 +79,19 @@ function VisualOverlayMedia({ overlay, src, style, isPlaying, localTime }) {
   useEffect(() => {
     const video = videoRef.current;
     if (!video || overlay.type !== "video") return;
-    const playbackRate = Math.max(0.25, Math.min(4, Number(overlay.playbackRate) || 1));
-    const sourceTime = Math.max(0, Number(overlay.sourceStart) || 0) + Math.max(0, localTime) * playbackRate;
-    video.playbackRate = playbackRate;
-    if (Number.isFinite(video.duration) && Math.abs(video.currentTime - sourceTime) > 0.12) video.currentTime = Math.min(sourceTime, Math.max(0, video.duration - 0.01));
-    if (isPlaying) video.play().catch(() => {});
-    else video.pause();
-  }, [isPlaying, localTime, overlay.playbackRate, overlay.sourceStart, overlay.type]);
+    const sync = () => {
+      const sourceTime = getVisualSourceTime(overlay, localTime);
+      video.playbackRate = getVisualPlaybackRateAtTime(overlay, localTime);
+      if (Number.isFinite(video.duration) && Math.abs(video.currentTime - sourceTime) > (isPlaying ? 0.12 : 0.001)) {
+        video.currentTime = Math.min(sourceTime, Math.max(0, video.duration - 0.01));
+      }
+      if (isPlaying) video.play().catch(() => {});
+      else video.pause();
+    };
+    video.addEventListener("loadedmetadata", sync);
+    sync();
+    return () => video.removeEventListener("loadedmetadata", sync);
+  }, [isPlaying, localTime, overlay, src]);
   useEffect(() => {
     if (!depthRenderActive || !canvasRef.current) return undefined;
     let canceled = false;
@@ -773,7 +779,7 @@ export function PreviewStage({
                 {previewTransition.id === "flash" ? <i /> : null}
               </div>
             ) : null}
-            {visualOverlays.map((overlay) => {
+            {[...visualOverlays].sort((left, right) => (left.layer || 1) - (right.layer || 1)).map((overlay) => {
               const localTime = Math.max(0, currentTime - (overlay.start || 0));
               const transform = resolveVisualOverlayTransform(overlay, localTime);
               const animation = resolveVisualClipAnimation(overlay.animation, localTime, overlay.duration);
@@ -842,7 +848,7 @@ export function PreviewStage({
                 rotation: animatedTransform.rotation,
               });
               return <Fragment key={overlay.id}>
-                <div className={`visual-overlay-layer ${selected ? "is-selected" : ""}`} style={{ ...style, zIndex: 3 + (overlay.layer || 1) }} onPointerDown={(event) => startOverlayTransform(event, "move", overlay)}>
+                <div className="visual-overlay-layer" style={style} onPointerDown={(event) => startOverlayTransform(event, "move", overlay)}>
                   {overlaySubjectActive ? <SubjectMaterialFilterDefs effect={overlaySubjectEffect} filterId={overlaySubjectFilterId} /> : null}
                   {overlaySubjectActive
                     && overlaySubjectEffect.background.visible !== false
@@ -880,6 +886,11 @@ export function PreviewStage({
                     style={{ filter: cutoutFilter }}
                   /> : null}
                   <ClickRippleOverlay effect={overlay.clickRipple} time={localTime} />
+                </div>
+                {selected && !isPlaying ? <div
+                  className="visual-overlay-layer visual-overlay-controls is-selected"
+                  style={{ left: style.left, top: style.top, width: style.width, height: style.height, transform: style.transform }}
+                >
                   {selected && !isPlaying && hasOverlayMask && visualOverlayMaskEditable ? <div
                     className={`visual-mask-editor is-${overlayMask.type}`}
                     style={{
@@ -894,7 +905,7 @@ export function PreviewStage({
                     <button className="visual-transform-rotate" type="button" aria-label={t("visualRotation", "旋转")} onPointerDown={(event) => startOverlayTransform(event, "rotate", overlay)} />
                     {['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'].map((handle) => <button key={handle} className={`visual-transform-handle is-${handle}`} type="button" aria-label={t("visualScale", "缩放")} onPointerDown={(event) => startOverlayTransform(event, `scale-${handle}`, overlay)} />)}
                   </> : null}
-                </div>
+                </div> : null}
                 {selected && !isPlaying ? (
                   <div
                     className={`visual-overlay-order-actions is-${overlayToolbar.placement}`}

@@ -1,8 +1,10 @@
 import { inspectClip, inspectMarkers, inspectProject, inspectTrack, inspectTranscript } from "./projectCommandEngine.js";
 import { browserProjectFingerprint, buildBrowserOperationReview, buildBrowserTimelineReview, getBrowserPlanningClips } from "./browserEditPlan.js";
 import { WEB_MCP_EDIT_CAPABILITIES, WEB_MCP_OPERATION_SCHEMA } from "./webMcpOperationSchema.js";
-import { browserAssetSummary, browserReviewDiff, browserReviewEntities } from "./webMcpProjectData.js";
+import { browserAssetSummary, browserClipProperties, browserReviewDiff, browserReviewEntities } from "./webMcpProjectData.js";
 import { createWebMcpExportJobs, WEB_MCP_EXPORT_SETTINGS_SCHEMA } from "./webMcpExportJobs.js";
+import { validateMediaSample, WEB_MCP_MEDIA_SAMPLE_SCHEMA } from "./webMcpMediaSample.js";
+import { createWebMcpAiJobs, WEB_MCP_AI_REQUEST_SCHEMA } from "./webMcpAiJobs.js";
 
 const TRACKS = ["visuals", "overlays", "audio", "captions", "stickers", "music"];
 const MAX_PAGE = 100;
@@ -22,6 +24,9 @@ const ERROR_KEYS = {
   INVALID_RANGE: "invalidInput", UNSUPPORTED_TRACK: "invalidOperation", UNSUPPORTED_PROPERTY: "invalidOperation",
   BROWSER_EDIT_ASSET_UNAVAILABLE: "assetUnavailable", BROWSER_EDIT_MULTIPLE_MUSIC_SOURCES: "invalidOperation",
   BROWSER_EDIT_MUSIC_OVERLAP: "invalidOperation",
+  MEDIA_SAMPLE_FAILED: "mediaSampleFailed", MEDIA_SAMPLE_UNAVAILABLE: "mediaSampleUnavailable",
+  AI_UNAVAILABLE: "aiUnavailable", AI_INVALID_VOICE: "aiInvalidVoice", AI_INVALID_SOURCE: "aiInvalidSource",
+  AI_MODEL_DOWNLOAD_REQUIRED: "aiModelDownloadRequired", AI_JOB_NOT_FOUND: "aiJobNotFound", AI_JOB_LIMIT: "aiJobLimit", AI_FAILED: "aiFailed",
 };
 const fail = (code) => { throw Object.assign(new Error(code), { code }); };
 const object = (value, keys) => {
@@ -46,6 +51,7 @@ function page(items, input) {
 function properties(clip) {
   const fields = ["type", "name", "start", "end", "duration", "text", "volume", "fadeIn", "fadeOut", "muted", "playbackRate", "sourceKind", "layer", "lane", "hidden", "sourceAudioDisabled", "sourceAudioUnmapped"];
   return {
+    ...browserClipProperties(clip),
     ...Object.fromEntries(fields.filter((key) => ["string", "boolean", "number"].includes(typeof clip[key])).map((key) => [key, clip[key]])),
     speedCurveEnabled: Boolean(clip.speedCurve?.enabled),
     reversed: Boolean(clip.reversed || clip.reverse),
@@ -54,7 +60,7 @@ function properties(clip) {
 }
 
 /** A page-scoped session. Callers provide the actual live editor actions, not reducers. */
-export function createWebMcpEditorSession(getEditor, { publish = () => {}, commit = (action) => action(), makeId = () => crypto.randomUUID() } = {}) {
+export function createWebMcpEditorSession(getEditor, { publish = () => {}, publishAi = () => {}, commit = (action) => action(), makeId = () => crypto.randomUUID() } = {}) {
   let closed = false;
   let busy = false;
   let pointerActive = false;
@@ -63,8 +69,12 @@ export function createWebMcpEditorSession(getEditor, { publish = () => {}, commi
   let undoReceipt = null;
   let lastApplied = null;
   let exportPreview = null;
+  let aiPreview = null;
+  const aiRequests = new Map();
+  const sessionController = new AbortController();
   const exportRequests = new Map();
   const exportJobs = createWebMcpExportJobs(getEditor, { makeId });
+  const aiJobs = createWebMcpAiJobs(getEditor, { makeId, onUpdate: publishAi });
   const mediaIds = new WeakMap();
   let mediaSequence = 0;
   const identity = (value) => {
@@ -93,7 +103,7 @@ export function createWebMcpEditorSession(getEditor, { publish = () => {}, commi
   const guard = (signal, editing = false) => {
     if (closed) fail("SESSION_CLOSED");
     if (signal?.aborted) fail("CANCELLED");
-    if (editing && (pointerActive || getEditor().isBusy?.() || exportJobs.isRunning?.())) fail("EDITOR_BUSY");
+    if (editing && (pointerActive || getEditor().isBusy?.() || exportJobs.isRunning?.() || aiJobs.isRunning())) fail("EDITOR_BUSY");
   };
   const requireState = (state, token) => {
     if (text(token) !== state.stateToken) fail("STALE_STATE");
@@ -104,12 +114,16 @@ export function createWebMcpEditorSession(getEditor, { publish = () => {}, commi
     return {
       ...summary, stateToken: state.stateToken, duration: state.editor.duration,
       playhead: state.editor.currentTime, rippleEditing: Boolean(state.editor.rippleEditing),
+      fitMode: state.project.fitMode,
+      captionDefaults: { style: state.project.captionStyle, size: state.project.captionSize, placement: state.project.captionPlacement, position: state.project.captionPosition },
       trackLocks: state.project.trackLocks, trackVisibility: state.project.trackVisibility,
       sourceAudio: { present: Boolean(state.editor.sourceAudioBlob), linked: state.project.sourceAudioLinked, start: state.project.sourceAudioStart, duration: state.project.sourceAudioDuration },
       capabilities: {
         edit: [...WEB_MCP_EDIT_CAPABILITIES], maxPlanClips: MAX_CLIPS, maxOperations: MAX_CLIPS,
         requiresPreview: true, projectSave: "download-timeline-archive", videoExport: Boolean(state.editor.exportVideo),
         assets: "existing-local-assets", exportRequiresPrepare: true,
+        mediaSample: Boolean(state.editor.sampleMedia),
+        aiTasks: ["voiceover", "transcription"], aiRequiresPrepare: true,
         timeUnits: { timeline: "seconds", source: "absolute source-media seconds", split: "clip-local seconds", volume: "multiplier (1 = 100%)", fades: "seconds" },
       },
     };
@@ -124,11 +138,12 @@ export function createWebMcpEditorSession(getEditor, { publish = () => {}, commi
     const editor = getEditor();
     // Polling and cancelling an export must remain available while an archive
     // download or another asynchronous tool invocation is being prepared.
-    if (["timeline_export_inspect", "timeline_export_cancel"].includes(name)) {
+    if (["timeline_export_inspect", "timeline_export_cancel", "timeline_ai_inspect", "timeline_ai_cancel"].includes(name)) {
       try {
         guard(signal);
         object(input, ["jobId"]); text(input.jobId);
-        const result = name === "timeline_export_inspect" ? exportJobs.inspect(input) : exportJobs.cancel(input);
+        const service = name.startsWith("timeline_ai_") ? aiJobs : exportJobs;
+        const result = name.endsWith("_inspect") ? service.inspect(input) : service.cancel(input);
         return { ok: true, ...result };
       } catch (error) {
         const code = error?.code || "FAILED";
@@ -226,6 +241,36 @@ export function createWebMcpEditorSession(getEditor, { publish = () => {}, commi
           result = { exportId: exportPreview.id, stateToken: state.stateToken, ...prepared };
           break;
         }
+        case "timeline_ai_capabilities":
+          result = aiJobs.capabilities(input);
+          break;
+        case "timeline_ai_prepare": {
+          object(input, ["stateToken", "request"]);
+          guard(signal, true);
+          requireState(state, input.stateToken);
+          const prepared = aiJobs.prepare({ request: input.request });
+          aiPreview = { id: makeId(), stateToken: state.stateToken, fingerprint: state.fingerprint, prepared };
+          result = { aiId: aiPreview.id, stateToken: state.stateToken, ...prepared };
+          break;
+        }
+        case "timeline_ai_start": {
+          object(input, ["aiId", "requestId", "allowModelDownload"]);
+          text(input.aiId); text(input.requestId);
+          if (input.allowModelDownload !== true) fail("AI_MODEL_DOWNLOAD_REQUIRED");
+          const previous = aiRequests.get(input.requestId);
+          if (previous) {
+            if (previous.aiId !== input.aiId) fail("INVALID_ARGUMENT");
+            result = { ...aiJobs.inspect({ jobId: previous.jobId }), alreadyStarted: true };
+            break;
+          }
+          guard(signal, true);
+          if (!aiPreview || aiPreview.id !== input.aiId) fail("PREVIEW_NOT_FOUND");
+          if (aiPreview.fingerprint !== state.fingerprint) fail("STALE_STATE");
+          result = aiJobs.start({ stateToken: state.stateToken, requestId: input.requestId,
+            request: aiPreview.prepared.request, allowModelDownload: true }, { signal });
+          aiRequests.set(input.requestId, { aiId: input.aiId, jobId: result.jobId });
+          break;
+        }
         case "timeline_export_start": {
           object(input, ["exportId", "requestId"]);
           text(input.exportId); text(input.requestId);
@@ -289,6 +334,29 @@ export function createWebMcpEditorSession(getEditor, { publish = () => {}, commi
           result = { time: getEditor().currentTime, stateToken: capture().stateToken };
           break;
         }
+        case "timeline_media_sample": {
+          guard(signal, true);
+          requireState(state, input.stateToken);
+          validateMediaSample(input, state.editor.duration);
+          if (!state.editor.sampleMedia) fail("MEDIA_SAMPLE_UNAVAILABLE");
+          const controller = new AbortController();
+          const cancel = () => controller.abort();
+          signal?.addEventListener("abort", cancel, { once: true });
+          sessionController.signal.addEventListener("abort", cancel, { once: true });
+          try {
+            result = await state.editor.sampleMedia(input, { signal: controller.signal });
+            guard(signal);
+            if (capture().fingerprint !== state.fingerprint) fail("STALE_STATE");
+            result = { stateToken: state.stateToken, ...result };
+          } catch (error) {
+            if (error?.code || error?.name === "AbortError") throw error;
+            fail("MEDIA_SAMPLE_FAILED");
+          } finally {
+            signal?.removeEventListener("abort", cancel);
+            sessionController.signal.removeEventListener("abort", cancel);
+          }
+          break;
+        }
         case "timeline_project_save": {
           object(input, ["stateToken"]);
           guard(signal, true);
@@ -319,7 +387,8 @@ export function createWebMcpEditorSession(getEditor, { publish = () => {}, commi
     dismiss() { pending = null; publish(null); },
     isCurrentPreview() { return Boolean(pending && pending.fingerprint === capture().fingerprint); },
     canUndo() { return Boolean(undoReceipt && undoReceipt.fingerprint === capture().fingerprint); },
-    close() { closed = true; pending = null; undoReceipt = null; exportPreview = null; exportJobs.close(); exportRequests.clear(); },
+    isAiRunning() { return aiJobs.isRunning(); },
+    close() { closed = true; sessionController.abort(); pending = null; undoReceipt = null; exportPreview = null; aiPreview = null; aiJobs.close(); aiRequests.clear(); exportJobs.close(); exportRequests.clear(); },
   };
 }
 
@@ -344,6 +413,12 @@ export function createWebMcpTools(session, t) {
     ["timeline_edit_preview", "Preview", editSchema, false],
     ["timeline_edit_apply", "Apply", schema({ previewId: stringSchema }, ["previewId"]), false],
     ["timeline_preview_seek", "Seek", schema({ time: { type: "number", minimum: 0, description: t("seekTimeDescription") } }, ["time"]), false],
+    ["timeline_media_sample", "MediaSample", WEB_MCP_MEDIA_SAMPLE_SCHEMA, true],
+    ["timeline_ai_capabilities", "AiCapabilities", schema({ language: { type: "string", enum: ["zh", "en", "ja", "ko", "es", "fr", "de", "pt", "th", "vi", "ru", "it", "id"] } }), true],
+    ["timeline_ai_prepare", "AiPrepare", schema({ stateToken: stringSchema, request: WEB_MCP_AI_REQUEST_SCHEMA }, ["stateToken", "request"]), true],
+    ["timeline_ai_start", "AiStart", schema({ aiId: stringSchema, requestId: stringSchema, allowModelDownload: { type: "boolean", const: true } }, ["aiId", "requestId", "allowModelDownload"]), false],
+    ["timeline_ai_inspect", "AiInspect", schema({ jobId: stringSchema }, ["jobId"]), true],
+    ["timeline_ai_cancel", "AiCancel", schema({ jobId: stringSchema }, ["jobId"]), false],
     ["timeline_edit_undo", "Undo", schema({ transactionId: stringSchema }, ["transactionId"]), false],
     ["timeline_project_save", "Save", schema({ stateToken: stringSchema }, ["stateToken"]), false],
     ["timeline_export_prepare", "ExportPrepare", schema({ stateToken: stringSchema, settings: WEB_MCP_EXPORT_SETTINGS_SCHEMA }, ["stateToken"]), true],

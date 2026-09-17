@@ -1,3 +1,5 @@
+import { CAPTION_STYLE_PROPERTY_SCHEMA } from "./projectCommandEngine.js";
+
 const COLLECTIONS = {
   visuals: "visualSegments", overlays: "visualOverlaySegments", audio: "audioSegments",
   captions: "captionSegments", stickers: "stickerSegments", music: "musicSegments",
@@ -8,14 +10,17 @@ const FIELDS = [
   "sourceAudioDisabled", "sourceAudioUnmapped",
   "detachedAudioSegmentId", "x", "y", "scale", "rotation", "opacity", "fontId",
 ];
-const GLOBAL_FIELDS = ["script", "ratioId", "fitMode", "musicName", "musicDuration", "musicStart", "musicVolume", "sourceAudioStart", "sourceAudioVolume", "captionsEnabled", "trackVisibility", "trackLocks"];
+const GLOBAL_FIELDS = ["script", "ratioId", "fitMode", "musicName", "musicDuration", "musicStart", "musicVolume", "sourceAudioStart", "sourceAudioVolume", "captionsEnabled", "trackVisibility", "trackLocks", "captionStyle", "captionSize", "captionStylePresetId", "captionPlacement", "captionPosition"];
+const NESTED_FIELDS = { baseTransform: ["x", "y", "scale", "rotation", "opacity"], placement: ["x", "y"], styleOverrides: Object.keys(CAPTION_STYLE_PROPERTY_SCHEMA) };
 const scalar = (value) => ["string", "boolean", "number"].includes(typeof value) || value === null;
 const pick = (value, fields) => Object.fromEntries(fields.filter((key) => Object.hasOwn(value || {}, key) && scalar(value[key])).map((key) => [key, value[key]]));
 
+export function browserClipProperties(clip) {
+  return { ...pick(clip, FIELDS), ...Object.fromEntries(Object.entries(NESTED_FIELDS).filter(([key]) => clip?.[key]).map(([key, fields]) => [key, pick(clip[key], fields)])) };
+}
+
 export function browserReviewEntities(project) {
-  return Object.fromEntries(Object.entries(COLLECTIONS).map(([track, key]) => [track, (project[key] || []).map((clip) => ({
-    ...pick(clip, FIELDS), ...(clip.baseTransform ? { baseTransform: pick(clip.baseTransform, ["x", "y", "scale", "rotation", "opacity"]) } : {}),
-  }))]));
+  return Object.fromEntries(Object.entries(COLLECTIONS).map(([track, key]) => [track, (project[key] || []).map(browserClipProperties)]));
 }
 
 export function browserAssetSummary(asset) {
@@ -39,11 +44,15 @@ export function browserReviewDiff(diff) {
   result.tracks = Object.fromEntries(Object.entries(diff.tracks || {}).map(([track, changes]) => [track, {
     ...changes,
     modified: (changes.modified || []).map((item) => {
-      const fields = (item.fields || []).filter((field) => FIELDS.includes(field) || field === "baseTransform");
-      const values = (source) => Object.fromEntries(fields.map((field) => [field, field === "baseTransform" ? pick(source?.[field], ["x", "y", "scale", "rotation", "opacity"]) : scalar(source?.[field]) ? source[field] : null]));
+      const fields = (item.fields || []).filter((field) => FIELDS.includes(field) || Object.hasOwn(NESTED_FIELDS, field));
+      const values = (source) => Object.fromEntries(fields.map((field) => [field, Object.hasOwn(NESTED_FIELDS, field)
+        ? source?.[field] ? pick(source[field], NESTED_FIELDS[field]) : null : scalar(source?.[field]) ? source[field] : null]));
       return { id: item.id, fields, before: values(item.before), after: values(item.after) };
     }),
   }]));
-  if (Array.isArray(diff.projectFields)) result.projectFields = diff.projectFields.filter((entry) => GLOBAL_FIELDS.includes(entry.field));
+  if (Array.isArray(diff.projectFields)) result.projectFields = diff.projectFields.filter((entry) => GLOBAL_FIELDS.includes(entry.field)).map((entry) => {
+    const nested = entry.field === "captionStyle" ? Object.keys(CAPTION_STYLE_PROPERTY_SCHEMA) : entry.field === "captionPlacement" ? ["x", "y"] : null;
+    return nested ? { ...entry, before: entry.before ? pick(entry.before, nested) : null, after: entry.after ? pick(entry.after, nested) : null } : entry;
+  });
   return result;
 }

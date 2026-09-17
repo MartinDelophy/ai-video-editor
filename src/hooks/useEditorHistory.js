@@ -35,6 +35,7 @@ function createSnapshot(d) {
     imageDuration: d.imageDuration,
     imageClipCount: d.imageClipCount,
     fitMode: d.fitMode,
+    ratioId: d.ratioId,
     selectedFilterId: d.selectedFilterId,
     selectedTransitionId: d.selectedTransitionId,
     stickerSegments: cloneItems(d.stickerSegments),
@@ -85,6 +86,7 @@ function mediaIdentity(item) {
 export function createEditorSnapshotSignature(snapshot) {
   return JSON.stringify({
     script: snapshot.script,
+    ratioId: snapshot.ratioId,
     captions: snapshot.captionSegments,
     captionPosition: snapshot.captionPosition,
     captionPlacement: snapshot.captionPlacement,
@@ -182,6 +184,7 @@ function restoreSnapshot(snapshot, d) {
   d.setImageDuration(snapshot.imageDuration);
   d.setImageClipCount(snapshot.imageClipCount);
   d.setFitMode(snapshot.fitMode);
+  if (snapshot.ratioId) d.setRatioId?.(snapshot.ratioId);
   d.setSelectedFilterId(snapshot.selectedFilterId);
   d.setSelectedTransitionId(snapshot.selectedTransitionId);
   d.setStickerSegments(cloneItems(snapshot.stickerSegments));
@@ -250,6 +253,7 @@ export function useEditorHistory(d) {
     imageDuration: d.imageDuration,
     imageClipCount: d.imageClipCount,
     fitMode: d.fitMode,
+    ratioId: d.ratioId,
     selectedFilterId: d.selectedFilterId,
     selectedTransitionId: d.selectedTransitionId,
     stickerSegments: d.stickerSegments,
@@ -282,7 +286,7 @@ export function useEditorHistory(d) {
     d.captionSize, d.captionStyle, d.captionStylePresetId, d.captionStylePresets,
     d.captionsEnabled, d.visualSegments, d.visualOverlaySegments, d.imageSrc,
     d.imageName, d.imageMeta, d.visualType, d.imageDuration, d.imageClipCount,
-    d.fitMode, d.selectedFilterId, d.selectedTransitionId, d.stickerSegments,
+    d.fitMode, d.ratioId, d.selectedFilterId, d.selectedTransitionId, d.stickerSegments,
     d.timelineMarkers, d.selectedStickerId, d.audioSegments, d.timelineHorizon,
     d.musicBlob, d.musicSegments, d.musicStart, d.musicUrl, d.musicName,
     d.musicDuration, d.musicPeaks, d.musicVolume, d.sourceAudioBlob,

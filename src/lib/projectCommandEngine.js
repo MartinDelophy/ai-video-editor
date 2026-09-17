@@ -1,10 +1,54 @@
 import { MAX_TIMELINE_MARKER_SECONDS, TIMELINE_MARKER_COLORS, TIMELINE_MARKER_TYPES, normalizeTimelineMarkers } from "./timelineMarkers.js";
 import { getCaptionTimeline, getTimedSegmentsEnd } from "./timeline.js";
+import { CAPTION_FONT_CATALOG } from "./captionFonts.js";
 
 export const PROJECT_COMMAND_SCHEMA_VERSION = 1;
 
 const COMMAND_STATE_KEY = "commandState";
 const MIN_TIMED_CAPTION_SECONDS = 0.2;
+
+export const CAPTION_STYLE_PROPERTY_SCHEMA = Object.freeze({
+  fontId: { type: "string", enum: CAPTION_FONT_CATALOG.map((font) => font.id) },
+  captionSize: { type: "number", minimum: 12, maximum: 42 },
+  ...Object.fromEntries(["textColor", "backgroundColor", "borderColor", "textStrokeColor"].map((key) => [key, { type: "string", pattern: "^#[0-9a-fA-F]{6}$" }])),
+  ...Object.fromEntries(Object.entries({ backgroundOpacity: 1, shadowOpacity: 1, textStrokeWidth: 6, borderWidth: 8, radius: 28, paddingX: 52, paddingY: 32 })
+    .map(([key, maximum]) => [key, { type: "number", minimum: 0, maximum }])),
+  effect: { type: "string", enum: ["normal", "neon"] },
+});
+
+const TIMED_COLLECTIONS = Object.freeze({ audio: "audioSegments", music: "musicSegments", overlay: "visualOverlaySegments", overlays: "visualOverlaySegments", sticker: "stickerSegments", stickers: "stickerSegments" });
+
+function invalidArgument(message) {
+  throw Object.assign(new Error(message), { code: "INVALID_ARGUMENT" });
+}
+
+function timedClip(project, operation) {
+  const key = TIMED_COLLECTIONS[operation.track];
+  if (!key) throw Object.assign(new Error(`Unsupported timed track: ${operation.track}`), { code: "UNSUPPORTED_TRACK" });
+  return findById(project[key], operation.clipId, "Timed clip");
+}
+
+function shiftCaptionWords(words, delta, start, end) {
+  return words.flatMap((word) => {
+    if (!word || typeof word !== "object" || !Number.isFinite(word.start) || !Number.isFinite(word.end) || word.end <= word.start) return [];
+    const wordStart = Math.max(start, word.start + delta);
+    const wordEnd = Math.min(end, word.end + delta);
+    return wordEnd > wordStart ? [{ ...word, start: wordStart, end: wordEnd }] : [];
+  });
+}
+
+function updateLinkedCaptionTiming(project, audioId, delta, end, lowerBound) {
+  project.captionSegments = (project.captionSegments || []).map((caption) => {
+    if (caption.audioSegmentId !== audioId) return caption;
+    const shiftedStart = (Number(caption.start) || 0) + delta;
+    const start = finiteNonNegative(lowerBound === undefined ? shiftedStart : Math.max(lowerBound, shiftedStart), "caption start");
+    const captionEnd = Math.min(end ?? Infinity, finiteNonNegative(Math.max(0, (Number(caption.end) || 0) + delta), "caption end"));
+    requireCaptionRange(start, captionEnd);
+    return { ...caption, start, end: captionEnd,
+      ...(Array.isArray(caption.words) ? { words: shiftCaptionWords(caption.words, delta, start, captionEnd) } : {}),
+    };
+  });
+}
 
 function failure(code, message, operationId = "") {
   return { ok: false, code, message, ...(operationId ? { operationId } : {}) };
@@ -64,38 +108,46 @@ function commandState(project) {
 }
 
 function moveTimed(project, operation) {
-  if (operation.track !== "audio") {
-    throw Object.assign(new Error(`Unsupported timed track: ${operation.track}`), { code: "UNSUPPORTED_TRACK" });
-  }
-  const segment = findById(project.audioSegments, operation.clipId, "Audio clip");
+  if (operation.track === "audio") project.captionSegments = materializeProjectCaptionTimings(project).captionSegments;
+  const segment = timedClip(project, operation);
   const nextStart = finiteNonNegative(operation.start, "start");
   const previousStart = Number(segment.start) || 0;
   segment.start = nextStart;
   const delta = nextStart - previousStart;
-  project.captionSegments = (project.captionSegments || []).map((caption) => caption.audioSegmentId === segment.id
-    ? { ...caption, start: finiteNonNegative((Number(caption.start) || 0) + delta, "caption start"), end: finiteNonNegative((Number(caption.end) || 0) + delta, "caption end") }
-    : caption);
+  if (operation.layer !== undefined) {
+    if (!["audio", "overlay", "overlays"].includes(operation.track) || !Number.isInteger(operation.layer) || operation.layer < 1 || operation.layer > 1000) invalidArgument("layer must identify an audio lane or overlay layer from 1 to 1000");
+    segment[operation.track === "audio" ? "lane" : "layer"] = operation.track === "audio" ? operation.layer - 1 : operation.layer;
+  }
+  if (operation.track === "audio") {
+    updateLinkedCaptionTiming(project, segment.id, delta);
+    project.audioDuration = getTimedSegmentsEnd(project.audioSegments);
+  }
 }
 
 function resizeTimed(project, operation) {
-  const collections = { audio: "audioSegments", sticker: "stickerSegments", overlay: "visualOverlaySegments" };
-  const key = collections[operation.track];
-  if (!key) throw Object.assign(new Error(`Unsupported timed track: ${operation.track}`), { code: "UNSUPPORTED_TRACK" });
-  const segment = findById(project[key], operation.clipId, "Timed clip");
+  if (operation.track === "audio") project.captionSegments = materializeProjectCaptionTimings(project).captionSegments;
+  const segment = timedClip(project, operation);
   const previousStart = Number(segment.start) || 0;
   const start = Object.hasOwn(operation, "start") ? finiteNonNegative(operation.start, "start") : previousStart;
   const duration = finitePositive(operation.duration, "duration");
+  const sourceBacked = ["audio", "music"].includes(operation.track) || segment.type === "video";
+  if (sourceBacked) {
+    if (segment.speedCurve?.enabled || segment.reversed || segment.reverse) throw Object.assign(new Error("Complex source timing cannot be resized"), { code: "UNSUPPORTED_TIMING" });
+    const rate = visualPlaybackRate(segment);
+    const retainedSourceDuration = Number(segment.sourceDuration) || Number(segment.duration) * rate;
+    if (duration * rate > retainedSourceDuration + 0.000001) throw Object.assign(new Error("Resize exceeds the retained source range"), { code: "SOURCE_RANGE_EXCEEDED" });
+    segment.sourceDuration = duration * rate;
+  }
   segment.start = start;
   segment.duration = duration;
+  if (Number.isFinite(segment.fadeIn)) segment.fadeIn = Math.min(segment.fadeIn, duration);
+  if (Number.isFinite(segment.fadeOut)) segment.fadeOut = Math.min(segment.fadeOut, duration);
+  if (Array.isArray(segment.keyframes)) segment.keyframes = remapKeyframes(segment.keyframes, 0, duration);
+  if (segment.propertyKeyframes) segment.propertyKeyframes = Object.fromEntries(Object.entries(segment.propertyKeyframes).map(([key, frames]) => [key, remapKeyframes(frames, 0, duration)]));
   if (operation.track === "audio") {
     const delta = start - previousStart;
-    const clipEnd = start + duration;
-    project.captionSegments = (project.captionSegments || []).map((caption) => {
-      if (caption.audioSegmentId !== segment.id) return caption;
-      const captionStart = finiteNonNegative((Number(caption.start) || 0) + delta, "caption start");
-      const captionEnd = Math.min(clipEnd, finiteNonNegative((Number(caption.end) || 0) + delta, "caption end"));
-      return { ...caption, start: Math.min(captionStart, captionEnd), end: captionEnd };
-    });
+    updateLinkedCaptionTiming(project, segment.id, delta, start + duration);
+    project.audioDuration = getTimedSegmentsEnd(project.audioSegments);
   }
 }
 
@@ -131,6 +183,10 @@ function trimVisual(project, operation) {
   materializeSourceAudioMappings(project);
   const segment = findById(project.visualSegments, operation.clipId, "Visual clip");
   if (segment.type !== "video") throw Object.assign(new Error("visual.trim currently supports video clips only"), { code: "UNSUPPORTED_MEDIA_TYPE" });
+  trimSourceRange(segment, operation);
+}
+
+function trimSourceRange(segment, operation) {
   const sourceIn = finiteNonNegative(operation.sourceIn, "sourceIn");
   const sourceOut = finiteNonNegative(operation.sourceOut, "sourceOut");
   if (sourceOut <= sourceIn) throw Object.assign(new Error("sourceOut must be after sourceIn"), { code: "INVALID_RANGE" });
@@ -147,6 +203,27 @@ function trimVisual(project, operation) {
   segment.sourceDuration = sourceOut - sourceIn;
   segment.duration = duration;
   if (Array.isArray(segment.keyframes)) segment.keyframes = remapKeyframes(segment.keyframes, removedLocalTime, removedLocalTime + duration);
+  if (segment.propertyKeyframes) segment.propertyKeyframes = Object.fromEntries(Object.entries(segment.propertyKeyframes)
+    .map(([key, frames]) => [key, remapKeyframes(frames, removedLocalTime, removedLocalTime + duration)]));
+  if (Number.isFinite(segment.fadeIn)) segment.fadeIn = Math.min(segment.fadeIn, duration);
+  if (Number.isFinite(segment.fadeOut)) segment.fadeOut = Math.min(segment.fadeOut, duration);
+  return { removedLocalTime, duration };
+}
+
+function trimTimed(project, operation) {
+  if (operation.track === "audio") project.captionSegments = materializeProjectCaptionTimings(project).captionSegments;
+  const segment = timedClip(project, operation);
+  if (!["audio", "music", "overlay", "overlays"].includes(operation.track)
+    || !["audio", "music"].includes(operation.track) && segment.type !== "video") {
+    throw Object.assign(new Error("Source trimming requires audio or video media"), { code: "UNSUPPORTED_MEDIA_TYPE" });
+  }
+  if (segment.speedCurve?.enabled || segment.reversed || segment.reverse) throw Object.assign(new Error("Complex source timing cannot be trimmed"), { code: "UNSUPPORTED_TIMING" });
+  const { removedLocalTime, duration } = trimSourceRange(segment, operation);
+  if (operation.track === "audio") {
+    const start = Number(segment.start) || 0;
+    updateLinkedCaptionTiming(project, segment.id, -removedLocalTime, start + duration, start);
+    project.audioDuration = getTimedSegmentsEnd(project.audioSegments);
+  }
 }
 
 function splitVisual(project, operation) {
@@ -447,21 +524,104 @@ function addCaption(project, operation) {
 }
 
 function deleteClip(project, operation) {
-  const collections = { caption: "captionSegments", audio: "audioSegments" };
+  const collections = { caption: "captionSegments", captions: "captionSegments", ...TIMED_COLLECTIONS };
   const key = collections[operation.track];
   if (!key) throw Object.assign(new Error(`Unsupported clip track: ${operation.track}`), { code: "UNSUPPORTED_TRACK" });
-  if (operation.track === "caption") project.captionSegments = materializeProjectCaptionTimings(project).captionSegments;
+  if (key === "captionSegments") project.captionSegments = materializeProjectCaptionTimings(project).captionSegments;
+  if (operation.track === "audio") project.captionSegments = materializeProjectCaptionTimings(project).captionSegments;
   findById(project[key], operation.clipId, `${operation.track === "caption" ? "Caption" : "Audio"} clip`);
   project[key] = project[key].filter((item) => item.id !== operation.clipId);
-  if (operation.track === "caption") {
+  if (key === "captionSegments") {
     project.script = project.captionSegments.map((item) => item.text).join("\n");
-  } else {
+  } else if (operation.track === "audio") {
     project.captionSegments = (project.captionSegments || []).map((caption) => (
       caption.audioSegmentId === operation.clipId || caption.detachedAudioSegmentId === operation.clipId
         ? { ...caption, audioSegmentId: "", detachedAudioSegmentId: "" }
         : caption
     ));
+    project.audioDuration = getTimedSegmentsEnd(project.audioSegments);
+  } else if (operation.track === "music" && !project.musicSegments.length) {
+    project.musicName = "";
+    project.musicDuration = 0;
+    project.musicStart = 0;
   }
+}
+
+function captionEditScope(project, operation) {
+  if (!["default", "current"].includes(operation.scope)) invalidArgument("scope must be default or current");
+  if (operation.scope === "default") {
+    if (Object.hasOwn(operation, "clipId")) invalidArgument("Default caption edits must not specify clipId");
+    return null;
+  }
+  return findById(project.captionSegments, operation.clipId, "Caption clip");
+}
+
+function setCaptionStyle(project, operation) {
+  const caption = captionEditScope(project, operation);
+  const style = operation.style;
+  if (!style || typeof style !== "object" || Array.isArray(style) || !Object.keys(style).length) invalidArgument("style must contain at least one supported property");
+  for (const [key, value] of Object.entries(style)) {
+    const rule = CAPTION_STYLE_PROPERTY_SCHEMA[key];
+    if (!rule || typeof value !== rule.type || rule.enum && !rule.enum.includes(value)
+      || rule.type === "number" && (!Number.isFinite(value) || value < rule.minimum || value > rule.maximum)
+      || rule.pattern && !new RegExp(rule.pattern).test(value)) invalidArgument(`Invalid caption style property: ${key}`);
+  }
+  if (caption) {
+    caption.styleOverrides = { ...(caption.styleOverrides || {}), ...style };
+    return;
+  }
+  const { captionSize, ...visualStyle } = style;
+  project.captionStyle = { ...(project.captionStyle || {}), ...visualStyle };
+  if (captionSize !== undefined) project.captionSize = captionSize;
+  project.captionStylePresetId = "modified";
+  // Default-style edits have the same semantics as the editor inspector:
+  // edited properties become shared; unrelated per-caption overrides survive.
+  project.captionSegments = (project.captionSegments || []).map((item) => {
+    const next = { ...item, styleOverrides: { ...(item.styleOverrides || {}) } };
+    for (const key of Object.keys(style)) delete next.styleOverrides[key];
+    if (Object.hasOwn(style, "fontId")) delete next.fontId;
+    if (!Object.keys(next.styleOverrides).length) delete next.styleOverrides;
+    return next;
+  });
+}
+
+function captionPlacement(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)
+    || Object.keys(value).some((key) => !["x", "y"].includes(key))
+    || [value.x, value.y].some((coordinate) => typeof coordinate !== "number" || !Number.isFinite(coordinate) || coordinate < 10 || coordinate > 90)) {
+    invalidArgument("Caption placement is a center point with x and y percentages from 10 to 90");
+  }
+  return { x: value.x, y: value.y };
+}
+
+function setSharedCaptionPlacement(project, placement) {
+  project.captionPlacement = captionPlacement(placement);
+  project.captionPosition = [["top", 18], ["middle", 50], ["bottom", 78]]
+    .find(([, y]) => Math.abs(placement.x - 50) < 4 && Math.abs(placement.y - y) < 4)?.[0] || "custom";
+  project.captionSegments = (project.captionSegments || []).map(({ placement: _placement, ...caption }) => caption);
+}
+
+function setCaptionPosition(project, operation) {
+  const caption = captionEditScope(project, operation);
+  const placement = captionPlacement(operation.placement);
+  if (caption) caption.placement = placement;
+  else setSharedCaptionPlacement(project, placement);
+}
+
+function syncCaptionPosition(project, operation) {
+  const caption = findById(project.captionSegments, operation.clipId, "Caption clip");
+  setSharedCaptionPlacement(project, caption.placement || project.captionPlacement || { x: 50, y: 78 });
+}
+
+function setOverlayTransform(project, operation) {
+  const clip = findById(project.visualOverlaySegments, operation.clipId, "Overlay clip");
+  const transform = operation.transform;
+  if (!transform || typeof transform !== "object" || Array.isArray(transform) || !Object.keys(transform).length) invalidArgument("transform must contain at least one supported property");
+  for (const [key, value] of Object.entries(transform)) {
+    const limits = NUMERIC_CLIP_PROPERTIES[key];
+    if (!["x", "y", "scale", "rotation", "opacity"].includes(key) || typeof value !== "number" || !Number.isFinite(value) || value < limits.min || value > limits.max) invalidArgument(`Invalid overlay transform property: ${key}`);
+  }
+  clip.baseTransform = { x: 27, y: -24, scale: 0.34, rotation: 0, opacity: 1, ...(clip.baseTransform || {}), ...transform };
 }
 
 function unlinkCaption(project, operation) {
@@ -580,6 +740,11 @@ function setProjectRatio(project, operation) {
   project.ratioId = operation.ratio;
 }
 
+function setProjectFit(project, operation) {
+  if (!["contain", "cover"].includes(operation.fitMode)) invalidArgument("fitMode must be contain or cover");
+  project.fitMode = operation.fitMode;
+}
+
 function requireMarkerId(value) {
   if (typeof value !== "string" || !value.trim() || value !== value.trim() || value.length > 160) {
     throw Object.assign(new Error("markerId must be a non-empty string of at most 160 characters without surrounding whitespace"), { code: "INVALID_ARGUMENT" });
@@ -684,6 +849,7 @@ const reducers = {
   "asset.insert": insertPreparedAsset,
   "timed.move": moveTimed,
   "timed.resize": resizeTimed,
+  "timed.trim": trimTimed,
   "visual.trim": trimVisual,
   "visual.split": splitVisual,
   "visual.reorder": reorderVisual,
@@ -692,9 +858,13 @@ const reducers = {
   "visual.delete": deleteVisual,
   "visual.duplicate": duplicateVisual,
   "overlay.add": addOverlay,
+  "overlay.set_transform": setOverlayTransform,
   "transition.set": setTransition,
   "caption.add": addCaption,
   "caption.update": updateCaption,
+  "caption.set_style": setCaptionStyle,
+  "caption.set_position": setCaptionPosition,
+  "caption.sync_position": syncCaptionPosition,
   "caption.delete": (project, operation) => deleteClip(project, { ...operation, track: "caption" }),
   "caption.unlink_audio": unlinkCaption,
   "caption.link_audio": linkCaption,
@@ -708,6 +878,7 @@ const reducers = {
   "track.set_visibility": (project, operation) => setTrackState(project, operation, "visible"),
   "track.set_locked": (project, operation) => setTrackState(project, operation, "locked"),
   "project.set_ratio": setProjectRatio,
+  "project.set_fit": setProjectFit,
 };
 
 export function validateCommandPlan(plan) {
@@ -876,7 +1047,7 @@ function sameValue(left, right) {
 }
 
 export function diffProjects(beforeProject, afterProject) {
-  const projectFields = ["ratioId", "fitMode", "trackVisibility", "trackLocks", "script", "captionsEnabled"]
+  const projectFields = ["ratioId", "fitMode", "trackVisibility", "trackLocks", "script", "captionsEnabled", "captionStyle", "captionSize", "captionStylePresetId", "captionPlacement", "captionPosition"]
     .flatMap((field) => sameValue(beforeProject?.[field], afterProject?.[field]) ? [] : [{ field, before: beforeProject?.[field] ?? null, after: afterProject?.[field] ?? null }]);
   const tracks = Object.fromEntries(Object.entries(TRACK_COLLECTIONS).flatMap(([track, key]) => {
     const before = Array.isArray(beforeProject?.[key]) ? beforeProject[key] : [];

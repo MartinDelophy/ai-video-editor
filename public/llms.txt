@@ -30,7 +30,7 @@ License: MIT
 - [Browser editing Skill](https://video-editor.ai-creator.top/.well-known/agent-skills/edit-timeline-studio-browser/SKILL.md): Inspect, preview, review and apply supported edits to the open project.
 - [Local editing Skill](https://github.com/MartinDelophy/ai-video-editor/tree/main/skills/edit-timeline-studio): Repository CLI and local STDIO MCP for portable project files.
 
-WebMCP is experimental and requires a compatible browser and agent host. Its 15 browser tools support inspection of projects, assets and markers; reviewed caption/audio/marker edits and main-visual split/delete/duplicate/reorder/trim; insertion of existing editor assets and picture-in-picture; guarded undo; editable .timeline downloads; and prepared video exports with progress, actual output receipts and cancellation. They do not provide arbitrary URL imports, media upload, AI generation or a hosted MCP server.
+WebMCP is experimental and requires a compatible browser and agent host. Its 21 browser tools support metadata inspection; 26 reviewed operations for multi-track edits, caption style/position, project ratio/fit, overlays, audio, markers and existing assets; explicit rendered frame/audio samples; browser-local voiceover/transcription jobs with reviewed plans, download permission, progress and cancellation; guarded undo; editable .timeline downloads; and prepared video exports with actual output receipts. AI voiceovers go to My assets and transcriptions return proposed caption operations without automatic timeline insertion. Tools do not provide arbitrary URL imports, media upload, remote generation or a hosted MCP server.
 
 ## Citation guidance
 

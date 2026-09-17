@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { X } from "@phosphor-icons/react";
 
 import { LanguageIntro } from "./components/panels.jsx";
@@ -12,7 +12,7 @@ import { FirstVisualGuide } from "./components/FirstVisualGuide.jsx";
 import { MiganRepairDialog } from "./components/MiganRepairDialog.jsx";
 import { NanoVsrRestorationDialog } from "./components/NanoVsrRestorationDialog.jsx";
 import { SmartDenoiseDialog } from "./components/SmartDenoiseDialog.jsx";
-import { WebMcpReview } from "./components/WebMcpReview.jsx";
+import { WebMcpReview, WebMcpAiStatus } from "./components/WebMcpReview.jsx";
 import ProjectImportOverlay from "./components/ProjectImportOverlay.jsx";
 import {
   canShowFirstVisualGuide,
@@ -37,6 +37,7 @@ import { useVoiceProfiles } from "./hooks/useVoiceProfiles.js";
 import { useAutoCaptions } from "./hooks/useAutoCaptions.js";
 import { useAutoEdit } from "./hooks/useAutoEdit.js";
 import { useWebMcpEditor } from "./hooks/useWebMcpEditor.js";
+import { sampleEditorMedia } from "./lib/webMcpMediaSample.js";
 import { browserProjectFingerprint, restoreBrowserProjectMedia } from "./lib/browserEditPlan.js";
 import { useSourceAudioExtraction } from "./hooks/useSourceAudioExtraction.js";
 import { useVocalSeparation } from "./hooks/useVocalSeparation.js";
@@ -248,7 +249,8 @@ export function App() {
   });
   const { redo, undo, checkpoint: checkpointHistory, signature: historySignature } = useEditorHistory({
     autoRatioSourceKeyRef,
-    timelineMarkers, setTimelineMarkers,
+    timelineMarkers, setTimelineMarkers, ratioId, setRatioId,
+    captionStylePresetId, captionStylePresets, setCaptionStylePresetId, setCaptionStylePresets,
     audioSegments, captionPlacement, captionPosition, captionSegments, captionSize,
     captionStyle, captionsEnabled, currentTime, fitMode, imageClipCount, imageDuration,
     imageMeta, imageName, imageSrc, imageUrlRefs, musicBlob, musicDuration, musicName, musicSegments, musicStart,
@@ -552,10 +554,14 @@ export function App() {
     notify,
     t,
   });
+  const setSmartFrameRatio = useCallback((nextRatioId) => {
+    setRatioId(nextRatioId);
+    if (nextRatioId !== ratioId) setFitMode("contain");
+  }, [ratioId, setRatioId, setFitMode]);
   const smartFrame = useSmartFrame({
     selectedSegment: selectedVisualSegment,
     ratioId,
-    setRatioId,
+    setRatioId: setSmartFrameRatio,
     setVisualSegments,
     trackLocked: Boolean(trackLocks.image),
     notify,
@@ -1290,7 +1296,7 @@ export function App() {
     captionDuration, imageDuration, musicBlob, musicTimelineEnd, sourceAudioBlob,
     sourceAudioTimelineEnd, stickerDuration, visualOverlaySegments, voiceTrackDuration,
   ]);
-  const handleExportVideo = useVideoExport({
+  const videoCompositionContext = {
     audioSegments, captionDuration, captionPlacement, captionPosition, captionSegments, captionTargetDuration,
     captionSize, captionStyle, captionsEnabled, exporting, exportAbortControllerRef, exportStartRef, fitMode,
     imageDuration, imageSrc, musicBlob, musicDuration, musicSegments, musicStart, musicTimelineEnd, musicVolume, notify,
@@ -1304,7 +1310,8 @@ export function App() {
       videoBitsPerSecond: getEffectiveExportBitrate(exportSettings),
     },
     visualOverlaySegments, t, language: activeLanguage,
-  });
+  };
+  const handleExportVideo = useVideoExport(videoCompositionContext);
   const { startCaptionResize, startTimelineClipDrag } = createTimelineReorderControls({
     timelineMarkers,
     audioSegments, captionSegments, captionTargetDuration, commitCaptionSegments, commitVisualSegments,
@@ -1344,6 +1351,13 @@ export function App() {
     setCaptionSegments(next.captionSegments);
     setTimelineMarkers(next.timelineMarkers);
     setCaptionsEnabled(next.captionsEnabled);
+    setCaptionStyle(next.captionStyle);
+    setCaptionSize(next.captionSize);
+    setCaptionStylePresetId(next.captionStylePresetId);
+    setCaptionPlacement(next.captionPlacement);
+    setCaptionPosition(next.captionPosition);
+    setRatioId(next.ratioId);
+    setFitMode(next.fitMode);
     setVisualOverlaySegments(next.visualOverlaySegments);
     setStickerSegments(next.stickerSegments);
     setMusicSegments(next.musicSegments);
@@ -1377,12 +1391,34 @@ export function App() {
     createArchive: createCurrentArchive, download: downloadBlob, notify,
     exportVideo: handleExportVideo, exportSettings, exportContentDuration, ratio, exporting,
     applyReview: applyBrowserReview,
+    sampleMedia: (input, options) => sampleEditorMedia(videoCompositionContext, input, options),
+    commitAiVoiceAssets: ({ items }, { signal } = {}) => {
+      if (signal?.aborted) throw Object.assign(new Error("CANCELLED"), { name: "AbortError" });
+      const assets = items.map((item) => {
+        const id = crypto.randomUUID(); const src = URL.createObjectURL(item.blob);
+        imageUrlRefs.current.add(src);
+        return { id, type: "audio", kind: "voiceover", name: item.name, text: item.text,
+          voiceId: item.voiceId, blob: item.blob, src, previewSrc: src, generated: true,
+          duration: item.decoded.duration, peaks: item.decoded.peaks };
+      });
+      setUserAssets((current) => [...assets, ...current]);
+      setActiveTool("media"); setMediaTab("mine");
+      if (assets[0]) setSelectedLibraryAssetId(assets[0].id);
+      return assets.map(({ id, duration }) => ({ id, duration }));
+    },
     undo: () => { pauseTimelineMedia(); undo(); },
     seek: (time) => { pauseTimelineMedia(); setIsPlaying(false); seekTo(time, { immediate: true }); },
     isBusy: () => Boolean(projectImportProgress || exporting || timelineClipDragRef.current || pointerAssetDragRef.current ||
-      isDragging || draggedAssetId || visualSegments.some((clip) => clip.preparing) ||
+      isDragging || draggedAssetId || ["generating", "captioning"].includes(status) || visualSegments.some((clip) => clip.preparing) ||
       visualOverlaySegments.some((clip) => clip.preparing) || visionJob.running || avatarJob.running || autoEdit.job.running),
   });
+
+  const guardAgentAi = (action) => (...args) => {
+    if (webMcp.isAiRunning()) { notify(webMcp.t("busy")); return; }
+    return action(...args);
+  };
+  const generateVoiceoverWhenIdle = guardAgentAi(generateVoiceover);
+  const generateCaptionsWhenIdle = guardAgentAi(generateCaptionsFromSourceAudio);
 
   return (
     <main className={`app-shell ${isCompactViewport ? "is-compact-workspace" : ""} ${mobilePanel ? `mobile-panel-${mobilePanel}` : ""} ${isCompactViewport && mobileInspectorSection ? `mobile-section-${mobileInspectorSection}` : ""} ${isCompactViewport && mobileInspectorSection === "mask" && (selectedVisualOverlay || selectedVisualSegment)?.mask?.type && (selectedVisualOverlay || selectedVisualSegment).mask.type !== "none" ? "mobile-mask-active" : ""} ${mobilePanelClosing ? "is-mobile-panel-closing" : ""}`} lang={activeLanguage} onDragOver={(event) => {
@@ -1459,6 +1495,7 @@ export function App() {
       />
 
       <WebMcpReview agent={webMcp} language={activeLanguage} />
+      <WebMcpAiStatus agent={webMcp} />
       <ProjectImportOverlay progress={projectImportProgress} language={activeLanguage} />
       <section className={`editor-grid ${compactRail ? "is-compact-rail" : ""}`}>
         <EditorSidebar model={{
@@ -1468,7 +1505,7 @@ export function App() {
           captionTargetDuration, captionsEnabled, clearMusicTrack, clearSourceAudioTrack,
           compactRail, currentSegmentIndex, deleteCaptionSegment,
           deleteUserAsset, downloadBlob, draggedAssetId,
-          estimatedDuration, fileInputRef, generateCaptionsFromSourceAudio, handleAssetClick,
+          estimatedDuration, fileInputRef, generateCaptionsFromSourceAudio: generateCaptionsWhenIdle, handleAssetClick,
           handleAssetPointerDown, handleCaptionPositionChange, handleFiles, handleStickerClick, confirmStickerSelection,
           imageSrc, isDragging, mediaTab, musicBlob, musicDuration, musicName, musicVolume,
           libraryType, libraryQuery, setLibraryQuery, selectLibraryType, libraryStatus, libraryError, libraryProvider,
@@ -1623,7 +1660,7 @@ export function App() {
           setVolume={setVolume}
           progressPercent={progressPercent}
           audioBlob={audioBlob}
-          generateVoiceover={generateVoiceover}
+          generateVoiceover={generateVoiceoverWhenIdle}
           downloadBlob={downloadBlob}
           favoriteVoiceIds={favoriteVoiceIds}
           setFavoriteVoiceIds={setFavoriteVoiceIds}
@@ -1668,7 +1705,7 @@ export function App() {
           seekTo={seekTo}
           sourceAudioBlob={sourceAudioBlob}
           sourceAudioLinked={sourceAudioLinked}
-          generateCaptionsFromSourceAudio={generateCaptionsFromSourceAudio}
+          generateCaptionsFromSourceAudio={generateCaptionsWhenIdle}
           isGeneratingCaptions={status === "captioning"}
           automaticCaptionProgress={status === "captioning" ? progress : 0}
           avatarPanelOpen={avatarPanelOpen}
@@ -1834,7 +1871,7 @@ export function App() {
         builtInImageCaptionAvailable={autoEdit.support.availability === "available"}
         generateImageCaption={autoEdit.generateImageCaption}
         extractVideoSourceAudio={extractVideoSourceAudio}
-        generateCaptionsFromAudioClip={generateCaptionsFromSourceAudio}
+        generateCaptionsFromAudioClip={generateCaptionsWhenIdle}
         separateAudioClipVocals={separateAudioClipVocals}
         audioProcessingBusy={vocalSeparationJob.running || status === "captioning"}
         setSelectedVisualSegmentId={setSelectedVisualSegmentId}

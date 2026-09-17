@@ -13,7 +13,12 @@ const FIELD_LABELS = {
   ratioId: "fieldRatio", fitMode: "fieldFit", trackVisibility: "fieldVisibility", trackLocks: "fieldLocks", enabled: "fieldEnabled",
   reversed: "fieldReverse", reverse: "fieldReverse", position: "fieldPosition", x: "fieldX", y: "fieldY", scale: "fieldScale",
   rotation: "fieldRotation", opacity: "fieldOpacity", baseTransform: "fieldPosition", style: "fieldStyle", styleOverride: "fieldStyle",
-  fontSize: "fieldFontSize", positionOverride: "fieldPosition", keyframes: "fieldKeyframes", propertyKeyframes: "fieldKeyframes",
+  fontSize: "fieldFontSize", captionSize: "fieldFontSize", captionStyle: "fieldStyle", styleOverrides: "fieldStyle",
+  captionStylePresetId: "fieldStyle", captionPlacement: "fieldPosition", placement: "fieldPosition", captionPosition: "fieldPosition",
+  positionOverride: "fieldPosition", keyframes: "fieldKeyframes", propertyKeyframes: "fieldKeyframes",
+  fontId: "fieldFontId", textColor: "fieldTextColor", backgroundColor: "fieldBackgroundColor", backgroundOpacity: "fieldBackgroundOpacity",
+  borderColor: "fieldBorderColor", borderWidth: "fieldBorderWidth", radius: "fieldRadius", paddingX: "fieldPaddingX", paddingY: "fieldPaddingY",
+  shadowOpacity: "fieldShadowOpacity", effect: "fieldEffect", textStrokeColor: "fieldTextStrokeColor", textStrokeWidth: "fieldTextStrokeWidth",
 };
 const TIME_FIELDS = new Set(["time", "start", "end", "rangeEnd", "endTime", "duration", "sourceStart", "sourceDuration", "fadeIn", "fadeOut"]);
 const SUMMARY_FIELDS = ["type", "text", "note", "notes", "start", "time", "end", "endTime", "duration", "sourceStart", "sourceDuration", "volume", "fadeIn", "fadeOut", "muted", "layer", "lane", "baseTransform", "audioSegmentId", "sourceAudioDisabled", "sourceAudioUnmapped", "color"];
@@ -24,6 +29,8 @@ const ENUM_LABELS = {
   type: { video: "mediaVideo", image: "mediaImage", audio: "mediaAudio", marker: "markerPoint", chapter: "markerChapter", range: "markerRange", note: "markerNote" },
   color: { cyan: "colorCyan", amber: "colorAmber", violet: "colorViolet", rose: "colorRose", green: "colorGreen" },
   fitMode: { cover: "fitCover", contain: "fitContain" },
+  effect: { normal: "effectNormal", neon: "effectNeon" },
+  captionPosition: { top: "positionTop", middle: "positionMiddle", bottom: "positionBottom" },
 };
 const equal = (left, right) => JSON.stringify(left) === JSON.stringify(right);
 
@@ -181,4 +188,23 @@ export function WebMcpReview({ agent, language }) {
       </footer>
     </aside>
   );
+}
+
+export function WebMcpAiStatus({ agent }) {
+  const { aiJob: job, t } = agent;
+  if (!job) return null;
+  const running = ["queued", "running"].includes(job.status);
+  return <aside className="webmcp-ai-status" aria-label={t("aiJobTitle")}>
+    <header><Robot size={18} aria-hidden="true" /><strong>{t(job.kind === "voiceover" ? "aiVoiceover" : "aiTranscription")}</strong>
+      {!running ? <button type="button" className="webmcp-review-close" aria-label={t("aiDismiss")} onClick={agent.dismissAi}><X size={17} /></button> : null}
+    </header>
+    <div className="webmcp-ai-progress" role="status" aria-live="polite">
+      {running ? <CircleNotch size={16} className="webmcp-review-spinner" aria-hidden="true" />
+        : job.status === "succeeded" ? <CheckCircle size={16} aria-hidden="true" /> : <X size={16} aria-hidden="true" />}
+      <span>{t(job.cancelRequested && running ? "aiCancelRequested" : job.phaseKey)}{job.segment && running ? ` · ${job.segment.current}/${job.segment.total}` : ""}</span>
+      <span>{Number.isFinite(job.progress) ? `${job.progress}%` : ""}</span>
+      {running ? <progress aria-label={t("aiJobTitle")} max={100} {...(Number.isFinite(job.progress) ? { value: job.progress } : {})} /> : null}
+    </div>
+    {running ? <button type="button" className="panel-secondary" onClick={agent.cancelAi} disabled={job.cancelRequested}>{t("aiCancel")}</button> : null}
+  </aside>;
 }

@@ -5167,6 +5167,7 @@ button:disabled {
 
 .preview-frame {
   position: relative;
+  isolation: isolate;
   display: grid;
   place-items: center;
   max-width: 100%;
@@ -5281,6 +5282,7 @@ button:disabled {
 
 .visual-overlay-layer {
   position: absolute;
+  z-index: 4;
   transform-origin: center;
   cursor: move;
   touch-action: none;
@@ -5288,6 +5290,12 @@ button:disabled {
 .visual-overlay-layer > img,
 .visual-overlay-layer > video { display: block; width: 100%; height: 100%; object-fit: contain; background: transparent; pointer-events: none; }
 .visual-overlay-layer.is-selected { border: 1.5px dashed rgba(255,255,255,.94); box-shadow: 0 0 0 1px rgba(5,10,18,.55), 0 0 20px rgba(53,234,217,.15); }
+/* Match canvas composition: primary effects, PiP, captions, then stickers.
+   Editing controls float above content without raising the selected media. */
+.preview-frame > .click-ripple-preview { z-index: 3; }
+.visual-overlay-controls { z-index: 8; pointer-events: none; }
+.visual-overlay-controls > button,
+.visual-overlay-controls > .visual-mask-editor { pointer-events: auto; }
 .visual-overlay-order-actions {
   position: absolute;
   z-index: 24;
@@ -6364,7 +6372,7 @@ button:disabled {
 
 .caption-overlay {
   position: absolute;
-  z-index: 2;
+  z-index: 5;
   box-sizing: border-box;
   border: 0;
   padding: 0;
@@ -6387,7 +6395,7 @@ button:disabled {
 
 .caption-canvas-guide {
   position: absolute;
-  z-index: 5;
+  z-index: 30;
   display: none;
   pointer-events: none;
   background: #31ead7;
@@ -6431,7 +6439,7 @@ button:disabled {
 
 .sticker-overlay {
   position: absolute;
-  z-index: 3;
+  z-index: 6;
   pointer-events: none;
 }
 

@@ -38,6 +38,7 @@ const UI_LANGUAGE_TO_WHISPER_LANGUAGE = {
   vi: "vi",
   it: "it",
   id: "id",
+  ru: "ru",
 };
 
 const WHISPER_LANGUAGE_NAMES = {
@@ -53,12 +54,17 @@ const WHISPER_LANGUAGE_NAMES = {
   vi: "Tiếng Việt",
   it: "Italiano",
   id: "Bahasa Indonesia",
+  ru: "Русский",
 };
 
 let transcriberState = null;
 let asrWorker = null;
 let shouldSkipAsrWorker = false;
+let transcriptionActive = false;
 const workerRequests = new Map();
+const throwIfAborted = (signal) => {
+  if (signal?.aborted) throw new DOMException("Cancelled", "AbortError");
+};
 
 function getAudioContext(sampleRate = ASR_SAMPLE_RATE) {
   const AudioContextClass = window.AudioContext || window.webkitAudioContext;
@@ -647,8 +653,9 @@ function getAsrWorker() {
   return asrWorker;
 }
 
-function transcribeAudioInWorker(audio, { onProgress, preferredLanguage }) {
-  if (shouldSkipAsrWorker) {
+function transcribeAudioInWorker(audio, { onProgress, preferredLanguage, signal, requireWorker = false }) {
+  throwIfAborted(signal);
+  if (shouldSkipAsrWorker && !requireWorker) {
     return Promise.reject(new Error("本轮已停用自动字幕 Worker。"));
   }
 
@@ -660,11 +667,20 @@ function transcribeAudioInWorker(audio, { onProgress, preferredLanguage }) {
   const requestId = makeId("asr");
   const transferableAudio = audio.slice();
   return new Promise((resolve, reject) => {
+    const abort = () => {
+      // A terminating cancellation must never fall through to main-thread ASR.
+      const error = new DOMException("Cancelled", "AbortError");
+      asrWorker?.terminate();
+      asrWorker = null;
+      rejectWorkerRequests(error);
+    };
+    const cleanup = () => signal?.removeEventListener("abort", abort);
     workerRequests.set(requestId, {
-      resolve,
-      reject,
+      resolve: (value) => { cleanup(); resolve(value); },
+      reject: (error) => { cleanup(); reject(error); },
       onProgress,
     });
+    signal?.addEventListener("abort", abort, { once: true });
 
     worker.postMessage(
       {
@@ -748,33 +764,42 @@ function resetAsrWorker() {
   workerRequests.clear();
 }
 
-export async function transcribeAudioToCaptionSegments(
+async function runTranscription(
   blob,
-  { onProgress, preferredLanguage = "zh", timelineOffset = 0 } = {},
+  { onProgress, preferredLanguage = "zh", timelineOffset = 0, signal, requireWorker = false } = {},
 ) {
+  throwIfAborted(signal);
   onProgress?.({ progress: 5, phase: "解码原声音频" });
   const { audio, duration } = await decodeAudioForAsr(blob);
+  throwIfAborted(signal);
   if (!audio.length || !duration) {
     throw new Error("没有检测到可识别的音频。");
   }
 
   let result;
   try {
-    result = await transcribeAudioInWorker(audio, { onProgress, preferredLanguage });
+    result = await transcribeAudioInWorker(audio, { onProgress, preferredLanguage, signal, requireWorker });
     result.source = "worker";
   } catch (error) {
+    throwIfAborted(signal);
+    if (error?.name === "AbortError" || requireWorker) throw error;
     console.warn("ASR worker failed, falling back to main thread.", error);
     onProgress?.({ progress: 8, phase: "Worker 不可用，切换主线程自动字幕" });
     result = await transcribeAudioOnMainThread(audio, { onProgress, preferredLanguage });
   }
+  throwIfAborted(signal);
 
   if (result.source === "worker" && isSuspiciousTranscript(result.output, result.language, preferredLanguage)) {
+    // Agent jobs require a cancellable Worker. Preserve the normal UI fallback,
+    // but never start uncancellable inference after a reviewed Worker-only plan.
+    if (requireWorker) throw new Error("ASR_UNRELIABLE_TRANSCRIPT");
     console.warn("ASR worker returned a suspicious transcript, retrying on the WASM main thread.", result.output);
     shouldSkipAsrWorker = true;
     resetAsrWorker();
     onProgress?.({ progress: 78, phase: "Worker 结果异常，切换稳定 WASM 重新识别" });
     result = await transcribeAudioOnMainThread(audio, { onProgress, preferredLanguage });
   }
+  throwIfAborted(signal);
 
   if (isSuspiciousTranscript(result.output, result.language, preferredLanguage)) {
     throw new Error("自动字幕结果像是识别错语言了，请刷新后重新生成一次。");
@@ -804,4 +829,14 @@ export async function transcribeAudioToCaptionSegments(
     language: result.language,
     languageDetected: result.languageDetected,
   };
+}
+
+export async function transcribeAudioToCaptionSegments(blob, options = {}) {
+  if (transcriptionActive) throw Object.assign(new Error("EDITOR_BUSY"), { code: "EDITOR_BUSY" });
+  transcriptionActive = true;
+  try {
+    return await runTranscription(blob, options);
+  } finally {
+    transcriptionActive = false;
+  }
 }

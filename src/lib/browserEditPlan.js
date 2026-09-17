@@ -336,6 +336,16 @@ export const BROWSER_OPERATION_FIELDS = Object.freeze({
   "caption.add": ["clipId", "text", "start", "end", "audioClipId"],
   "caption.update": ["clipId", "text", "start", "end"],
   "caption.delete": ["clipId"],
+  "caption.set_style": ["scope", "clipId", "style"],
+  "caption.set_position": ["scope", "clipId", "placement"],
+  "caption.sync_position": ["clipId"],
+  "timed.move": ["track", "clipId", "start", "layer"],
+  "timed.resize": ["track", "clipId", "start", "duration"],
+  "timed.trim": ["track", "clipId", "sourceIn", "sourceOut"],
+  "clip.delete": ["track", "clipId"],
+  "overlay.set_transform": ["clipId", "transform"],
+  "project.set_ratio": ["ratio"],
+  "project.set_fit": ["fitMode"],
   "clip.set_property": ["clipId", "property", "value"],
   "clip.set_muted": ["clipId", "muted"],
   "marker.add": ["markerId", "markerType", "time", "endTime", "title", "notes", "color"],
@@ -409,7 +419,12 @@ function validateBrowserOperation(operation) {
     assertId(operation.markerId);
     if (operation.markerId.length > 160) reject("BROWSER_EDIT_INVALID_PLAN");
   }
-  else assertId(operation.clipId);
+  else if (!operation.type.startsWith("project.") && !(["caption.set_style", "caption.set_position"].includes(operation.type) && operation.scope === "default")) assertId(operation.clipId);
+  if (operation.type.startsWith("timed.") || operation.type === "clip.delete") {
+    if (!["audio", "music", "overlays", "stickers"].includes(operation.track)) reject("BROWSER_EDIT_INVALID_PLAN");
+    if (operation.type === "timed.trim" && operation.track === "stickers") reject("BROWSER_EDIT_INVALID_PLAN");
+    if (Object.hasOwn(operation, "layer") && !["audio", "overlays"].includes(operation.track)) reject("BROWSER_EDIT_INVALID_PLAN");
+  }
   if (Object.hasOwn(operation, "text") && (typeof operation.text !== "string" || operation.text.length > 20000)) reject("BROWSER_EDIT_INVALID_PLAN");
   if (Object.hasOwn(operation, "muted") && typeof operation.muted !== "boolean") reject("BROWSER_EDIT_INVALID_PLAN");
   if (Object.hasOwn(operation, "duration")) validTime(operation.duration, MIN_VISUAL_SEGMENT_SECONDS);
@@ -427,6 +442,25 @@ function validateBrowserOperation(operation) {
 
 function assertPlainVisual(clip) {
   if (!clip || !["image", "video"].includes(clip.type) || !supportsBrowserTrim({ ...clip, type: "video" })) reject("BROWSER_EDIT_COMPLEX_TIMING");
+}
+
+function prepareAudioLaneEdit(project, operation, locks) {
+  const priorLanes = audioLaneMap(project);
+  for (const clip of project.audioSegments) clip.lane = Number(priorLanes.get(clip.id).slice(6));
+  if (operation.type === "clip.delete") return;
+  const clip = project.audioSegments.find((item) => item.id === operation.clipId);
+  const start = operation.start ?? clip.start;
+  const duration = operation.duration ?? clip.duration;
+  let lane = operation.layer === undefined ? clip.lane : operation.layer - 1;
+  const overlaps = (candidate) => project.audioSegments.some((item) => item.id !== clip.id && item.lane === candidate
+    && item.start < start + duration - 0.001 && item.start + item.duration > start + 0.001);
+  if (overlaps(lane)) {
+    if (operation.layer !== undefined) reject("BROWSER_EDIT_INVALID_PLAN");
+    lane = Math.max(-1, ...project.audioSegments.map((item) => item.lane)) + 1;
+  }
+  if (locks[`audio-${lane}`]) reject("BROWSER_EDIT_TRACK_LOCKED");
+  if (operation.type === "timed.move") operation.layer = lane + 1;
+  else clip.lane = lane;
 }
 
 function projectDuration(project, options) {
@@ -529,6 +563,32 @@ export function buildBrowserOperationReview(inputProject, response, options = {}
       if (operation.type === "caption.add") reserve(operation.clipId);
     }
     if (operation.type === "marker.add") reserve(operation.markerId);
+    if (operation.type.startsWith("timed.") || operation.type === "clip.delete" || operation.type === "overlay.set_transform") {
+      const { key, clip } = findProjectClip(next, operation.clipId);
+      const expected = operation.type === "overlay.set_transform" ? "visualOverlaySegments"
+        : { audio: "audioSegments", music: "musicSegments", overlays: "visualOverlaySegments", stickers: "stickerSegments" }[operation.track];
+      if (key !== expected) reject("BROWSER_EDIT_INVALID_PLAN");
+      assertClipUnlocked(next, operation.clipId, locks, originalAudioLanes);
+      if (operation.track === "audio") {
+        if (locks.caption && next.captionSegments.some((caption) => caption.audioSegmentId === clip.id
+          || operation.type === "clip.delete" && caption.detachedAudioSegmentId === clip.id)) reject("BROWSER_EDIT_TRACK_LOCKED");
+        prepareAudioLaneEdit(next, operation, locks);
+      }
+      if (["timed.resize", "timed.trim"].includes(operation.type)) {
+        if (operation.type === "timed.resize") validTime(operation.duration, MIN_VISUAL_SEGMENT_SECONDS);
+        else {
+          validSourceTime(operation.sourceIn); validSourceTime(operation.sourceOut);
+          const rate = Math.max(0.25, Math.min(4, Number(clip.playbackRate) || 1));
+          validTime((operation.sourceOut - operation.sourceIn) / rate, MIN_VISUAL_SEGMENT_SECONDS);
+        }
+        if (operation.track === "overlays" && clip.type === "video") {
+          const live = restoreBrowserProjectMedia(next, initialRuntime, origins, options.assets).visualOverlaySegments.find((item) => item.id === clip.id);
+          assertPlainVisual({ ...clip, playbackRate: 1 }); assertPlainVisual({ ...live, playbackRate: 1 });
+        }
+        if (clip.speedCurve?.enabled || clip.reversed || clip.reverse) reject("BROWSER_EDIT_COMPLEX_TIMING");
+      }
+      focusTime = operation.start ?? clip.start;
+    }
     if (operation.type === "clip.set_property" || operation.type === "clip.set_muted") {
       assertClipUnlocked(next, operation.clipId, locks, originalAudioLanes);
       const { key, clip } = findProjectClip(next, operation.clipId);
@@ -590,7 +650,7 @@ export function buildBrowserOperationReview(inputProject, response, options = {}
       if (track === "music") {
         const asset = assets.get(operation.assetId);
         if (!asset || musicAssetId && musicAssetId !== operation.assetId
-          || (options.hasMusic || initialRuntime.musicBlob || original.musicSegments.length) && initialRuntime.musicBlob !== asset.blob) reject("BROWSER_EDIT_MULTIPLE_MUSIC_SOURCES");
+          || (next.musicSegments.length || Number(next.musicDuration) > 0 && (options.hasMusic || initialRuntime.musicBlob)) && initialRuntime.musicBlob !== asset.blob) reject("BROWSER_EDIT_MULTIPLE_MUSIC_SOURCES");
         musicAssetId = operation.assetId;
         const end = operation.start + operation.duration;
         if (next.musicSegments.some((clip) => clip.start < end - TIME_EPSILON && clip.start + clip.duration > operation.start + TIME_EPSILON)) reject("BROWSER_EDIT_MUSIC_OVERLAP");
@@ -609,6 +669,12 @@ export function buildBrowserOperationReview(inputProject, response, options = {}
     const result = applyCommandPlan(next, { schemaVersion: 1, baseRevision: next.commandState?.revision || 0, operations: [operation] });
     if (!result.ok) reject(result.code === "REVISION_CONFLICT" ? "BROWSER_EDIT_STALE_PLAN" : "BROWSER_EDIT_INVALID_PLAN");
     next = completeBrowserProject(result.project);
+    if (operation.type === "clip.delete" && operation.track === "music" && !next.musicSegments.length) musicAssetId = null;
+    if (["timed.move", "timed.resize"].includes(operation.type) && operation.track === "music") {
+      const changed = next.musicSegments.find((clip) => clip.id === operation.clipId);
+      if (next.musicSegments.some((clip) => clip.id !== changed.id && clip.start < changed.start + changed.duration - TIME_EPSILON
+        && clip.start + clip.duration > changed.start + TIME_EPSILON)) reject("BROWSER_EDIT_MUSIC_OVERLAP");
+    }
     if (operation.type === "asset.insert" && operation.track === "audio") {
       const actualLane = getTimedSegmentLaneStateKey(next.audioSegments, operation.clipId);
       if (locks[actualLane] || operation.layer !== undefined && actualLane !== `audio-${operation.lane}`) reject("BROWSER_EDIT_TRACK_LOCKED");
@@ -692,6 +758,19 @@ export function restoreBrowserSegmentMedia(segments = [], originals = [], origin
       if (Object.hasOwn(original, key)) restored[key] = original[key];
       else delete restored[key];
     }
+    // Audio waveforms are trimmed to the retained source range in the editor.
+    // Preserve their mapping when a reviewed resize shortens that same source.
+    const originalSourceStart = Number(original.sourceStart) || 0;
+    const originalSourceDuration = Number(original.sourceDuration) || Number(original.duration) * (Number(original.playbackRate) || 1);
+    const nextSourceStart = Number(clip.sourceStart) || 0;
+    const nextSourceDuration = Number(clip.sourceDuration) || Number(clip.duration) * (Number(clip.playbackRate) || 1);
+    if (Array.isArray(original.peaks) && originalSourceDuration > 0
+      && (nextSourceStart !== originalSourceStart || nextSourceDuration < originalSourceDuration)
+      && nextSourceStart >= originalSourceStart && nextSourceStart + nextSourceDuration <= originalSourceStart + originalSourceDuration + TIME_EPSILON) {
+      const from = Math.floor(original.peaks.length * (nextSourceStart - originalSourceStart) / originalSourceDuration);
+      const to = Math.max(from + 1, Math.ceil(original.peaks.length * (nextSourceStart - originalSourceStart + nextSourceDuration) / originalSourceDuration));
+      restored.peaks = original.peaks.slice(from, to);
+    }
     if (!existing) {
       restored.assetId = original.assetId || (origin.kind === "asset" ? origin.id : "");
       restored.archiveMediaId = origin.kind === "asset" ? clip.id : original.archiveMediaId || original.id;
@@ -722,6 +801,10 @@ export function restoreBrowserProjectMedia(next, runtimeProject, origins = {}, a
     restored.musicBlob = asset.blob;
     restored.musicUrl = asset.url || asset.src || "";
     restored.musicPeaks = asset.peaks || [];
+  } else if ((runtimeProject.musicSegments || []).length && !next.musicSegments?.length && Number(next.musicDuration) === 0) {
+    restored.musicBlob = null;
+    restored.musicUrl = "";
+    restored.musicPeaks = [];
   }
   return restored;
 }

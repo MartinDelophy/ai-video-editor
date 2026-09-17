@@ -62,3 +62,13 @@
 .webmcp-review-object { display: inline-flex; flex-direction: column; gap: 2px; }
 .webmcp-review-object-label { color: #8ea3b2; }
 .webmcp-review-sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+.webmcp-ai-status { position: fixed; z-index: 86; right: 16px; bottom: 24px; width: min(340px, calc(100vw - 32px)); padding: 12px; border: 1px solid #78dce733; border-radius: 12px; background: #13202bf5; color: #dce5ea; box-shadow: 0 8px 32px #0005; font-size: 12px; }
+.webmcp-ai-status header { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; color: #78dce7; }
+.webmcp-ai-status header strong { flex: 1; }
+.webmcp-ai-progress { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; align-items: center; gap: 8px; }
+.webmcp-ai-progress span { min-width: 0; overflow-wrap: break-word; }
+.webmcp-ai-progress progress { grid-column: 1 / -1; width: 100%; height: 5px; accent-color: #78dce7; }
+.webmcp-ai-status > button { display: block; margin: 10px 0 0 auto; padding: 6px 12px; font-size: 12px; cursor: pointer; }
+.webmcp-ai-status button:disabled { opacity: .55; cursor: not-allowed; }
+.webmcp-ai-status button:focus-visible { outline: 2px solid #78dce7; outline-offset: 2px; }
+@media (max-width: 760px) { .webmcp-ai-status { bottom: 84px; } }

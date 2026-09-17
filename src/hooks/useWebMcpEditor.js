@@ -15,12 +15,14 @@ export function useWebMcpEditor(editor) {
   latest.current = { ...editor, historyVersion: history.current.version, t };
   const sessionRef = useRef(null);
   const [view, setView] = useState(null);
+  const [aiJob, setAiJob] = useState(null);
   const [error, setError] = useState("");
   const [working, setWorking] = useState(false);
 
   useEffect(() => {
     const session = createWebMcpEditorSession(() => latest.current, {
       publish: (value) => { setView(value); setError(""); },
+      publishAi: setAiJob,
       commit: (action) => flushSync(action),
     });
     sessionRef.current = session;
@@ -62,7 +64,10 @@ export function useWebMcpEditor(editor) {
     } finally { setWorking(false); }
   };
   return {
-    t, view, error, working,
+    t, view, aiJob, error, working,
+    isAiRunning: () => sessionRef.current?.isAiRunning() === true,
+    cancelAi: () => run("timeline_ai_cancel", { jobId: aiJob?.jobId }),
+    dismissAi: () => setAiJob(null),
     stale: Boolean(view?.status === "pending" && sessionRef.current && !sessionRef.current.isCurrentPreview()),
     canUndo: Boolean(view?.status === "applied" && sessionRef.current?.canUndo()),
     apply: () => run("timeline_edit_apply", { previewId: view?.preview?.previewId }),

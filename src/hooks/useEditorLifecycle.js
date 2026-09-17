@@ -20,10 +20,6 @@ export function useEditorLifecycle(d) {
   }, []);
 
   useEffect(() => {
-    d.setFitMode("contain");
-  }, [d.ratioId]);
-
-  useEffect(() => {
     const ratioSource = d.visualSegments.find((segment) => segment.width > 0 && segment.height > 0);
     if (!ratioSource) {
       d.autoRatioSourceKeyRef.current = "";
@@ -36,6 +32,7 @@ export function useEditorLifecycle(d) {
     if (!nextRatioId || nextRatioId === d.ratioId) return;
     const nextRatio = RATIO_OPTIONS.find((option) => option.id === nextRatioId);
     d.setRatioId(nextRatioId);
+    d.setFitMode("contain");
     d.notify(`已根据素材自动切换为 ${nextRatio?.label ?? nextRatioId}`);
   }, [d.ratioId, d.visualSegments]);
 

@@ -19,11 +19,15 @@ const TEST_SENTENCES = Object.freeze({
   ไทย: "สวัสดี นี่คือการทดสอบเสียงโคลนภาษาไทย",
 });
 
+// UI narration, clone tests and WebMCP all share the same model sessions and
+// mirrored-fetch adapters. Acquire synchronously before any dynamic import.
+let synthesisActive = false;
+
 export function getVoiceCloneTestSentence(voice) {
   return TEST_SENTENCES[voice?.language] || TEST_SENTENCES.English;
 }
 
-export async function synthesizeBaseVoice({ voice, text, speed = 1, onProgress, onStatus, notify, t }) {
+async function runBaseVoiceSynthesis({ voice, text, speed = 1, onProgress, onStatus, notify, t }) {
   const prepared = prepareTextForVoice(text, voice);
   if (prepared.warningKey) notify?.(t?.(prepared.warningKey) || prepared.warningKey);
   let blob;
@@ -71,4 +75,14 @@ export async function synthesizeBaseVoice({ voice, text, speed = 1, onProgress, 
     });
   }
   return { blob, prepared };
+}
+
+export async function synthesizeBaseVoice(options) {
+  if (synthesisActive) throw Object.assign(new Error(options.t?.("generating") || "EDITOR_BUSY"), { code: "EDITOR_BUSY" });
+  synthesisActive = true;
+  try {
+    return await runBaseVoiceSynthesis(options);
+  } finally {
+    synthesisActive = false;
+  }
 }

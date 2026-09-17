@@ -117,6 +117,7 @@ async function prepareComposition(options) {
             const result = await iterator.next();
             return result.done ? null : result.value?.canvas || null;
           },
+          dispose() { input.dispose(); },
         };
       } catch (error) {
         console.warn("Sequential WebCodecs video decode unavailable; using precise seek fallback", error);
@@ -212,7 +213,7 @@ async function renderCompositionAt(context, canvas, prepared, options, time) {
     .sort((left, right) => activeOverlaySegments.findIndex((segment) => segment.id === left.segment.id) - activeOverlaySegments.findIndex((segment) => segment.id === right.segment.id));
   for (const overlay of activeOverlayItems) {
     if (overlay.segment.type === "video") {
-      await seekVideoFrame(overlay.visual, Math.min(Math.max(0, (overlay.visual.duration || 0) - 0.04), Math.max(0, time - overlay.segment.start)));
+      await seekVideoFrame(overlay.visual, Math.min(Math.max(0, (overlay.visual.duration || 0) - 0.04), getVisualSourceTime(overlay.segment, Math.max(0, time - overlay.segment.start))));
     }
   }
   const renderedOverlayItems = await Promise.all(activeOverlayItems.map(async (overlay) => {
@@ -254,6 +255,39 @@ async function renderCompositionAt(context, canvas, prepared, options, time) {
     visualOverlays: renderedOverlayItems.map((item) => ({ ...item.renderSegment, start: item.segment.start - (range?.start || 0) })),
     visualOverlaySources: renderedOverlayItems.map((item) => item.visual),
   });
+}
+
+function disposeComposition(prepared) {
+  for (const item of [...prepared.items, ...prepared.overlayItems]) {
+    item.temporalMaskCache?.dispose();
+    item.depthCache?.dispose();
+    item.sequentialFrames?.dispose?.();
+    if (item.segment.type === "video") { item.visual.removeAttribute("src"); item.visual.load(); }
+  }
+}
+
+/** Render bounded review images through exactly the exported composition. */
+export async function renderOfflineFrames(options, times) {
+  throwIfExportAborted(options.signal);
+  const canvas = document.createElement("canvas");
+  canvas.width = options.exportSettings.width;
+  canvas.height = options.exportSettings.height;
+  const context = canvas.getContext("2d", { alpha: false });
+  if (!context) throw new Error("MEDIA_SAMPLE_UNAVAILABLE");
+  const prepared = await prepareComposition({ ...options, framePlan: times.map((timestamp) => ({ timestamp })) });
+  try {
+    const frames = [];
+    for (const time of times) {
+      throwIfExportAborted(options.signal);
+      await renderCompositionAt(context, canvas, prepared, options, time);
+      throwIfExportAborted(options.signal);
+      frames.push({ time, width: canvas.width, height: canvas.height, mimeType: "image/jpeg", dataUrl: canvas.toDataURL("image/jpeg", 0.82) });
+    }
+    return frames;
+  } finally {
+    disposeComposition(prepared);
+    canvas.width = 0; canvas.height = 0;
+  }
 }
 
 export async function exportOfflineVideo(options) {
@@ -328,13 +362,7 @@ export async function exportOfflineVideo(options) {
     throw error;
   } finally {
     options.signal?.removeEventListener("abort", abortOutput);
-    prepared.items.forEach((item) => {
-      item.temporalMaskCache?.dispose();
-      if (item.segment.type === "video") { item.visual.removeAttribute("src"); item.visual.load(); }
-    });
-    prepared.overlayItems.forEach((item) => {
-      if (item.segment.type === "video") { item.visual.removeAttribute("src"); item.visual.load(); }
-    });
+    disposeComposition(prepared);
   }
   throwIfExportAborted(options.signal);
   options.onProgress?.({ progress: 98, phaseKey: "exportVerifyFile" });

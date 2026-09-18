@@ -300,7 +300,7 @@ export function MediaPanel({
           ) : null}
           <div className="library-provider">{t("libraryProvidedBy")} <strong>{libraryProvider}</strong></div>
           {renderAssetList(visibleAssets, {
-            prepend: libraryType === "audio" ? (
+            prepend: libraryType === "audio" && import.meta.env?.VITE_ANNA_EDITION !== "true" ? (
               <AiMusicLibraryCard
                 language={language}
                 onClick={onOpenAiMusic}
@@ -1426,7 +1426,7 @@ export function ToolPanel(props) {
             ["ai-music", MusicNote, aiCopy.title, aiCopy.hint],
             ["smart-frame", FrameCorners, t("smartFrame"), t("smartFrameHint")],
             ["avatar", PersonSimpleRun, t("smartAvatar"), t("smartAvatarHint")],
-          ].filter(([id]) => import.meta.env?.VITE_ANNA_EDITION !== "true" || !["smart-frame", "avatar"].includes(id)).map(([id, Icon, title, hint]) => (
+          ].filter(([id]) => import.meta.env?.VITE_ANNA_EDITION !== "true" || !["smart-frame", "avatar", "ai-music"].includes(id)).map(([id, Icon, title, hint]) => (
             <button className={smartMode === id ? "is-active" : ""} type="button" role="tab" aria-selected={smartMode === id} key={id} onClick={() => {
               setSmartMode(id);
               if (id === "avatar") openAvatarPanel();
@@ -1461,7 +1461,7 @@ export function ToolPanel(props) {
             <em>{t("aiVoiceEntryDesc")}</em>
           </span>
         </button>
-        <AnnaModelGate anna={anna}>
+        {import.meta.env?.VITE_ANNA_EDITION !== "true" ? <AnnaModelGate anna={anna}>
         <button
           className="audio-entry-card separation-entry-card"
           type="button"
@@ -1498,7 +1498,7 @@ export function ToolPanel(props) {
             </span>
           ) : null}
         </button>
-        </AnnaModelGate>
+        </AnnaModelGate> : null}
         <div className="metric-list">
           <div>
             <span>{t("currentVoice")}</span>

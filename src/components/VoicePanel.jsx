@@ -783,7 +783,7 @@ function CaptionContextPanel({
         </button>
       </div>
 
-      {!captionSegments.length ? (
+      {!captionSegments.length && import.meta.env?.VITE_ANNA_EDITION !== "true" ? (
         <AnnaModelGate anna={anna}><button
           className="audio-entry-card caption-entry-card"
           type="button"
@@ -1538,7 +1538,7 @@ export function VoicePanel({
   const isAvatarContext = isSmartContext && smartMode === "avatar" && avatarPanelOpen;
   const isSmartAutoContext = isSmartContext && smartMode === "auto-edit";
   const isSmartFrameContext = isSmartContext && smartMode === "smart-frame";
-  const isAiMusicContext = isSmartContext && smartMode === "ai-music";
+  const isAiMusicContext = import.meta.env?.VITE_ANNA_EDITION !== "true" && isSmartContext && smartMode === "ai-music";
   const isFaceSwapContext = isEffectsContext && effectsPanelMode === "face-swap";
   const isOpticalFlowContext = isEffectsContext && effectsPanelMode === "vector-tracking";
   const isCinematicDepthContext = isEffectsContext && effectsPanelMode === "cinematic-depth";

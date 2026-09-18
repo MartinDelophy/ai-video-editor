@@ -1618,6 +1618,7 @@ export function ToolPanel(props) {
   }
 
   if (activeTool === "effects") {
+    if (import.meta.env?.VITE_ANNA_EDITION === "true") return null;
     return (
       <SubjectEffectsWorkspace
         t={t}

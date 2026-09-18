@@ -15,7 +15,7 @@ export function getMobileClipActionIds(track, options = {}) {
       "dismiss",
       "visual-transform",
       ...(options.isVector ? ["visual-vector"] : ["visual-mask", "visual-filter"]),
-      ...(track === "overlay" && !options.isVector ? ["visual-effects"] : []),
+      ...(import.meta.env?.VITE_ANNA_EDITION !== "true" && track === "overlay" && !options.isVector ? ["visual-effects"] : []),
       "visual-animation",
       ...(!options.isVector && options.isVideo ? ["visual-speed"] : []),
       ...(track === "image" && !options.isVector ? ["visual-repair"] : []),

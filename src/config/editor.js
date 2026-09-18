@@ -238,7 +238,7 @@ export const TOOL_RAIL = [
   { id: "caption", label: "字幕", icon: ClosedCaptioning },
   { id: "smart", label: "智能", icon: Scan },
   { id: "audio", label: "音频", icon: MusicNote },
-  { id: "effects", label: "特效", icon: MagicWand },
+  ...(import.meta.env?.VITE_ANNA_EDITION === "true" ? [] : [{ id: "effects", label: "特效", icon: MagicWand }]),
   ...(import.meta.env?.VITE_ANNA_EDITION === "true" ? [] : [{ id: "plugins", label: "插件", icon: PlugsConnected }]),
   { id: "stickers", label: "贴纸", icon: Sticker },
 ];

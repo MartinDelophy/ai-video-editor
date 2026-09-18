@@ -305,7 +305,7 @@ export function MediaPanel({
                 language={language}
                 onClick={onOpenAiMusic}
               />
-            ) : libraryType === "vector" && vectorCategory === "all" ? (
+            ) : import.meta.env?.VITE_ANNA_EDITION !== "true" && libraryType === "vector" && vectorCategory === "all" ? (
               <AiVectorDesignCard
                 language={language}
                 onClick={() => setAiVectorOpen(true)}
@@ -341,7 +341,7 @@ export function MediaPanel({
         document.body,
       ) : null}
 
-      {aiVectorOpen ? createPortal(
+      {aiVectorOpen && import.meta.env?.VITE_ANNA_EDITION !== "true" ? createPortal(
         <AiVectorDesignDialog
           language={language}
           onClose={() => setAiVectorOpen(false)}

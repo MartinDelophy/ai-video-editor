@@ -1426,7 +1426,7 @@ export function ToolPanel(props) {
             ["ai-music", MusicNote, aiCopy.title, aiCopy.hint],
             ["smart-frame", FrameCorners, t("smartFrame"), t("smartFrameHint")],
             ["avatar", PersonSimpleRun, t("smartAvatar"), t("smartAvatarHint")],
-          ].map(([id, Icon, title, hint]) => (
+          ].filter(([id]) => import.meta.env?.VITE_ANNA_EDITION !== "true" || !["smart-frame", "avatar"].includes(id)).map(([id, Icon, title, hint]) => (
             <button className={smartMode === id ? "is-active" : ""} type="button" role="tab" aria-selected={smartMode === id} key={id} onClick={() => {
               setSmartMode(id);
               if (id === "avatar") openAvatarPanel();

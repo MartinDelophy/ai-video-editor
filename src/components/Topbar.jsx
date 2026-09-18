@@ -5,7 +5,6 @@ import {
   CaretDown,
   CircleNotch,
   Database,
-  DiscordLogo,
   FileArrowDown,
   FileArrowUp,
   FilePlus,
@@ -26,7 +25,6 @@ import { ExportSettingsPanel } from "./ExportSettingsPanel.jsx";
 import { IconButton, Popover } from "./ui.jsx";
 
 const COMMUNITY_LINKS = Object.freeze({
-  discord: "https://discord.gg/uq2uvUTBr",
   github: "https://github.com/MartinDelophy/ai-video-editor",
 });
 
@@ -219,15 +217,6 @@ export function Topbar({
 
       <div className="topbar-actions">
         <nav className="topbar-community-links" aria-label={t("communityLinks", "社区链接")}>
-          <a
-            href={COMMUNITY_LINKS.discord}
-            target="_blank"
-            rel="noreferrer"
-            aria-label={t("discordCommunity", "Discord 社区")}
-            title={t("discordCommunity", "Discord 社区")}
-          >
-            <DiscordLogo size={19} weight="fill" aria-hidden="true" />
-          </a>
           <a
             href={COMMUNITY_LINKS.github}
             target="_blank"

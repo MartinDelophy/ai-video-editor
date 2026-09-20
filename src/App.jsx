@@ -1062,6 +1062,7 @@ export function App() {
   });
 
   const { getTimelineTimeFromClientX, handlePlayToggle, pauseTimelineMedia, seekTo, startTimelineSeek } = createPlaybackControls({
+    timelineMarkers, setSnapGuide,
     audioSegmentRefs, audioSegments, canPreview, currentTimeRef, currentVisualRange,
     estimatedDuration, isPlaying, musicDuration, musicSegments, musicRef, musicStart, musicUrl, notify,
     linkedSourceAudioSegments, previewVideoRef, previewVisualType, setCurrentTime, setIsPlaying, setPreviewVideoMediaTime, sourceAudioDuration,

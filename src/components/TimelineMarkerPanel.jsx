@@ -155,6 +155,10 @@ export function TimelineMarkerPanel({
   const save = (event) => {
     event.preventDefault();
     if (!selected || !draft || selected.id !== draft.id) return;
+    if (!dirty) {
+      onClose?.();
+      return;
+    }
     const time = parseTimestamp(draft.time);
     const endTime = draft.type === "range" ? parseTimestamp(draft.endTime) : null;
     if (time === null || (draft.type === "range" && endTime === null)) {
@@ -329,7 +333,7 @@ export function TimelineMarkerPanel({
             </div>
             <footer className="timeline-marker-panel-footer">
               <button className="timeline-marker-panel-delete" type="button" onClick={() => onDelete?.(selected.id)}><Trash size={14} aria-hidden="true" />{t("markersDelete")}</button>
-              <button className="timeline-marker-panel-save" type="submit" disabled={!dirty}><Check size={15} weight="bold" aria-hidden="true" />{t("markersSave")}</button>
+              <button className="timeline-marker-panel-save" type="submit"><Check size={15} weight="bold" aria-hidden="true" />{t(dirty ? "markersSave" : "markersDone")}</button>
             </footer>
           </form>
         ) : (

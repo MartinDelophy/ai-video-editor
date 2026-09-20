@@ -4,6 +4,8 @@ import { filterTimedSegmentsByLaneVisibility, getVisualSegmentIndexAtTime } from
 import { getLinkedSourceAudioState } from "./sourceAudioSync.js";
 import { getVisualPlaybackRateAtTime, getVisualSourceTime } from "./visualEffects.js";
 import { requestLatestVideoFrame } from "./videoFrameSync.js";
+import { normalizeTimelineMarkers } from "./timelineMarkers.js";
+import { createTimelineSnapGuide, findClosestTimelineSnap } from "./timelineSnap.js";
 
 export function createPlaybackControls(deps) {
   const isTrackAudible = (track) => deps.trackVisibility?.[track] !== false;
@@ -120,15 +122,31 @@ export function createPlaybackControls(deps) {
     // seeks; the initial press and final release still commit synchronously.
     let pendingFrame = 0;
     let latestClientX = event.clientX;
+    let bypassSnap = event.altKey;
+    const snapPoints = normalizeTimelineMarkers(deps.timelineMarkers).flatMap((marker) => [
+      { time: marker.time, track: "marker", id: marker.id, edge: "start" },
+      ...(marker.type === "range" ? [{ time: marker.endTime, track: "marker", id: marker.id, edge: "end" }] : []),
+    ]).filter((point) => point.time <= deps.timelineDurationRef.current);
     const commit = (immediate = false) => {
       pendingFrame = 0;
-      seekTo(getTimelineTimeFromClientX(latestClientX), { immediate, pause: true });
+      const time = getTimelineTimeFromClientX(latestClientX);
+      const width = deps.trackScrollRef.current?.getBoundingClientRect().width;
+      const snap = !bypassSnap && width > 0
+        ? findClosestTimelineSnap(time, snapPoints, 10 / width * deps.timelineDurationRef.current) : null;
+      deps.setSnapGuide?.(createTimelineSnapGuide(snap, "playhead"));
+      seekTo(snap?.time ?? time, { immediate, pause: true });
     };
     commit(true);
     const isPointer = (e) => e.pointerId === event.pointerId;
     const move = (e) => {
       if (!isPointer(e)) return;
       latestClientX = e.clientX;
+      bypassSnap = e.altKey;
+      if (!pendingFrame) pendingFrame = window.requestAnimationFrame(() => commit());
+    };
+    const modifier = (e) => {
+      if (e.key !== "Alt") return;
+      bypassSnap = e.altKey;
       if (!pendingFrame) pendingFrame = window.requestAnimationFrame(() => commit());
     };
     const cleanup = () => {
@@ -138,23 +156,30 @@ export function createPlaybackControls(deps) {
       removeEventListener("pointerup", up);
       removeEventListener("pointercancel", cancel);
       removeEventListener("blur", cancel);
+      removeEventListener("keydown", modifier);
+      removeEventListener("keyup", modifier);
       window.dispatchEvent(new CustomEvent("timeline-seek-state", { detail: { active: false } }));
     };
     const up = (upEvent) => {
       if (!isPointer(upEvent)) return;
       latestClientX = upEvent.clientX;
+      bypassSnap = upEvent.altKey;
       cleanup();
       commit(true);
+      deps.setSnapGuide?.(null);
     };
     const cancel = (cancelEvent) => {
       if (cancelEvent.type !== "blur" && !isPointer(cancelEvent)) return;
       cleanup();
       commit(true);
+      deps.setSnapGuide?.(null);
     };
     addEventListener("pointermove", move);
     addEventListener("pointerup", up);
     addEventListener("pointercancel", cancel);
     addEventListener("blur", cancel);
+    addEventListener("keydown", modifier);
+    addEventListener("keyup", modifier);
   };
   const handlePlayToggle = () => {
     const video = deps.previewVideoRef.current;

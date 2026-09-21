@@ -1415,11 +1415,13 @@ export function ToolPanel(props) {
             ["ai-music", MusicNote, aiCopy.title, aiCopy.hint],
             ["smart-frame", FrameCorners, t("smartFrame"), t("smartFrameHint")],
             ["avatar", PersonSimpleRun, t("smartAvatar"), t("smartAvatarHint")],
+            ["remove-pauses", Waveform, t("pauseTitle"), t("pauseHint")],
           ].map(([id, Icon, title, hint]) => (
             <button className={smartMode === id ? "is-active" : ""} type="button" role="tab" aria-selected={smartMode === id} key={id} onClick={() => {
               setSmartMode(id);
               if (id === "avatar") openAvatarPanel();
               if (id === "ai-music" && window.matchMedia?.("(max-width: 760px)").matches) openMobileInspector?.();
+              if (id === "remove-pauses" && window.matchMedia?.("(max-width: 1279px)").matches) openMobileInspector?.();
             }}>
               <Icon size={24} weight="duotone" /><strong>{title}</strong><span>{hint}</span>
             </button>

@@ -50,6 +50,8 @@ const VOICE_MODEL_HUGGING_FACE_REVISION = "074a57bc4dac9c58568b031898ea79da6f36b
 const VOICE_MODEL_MODELSCOPE_REVISION = "9cb5ab964c014b182701153bd00f7a2202f5dce8";
 const OPENVOICE_HUGGING_FACE_REVISION = "d9e0542e0e4e8fcfb849240f7e8e7fa8147df1a3";
 const OPENVOICE_MODELSCOPE_REVISION = "226b24270b69b38781a35566c7d442061f9e3b81";
+const SILERO_HUGGING_FACE_REVISION = "c76fc14496a26d75096072140627db3e4437f52b";
+const SILERO_MODELSCOPE_REVISION = "5b210f4bce036b194e4142345bbdaf9b34363ef4";
 const DEPTH_MODEL_HUGGING_FACE_REVISION = "a0806c6fb9484894dcb78df523156d244461515d";
 const DEPTH_MODEL_MODELSCOPE_REVISION = "4cc757f80330e22cb8f82b628c53ceca6307fd12";
 function hasCacheableExtension(pathname) {
@@ -99,7 +101,9 @@ function canonicalModelIdentity(url) {
     revision = VOCAL_REMOVER_REVISION;
   }
   if (owner === "haixin" && repository === "timeline-studio-voice-models") {
-    if (path.startsWith("openvoice-v2-converter-fp16/") && revision === OPENVOICE_MODELSCOPE_REVISION) {
+    if (path.startsWith("silero-vad/") && revision === SILERO_MODELSCOPE_REVISION) {
+      revision = SILERO_HUGGING_FACE_REVISION;
+    } else if (path.startsWith("openvoice-v2-converter-fp16/") && revision === OPENVOICE_MODELSCOPE_REVISION) {
       revision = OPENVOICE_HUGGING_FACE_REVISION;
     } else if (revision === VOICE_MODEL_MODELSCOPE_REVISION) {
       revision = VOICE_MODEL_HUGGING_FACE_REVISION;

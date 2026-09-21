@@ -1,0 +1,25 @@
+.pause-panel { display: flex; flex-direction: column; gap: 16px; padding: 16px; min-width: 0; color: #dce5e9; font-size: 12px; }
+.pause-panel p { margin: 0; line-height: 1.6; }
+.pause-intro, .pause-note { color: #94a5b2; line-height: 1.6; }
+.pause-clip { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 10px 12px; border: 1px solid #ffffff14; border-radius: 8px; }
+.pause-settings { display: grid; gap: 16px; }
+.pause-settings label { display: grid; grid-template-columns: 1fr auto; gap: 7px 12px; align-items: center; }
+.pause-settings input { grid-column: 1 / -1; width: 100%; accent-color: #35ead9; }
+.pause-panel output, .pause-range { font-variant-numeric: tabular-nums; }
+.pause-ripple { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.pause-panel input[type=checkbox] { accent-color: #35ead9; width: 16px; height: 16px; flex: 0 0 16px; cursor: pointer; }
+.pause-panel button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 36px; font-size: 12px; cursor: pointer; }
+.pause-panel button:disabled { cursor: not-allowed; opacity: .45; }
+.pause-panel :focus-visible { outline: 2px solid #35ead9; outline-offset: 3px; }
+.pause-progress { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+.pause-progress progress { grid-column: 1 / -1; width: 100%; height: 5px; accent-color: #35ead9; }
+.pause-notice { color: #f4c582; padding: 10px; border-radius: 8px; background: #f4c5820c; }
+.pause-review { display: grid; gap: 12px; }
+.pause-ranges { display: grid; max-height: 300px; overflow-y: auto; scrollbar-width: thin; }
+.pause-range { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid #ffffff0c; }
+.pause-range label { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; cursor: pointer; }
+.pause-range small { display: block; color: #94a5b2; margin-top: 3px; }
+.pause-range button { width: 36px; flex-shrink: 0; background: #ffffff08; color: #35ead9; border: 1px solid #ffffff12; border-radius: 7px; }
+.pause-spinner { animation: pause-spin 1s linear infinite; }
+@keyframes pause-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .pause-spinner { animation: none; } }

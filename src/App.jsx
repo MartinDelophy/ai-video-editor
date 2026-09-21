@@ -36,6 +36,7 @@ import { useVoiceGeneration } from "./hooks/useVoiceGeneration.js";
 import { useVoiceProfiles } from "./hooks/useVoiceProfiles.js";
 import { useAutoCaptions } from "./hooks/useAutoCaptions.js";
 import { useAutoEdit } from "./hooks/useAutoEdit.js";
+import { useSilenceRemoval } from "./hooks/useSilenceRemoval.js";
 import { useWebMcpEditor } from "./hooks/useWebMcpEditor.js";
 import { sampleEditorMedia } from "./lib/webMcpMediaSample.js";
 import { browserProjectFingerprint, restoreBrowserProjectMedia } from "./lib/browserEditPlan.js";
@@ -1384,6 +1385,12 @@ export function App() {
     currentTimeRef.current = nextTime;
     setCurrentTime(nextTime);
   };
+  const silenceRemoval = useSilenceRemoval({
+    language: activeLanguage, selectedSegment: selectedVisualSegment, visualSegments, projectVersion: historySignature,
+    locked: Boolean(trackLocks.image || sourceAudioBlob && sourceAudioLinked !== false && trackLocks.source),
+    getSnapshot: getProjectSnapshot, getRuntime: getBrowserRuntimeProject,
+    applyReview: applyBrowserReview, rippleEditing, setRippleEditing, seekTo, t,
+  });
   const webMcp = useWebMcpEditor({
     language: activeLanguage, visualSegments, visualOverlaySegments, audioSegments, musicSegments,
     sourceAudioBlob, musicBlob, audioBlob, rippleEditing, getProjectSnapshot,
@@ -1713,6 +1720,7 @@ export function App() {
           smartMode={smartMode}
           aiMusic={aiMusic}
           autoEdit={autoEdit}
+          silenceRemoval={silenceRemoval}
           uiLanguage={activeLanguage}
           captionStyle={captionStyle}
           setCaptionStyle={setCaptionStyle}

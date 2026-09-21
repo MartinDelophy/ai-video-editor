@@ -15,7 +15,7 @@ export function SilenceRemovalPanel({ t, tool }) {
       : segment?.type === "video" && !supported ? <p className="pause-notice">{t("pauseUnsupported")}</p> : null}
     {locked ? <p className="pause-notice">{t("pauseLocked")}</p> : null}
     <div className="pause-settings">
-      {[["minimum", "pauseMinimum", 0.5, 5, 0.1], ["keep", "pauseKeep", 0.2, 0.6, 0.05]].map(([key, label, min, max, step]) =>
+      {[["minimum", "pauseMinimum", 0.5, 5, 0.1], ["keep", "pauseKeep", 0.3, 1, 0.05]].map(([key, label, min, max, step]) =>
         <label key={key}><span>{t(label)}</span><output>{settings[key].toFixed(2)} s</output>
           <input type="range" min={min} max={max} step={step} value={settings[key]} disabled={job.running}
             onChange={(event) => tool.updateSettings({ [key]: Number(event.target.value) })} />

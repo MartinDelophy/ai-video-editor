@@ -14,7 +14,7 @@ export function canRemovePauses(clip, previous) {
 
 // VAD probabilities describe the original source clock. Convert to the clip's
 // constant-speed timeline only once; curves are explicitly excluded by the gate.
-export function findPauseCandidates(probabilities, clip, { minimum = 0.8, keep = 0.3 } = {}) {
+export function findPauseCandidates(probabilities, clip, { minimum = 0.8, keep = 0.5 } = {}) {
   const step = 512 / 16000 / (Number(clip.playbackRate) || 1);
   const duration = Number(clip.duration);
   const speech = [];

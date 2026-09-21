@@ -3,7 +3,7 @@
 Smart → Remove pauses analyzes the **selected main-track video’s original audio** locally. It detects speech activity rather than transcribing words or judging whether a quiet picture is useful. Videos with no detected speech are never automatically deleted.
 
 1. Select a main-track video and open Smart → Remove pauses.
-2. Set the minimum pause (default 0.8 seconds) and retained gap (default 0.3 seconds).
+2. Set the minimum pause (default 0.8 seconds) and retained gap (0.3–1 second, default 0.5 seconds).
 3. Analyze, inspect the candidate timeline ranges, and uncheck any intentional pauses. The preview button seeks just before a candidate so the main preview can be played normally.
 4. Apply the selected cuts as one undoable edit. Original media is retained.
 

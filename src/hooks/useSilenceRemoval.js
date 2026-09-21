@@ -4,7 +4,7 @@ import { buildSilenceRemovalReview, canRemovePauses, findPauseCandidates } from 
 import { analyzeVideoPauses } from "../lib/sileroVad.js";
 
 export function useSilenceRemoval(options) {
-  const [settings, setSettings] = useState({ minimum: 0.8, keep: 0.3 });
+  const [settings, setSettings] = useState({ minimum: 0.8, keep: 0.5 });
   const [draft, setDraft] = useState(null);
   const [job, setJob] = useState({ running: false, progress: 0, phase: "" });
   const [error, setError] = useState("");

@@ -90,7 +90,7 @@ export function supportsBrowserTrim(clip) {
     !Object.values(clip.propertyKeyframes || {}).some((frames) => frames?.length) &&
     ![clip.animation?.in, clip.animation?.out].some((phase) => phase?.id && phase.id !== "none") &&
     !clip.effects?.length &&
-    !clip.clickRipple?.enabled &&
+    !clip.driftingHalo?.enabled || clip.clickRipple?.enabled &&
     !clip.cinematicDepth?.enabled &&
     !clip.photoParallax?.enabled &&
     !clip.smartFrame?.enabled &&

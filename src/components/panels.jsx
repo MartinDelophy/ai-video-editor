@@ -1137,6 +1137,7 @@ export function ToolPanel(props) {
     effectPhase,
     updateSelectedSubjectEffect,
     updateSelectedClickRipple,
+    updateSelectedDriftingHalo,
     removeSelectedSubjectEffect,
     openEffectsInspector,
     openFaceSwapInspector,
@@ -1144,6 +1145,7 @@ export function ToolPanel(props) {
     openCinematicDepthInspector,
     openPhotoParallaxInspector,
     openClickRippleInspector,
+    openDriftingHaloInspector,
     cinematicDepth,
     photoParallaxDepth,
     effectsPanelMode,
@@ -1621,7 +1623,7 @@ export function ToolPanel(props) {
   if (activeTool === "effects") {
     return (
       <SubjectEffectsWorkspace
-        onlyClickRipple={import.meta.env?.VITE_ANNA_EDITION === "true"}
+        basicEffectsOnly={import.meta.env?.VITE_ANNA_EDITION === "true"}
         t={t}
         segment={selectedEffectSegment}
         analysis={effectAnalysis}
@@ -1629,6 +1631,8 @@ export function ToolPanel(props) {
         progress={effectProgress}
         phase={effectPhase}
         onChange={updateSelectedSubjectEffect}
+        onChangeDriftingHalo={updateSelectedDriftingHalo}
+        onOpenDriftingHalo={openDriftingHaloInspector}
         onChangeClickRipple={updateSelectedClickRipple}
         onAnalyze={analyzeEffectVisual || analyzeCurrentVisual}
         onOpenInspector={openEffectsInspector}

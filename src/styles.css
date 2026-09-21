@@ -12621,3 +12621,6 @@ button:disabled {
     transform: skewX(-16deg);
   }
 }
+
+.halo-card-preview { background: radial-gradient(ellipse at center, #17363d, #0c141b); }
+.halo-card-wheel { display: block; position: absolute; left: 50%; top: 50%; width: 90px; height: 65px; border: 3px solid #7cecff; border-top-color: white; border-bottom-style: dashed; border-radius: 50%; box-shadow: 0 0 18px #7cecff88, inset 0 0 12px #7cecff44; transform: translate(-50%, -50%) rotate(-25deg); }

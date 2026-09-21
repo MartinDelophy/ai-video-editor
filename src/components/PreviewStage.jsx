@@ -1,3 +1,4 @@
+import { DriftingHaloOverlay } from "./DriftingHalo.jsx";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
@@ -757,6 +758,7 @@ export function PreviewStage({
               </div>
             ) : null}
             {renderedVisualSrc && trackVisibility.image ? <ClickRippleOverlay effect={visualEffects?.clickRipple} time={visualLocalTime} /> : null}
+            {renderedVisualSrc && trackVisibility.image ? <DriftingHaloOverlay effect={visualEffects?.driftingHalo} time={visualLocalTime} /> : null}
             {renderedVisualSrc && trackVisibility.image && visualTransformEditable && !visualMaskEditable ? (
               <div className="visual-transform-box" style={visualTransformBoxStyle} onPointerDown={(event) => startVisualTransform(event, "move")}>
                 <button className="visual-transform-rotate" type="button" aria-label={t("visualRotation", "旋转")} onPointerDown={(event) => startVisualTransform(event, "rotate")} />
@@ -879,6 +881,7 @@ export function PreviewStage({
                     alt=""
                     style={{ filter: cutoutFilter }}
                   /> : null}
+                  <DriftingHaloOverlay effect={overlay.driftingHalo} time={localTime} />
                   <ClickRippleOverlay effect={overlay.clickRipple} time={localTime} />
                   {selected && !isPlaying && hasOverlayMask && visualOverlayMaskEditable ? <div
                     className={`visual-mask-editor is-${overlayMask.type}`}

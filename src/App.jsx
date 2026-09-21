@@ -1,3 +1,4 @@
+import { normalizeDriftingHalo } from "./lib/driftingHaloEffect.js";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { X } from "@phosphor-icons/react";
 
@@ -438,6 +439,7 @@ export function App() {
       if (typeof change.filterId === "string") return { ...item, filterId: change.filterId };
       if (change.colorGrade) return { ...item, colorGrade: change.colorGrade };
       if (change.subjectEffect) return { ...item, subjectEffect: normalizeSubjectEffect(change.subjectEffect) };
+      if (change.driftingHalo) return { ...item, driftingHalo: normalizeDriftingHalo(change.driftingHalo) };
       if (change.clickRipple) return { ...item, clickRipple: normalizeClickRippleEffect(change.clickRipple) };
       if (change.cinematicDepth) return { ...item, cinematicDepth: normalizeCinematicDepth(change.cinematicDepth) };
       if (change.photoParallax) return { ...item, photoParallax: normalizePhotoParallax(change.photoParallax) };
@@ -530,6 +532,18 @@ export function App() {
       return;
     }
     updateSelectedVisualEffects({ clickRipple });
+  };
+  const updateSelectedDriftingHalo = (nextEffect) => {
+    if (!selectedEffectSegment?.id) return void notify(t("effectSelectClip"));
+    const driftingHalo = normalizeDriftingHalo(nextEffect);
+    if (selectedTrack === "overlay" && selectedVisualOverlay) {
+      if (trackLocks.overlay) return void notify(t("effectClipLocked"));
+      setVisualOverlaySegments((items) => items.map((item) => item.id === selectedVisualOverlay.id
+        ? { ...item, driftingHalo }
+        : item));
+      return;
+    }
+    updateSelectedVisualEffects({ driftingHalo });
   };
   const miganRepair = useMiganRepair({
     selectedSegment: selectedVisualSegment,
@@ -1186,6 +1200,7 @@ export function App() {
       if (change.mask) return { ...item, mask: change.mask };
       if (change.animation) return { ...item, animation: change.animation };
       if (change.subjectEffect) return { ...item, subjectEffect: normalizeSubjectEffect(change.subjectEffect) };
+      if (change.driftingHalo) return { ...item, driftingHalo: normalizeDriftingHalo(change.driftingHalo) };
       if (change.clickRipple) return { ...item, clickRipple: normalizeClickRippleEffect(change.clickRipple) };
       if (change.cinematicDepth) return { ...item, cinematicDepth: normalizeCinematicDepth(change.cinematicDepth) };
       if (change.photoParallax) return { ...item, photoParallax: normalizePhotoParallax(change.photoParallax) };
@@ -1522,7 +1537,7 @@ export function App() {
           updateScript, userAssets, visionJob, aiMusic, smartFrame,
           selectedVisualSegment, selectedEffectSegment, effectAnalysis, effectRunning, effectProgress, effectPhase,
           effectsPanelMode, setEffectsPanelMode, cinematicDepth, photoParallaxDepth,
-          visualLocalTime, updateSelectedVisualEffects, updateSelectedSubjectEffect, updateSelectedClickRipple, removeSelectedSubjectEffect, miganRepair, hdRestoration, smartDenoise,
+          visualLocalTime, updateSelectedVisualEffects, updateSelectedSubjectEffect, updateSelectedClickRipple, updateSelectedDriftingHalo, removeSelectedSubjectEffect, miganRepair, hdRestoration, smartDenoise,
           mobilePanel, setMobilePanel: changeMobilePanel, applyAssetToTrack, handleGeneratedVector, generationPlugins,
         }} />
 
@@ -1773,6 +1788,7 @@ export function App() {
           updateSelectedPhotoParallax={updateSelectedPhotoParallax}
           updateSelectedSubjectEffect={updateSelectedSubjectEffect}
           updateSelectedClickRipple={updateSelectedClickRipple}
+          updateSelectedDriftingHalo={updateSelectedDriftingHalo}
           removeSelectedSubjectEffect={removeSelectedSubjectEffect}
           onOpticalFlowAssetReady={handleOpticalFlowAssetReady}
           generationPlugins={generationPlugins}

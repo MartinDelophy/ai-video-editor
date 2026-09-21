@@ -1,3 +1,4 @@
+import { drawDriftingHalo } from "./driftingHaloEffect.js";
 import ffmpegCoreURL from "@ffmpeg/core?url";
 import ffmpegCoreWasmURL from "@ffmpeg/core/wasm?url";
 import ffmpegClassWorkerURL from "@ffmpeg/ffmpeg/worker?worker&url";
@@ -1272,6 +1273,7 @@ export function drawPreviewFrame(context, visual, canvas, options) {
   }
 
   drawClickRippleEffect(context, canvas, visualEffects?.clickRipple, visualTime);
+  drawDriftingHalo(context, canvas.width, canvas.height, visualEffects?.driftingHalo, visualTime);
 
   if (transitionNext?.visual && transitionId !== "none" && transitionProgress > 0) {
     const amount = Math.max(0, Math.min(1, transitionProgress));
@@ -1354,6 +1356,9 @@ export function drawPreviewFrame(context, visual, canvas, options) {
           overlay.subjectEffect,
         );
       }
+      const haloRect = getVisualFitRect(getVisualDimensions(overlayVisual), canvas, "contain");
+      targetContext.translate(haloRect.x, haloRect.y);
+      drawDriftingHalo(targetContext, haloRect.width, haloRect.height, overlay.driftingHalo, overlayTime);
       targetContext.restore();
     };
     if (hasMask) {

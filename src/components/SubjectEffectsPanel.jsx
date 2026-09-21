@@ -723,7 +723,7 @@ function MaterialEditorDialog({ t, segment, analysis, effect, materialId, onCanc
 }
 
 export function SubjectEffectsWorkspace({
-  onlyClickRipple = false,
+  basicEffectsOnly = false,
   t,
   segment,
   analysis,
@@ -738,6 +738,8 @@ export function SubjectEffectsWorkspace({
   onOpenPhotoParallax,
   onOpenClickRipple,
   onChangeClickRipple,
+  onChangeDriftingHalo,
+  onOpenDriftingHalo,
   faceSwapActive = false,
   opticalFlowActive = false,
   cinematicDepthActive = false,
@@ -780,7 +782,7 @@ export function SubjectEffectsWorkspace({
   if (!segment) {
     return (
       <div className="tool-panel subject-effects-workspace mobile-panel-scroll-body">
-        <header className="subject-effects-heading"><div><MagicWand size={22} /><span><strong>{t("effects")}</strong><small>{t(onlyClickRipple ? "clickRippleTitle" : "effectWorkspaceHint")}</small></span></div></header>
+        <header className="subject-effects-heading"><div><MagicWand size={22} /><span><strong>{t("effects")}</strong><small>{t("effectSelectClipHint")}</small></span></div></header>
         <div className="subject-effects-empty"><ImageSquare size={34} weight="duotone" /><strong>{t("effectSelectClip")}</strong><span>{t("effectSelectClipHint")}</span></div>
       </div>
     );
@@ -789,11 +791,11 @@ export function SubjectEffectsWorkspace({
     <div className="tool-panel subject-effects-workspace mobile-panel-scroll-body">
       <header className="subject-effects-heading">
         <div><MagicWand size={22} /><span><strong>{t("effects")}</strong><small>{segment.name || (hasVideo ? t("effectVideoClip") : t("effectImageClip"))}</small></span></div>
-        {(effect.enabled && analysis?.complete) || clickRipple.enabled ? <em>{t("effectApplied")}</em> : null}
+        {(effect.enabled && analysis?.complete) || clickRipple.enabled || segment?.driftingHalo?.enabled ? <em>{t("effectApplied")}</em> : null}
       </header>
 
       <div className="subject-effect-capability-grid">
-        {!onlyClickRipple ? <>
+        {!basicEffectsOnly ? <>
         <OutlinePreviewCard
           t={t}
           active={effect.enabled && effect.outline.enabled && effect.targetKind === "person"}
@@ -829,6 +831,7 @@ export function SubjectEffectsWorkspace({
           onClick={onOpenPhotoParallax}
         />
         </> : null}
+        <button type="button" className={`subject-outline-entry ${segment?.driftingHalo?.enabled ? "is-active" : ""}`} onClick={() => { onChangeDriftingHalo?.({ ...segment?.driftingHalo, enabled: true }); onOpenDriftingHalo?.(); }}><span className="subject-outline-entry-preview halo-card-preview"><span className="halo-card-wheel" /></span><span className="subject-outline-entry-footer"><span className="subject-outline-entry-copy"><strong>{t("haloTitle")}</strong><small>{t("haloHint")}</small></span><CaretRight size={17} /></span></button>
         <ClickRippleEffectCard
           t={t}
           active={clickRipple.enabled}

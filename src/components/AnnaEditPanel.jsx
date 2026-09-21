@@ -164,8 +164,7 @@ export function AnnaEditPanel({ anna }) {
       {review ? (
         <section className="anna-review">
           <h3>{t("review")}</h3>
-          <strong>{review.hasChanges ? review.title : t("noChangesApply")}</strong>
-          {review.hasChanges ? <p>{review.summary}</p> : null}
+          {!review.hasChanges ? <strong>{t("noChangesApply")}</strong> : null}
           <p className={review.hasChanges ? "anna-change-summary" : "anna-capability-notice"} role="status">
             {review.hasChanges
               ? <>{t("reorderedClips")}: {review.changeSummary.reordered} · {t("trimmedClips")}: {review.changeSummary.trimmed}</>

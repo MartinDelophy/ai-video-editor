@@ -1417,6 +1417,7 @@ export function ToolPanel(props) {
   }
 
   if (activeTool === "smart") {
+    if (import.meta.env?.VITE_ANNA_EDITION === "true") return null;
     const aiCopy = AI_MUSIC_COPY[uiLanguage] || AI_MUSIC_COPY.en;
     return (
       <div className="tool-panel smart-hub-panel">
@@ -1618,9 +1619,9 @@ export function ToolPanel(props) {
   }
 
   if (activeTool === "effects") {
-    if (import.meta.env?.VITE_ANNA_EDITION === "true") return null;
     return (
       <SubjectEffectsWorkspace
+        onlyClickRipple={import.meta.env?.VITE_ANNA_EDITION === "true"}
         t={t}
         segment={selectedEffectSegment}
         analysis={effectAnalysis}

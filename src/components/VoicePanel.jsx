@@ -1510,7 +1510,7 @@ export function VoicePanel({
   effectRunning,
   effectProgress,
   effectPhase,
-  effectsPanelMode = "outline",
+  effectsPanelMode: requestedEffectsPanelMode = "outline",
   updateSelectedSubjectEffect,
   updateSelectedClickRipple,
   removeSelectedSubjectEffect,
@@ -1523,6 +1523,7 @@ export function VoicePanel({
   generationPlugins,
   anna,
 }) {
+  const effectsPanelMode = import.meta.env?.VITE_ANNA_EDITION === "true" ? "click-ripple" : requestedEffectsPanelMode;
   const [captionPanelTab, setCaptionPanelTab] = useState("caption");
   const panelRef = useRef(null);
   const panelContext = resolveInspectorPanelContext({
@@ -1608,6 +1609,7 @@ export function VoicePanel({
       ? `${Math.round(photoParallaxDepth.job.progress || 0)}%`
       : photoParallaxDepth?.record?.complete ? t("parallaxLayersReady") : t("depthAnalysisNeeded")
     : isPluginsContext ? (selectedPluginConnection?.state === "connected" ? getPluginCopy(uiLanguage).connected : getPluginCopy(uiLanguage).available)
+    : isClickRippleContext ? (effectSegment ? t(effectSegment.clickRipple?.enabled ? "effectApplied" : "clickRippleKicker") : t("effectSelectClip"))
     : isEffectsContext ? (effectRunning
     ? `${Math.round(effectProgress || 0)}%`
     : effectAnalysis?.complete
@@ -1655,7 +1657,7 @@ export function VoicePanel({
     panelRef.current?.querySelector(".voice-tab-body")?.scrollTo({ top: 0 });
   }, [activeTool, smartMode]);
 
-  if (import.meta.env?.VITE_ANNA_EDITION === "true" && isEffectsContext) return null;
+  if (import.meta.env?.VITE_ANNA_EDITION === "true" && isSmartContext) return null;
 
   return (
     <aside ref={panelRef} className={`voice-panel ${isCaptionContext ? "is-caption-context" : ""} ${isAvatarContext ? "is-avatar-context" : ""} ${isAudioClipContext ? "is-audio-clip-context" : ""} ${isStickerContext ? "is-sticker-context" : ""} ${isVisualContext ? "is-visual-context" : ""} ${isEffectsContext ? "is-effects-context" : ""} ${isPluginsContext ? "is-plugins-context" : ""} ${isVectorOverlay ? "is-vector-overlay-context" : ""} ${mobileInspectorSection ? "is-focused-mobile-section" : ""}`}>

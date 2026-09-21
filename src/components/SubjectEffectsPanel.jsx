@@ -723,6 +723,7 @@ function MaterialEditorDialog({ t, segment, analysis, effect, materialId, onCanc
 }
 
 export function SubjectEffectsWorkspace({
+  onlyClickRipple = false,
   t,
   segment,
   analysis,
@@ -779,7 +780,7 @@ export function SubjectEffectsWorkspace({
   if (!segment) {
     return (
       <div className="tool-panel subject-effects-workspace mobile-panel-scroll-body">
-        <header className="subject-effects-heading"><div><MagicWand size={22} /><span><strong>{t("effects")}</strong><small>{t("effectWorkspaceHint")}</small></span></div></header>
+        <header className="subject-effects-heading"><div><MagicWand size={22} /><span><strong>{t("effects")}</strong><small>{t(onlyClickRipple ? "clickRippleTitle" : "effectWorkspaceHint")}</small></span></div></header>
         <div className="subject-effects-empty"><ImageSquare size={34} weight="duotone" /><strong>{t("effectSelectClip")}</strong><span>{t("effectSelectClipHint")}</span></div>
       </div>
     );
@@ -792,6 +793,7 @@ export function SubjectEffectsWorkspace({
       </header>
 
       <div className="subject-effect-capability-grid">
+        {!onlyClickRipple ? <>
         <OutlinePreviewCard
           t={t}
           active={effect.enabled && effect.outline.enabled && effect.targetKind === "person"}
@@ -826,6 +828,7 @@ export function SubjectEffectsWorkspace({
           progress={photoParallaxProgress}
           onClick={onOpenPhotoParallax}
         />
+        </> : null}
         <ClickRippleEffectCard
           t={t}
           active={clickRipple.enabled}

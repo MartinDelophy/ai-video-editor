@@ -111,7 +111,7 @@ export function App() {
   const mobilePanelTimerRef = useRef(null);
   const [mobilePanelOrigin, setMobilePanelOrigin] = useState("");
   const [mobileInspectorSection, setMobileInspectorSection] = useState("");
-  const [effectsPanelMode, setEffectsPanelMode] = useState("outline");
+  const [effectsPanelMode, setEffectsPanelMode] = useState(import.meta.env?.VITE_ANNA_EDITION === "true" ? "click-ripple" : "outline");
   const [isCompactViewport, setIsCompactViewport] = useState(() => (
     typeof window !== "undefined" && window.matchMedia?.(COMPACT_WORKSPACE_QUERY).matches
   ));

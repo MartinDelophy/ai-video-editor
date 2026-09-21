@@ -84,6 +84,16 @@ export function AnnaEditPanel({ anna }) {
         ) : null}
         {!connected ? <p>{t("hostHint")}</p> : null}
       </section>
+      <section className="anna-planning-sources">
+        <h3>{t("planningSources")}</h3>
+        <p>{t("privacy")}</p>
+        {anna.planningAssets?.length ? <ol>
+          {anna.planningAssets.map((clip) => <li key={clip.id}>
+            <strong>{clip.name}</strong><span>{seconds(clip.duration)}</span>
+          </li>)}
+        </ol> : <p>{t("needsMedia")}</p>}
+        {anna.planningAssets?.length === 1 ? <p className="anna-capability-notice">{t("singleClipHint")}</p> : null}
+      </section>
       <label className="anna-prompt">
         <span>{t("instruction")}</span>
         <textarea
@@ -95,7 +105,6 @@ export function AnnaEditPanel({ anna }) {
           disabled={job === "planning"}
         />
       </label>
-      <p className="anna-hint">{t("privacy")}</p>
       <p className="anna-hint">{t("scope")}</p>
       <button
         className="auto-edit-generate"
@@ -155,7 +164,7 @@ export function AnnaEditPanel({ anna }) {
       {review ? (
         <section className="anna-review">
           <h3>{t("review")}</h3>
-          <strong>{review.title}</strong>
+          <strong>{review.hasChanges ? review.title : t("noChangesApply")}</strong>
           {review.hasChanges ? <p>{review.summary}</p> : null}
           <p className={review.hasChanges ? "anna-change-summary" : "anna-capability-notice"} role="status">
             {review.hasChanges
@@ -199,6 +208,8 @@ export function AnnaEditPanel({ anna }) {
           </button>
         </section>
       ) : null}
+      <details className="anna-other-tools">
+        <summary>{t("otherTools")}</summary>
       <section className="anna-section">
         <h3>{t("localDraft")}</h3>
         <p>{t("draftHint")}</p>
@@ -346,6 +357,7 @@ export function AnnaEditPanel({ anna }) {
             ))}
           </ul>
         ) : null}
+      </details>
       </details>
     </div>
   );

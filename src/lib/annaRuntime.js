@@ -264,6 +264,7 @@ export async function requestAnnaEditPlan({ instruction, assets, language = "en"
       + "At most 80 segments. No effects, speed changes, audio edits, or unsupported fields. "
       + "The user will review this plan before explicitly applying it. Describe only the actual proposed changes, never claim they have already been applied. "
       + "Compare your segments with the supplied order and timings: if every clip stays unchanged, explicitly say there are no timeline changes and explain which request cannot be fulfilled or is already satisfied. Do not invent an edit merely to force a change. "
+      + "You cannot locate scenes from visual or spoken descriptions: no frames, audio or transcript are provided. Never infer scene timestamps from filenames. If a request needs unseen content or splitting a clip into reordered parts, preserve the clips and explain that the user must first locate and split that scene on the timeline. "
       + "Explain any limitation caused by having metadata only in the summary. Use the requested output language for title and summary.",
     messages: [{ role: "user", content: { type: "text", text: JSON.stringify({ instruction: prompt, outputLanguage: String(language).slice(0, 20), assets: sources }) } }],
     maxTokens: 4096,

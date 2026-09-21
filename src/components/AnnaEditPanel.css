@@ -223,3 +223,21 @@
     animation: none;
   }
 }
+
+.anna-planning-sources {
+  padding: 12px;
+  border: 1px solid #354654;
+  border-radius: 10px;
+  background: #0d151f;
+}
+.anna-planning-sources ol {
+  max-height: 180px;
+  overflow: auto;
+  padding-left: 22px;
+  font-size: 12px;
+}
+.anna-planning-sources li { padding: 5px 0; }
+.anna-planning-sources li strong { overflow-wrap: anywhere; }
+.anna-planning-sources li span { margin-left: 8px; color: var(--text-muted, #98a6b9); }
+.anna-other-tools > summary { font-size: 12px; color: var(--text-muted, #98a6b9); }
+.anna-other-tools > section, .anna-other-tools > details { margin-top: 16px; }

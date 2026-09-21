@@ -269,6 +269,7 @@ export function useAnnaEditor(deps) {
     removeCloudFile,
     recoverReference,
     retry: retryRef.current ? () => retryRef.current?.() : null,
+    planningAssets: getAnnaPlanningAssets(deps.visualSegments),
     hasVisual: deps.visualSegments.length > 0,
     exporting: deps.exporting,
     stale: Boolean(

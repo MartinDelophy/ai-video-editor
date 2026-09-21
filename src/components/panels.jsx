@@ -1422,7 +1422,7 @@ export function ToolPanel(props) {
       <div className="tool-panel smart-hub-panel">
         <div className="smart-hub-grid" role="tablist" aria-label={t("smartTools")}>
           {[
-            ["auto-edit", Scissors, t("smartAutoEdit"), anna?.enabled ? anna.t("generate") : t("smartAutoEditHint")],
+            ["auto-edit", Scissors, anna?.enabled ? anna.t("title") : t("smartAutoEdit"), anna?.enabled ? anna.t("generate") : t("smartAutoEditHint")],
             ["ai-music", MusicNote, aiCopy.title, aiCopy.hint],
             ["smart-frame", FrameCorners, t("smartFrame"), t("smartFrameHint")],
             ["avatar", PersonSimpleRun, t("smartAvatar"), t("smartAvatarHint")],

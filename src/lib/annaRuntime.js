@@ -570,9 +570,9 @@ async function readProjectPointer(signal) {
 /** Separate from manual project archives and browser-local session namespaces.
  * These narrow wrappers cannot select another KV scope or project key.
  */
-export async function readAnnaCloudSessionPointer() {
+export async function readAnnaCloudSessionPointer({ projectCatalog = false } = {}) {
   let stored;
-  try { stored = await hostCall("storage", "get", { key: CLOUD_SESSION_KEY, scope: "app" }); }
+  try { stored = await hostCall("storage", "get", { key: projectCatalog ? "timeline-studio/project-catalog-v1" : CLOUD_SESSION_KEY, scope: "app" }); }
   catch (error) { if (error?.code === "not_found") return null; throw error; }
   if (!stored || typeof stored !== "object") throw new AnnaRuntimeError("invalid_storage_response");
   if (stored.exists === false) return null;
@@ -580,11 +580,11 @@ export async function readAnnaCloudSessionPointer() {
   return { value: stored.value, etag: stored.etag };
 }
 
-export async function writeAnnaCloudSessionPointer({ value, ifMatch } = {}) {
+export async function writeAnnaCloudSessionPointer({ value, ifMatch, projectCatalog = false } = {}) {
   if (!value || typeof value !== "object" || Array.isArray(value)
     || (ifMatch !== undefined && !isValidEtag(ifMatch))) throw new AnnaRuntimeError("invalid_storage_response");
   const stored = await hostCall("storage", "set", {
-    key: CLOUD_SESSION_KEY, scope: "app", value,
+    key: projectCatalog ? "timeline-studio/project-catalog-v1" : CLOUD_SESSION_KEY, scope: "app", value,
     ...(ifMatch === undefined ? {} : { if_match: ifMatch }),
   });
   if (!isValidEtag(stored?.etag)) throw new AnnaRuntimeError("invalid_storage_response");

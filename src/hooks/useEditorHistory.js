@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { normalizeTimelineMarkers } from "../lib/timelineMarkers.js";
 
 import {
@@ -301,6 +301,7 @@ export function useEditorHistory(d) {
     selectedAudioSegmentId: d.selectedAudioSegmentId,
     currentTime: d.currentTime,
   };
+  const resetRef = useRef(false);
   const historyRef = useRef(null);
   const latestSnapshotRef = useRef(snapshot);
   const pendingRef = useRef(null);
@@ -309,6 +310,17 @@ export function useEditorHistory(d) {
   const checkpointNextRef = useRef(false);
   latestSnapshotRef.current = snapshot;
   if (!historyRef.current) historyRef.current = createEditorHistory(snapshot);
+
+  useLayoutEffect(() => {
+    if (!resetRef.current) return;
+    resetRef.current = false;
+    window.clearTimeout(timerRef.current);
+    pendingRef.current = null;
+    checkpointNextRef.current = false;
+    restoredSignatureRef.current = "";
+    historyRef.current = createEditorHistory(latestSnapshotRef.current);
+  });
+  const reset = useCallback(() => { resetRef.current = true; window.clearTimeout(timerRef.current); pendingRef.current = null; }, []);
 
   const commitPending = useCallback(() => {
     window.clearTimeout(timerRef.current);
@@ -389,5 +401,5 @@ export function useEditorHistory(d) {
     checkpointNextRef.current = true;
   }, [commitPending]);
 
-  return { redo, undo, checkpoint, signature };
+  return { redo, undo, checkpoint, signature, reset };
 }

@@ -5,11 +5,11 @@ import { createAnnaSessionPersistence } from "../lib/annaSessionPersistence.js";
 /** One in-flight save; dirty edits made during it are drained to the next commit.
  * Startup never writes until the previous record has been read or restored.
  */
-export function useAnnaSession({ enabled, fingerprint, hasContent, capture, restoreProject, getIntent, externalBusy, isExternallyBusy }) {
+export function useAnnaSession({ enabled, fingerprint, hasContent, capture, restoreProject, getIntent, externalBusy, isExternallyBusy, newProject }) {
   const [state, setState] = useState({ status: "waiting", savedAt: "", errorCode: "", storage: "cloud", migrationErrorCode: "" });
   const [tick, setTick] = useState(0);
   const latest = useRef(null);
-  latest.current = { enabled, fingerprint, hasContent, capture, restoreProject, getIntent, externalBusy, isExternallyBusy };
+  latest.current = { enabled, fingerprint, hasContent, capture, restoreProject, getIntent, externalBusy, isExternallyBusy, newProject };
   const control = useRef({ alive: false, epoch: 0, revision: 0, ready: false, saving: false,
     loading: false, savedFingerprint: null, baseline: null, timer: null, pending: null, paused: false,
     loadRequest: null, restoreCommit: null, renderSequence: 0, store: null });
@@ -118,7 +118,7 @@ export function useAnnaSession({ enabled, fingerprint, hasContent, capture, rest
       c.pending = null;
       c.loadRequest = null;
       c.baseline = record ? null : before;
-      publish(epoch, { status: record ? c.savedFingerprint === latest.current.fingerprint ? "saved" : "saving" : "idle", savedAt: record?.savedAt || "", errorCode: "" });
+      publish(epoch, { status: record ? c.savedFingerprint === latest.current.fingerprint ? "saved" : "saving" : "idle", savedAt: record?.savedAt || "", projectId: record?.projectId || "legacy", projectName: record?.projectName || "", errorCode: "" });
       setTick((value) => value + 1);
     } catch (error) {
       c.paused = true;
@@ -133,7 +133,7 @@ export function useAnnaSession({ enabled, fingerprint, hasContent, capture, rest
   const flush = useCallback(async () => {
     const c = control.current;
     clearTimeout(c.timer);
-    if (!c.alive || !latest.current.enabled || !c.ready || c.paused || c.saving || latest.current.isExternallyBusy()) return;
+    if (!c.alive || !latest.current.enabled || !c.ready || c.paused || c.saving || c.loading || latest.current.isExternallyBusy()) return;
     const current = latest.current;
     if (c.savedFingerprint === current.fingerprint) return;
     // A brand new default editor need not persist an empty startup state. Once
@@ -146,9 +146,11 @@ export function useAnnaSession({ enabled, fingerprint, hasContent, capture, rest
     try {
       const data = await current.capture();
       if (!active(epoch)) return;
-      const result = await c.store.save(data, { expectedRevision: c.revision });
+      const result = await c.store.save(data, { expectedRevision: c.revision, project: c.nextProject });
       if (!active(epoch)) return;
       c.revision = result.revision;
+      c.nextProject = null;
+      publish(epoch, { projectId: result.projectId, projectName: result.projectName });
       c.savedFingerprint = savedFingerprint;
       publish(epoch, { status: savedFingerprint === latest.current.fingerprint ? "saved" : "saving", savedAt: result.savedAt, errorCode: "" });
     } catch (error) {
@@ -223,6 +225,77 @@ export function useAnnaSession({ enabled, fingerprint, hasContent, capture, rest
       await flush(); // The replaced complete record remains in #previous.
     } catch (error) { publish(epoch, { status: "error", errorCode: getAnnaSessionErrorCode(error) }); }
   };
+  const manageProject = async ({ id, name, previous = false, create = false, rename = false }) => {
+    const c = control.current;
+    if (!c.alive || !c.ready || c.paused || c.saving || c.loading || latest.current.isExternallyBusy()) throw new Error("busy");
+    const epoch = c.epoch;
+    const before = latest.current.fingerprint, intent = latest.current.getIntent();
+    const unchanged = () => active(epoch) && latest.current.fingerprint === before && latest.current.getIntent() === intent && !latest.current.isExternallyBusy();
+    c.loading = true;
+    clearTimeout(c.timer);
+    let commit;
+    publish(epoch, { status: "saving", errorCode: "" });
+    try {
+      // Read the requested recovery BEFORE protecting current work rotates its previous snapshot.
+      const target = !create && !rename ? await c.store.readProject(id, previous) : null;
+      if (!unchanged()) throw Object.assign(new Error("changed"), { sessionCode: "conflict" });
+      if (c.savedFingerprint !== before || !c.revision) {
+        const data = await latest.current.capture();
+        if (!unchanged()) throw Object.assign(new Error("changed"), { sessionCode: "conflict" });
+        const protectedRecord = await c.store.save(data, { expectedRevision: c.revision });
+        c.revision = protectedRecord.revision;
+        c.savedFingerprint = before;
+      }
+      if (!unchanged()) throw Object.assign(new Error("changed"), { sessionCode: "conflict" });
+      const project = { id: create ? crypto.randomUUID() : id, name: name ?? target?.projectName ?? "" };
+      let restoredFingerprint = before;
+      if (!rename) {
+        publish(epoch, { status: "restoring" });
+        let finish;
+        const rendered = new Promise((resolve) => { finish = resolve; });
+        commit = { epoch, afterRender: c.renderSequence, finished: false,
+          finish(value) { if (!this.finished) { this.finished = true; finish(value); } } };
+        const beforeCommit = () => {
+          if (!unchanged()) return false;
+          commit.afterRender = c.renderSequence;
+          c.restoreCommit = commit;
+          setTick((value) => value + 1);
+          return true;
+        };
+        const restored = create
+          ? beforeCommit() && latest.current.newProject({ confirmed: true })
+          : await latest.current.restoreProject(target.data, { beforeCommit });
+        if (!restored) throw Object.assign(new Error("restore"), { sessionCode: "read" });
+        c.nextProject = project;
+        publish(epoch, { projectId: project.id, projectName: project.name });
+        c.savedFingerprint = null;
+        restoredFingerprint = await rendered;
+        if (!active(epoch) || restoredFingerprint === null) throw new Error("unmounted");
+      } else c.nextProject = project;
+      const savingFingerprint = latest.current.fingerprint;
+      const nextData = await latest.current.capture();
+      if (!active(epoch)) throw new Error("unmounted");
+      const saved = await c.store.save(nextData, { expectedRevision: c.revision, project });
+      if (!active(epoch)) return false;
+      c.revision = saved.revision; c.nextProject = null;
+      c.savedFingerprint = savingFingerprint; c.baseline = null;
+      publish(epoch, { status: savingFingerprint === latest.current.fingerprint ? "saved" : "saving", savedAt: saved.savedAt,
+        projectId: saved.projectId, projectName: saved.projectName, errorCode: "" });
+      return true;
+    } catch (error) {
+      if (active(epoch)) {
+        c.paused = true;
+        const errorCode = getAnnaSessionErrorCode(error, "write");
+        publish(epoch, { status: errorCode === "conflict" ? "conflict" : "error", errorCode });
+      }
+      throw error;
+    } finally {
+      commit?.finish(null);
+      if (c.restoreCommit === commit) c.restoreCommit = null;
+      if (active(epoch)) { c.loading = false; setTick((v) => v + 1); }
+    }
+  };
+
   // Reflect an edit in the same render, including while an external task delays
   // the next commit. A previously committed snapshot is not the current one.
   const dirty = enabled && control.current.ready && !control.current.paused
@@ -231,6 +304,9 @@ export function useAnnaSession({ enabled, fingerprint, hasContent, capture, rest
   const visibleState = dirty && (state.status === "saved" || state.status === "idle")
     ? { ...state, status: "saving" } : state;
   return { state: visibleState,
+    manageProject,
+    listProjects: () => control.current.store.listProjects(),
+    canManage: enabled && control.current.ready && !control.current.paused && !control.current.saving && !control.current.loading && !externalBusy,
     retry: () => { const c = control.current; if (!c.ready) return load(); c.paused = false; return flush(); },
     restore: () => load(true), keepCurrent,
     busy: state.status === "restoring",

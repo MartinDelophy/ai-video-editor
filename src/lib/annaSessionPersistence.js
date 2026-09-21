@@ -31,6 +31,8 @@ export function createAnnaSessionPersistence() {
   };
   return {
     mode: "cloud",
+    listProjects: () => cloud.listProjects(),
+    readProject: (id, previous) => cloud.readProject(id, previous),
     get migrationErrorCode() { return migrationErrorCode; },
     read(scope) {
       // React StrictMode can restart the load effect during the host read.

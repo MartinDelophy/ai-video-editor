@@ -47,17 +47,38 @@ function fileDescriptor(value) {
   try { return validateAnnaFileDescriptor(value, { kind: "sessions" }); }
   catch { throw failure("invalid"); }
 }
+function projectEntry(value) {
+  assert(plain(value) && /^[a-zA-Z0-9_-]{1,100}$/.test(value.id) && typeof value.name === "string" && value.name.length <= 120);
+  assert(integer(value.revision) && value.revision > 0 && iso(value.savedAt));
+  const current = fileDescriptor(value.current);
+  const previous = value.previous ? fileDescriptor(value.previous) : null;
+  assert(current.size <= MAX_MANIFEST && (!previous || previous.size <= MAX_MANIFEST));
+  return { id: value.id, name: value.name, revision: value.revision, savedAt: value.savedAt, current, previous };
+}
+function currentProject(value) {
+  return projectEntry({ ...value, id: value.projectId || "legacy", name: value.projectName || "" });
+}
+function projectList(value) {
+  return value ? [currentProject(value), ...value.projects.filter((p) => p.id !== value.projectId)].sort((a, b) => b.savedAt.localeCompare(a.savedAt)) : [];
+}
 function pointer(value) {
   assert(plain(value) && value.schemaVersion === 1 && integer(value.revision) && value.revision > 0 && iso(value.savedAt));
   const current = fileDescriptor(value.current);
   assert(current.size <= MAX_MANIFEST);
   const previous = value.previous === null ? null : fileDescriptor(value.previous);
   assert(!previous || previous.size <= MAX_MANIFEST);
-  return { schemaVersion: 1, revision: value.revision, savedAt: value.savedAt, current, previous };
+  const projectId = value.projectId || "legacy", projectName = value.projectName || "";
+  const projects = (value.projects || []).map(projectEntry);
+  assert(projects.length <= 200 && new Set(projects.map((p) => p.id)).size === projects.length);
+  projectEntry({ id: projectId, name: projectName, revision: value.revision, savedAt: value.savedAt, current, previous });
+  return { schemaVersion: 1, revision: value.revision, savedAt: value.savedAt, current, previous, projectId, projectName, projects };
 }
 async function readPointer() {
-  const stored = await readAnnaCloudSessionPointer();
-  return stored === null ? null : { etag: stored.etag, value: pointer(stored.value) };
+  // Isolate the catalog from older installed clients, whose single-session
+  // writes must never erase the multi-project index. Migrate by reference only.
+  const catalog = await readAnnaCloudSessionPointer({ projectCatalog: true });
+  const stored = catalog || await readAnnaCloudSessionPointer();
+  return stored === null ? null : { etag: stored.etag, value: pointer(stored.value), legacy: !catalog };
 }
 
 // Incremental SHA-256 keeps large media hashing bounded to a stream chunk plus
@@ -338,37 +359,56 @@ export function createAnnaCloudSessionStore() {
     catch (error) { identityHashes.delete(blob); throw error; }
   };
   const remember = (blob, hash) => identityHashes.set(blob, Promise.resolve(hash));
+  async function readEntry(entry) {
+    const file = entry.current;
+    const blob = await readAnnaFile({ path: file.path, expectedFile: file });
+    assert(blob.size === file.size && blob.size <= MAX_MANIFEST);
+    let parsed;
+    try { parsed = JSON.parse(await blob.text()); } catch { throw failure("invalid"); }
+    const saved = manifest(parsed, entry);
+    const blobs = [], downloaded = new Map();
+    for (const item of saved.binaries) {
+      let media = downloaded.get(item.sha256);
+      if (media) assert(media.size === item.size && sameFile(media.file, item.file));
+      else {
+        const bytes = item.file ? await readAnnaFile({ path: item.file.path, expectedFile: item.file }) : new Blob([]);
+        assert(bytes.size === item.size && await hashBlob(bytes) === item.sha256);
+        media = { blob: bytes, file: item.file, size: item.size };
+        downloaded.set(item.sha256, media);
+      }
+      blobs.push(media.blob);
+    }
+    const data = await hydrate(saved.graph, blobs, (value, id) => remember(value, saved.binaries[id].sha256));
+    // Restore dedup references only after all files and the graph passed.
+    for (const item of saved.binaries) if (item.file) contentFiles.set(item.sha256, item.file);
+    return { revision: entry.revision, savedAt: entry.savedAt, data, projectId: entry.id, projectName: entry.name };
+  }
   return {
     read() {
       return exclusively(async () => {
         const next = await readPointer();
         if (!next) { base = null; loaded = true; pending = null; return null; }
-        const file = next.value.current;
-        const blob = await readAnnaFile({ path: file.path, expectedFile: file });
-        assert(blob.size === file.size && blob.size <= MAX_MANIFEST);
-        let parsed;
-        try { parsed = JSON.parse(await blob.text()); } catch { throw failure("invalid"); }
-        const saved = manifest(parsed, next.value);
-        const blobs = [], downloaded = new Map();
-        for (const item of saved.binaries) {
-          let media = downloaded.get(item.sha256);
-          if (media) assert(media.size === item.size && sameFile(media.file, item.file));
-          else {
-            const bytes = item.file ? await readAnnaFile({ path: item.file.path, expectedFile: item.file }) : new Blob([]);
-            assert(bytes.size === item.size && await hashBlob(bytes) === item.sha256);
-            media = { blob: bytes, file: item.file, size: item.size };
-            downloaded.set(item.sha256, media);
-          }
-          blobs.push(media.blob);
-        }
-        const data = await hydrate(saved.graph, blobs, (value, id) => remember(value, saved.binaries[id].sha256));
-        // Restore dedup references only after all files and the graph passed.
-        for (const item of saved.binaries) if (item.file) contentFiles.set(item.sha256, item.file);
+        const record = await readEntry(currentProject(next.value));
         base = next; loaded = true; pending = null;
-        return { revision: next.value.revision, savedAt: next.value.savedAt, data };
+        return record;
       }, "read");
     },
-    save(data, { expectedRevision = 0 } = {}) {
+    listProjects() {
+      return readPointer().then((stored) => projectList(stored?.value)).catch((error) => { throw classify(error, "read"); });
+    },
+    readProject(id, previous = false) {
+      return exclusively(async () => {
+        const entry = projectList((await readPointer())?.value).find((p) => p.id === id);
+        if (!entry) throw failure("read");
+        if (!previous) return readEntry(entry);
+        if (!entry.previous) throw failure("read");
+        const blob = await readAnnaFile({ path: entry.previous.path, expectedFile: entry.previous });
+        assert(blob.size <= MAX_MANIFEST);
+        const parsed = JSON.parse(await blob.text());
+        return readEntry({ ...entry, current: entry.previous, revision: parsed.revision, savedAt: parsed.savedAt });
+      }, "read");
+    },
+    save(data, { expectedRevision = 0, project } = {}) {
       return exclusively(async () => {
         assert(integer(expectedRevision));
         if (!loaded) throw failure("read");
@@ -377,7 +417,7 @@ export function createAnnaCloudSessionStore() {
         const captured = capture(data);
         const hashes = [];
         for (const blob of captured.binaries) hashes.push(await hashBlob(blob));
-        const identity = JSON.stringify({ graph: captured.graph, binaries: hashes.map((hash, i) => [hash, captured.binaries[i].size]) });
+        const identity = JSON.stringify({ project, graph: captured.graph, binaries: hashes.map((hash, i) => [hash, captured.binaries[i].size]) });
         const signature = await sha256(new Blob([identity]));
         if (!pending || pending.signature !== signature || pending.expectedRevision !== expectedRevision) {
           // Reject unsupported/oversized metadata before any cloud upload.
@@ -400,7 +440,13 @@ export function createAnnaCloudSessionStore() {
           assert(blob.size <= MAX_MANIFEST);
           const current = fileDescriptor(await storeAnnaFile({ blob, name: "session.json", kind: "sessions" }));
           assert(current.size === blob.size);
-          pending = { signature, expectedRevision, value: { schemaVersion: 1, revision, savedAt, current, previous: base?.value.current || null } };
+          const projectId = project?.id || base?.value.projectId || "legacy";
+          const projectName = project?.name ?? base?.value.projectName ?? "";
+          const projects = projectList(base?.value).filter((p) => p.id !== projectId);
+          assert(projects.length <= 200);
+          const oldProject = projectList(base?.value).find((p) => p.id === projectId);
+          const value = pointer({ schemaVersion: 1, revision, savedAt, current, previous: oldProject?.current || null, projectId, projectName, projects });
+          pending = { signature, expectedRevision, value };
         }
         const candidate = pending;
         // Materialize the promised snapshot before its pointer is committed:
@@ -415,10 +461,10 @@ export function createAnnaCloudSessionStore() {
           const observed = await readPointer();
           if (observed && observed.value.revision === candidate.value.revision && sameFile(observed.value.current, candidate.value.current)) committed = observed;
           else {
-            if (base ? observed?.etag !== base.etag : observed !== null) throw failure("conflict");
-            const updated = await writeAnnaCloudSessionPointer({ value: candidate.value, ...(base ? { ifMatch: base.etag } : {}) });
+            if (base ? (observed?.etag !== base.etag || Boolean(observed?.legacy) !== Boolean(base.legacy)) : observed !== null) throw failure("conflict");
+            const updated = await writeAnnaCloudSessionPointer({ value: candidate.value, projectCatalog: true, ...(base && !base.legacy ? { ifMatch: base.etag } : {}) });
             committed = { value: candidate.value, etag: updated.etag };
-            if (!base) {
+            if (!base || base.legacy) {
               // Anna has no atomic create-if-absent. The pre-read/read-back
               // detects visible races, but a later unguarded first writer may
               // still replace the pointer. Both immutable snapshots survive.
@@ -433,7 +479,7 @@ export function createAnnaCloudSessionStore() {
           throw normalized;
         }
         base = committed; pending = null;
-        return { revision: committed.value.revision, savedAt: committed.value.savedAt, data: savedData };
+        return { revision: committed.value.revision, savedAt: committed.value.savedAt, data: savedData, projectId: committed.value.projectId, projectName: committed.value.projectName };
       }, "write");
     },
   };

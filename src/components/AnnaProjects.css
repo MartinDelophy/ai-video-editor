@@ -1,0 +1,21 @@
+.anna-projects { width: min(640px, calc(100vw - 32px)); max-height: calc(100dvh - 40px); box-sizing: border-box; overflow: auto; background: #151b20; color: #e9f1f4; border: 1px solid #354249; border-radius: 20px; padding: 24px; box-shadow: 0 24px 90px #0008; }
+.anna-projects::backdrop { background: #03080bbb; }
+.anna-projects header, .anna-projects footer, .anna-projects-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.anna-projects h2 { margin: 0; font-size: 20px; }
+.anna-projects p { color: #a8b9c0; font-size: 13px; line-height: 1.6; }
+.anna-projects button { cursor: pointer; border: 1px solid #35494e; background: #202b31; color: inherit; border-radius: 9px; padding: 9px 12px; font-size: 12px; }
+.anna-projects button:disabled { cursor: not-allowed; opacity: .45; }
+.anna-projects button.primary { background: #26d6c5; color: #042827; font-weight: 650; }
+.anna-projects button:focus-visible, .anna-projects input:focus-visible { outline: 2px solid #26d6c5; outline-offset: 3px; }
+.anna-projects header button { display: grid; place-items: center; padding: 8px; }
+.anna-projects label { display: grid; gap: 10px; font-size: 13px; }
+.anna-projects input { min-width: 0; width: 100%; box-sizing: border-box; padding: 12px; color: inherit; background: #0b1217; border: 1px solid #35494e; border-radius: 9px; }
+.anna-projects footer { justify-content: flex-end; margin-top: 20px; flex-wrap: wrap; }
+.anna-projects-list { display: grid; gap: 10px; margin-top: 16px; }
+.anna-projects article { display: flex; gap: 12px; align-items: center; padding: 16px; border: 1px solid #2d3c43; border-radius: 12px; }
+.anna-projects-copy { display: grid; gap: 5px; min-width: 0; flex: 1; overflow-wrap: anywhere; }
+.anna-projects-copy time, .anna-projects-copy small { font-size: 12px; color: #9bafb8; }
+.anna-projects-copy small { color: #38dbc9; }
+.anna-projects-item-actions { display: grid; gap: 6px; max-width: 45%; }
+.anna-projects p.anna-projects-error { color: #ffbd79; }
+@media (max-width: 540px) { .anna-projects { padding: 18px; } .anna-projects article { flex-wrap: wrap; } .anna-projects-item-actions { display: flex; flex-wrap: wrap; max-width: none; width: 100%; } }

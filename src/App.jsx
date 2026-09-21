@@ -248,7 +248,7 @@ export function App() {
     setSelectedLibraryAssetId,
     setUserAssets,
   });
-  const { redo, undo, checkpoint: checkpointHistory, signature: historySignature } = useEditorHistory({
+  const { redo, undo, checkpoint: checkpointHistory, reset: resetProjectHistory, signature: historySignature } = useEditorHistory({
     autoRatioSourceKeyRef,
     timelineMarkers, setTimelineMarkers,
     audioSegments, captionPlacement, captionPosition, captionSegments, captionSize,
@@ -1247,6 +1247,7 @@ export function App() {
   }), [currentTime, depthRecords, previewVisualOverlays]);
 
   const { projectImportProgress, isProjectImporting, handleExportProject, handleImportProject, handleNewProject, getProjectSnapshot, createCurrentArchive, getSessionInput, captureSession, restoreSession, getProjectIntent } = useProjectFiles({
+    resetProjectHistory,
     userAssets, setUserAssets, historyItems, setHistoryItems, recordedVoices, setRecordedVoices, favoriteVoiceIds, setFavoriteVoiceIds, rippleEditing, setRippleEditing,
     sourceVoiceColorOriginalRef, visionRecords, setVisionRecords, visionObjectUrlsRef, depthRecords, setDepthRecords,
     language: activeLanguage, pauseTimelineMedia, setIsPlaying,
@@ -1325,7 +1326,7 @@ export function App() {
   const anna = useAnnaEditor({
     language: activeLanguage, visualSegments, rippleEditing, getProjectSnapshot,
     getSessionInput, captureSession, restoreSession, getProjectIntent, projectImportProgress, isProjectImporting,
-    createArchive: createCurrentArchive, importProject: handleImportProject,
+    createArchive: createCurrentArchive, importProject: handleImportProject, newProject: handleNewProject,
     hasMusic: Boolean(musicBlob), hasSourceAudio: Boolean(sourceAudioBlob),
     renderVideo: handleExportVideo, exportSettings, exporting,
     applyReview: (review) => {

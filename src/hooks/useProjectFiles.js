@@ -102,9 +102,11 @@ export function useProjectFiles(deps = {}) {
     } catch (error) { deps.notify(error instanceof Error ? `工程导出失败：${error.message}` : "工程导出失败"); }
   }, [deps, createCurrentArchive]);
 
-  const handleNewProject = useCallback(() => {
+  const handleNewProject = useCallback((options = {}) => {
     if (importingRef.current) return;
-    if (!window.confirm("新建工程将清空当前时间线，是否继续？")) return;
+    if (!options.confirmed && !window.confirm("新建工程将清空当前时间线，是否继续？")) return false;
+    deps.resetProjectHistory?.();
+    deps.pauseTimelineMedia?.(); deps.setIsPlaying?.(false);
     importGenerationRef.current += 1;
     intentRef.current += 1;
     commandStateRef.current = { schemaVersion: 1, revision: 0, appliedOperationIds: [] };
@@ -116,6 +118,7 @@ export function useProjectFiles(deps = {}) {
     deps.setSelectedStickerSegmentId(""); deps.clearAllVisionState(); deps.setCurrentTime(0);
     deps.setTimelineHorizon(DEFAULT_TIMELINE_DURATION_SECONDS); deps.setTimelineZoom(1);
     deps.setShowFileMenu(false); deps.notify("已新建空白工程");
+    return true;
   }, [deps]);
 
   const handleImportProject = useCallback(async (file, options = {}) => {
@@ -253,6 +256,7 @@ export function useProjectFiles(deps = {}) {
       // can reject edits/unmounts that happened during archive reads or decoding.
       if (generation !== importGenerationRef.current || (options.beforeCommit && options.beforeCommit() !== true)) return false;
       const current = latestDeps.current;
+      current.resetProjectHistory?.();
       const oldAudioUrls = asArray(current.audioSegments).map((segment) => segment.url).filter((url) => url?.startsWith("blob:"));
       commandStateRef.current = data.commandState || { schemaVersion: 1, revision: 0, appliedOperationIds: [] };
       current.setTimelineHorizon(DEFAULT_TIMELINE_DURATION_SECONDS);

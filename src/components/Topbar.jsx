@@ -1,3 +1,5 @@
+import { AnnaProjects } from "./AnnaProjects.jsx";
+import { getAnnaProjectsCopy } from "../i18nAnnaProjects.js";
 import { useEffect, useRef, useState } from "react";
 import {
   ArrowClockwise,
@@ -67,6 +69,8 @@ export function Topbar({
   handleImportProject,
   projectFileInputRef,
 }) {
+  const [projectManager, setProjectManager] = useState("");
+  const projectCopy = getAnnaProjectsCopy(activeLanguage);
   const exportAnchorRef = useRef(null);
   const ratioAnchorRef = useRef(null);
   const settingsAnchorRef = useRef(null);
@@ -118,13 +122,14 @@ export function Topbar({
 
   return (
     <header className="topbar">
+      {projectManager && annaSession ? <AnnaProjects session={annaSession} language={activeLanguage} initialMode={projectManager} onClose={() => setProjectManager("")} /> : null}
       <div className="project-cluster">
         <IconButton label={t("collapseSidebar")} active={compactRail} onClick={() => setCompactRail((v) => !v)}>
           <SlidersHorizontal size={19} />
         </IconButton>
         <div>
           <div className="project-title-row">
-            <div className="project-title">{t("projectTitle")}</div>
+            <div className="project-title">{annaSession?.state.projectName || t("projectTitle")}</div>
             <div className="menu-anchor">
               <button className="project-file-button" type="button" onClick={() => setShowFileMenu((open) => !open)}>
                 {t("fileMenu")} <CaretDown size={13} />
@@ -136,10 +141,11 @@ export function Topbar({
                       <span>{t("projectMenuHeading")}</span>
                       <small>Timeline Studio</small>
                     </div>
-                    <button className="file-menu-action file-menu-new" type="button" onClick={handleNewProject}>
+                    <button className="file-menu-action file-menu-new" type="button" onClick={() => { if (annaSession) { setProjectManager("new"); setShowFileMenu(false); } else handleNewProject(); }}>
                       <span className="file-menu-icon"><FilePlus size={17} /></span>
                       <span className="file-menu-copy"><strong>{t("newProject")}</strong><small>{t("newProjectHint")}</small></span>
                     </button>
+                    {annaSession ? <button className="file-menu-action" type="button" onClick={() => { setProjectManager("list"); setShowFileMenu(false); }}><span className="file-menu-icon"><Database size={17} /></span><span className="file-menu-copy"><strong>{projectCopy.title}</strong></span></button> : null}
                     <div className="file-menu-divider" />
                     <button className="file-menu-action" type="button" onClick={() => handleImportProject()}>
                       <span className="file-menu-icon"><FileArrowUp size={17} /></span>

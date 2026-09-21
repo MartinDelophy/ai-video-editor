@@ -66,7 +66,7 @@ export function useAnnaEditor(deps) {
     enabled: isAnnaEdition,
     fingerprint: isAnnaEdition ? annaSessionFingerprint(sessionInput) : "",
     hasContent: hasProjectContent || Boolean(sessionInput?.userAssets?.length || sessionInput?.historyItems?.length || sessionInput?.recordedVoices?.length || snapshot.script?.trim()),
-    capture: deps.captureSession, restoreProject: deps.restoreSession, getIntent: deps.getProjectIntent,
+    capture: deps.captureSession, restoreProject: deps.restoreSession, getIntent: deps.getProjectIntent, newProject: deps.newProject,
     externalBusy: Boolean(job || deps.exporting || draft.busy || deps.projectImportProgress),
     isExternallyBusy: () => Boolean(busyRef.current || latest.current.exporting || latest.current.isProjectImporting?.() || draft.isBusy()),
   });

@@ -12623,4 +12623,8 @@ button:disabled {
 }
 
 .halo-card-preview { background: radial-gradient(ellipse at center, #17363d, #0c141b); }
-.halo-card-wheel { display: block; position: absolute; left: 50%; top: 50%; width: 90px; height: 65px; border: 3px solid #7cecff; border-top-color: white; border-bottom-style: dashed; border-radius: 50%; box-shadow: 0 0 18px #7cecff88, inset 0 0 12px #7cecff44; transform: translate(-50%, -50%) rotate(-25deg); }
+
+.halo-card-wheel { display: block; position: absolute; inset: -40%; background: repeating-conic-gradient(from 20deg, transparent 0deg, #76ecff99 15deg, #a66dff66 27deg, transparent 60deg); mask-image: radial-gradient(circle, #000 0%, #0009 40%, transparent 70%); }
+.halo-card-preview { background: #101424; }
+@media (prefers-reduced-motion: no-preference) { .subject-outline-entry:hover .halo-card-wheel, .subject-outline-entry:focus-visible .halo-card-wheel { animation: disco-card-spin 8s linear infinite; } }
+@keyframes disco-card-spin { to { transform: rotate(360deg); } }

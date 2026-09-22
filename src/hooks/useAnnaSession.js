@@ -298,7 +298,7 @@ export function useAnnaSession({ enabled, fingerprint, hasContent, capture, rest
           return true;
         };
         const restored = create
-          ? beforeCommit() && latest.current.newProject({ confirmed: true })
+          ? beforeCommit() && latest.current.newProject({ confirmed: true, clearProjectAssets: true })
           : await latest.current.restoreProject(target.data, { beforeCommit });
         if (!restored) throw Object.assign(new Error("restore"), { sessionCode: "read" });
         c.nextProject = project;

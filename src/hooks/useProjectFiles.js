@@ -111,6 +111,12 @@ export function useProjectFiles(deps = {}) {
     if (importingRef.current) return;
     if (!options.confirmed && !window.confirm("新建工程将清空当前时间线，是否继续？")) return false;
     deps.resetProjectHistory?.();
+    // Anna saves the outgoing project before invoking this reset. Its media
+    // catalog belongs to that saved project, not to the newly created one.
+    if (options.clearProjectAssets) {
+      deps.setUserAssets?.([]);
+      deps.setSelectedLibraryAssetId?.("");
+    }
     deps.pauseTimelineMedia?.(); deps.setIsPlaying?.(false);
     importGenerationRef.current += 1;
     intentRef.current += 1;

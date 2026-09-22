@@ -9,3 +9,5 @@ Verification: targeted ESLint, Anna production build and strict bundle validatio
 Deployment: Anna app 254 working draft r29, ready; content hash `a5a7bb18ff4caf8cb5c2bcbb38aa6dec79e0682620919095e7b0062f7122a394`. No new frozen release or review submission.
 
 The project list now scrolls independently inside the dialog, capped at approximately four desktop rows and shrinking with the available viewport height. The heading and New project / Refresh controls remain above the scrolling region. The thin scrollbar stays inside the list; the region is keyboard-focusable and has a localized accessible name. A temporary 12-project browser fixture confirmed the bounded list and scrollbar placement.
+
+Scrolling update: production build, targeted lint and strict validation passed. Uploaded working draft r30, ready, hash `8bed0c7465607c8138a21da463bc88d10c2f9294515ec27319b0f116437ffa84`; no review submission.

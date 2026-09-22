@@ -5,3 +5,5 @@ Project cards reveal a trash action on hover or keyboard focus; touch/coarse-poi
 Deletion is a serialized catalog write guarded by both the loaded revision and the cloud ETag. It preserves the current project's snapshot, saved timestamp and revision (the immutable manifest still describes that revision), and updates the local ETag baseline. Shared media files are not deleted. The project list has no undo for removal; exported project packages can still be imported. All new copy is present in 13 languages.
 
 Validation: targeted lint, production build; external temporary store harness checked current-project protection, stale revisions, stale catalog rejection, current content preservation, and no resurrection on the next save. A temporary browser fixture exercised the actual dialog's confirm/loading/success flow. No real user project was deleted and no test fixture was added to the repository.
+
+Strict validation passed. Working draft r33 uploaded and ready; hash `b98c76c97e76ce94b6ab855a1b20009f48c4ee85e89eb3be5ff4479cea515397`. No review submitted.

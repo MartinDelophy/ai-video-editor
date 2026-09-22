@@ -7,3 +7,5 @@ The inspector exposes spread, expansion period, angular speed, horizontal and ve
 Validation: Anna build and strict CLI validation passed; modified JavaScript passed targeted ESLint. Temporary browser fixture confirmed the conical appearance, parameter changes (9 beams, -60°/s), deterministic same-time drawing, changing frames over time, and visible output from the actual export-frame renderer. Old-parameter migration and 13-language keys passed. A full MP4 and production cloud restore have not been retested for this effect.
 
 This update is for the working draft only. Review is not requested; the automatic review follow-up remains deleted.
+
+Uploaded working draft r26: `0fd73454dff0abd9b5abf39c331dcda44df74cc4f654243751215d80d5ef51ff`, 170 files, 210447938 bytes, bundle ready.

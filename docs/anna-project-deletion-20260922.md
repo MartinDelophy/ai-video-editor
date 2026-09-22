@@ -7,3 +7,5 @@ Deletion is a serialized catalog write guarded by both the loaded revision and t
 Validation: targeted lint, production build; external temporary store harness checked current-project protection, stale revisions, stale catalog rejection, current content preservation, and no resurrection on the next save. A temporary browser fixture exercised the actual dialog's confirm/loading/success flow. No real user project was deleted and no test fixture was added to the repository.
 
 Strict validation passed. Working draft r33 uploaded and ready; hash `b98c76c97e76ce94b6ab855a1b20009f48c4ee85e89eb3be5ff4479cea515397`. No review submitted.
+
+Layout refinement: moved the hover/focus trash control into a reserved 32px cell beside Open/Rename instead of floating over the card corner. Previous-save recovery is a lower-emphasis text action. Reduced card padding and aligned action groups; mobile places actions on a separate row. Browser screenshots verified both hidden and keyboard-focused deletion states without layout movement.

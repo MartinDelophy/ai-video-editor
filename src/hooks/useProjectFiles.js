@@ -1,3 +1,4 @@
+import { captureProjectPreview } from "../lib/projectPreview.js";
 import { useCallback, useRef, useState } from "react";
 import { captureAnnaSessionAnalysis, prepareAnnaProjectSession, readAnnaProjectSession, restoreAnnaSessionItems, restoreAnnaSessionMetadata } from "../lib/annaProjectSession.js";
 import { DEFAULT_SCRIPT, DEFAULT_TIMELINE_DURATION_SECONDS, normalizeVoiceId, RATIO_OPTIONS, VOICES } from "../config/editor.js";
@@ -87,7 +88,11 @@ export function useProjectFiles(deps = {}) {
       ...captureAnnaSessionAnalysis([...asArray(current.visualSegments), ...asArray(current.visualOverlaySegments)], current.visionRecords, current.depthRecords, getVisionKey),
     };
   }, []);
-  const captureSession = useCallback(() => prepareAnnaProjectSession(getSessionInput()), [getSessionInput]);
+  const captureSession = useCallback(async () => {
+    const input = getSessionInput();
+    const [data, projectPreview] = await Promise.all([prepareAnnaProjectSession(input), captureProjectPreview(input.visuals)]);
+    return { ...data, projectPreview };
+  }, [getSessionInput]);
   const getProjectIntent = useCallback(() => intentRef.current, []);
   const isProjectImporting = useCallback(() => importingRef.current, []);
 

@@ -47,13 +47,17 @@ function fileDescriptor(value) {
   try { return validateAnnaFileDescriptor(value, { kind: "sessions" }); }
   catch { throw failure("invalid"); }
 }
+function previewFile(value) {
+  if (!value) return null;
+  try { const file = fileDescriptor(value); return file.size <= 32768 ? file : null; } catch { return null; }
+}
 function projectEntry(value) {
   assert(plain(value) && /^[a-zA-Z0-9_-]{1,100}$/.test(value.id) && typeof value.name === "string" && value.name.length <= 120);
   assert(integer(value.revision) && value.revision > 0 && iso(value.savedAt));
   const current = fileDescriptor(value.current);
   const previous = value.previous ? fileDescriptor(value.previous) : null;
   assert(current.size <= MAX_MANIFEST && (!previous || previous.size <= MAX_MANIFEST));
-  return { id: value.id, name: value.name, revision: value.revision, savedAt: value.savedAt, current, previous };
+  return { id: value.id, name: value.name, revision: value.revision, savedAt: value.savedAt, current, previous, preview: previewFile(value.preview) };
 }
 function currentProject(value) {
   return projectEntry({ ...value, id: value.projectId || "legacy", name: value.projectName || "" });
@@ -71,7 +75,7 @@ function pointer(value) {
   const projects = (value.projects || []).map(projectEntry);
   assert(projects.length <= 200 && new Set(projects.map((p) => p.id)).size === projects.length);
   projectEntry({ id: projectId, name: projectName, revision: value.revision, savedAt: value.savedAt, current, previous });
-  return { schemaVersion: 1, revision: value.revision, savedAt: value.savedAt, current, previous, projectId, projectName, projects };
+  return { schemaVersion: 1, revision: value.revision, savedAt: value.savedAt, current, previous, projectId, projectName, projects, preview: previewFile(value.preview) };
 }
 async function readPointer() {
   // Isolate the catalog from older installed clients, whose single-session
@@ -414,7 +418,8 @@ export function createAnnaCloudSessionStore() {
         if (!loaded) throw failure("read");
         if (expectedRevision !== (base?.value.revision || 0)) throw failure("conflict");
         assert(expectedRevision < Number.MAX_SAFE_INTEGER);
-        const captured = capture(data);
+        const { projectPreview, ...sessionData } = data;
+        const captured = capture(sessionData);
         const hashes = [];
         for (const blob of captured.binaries) hashes.push(await hashBlob(blob));
         const identity = JSON.stringify({ project, graph: captured.graph, binaries: hashes.map((hash, i) => [hash, captured.binaries[i].size]) });
@@ -445,7 +450,15 @@ export function createAnnaCloudSessionStore() {
           const projects = projectList(base?.value).filter((p) => p.id !== projectId);
           assert(projects.length <= 200);
           const oldProject = projectList(base?.value).find((p) => p.id === projectId);
-          const value = pointer({ schemaVersion: 1, revision, savedAt, current, previous: oldProject?.current || null, projectId, projectName, projects });
+          let preview = null;
+          if (projectPreview instanceof Blob && projectPreview.size <= 32768 && projectPreview.type === "image/jpeg") {
+            try {
+              const hash = await hashBlob(projectPreview);
+              preview = contentFiles.get(hash) || fileDescriptor(await storeAnnaFile({ blob: projectPreview, name: `${hash}.jpg`, kind: "sessions" }));
+              contentFiles.set(hash, preview);
+            } catch { /* Covers are optional; a failed upload cannot block the project commit. */ }
+          }
+          const value = pointer({ preview, schemaVersion: 1, revision, savedAt, current, previous: oldProject?.current || null, projectId, projectName, projects });
           pending = { signature, expectedRevision, value };
         }
         const candidate = pending;

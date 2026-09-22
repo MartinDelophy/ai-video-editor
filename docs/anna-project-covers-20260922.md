@@ -13,3 +13,5 @@ The project list now scrolls independently inside the dialog, capped at approxim
 Scrolling update: production build, targeted lint and strict validation passed. Uploaded working draft r30, ready, hash `8bed0c7465607c8138a21da463bc88d10c2f9294515ec27319b0f116437ffa84`; no review submission.
 
 Video-cover correction: uploaded videos populate `trackFrames` entries (`{src, sourceTime}`), not the image-only `thumbnail` field. Cover capture now consumes those frames (including legacy string entries). When no still frame is available, it decodes the video source in a separate muted element and seeks to the clip's source start; temporary media elements and object URLs are cleaned up. The optional capture timeout is now 2.5 seconds. A temporary browser fixture passed with the production frame shape, a real H.264 MP4 Blob with a nonzero source start, and an empty project. No user project was changed for the check.
+
+Video-cover deployment: build, lint and strict validation passed; working draft r32 ready, hash `40843f8cc86dfe0fbf3d8e904ec1d781e897e0ff3857bdfcda81b40cd5f6a7a0`. Existing projects receive a cover on their next save; no review submitted.

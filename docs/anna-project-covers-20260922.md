@@ -7,3 +7,5 @@ Capture runs alongside project preparation, with a 1.2-second bound, at 240×135
 Verification: targeted ESLint, Anna production build and strict bundle validation passed. An external temporary harness exercised catalog serialization, fresh-store reads, switching projects while retaining earlier covers, missing covers and failed optional uploads without losing the saved project. Browser inspection of the real dialog and cover-capture module confirmed the image and fallback layout. No test harness or fixture media was added to the repository.
 
 Deployment: Anna app 254 working draft r29, ready; content hash `a5a7bb18ff4caf8cb5c2bcbb38aa6dec79e0682620919095e7b0062f7122a394`. No new frozen release or review submission.
+
+The project list now scrolls independently inside the dialog, capped at approximately four desktop rows and shrinking with the available viewport height. The heading and New project / Refresh controls remain above the scrolling region. The thin scrollbar stays inside the list; the region is keyboard-focusable and has a localized accessible name. A temporary 12-project browser fixture confirmed the bounded list and scrollbar placement.

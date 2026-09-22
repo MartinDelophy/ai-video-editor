@@ -40,3 +40,10 @@
 .anna-project-cover { width: 120px; aspect-ratio: 16 / 9; flex: 0 0 auto; display: grid; place-items: center; overflow: hidden; border-radius: 8px; background: linear-gradient(145deg,#203139,#0b1118); border: 1px solid #31454b; color: #819ba5; }
 .anna-project-cover img { width: 100%; height: 100%; object-fit: contain; }
 @media (max-width: 540px) { .anna-project-cover { width: 88px; } }
+
+.anna-projects article { position: relative; padding-right: 40px; }
+.anna-projects button.anna-project-delete { position: absolute; top: 6px; right: 6px; padding: 4px; border-color: transparent; color: #ffb5ae; opacity: 0; transition: opacity .15s; }
+.anna-projects article:hover .anna-project-delete, .anna-projects article:focus-within .anna-project-delete { opacity: 1; }
+.anna-projects article .anna-project-delete:disabled { cursor: not-allowed; }
+.anna-projects button.danger { background: #8a302e; border-color: #bd5550; color: #fff; }
+@media (hover: none), (pointer: coarse) { .anna-projects button.anna-project-delete { opacity: 1; } }

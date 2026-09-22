@@ -400,6 +400,20 @@ export function createAnnaCloudSessionStore() {
     listProjects() {
       return readPointer().then((stored) => projectList(stored?.value)).catch((error) => { throw classify(error, "read"); });
     },
+    deleteProject(id, { expectedRevision } = {}) {
+      return exclusively(async () => {
+        if (!loaded || !base || base.legacy || expectedRevision !== base.value.revision) throw failure("conflict");
+        if (id === base.value.projectId) throw failure("conflict");
+        const observed = await readPointer();
+        if (!observed || observed.etag !== base.etag) throw failure("conflict");
+        if (!projectList(base.value).some(item => item.id === id)) throw failure("read");
+        const value = pointer({ ...base.value, projects: base.value.projects.filter(item => item.id !== id) });
+        // Remove catalog references only: media may be shared by other projects.
+        const updated = await writeAnnaCloudSessionPointer({ value, projectCatalog: true, ifMatch: base.etag });
+        base = { value, etag: updated.etag }; pending = null;
+        return true;
+      }, "write");
+    },
     readProject(id, previous = false) {
       return exclusively(async () => {
         const entry = projectList((await readPointer())?.value).find((p) => p.id === id);

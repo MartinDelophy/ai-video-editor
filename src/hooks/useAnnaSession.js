@@ -259,7 +259,7 @@ export function useAnnaSession({ enabled, fingerprint, hasContent, capture, rest
       if (active(epoch)) { c.action = ""; publish(epoch, { action: "" }); }
     }
   };
-  const manageProject = async ({ id, name, previous = false, create = false, rename = false }) => {
+  const manageProject = async ({ id, name, previous = false, create = false, rename = false, remove = false }) => {
     const c = control.current;
     if (!c.alive || !c.ready || c.paused || c.saving || c.loading || latest.current.isExternallyBusy()) throw new Error("busy");
     const epoch = c.epoch;
@@ -270,6 +270,11 @@ export function useAnnaSession({ enabled, fingerprint, hasContent, capture, rest
     let commit;
     publish(epoch, { status: "checking", errorCode: "" });
     try {
+      if (remove) {
+        await c.store.deleteProject(id, { expectedRevision: c.revision });
+        publish(epoch, { status: "saved" });
+        return true;
+      }
       // Read the requested recovery BEFORE protecting current work rotates its previous snapshot.
       const target = !create && !rename ? await c.store.readProject(id, previous) : null;
       if (!unchanged()) throw Object.assign(new Error("changed"), { sessionCode: "conflict" });

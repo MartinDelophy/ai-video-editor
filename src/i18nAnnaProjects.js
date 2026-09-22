@@ -14,6 +14,22 @@ const rows = {
   it: ['I miei progetti','Nuovo progetto','Nome del progetto','Salva e crea','Apri','Rinomina','Salva nome','Annulla','Progetto attuale','Progetto senza titolo','Nessun progetto salvato','Elaborazione…','Impossibile completare. Controlla il salvataggio e riprova. Il contenuto attuale resta nell’editor.','Il progetto attuale viene salvato prima di creare o cambiare progetto. Attendi il salvataggio nel cloud.','Ripristina salvataggio precedente','Il progetto attuale viene salvato prima del ripristino. Il salvataggio precedente non è una cronologia completa.','Aggiorna'],
   id: ['Proyek saya','Proyek baru','Nama proyek','Simpan dan buat','Buka','Ubah nama','Simpan nama','Batal','Proyek saat ini','Proyek tanpa judul','Belum ada proyek tersimpan','Memproses…','Tidak dapat menyelesaikan. Periksa status penyimpanan lalu coba lagi. Konten saat ini tetap di editor.','Proyek saat ini disimpan sebelum membuat atau beralih proyek. Tunggu penyimpanan cloud selesai.','Pulihkan simpanan sebelumnya','Proyek saat ini disimpan sebelum pemulihan. Simpanan sebelumnya bukan riwayat edit lengkap.','Muat ulang'],
 };
+const deletion = {
+ zh: ['删除项目','删除此项目及上一份保存？删除后无法从项目列表恢复，建议先导出工程备份。','请先打开其他项目，再删除当前项目'],
+ en: ['Delete project','Delete this project and its previous save? It cannot be restored from the project list. Export a backup first.','Open another project before deleting the current one'],
+ ja: ['プロジェクトを削除','このプロジェクトと前回の保存を削除しますか？一覧から復元できません。先にバックアップをエクスポートしてください。','現在のプロジェクトを削除する前に別のプロジェクトを開いてください'],
+ ko: ['프로젝트 삭제','이 프로젝트와 이전 저장을 삭제할까요? 목록에서 복원할 수 없습니다. 먼저 백업을 내보내세요.','현재 프로젝트를 삭제하려면 다른 프로젝트를 먼저 여세요'],
+ es: ['Eliminar proyecto','¿Eliminar este proyecto y su guardado anterior? No se podrá restaurar desde la lista. Exporta una copia primero.','Abre otro proyecto antes de eliminar el actual'],
+ fr: ['Supprimer le projet','Supprimer ce projet et sa sauvegarde précédente ? La restauration depuis la liste sera impossible. Exportez une sauvegarde avant.','Ouvrez un autre projet avant de supprimer le projet actuel'],
+ de: ['Projekt löschen','Dieses Projekt und seinen vorherigen Stand löschen? Eine Wiederherstellung aus der Liste ist nicht möglich. Zuerst eine Sicherung exportieren.','Vor dem Löschen des aktuellen Projekts ein anderes öffnen'],
+ pt: ['Excluir projeto','Excluir este projeto e seu salvamento anterior? Não será possível restaurar pela lista. Exporte uma cópia antes.','Abra outro projeto antes de excluir o atual'],
+ th: ['ลบโปรเจกต์','ลบโปรเจกต์นี้และการบันทึกก่อนหน้าหรือไม่? จะกู้คืนจากรายการไม่ได้ โปรดส่งออกข้อมูลสำรองก่อน','เปิดโปรเจกต์อื่นก่อนลบโปรเจกต์ปัจจุบัน'],
+ vi: ['Xóa dự án','Xóa dự án này và bản lưu trước? Không thể khôi phục từ danh sách. Hãy xuất bản sao lưu trước.','Mở dự án khác trước khi xóa dự án hiện tại'],
+ ru: ['Удалить проект','Удалить этот проект и предыдущее сохранение? Восстановление из списка будет невозможно. Сначала экспортируйте резервную копию.','Перед удалением текущего проекта откройте другой'],
+ it: ['Elimina progetto','Eliminare questo progetto e il salvataggio precedente? Non sarà ripristinabile dalla lista. Esporta prima una copia.','Apri un altro progetto prima di eliminare quello attuale'],
+ id: ['Hapus proyek','Hapus proyek ini dan simpanan sebelumnya? Proyek tidak dapat dipulihkan dari daftar. Ekspor cadangan terlebih dahulu.','Buka proyek lain sebelum menghapus proyek saat ini'],
+};
 export function getAnnaProjectsCopy(language) {
-  return Object.fromEntries(keys.map((key, index) => [key, (rows[language] || rows.en)[index]]));
+  const [remove, deleteHint, deleteCurrent] = deletion[language] || deletion.en;
+  return { ...Object.fromEntries(keys.map((key, index) => [key, (rows[language] || rows.en)[index]])), delete: remove, deleteHint, deleteCurrent };
 }

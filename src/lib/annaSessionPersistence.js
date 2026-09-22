@@ -32,6 +32,7 @@ export function createAnnaSessionPersistence() {
   return {
     mode: "cloud",
     listProjects: () => cloud.listProjects(),
+    deleteProject: (id, options) => cloud.deleteProject(id, options),
     readProject: (id, previous) => cloud.readProject(id, previous),
     get migrationErrorCode() { return migrationErrorCode; },
     read(scope) {

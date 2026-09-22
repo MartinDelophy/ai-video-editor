@@ -1,7 +1,7 @@
 import { readAnnaFile } from "../lib/annaRuntime.js";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { CircleNotch, File, X } from "@phosphor-icons/react";
+import { CircleNotch, File, Trash, X } from "@phosphor-icons/react";
 import { getAnnaProjectsCopy } from "../i18nAnnaProjects.js";
 import "./AnnaProjects.css";
 import { getAnnaSessionCopy } from "../i18nAnnaSession.js";
@@ -31,6 +31,7 @@ export function AnnaProjects({ session, language, initialMode = "list", onClose 
   const [busy, setBusy] = useState(false);
   const [operation, setOperation] = useState(null);
   const [error, setError] = useState(false);
+  const [deleting, setDeleting] = useState(null);
   const [recovery, setRecovery] = useState(null);
   const refresh = async () => {
     setBusy(true); setError(false);
@@ -50,7 +51,10 @@ export function AnnaProjects({ session, language, initialMode = "list", onClose 
   const run = async (options) => {
     if (busy || !session.canManage) return;
     setBusy(true); setError(false); setOperation(options);
-    try { if (await session.manageProject(options)) onClose(); }
+    try { if (await session.manageProject(options)) {
+      if (options.remove) { setProjects(await session.listProjects()); setDeleting(null); }
+      else onClose();
+    } }
     catch { setError(true); }
     finally { setBusy(false); setOperation(null); }
   };
@@ -62,15 +66,16 @@ export function AnnaProjects({ session, language, initialMode = "list", onClose 
   return createPortal(
     <dialog ref={dialog} className="anna-projects" onCancel={(event) => { event.preventDefault(); if (!busy) onClose(); }} aria-labelledby="anna-projects-title">
       <header><h2 id="anna-projects-title">{mode === "new" ? copy.new : mode === "rename" ? copy.rename : copy.title}</h2><button type="button" aria-label={copy.cancel} disabled={busy} onClick={onClose}><X size={20} /></button></header>
-      <p>{recovery ? copy.restoreHint : copy.hint}</p>
+      <p>{deleting ? copy.deleteHint : recovery ? copy.restoreHint : copy.hint}</p>
       {error ? <p role="alert" className="anna-projects-error">{copy.error}</p> : null}
       {busy ? <div className="anna-projects-loading" role="status" aria-live="polite"><div>{spinner}<span>{loadingLabel}</span></div><span className="anna-projects-loading-track" aria-hidden="true"><i /></span></div> : null}
-      {mode !== "list" ? <form onSubmit={(event) => { event.preventDefault(); run({ create: mode === "new", rename: mode === "rename", id: session.state.projectId, name: name.trim() }); }}>
+      {deleting ? <section><strong>{deleting.name || copy.untitled}</strong><footer><button disabled={busy} onClick={() => setDeleting(null)}>{copy.cancel}</button><button className="danger" disabled={disabled} onClick={() => run({ id: deleting.id, remove: true })}>{busy ? spinner : <Trash size={16} />}{busy ? copy.loading : copy.delete}</button></footer></section> : mode !== "list" ? <form onSubmit={(event) => { event.preventDefault(); run({ create: mode === "new", rename: mode === "rename", id: session.state.projectId, name: name.trim() }); }}>
         <label>{copy.name}<input autoFocus value={name} maxLength={120} required disabled={busy} onChange={(event) => setName(event.target.value)} /></label>
         <footer><button type="button" disabled={busy} onClick={() => { setMode("list"); setRecovery(null); }}>{copy.cancel}</button><button className="primary" disabled={disabled || !name.trim()}>{operation ? spinner : null}{operation ? copy.loading : mode === "new" ? copy.create : copy.save}</button></footer>
       </form> : recovery ? <section><strong>{recovery.name || copy.untitled}</strong><footer><button disabled={busy} onClick={() => setRecovery(null)}>{copy.cancel}</button><button className="primary" disabled={disabled} onClick={() => run({ id: recovery.id, previous: true })} aria-busy={Boolean(operation)}>{operation ? spinner : null}{operation ? statusCopy.restoring : copy.previous}</button></footer></section> : <>
         <div className="anna-projects-actions"><button className="primary" disabled={busy} onClick={() => { setMode("new"); setName(""); }}>{copy.new}</button><button disabled={busy} onClick={refresh}>{copy.refresh}</button></div>
         <div className="anna-projects-list" role="region" aria-label={copy.title} tabIndex={0}>{projects.map((project) => <article key={project.id}>
+          <button className="anna-project-delete" disabled={disabled || project.id === session.state.projectId} title={project.id === session.state.projectId ? copy.deleteCurrent : copy.delete} aria-label={`${copy.delete}: ${project.name || copy.untitled}${project.id === session.state.projectId ? ` — ${copy.deleteCurrent}` : ""}`} onClick={() => setDeleting(project)}><Trash size={16} /></button>
           <ProjectCover preview={project.preview} /><div className="anna-projects-copy"><strong>{project.name || copy.untitled}</strong><time dateTime={project.savedAt}>{new Date(project.savedAt).toLocaleString(language)}</time>{project.id === session.state.projectId ? <small>{copy.current}</small> : null}</div>
           <div className="anna-projects-item-actions">{project.id === session.state.projectId ? <button disabled={disabled} onClick={() => { setMode("rename"); setName(project.name); }}>{copy.rename}</button> : <button disabled={disabled} onClick={() => run({ id: project.id })}>{operation?.id === project.id ? spinner : null}{operation?.id === project.id ? copy.loading : copy.open}</button>}{project.previous ? <button disabled={disabled} onClick={() => setRecovery(project)}>{copy.previous}</button> : null}</div>
         </article>)}{!projects.length && !busy && !error ? <p>{copy.empty}</p> : null}</div>

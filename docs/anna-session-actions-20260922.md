@@ -5,3 +5,7 @@ Keep current previously read cloud state without publishing a loading state or c
 Read failure leaves autosave paused and exposes retry. Restore still backs up the complete current workspace before replacement and refuses to commit if the user edits during restoration. Saved is still shown only after the matching snapshot commit; operation completion never fabricates a saved result.
 
 A temporary external Vite fixture exercised the actual hook and status component with controlled delayed storage promises: immediate loading, both buttons disabled, duplicate-click single-flight, no Saved before save commit, successful Keep current, failed read, backup-before-restore, edits during restore preserved with conflict, and successful explicit restore. All passed. No user cloud project was replaced during validation. Production network behavior with the user's current conflicting project has not been exercised.
+
+Targeted lint, final Anna production build, and strict CLI validation passed. No new version was cut and no review requested. The active user workspace was not reloaded or used to test destructive conflict choices.
+
+Working draft r27: `e35812eafe27c01c802959a888ad888591f430e94bdca6714398a6fc439afa95`, 170 files / 210450905 bytes, bundle ready.

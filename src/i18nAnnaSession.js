@@ -1,6 +1,7 @@
 // Session status copy is translated directly in all 13 interface languages.
 export const ANNA_SESSION_COPY = {
   zh: {
+    operationBusy: "正在处理其他任务，请稍后重试；当前工程已保留",
     cloud: {
       waiting: "等待 Anna 云端自动保存",
       checking: "正在检查 Anna 云端工程",
@@ -45,6 +46,7 @@ export const ANNA_SESSION_COPY = {
     scope: "关闭后，在同一浏览器以同一 Anna 账号重新打开，可恢复上次已保存的工作。不会同步到其他设备。",
   },
   en: {
+    operationBusy: "Another task is running. Retry shortly; your current project is kept.",
     cloud: {
       waiting: "Waiting for Anna cloud autosave",
       checking: "Checking the Anna cloud project",
@@ -89,6 +91,7 @@ export const ANNA_SESSION_COPY = {
     scope: "Reopen with the same Anna account in the same browser to restore your last saved work. It does not sync across devices.",
   },
   ja: {
+    operationBusy: "別の処理を実行中です。しばらくして再試行してください。現在の編集は保持されています。",
     cloud: {
       waiting: "Anna クラウド自動保存を待機中",
       checking: "Anna クラウドのプロジェクトを確認中",
@@ -133,6 +136,7 @@ export const ANNA_SESSION_COPY = {
     scope: "同じブラウザーで同じ Anna アカウントを使って開き直すと、前回保存した作業を復元できます。他の端末には同期されません。",
   },
   ko: {
+    operationBusy: "다른 작업이 진행 중입니다. 잠시 후 다시 시도하세요. 현재 프로젝트는 유지됩니다.",
     cloud: {
       waiting: "Anna 클라우드 자동 저장 대기 중",
       checking: "Anna 클라우드 프로젝트 확인 중",
@@ -177,6 +181,7 @@ export const ANNA_SESSION_COPY = {
     scope: "같은 브라우저에서 같은 Anna 계정으로 다시 열면 마지막으로 저장한 작업을 복원할 수 있습니다. 다른 기기와는 동기화되지 않습니다.",
   },
   es: {
+    operationBusy: "Hay otra tarea en curso. Reintenta en breve; se conserva el proyecto actual.",
     cloud: {
       waiting: "Esperando el guardado automático en la nube de Anna",
       checking: "Comprobando el proyecto en la nube de Anna",
@@ -221,6 +226,7 @@ export const ANNA_SESSION_COPY = {
     scope: "Vuelve a abrir con la misma cuenta de Anna en el mismo navegador para restaurar el último trabajo guardado. No se sincroniza entre dispositivos.",
   },
   fr: {
+    operationBusy: "Une autre tâche est en cours. Réessayez bientôt ; le projet actuel est conservé.",
     cloud: {
       waiting: "En attente de sauvegarde automatique dans le cloud Anna",
       checking: "Vérification du projet dans le cloud Anna",
@@ -265,6 +271,7 @@ export const ANNA_SESSION_COPY = {
     scope: "Rouvrez avec le même compte Anna dans le même navigateur pour restaurer votre dernier travail sauvegardé. Aucune synchronisation entre appareils.",
   },
   de: {
+    operationBusy: "Eine andere Aufgabe läuft. Bitte gleich erneut versuchen; das aktuelle Projekt bleibt erhalten.",
     cloud: {
       waiting: "Warten auf automatisches Speichern in Anna Cloud",
       checking: "Projekt in Anna Cloud wird geprüft",
@@ -309,6 +316,7 @@ export const ANNA_SESSION_COPY = {
     scope: "Öffne die App mit demselben Anna-Konto im selben Browser erneut, um die zuletzt gespeicherte Arbeit wiederherzustellen. Keine Synchronisierung zwischen Geräten.",
   },
   pt: {
+    operationBusy: "Outra tarefa está em andamento. Tente novamente em breve; o projeto atual foi mantido.",
     cloud: {
       waiting: "Aguardando salvamento automático na nuvem Anna",
       checking: "Verificando o projeto na nuvem Anna",
@@ -353,6 +361,7 @@ export const ANNA_SESSION_COPY = {
     scope: "Reabra com a mesma conta Anna no mesmo navegador para restaurar o último trabalho salvo. Não há sincronização entre dispositivos.",
   },
   th: {
+    operationBusy: "กำลังทำงานอื่นอยู่ โปรดลองอีกครั้งภายหลัง โปรเจกต์ปัจจุบันยังคงอยู่",
     cloud: {
       waiting: "รอการบันทึกอัตโนมัติบนคลาวด์ Anna",
       checking: "กำลังตรวจสอบโปรเจกต์บนคลาวด์ Anna",
@@ -397,6 +406,7 @@ export const ANNA_SESSION_COPY = {
     scope: "เปิดอีกครั้งด้วยบัญชี Anna เดิมในเบราว์เซอร์เดิมเพื่อกู้คืนงานที่บันทึกไว้ล่าสุด โดยไม่มีการซิงค์ข้ามอุปกรณ์",
   },
   vi: {
+    operationBusy: "Một tác vụ khác đang chạy. Hãy thử lại sau; dự án hiện tại được giữ nguyên.",
     cloud: {
       waiting: "Đang chờ tự động lưu trên đám mây Anna",
       checking: "Đang kiểm tra dự án trên đám mây Anna",
@@ -441,6 +451,7 @@ export const ANNA_SESSION_COPY = {
     scope: "Mở lại bằng cùng tài khoản Anna trong cùng trình duyệt để khôi phục công việc đã lưu gần nhất. Không đồng bộ giữa các thiết bị.",
   },
   ru: {
+    operationBusy: "Выполняется другая задача. Повторите позже; текущий проект сохранён без замены.",
     cloud: {
       waiting: "Ожидание автосохранения в облаке Anna",
       checking: "Проверка проекта в облаке Anna",
@@ -485,6 +496,7 @@ export const ANNA_SESSION_COPY = {
     scope: "Откройте приложение снова с тем же аккаунтом Anna в том же браузере, чтобы восстановить последнюю сохранённую работу. Между устройствами она не синхронизируется.",
   },
   it: {
+    operationBusy: "Un’altra attività è in corso. Riprova tra poco; il progetto attuale viene mantenuto.",
     cloud: {
       waiting: "In attesa del salvataggio automatico nel cloud Anna",
       checking: "Verifica del progetto nel cloud Anna",
@@ -529,6 +541,7 @@ export const ANNA_SESSION_COPY = {
     scope: "Riapri con lo stesso account Anna nello stesso browser per ripristinare l’ultimo lavoro salvato. Non viene sincronizzato tra dispositivi.",
   },
   id: {
+    operationBusy: "Tugas lain sedang berjalan. Coba lagi sebentar; proyek saat ini tetap dipertahankan.",
     cloud: {
       waiting: "Menunggu penyimpanan otomatis di cloud Anna",
       checking: "Memeriksa proyek di cloud Anna",

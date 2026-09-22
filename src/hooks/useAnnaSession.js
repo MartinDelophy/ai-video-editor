@@ -12,7 +12,7 @@ export function useAnnaSession({ enabled, fingerprint, hasContent, capture, rest
   latest.current = { enabled, fingerprint, hasContent, capture, restoreProject, getIntent, externalBusy, isExternallyBusy, newProject };
   const control = useRef({ alive: false, epoch: 0, revision: 0, ready: false, saving: false,
     loading: false, savedFingerprint: null, baseline: null, timer: null, pending: null, paused: false,
-    loadRequest: null, restoreCommit: null, renderSequence: 0, store: null });
+    action: "", loadRequest: null, restoreCommit: null, renderSequence: 0, store: null });
   if (!control.current.store) control.current.store = createAnnaSessionPersistence();
   const renderSequence = ++control.current.renderSequence;
   const flushRef = useRef(null);
@@ -126,7 +126,7 @@ export function useAnnaSession({ enabled, fingerprint, hasContent, capture, rest
     } finally {
       restoreCommit?.finish(null);
       if (c.restoreCommit === restoreCommit) c.restoreCommit = null;
-      if (active(epoch)) c.loading = false;
+      if (active(epoch)) { c.loading = false; publish(epoch, {}); }
     }
   }, [active, publish]);
 
@@ -174,6 +174,7 @@ export function useAnnaSession({ enabled, fingerprint, hasContent, capture, rest
     c.epoch += 1;
     c.loading = false;
     c.saving = false;
+    c.action = "";
     c.ready = false;
     if (enabled) load();
     return () => {
@@ -217,13 +218,46 @@ export function useAnnaSession({ enabled, fingerprint, hasContent, capture, rest
     const c = control.current;
     if (!c.alive || c.loading || c.saving) return;
     const epoch = c.epoch;
+    const intent = latest.current.getIntent();
+    c.loading = true;
+    clearTimeout(c.timer);
+    publish(epoch, { status: "checking", errorCode: "" });
     try {
       const record = await c.store.read();
       if (!active(epoch)) return;
+      // A project switch or another operation during the read must not silently
+      // turn this choice into permission to overwrite a different workspace.
+      if (intent !== latest.current.getIntent() || latest.current.isExternallyBusy()) {
+        c.paused = true;
+        publish(epoch, { status: "conflict", errorCode: "busy" });
+        return;
+      }
       c.revision = record?.revision || 0;
       c.pending = null; c.loadRequest = null; c.ready = true; c.paused = false; c.savedFingerprint = null; c.baseline = null;
+      c.loading = false;
       await flush(); // The replaced complete record remains in #previous.
-    } catch (error) { publish(epoch, { status: "error", errorCode: getAnnaSessionErrorCode(error) }); }
+    } catch (error) {
+      c.paused = true;
+      publish(epoch, { status: "error", errorCode: getAnnaSessionErrorCode(error, "read") });
+    } finally {
+      if (active(epoch)) { c.loading = false; publish(epoch, {}); }
+    }
+  };
+  const runAction = async (action, operation) => {
+    const c = control.current;
+    if (!c.alive || !latest.current.enabled || c.action || c.loading || c.saving) return;
+    const epoch = c.epoch;
+    if (latest.current.isExternallyBusy()) {
+      publish(epoch, { errorCode: "busy" });
+      return;
+    }
+    c.action = action;
+    publish(epoch, { action, errorCode: "" });
+    try { await operation(); }
+    catch (error) { publish(epoch, { status: "error", errorCode: getAnnaSessionErrorCode(error) }); }
+    finally {
+      if (active(epoch)) { c.action = ""; publish(epoch, { action: "" }); }
+    }
   };
   const manageProject = async ({ id, name, previous = false, create = false, rename = false }) => {
     const c = control.current;
@@ -307,8 +341,11 @@ export function useAnnaSession({ enabled, fingerprint, hasContent, capture, rest
     manageProject,
     listProjects: () => control.current.store.listProjects(),
     canManage: enabled && control.current.ready && !control.current.paused && !control.current.saving && !control.current.loading && !externalBusy,
-    retry: () => { const c = control.current; if (!c.ready) return load(); c.paused = false; return flush(); },
-    restore: () => load(true), keepCurrent,
+    blockedReason: externalBusy ? "busy" : "",
+    actionBlocked: Boolean(externalBusy || control.current.loading || control.current.saving || control.current.action),
+    retry: () => runAction("retry", () => { const c = control.current; if (!c.ready) return load(); c.paused = false; return flush(); }),
+    restore: () => runAction("restore", () => load(true)),
+    keepCurrent: () => runAction("keep", keepCurrent),
     busy: state.status === "restoring",
   };
 }

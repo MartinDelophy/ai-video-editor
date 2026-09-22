@@ -1,0 +1,7 @@
+# Anna conflict actions — 2026-09-22
+
+Keep current previously read cloud state without publishing a loading state or claiming the in-flight lock. Duplicate clicks could overlap, and a save blocked by another editor operation could leave conflict controls apparently unchanged. Both explicit conflict actions now publish their operation immediately, keep visible disabled buttons with a spinner during the request, and share an action guard. Keep current claims the read lock and clears the autosave timer before fetching the latest revision. Busy editor operations have directly translated feedback in all 13 languages.
+
+Read failure leaves autosave paused and exposes retry. Restore still backs up the complete current workspace before replacement and refuses to commit if the user edits during restoration. Saved is still shown only after the matching snapshot commit; operation completion never fabricates a saved result.
+
+A temporary external Vite fixture exercised the actual hook and status component with controlled delayed storage promises: immediate loading, both buttons disabled, duplicate-click single-flight, no Saved before save commit, successful Keep current, failed read, backup-before-restore, edits during restore preserved with conflict, and successful explicit restore. All passed. No user cloud project was replaced during validation. Production network behavior with the user's current conflicting project has not been exercised.

@@ -37,12 +37,14 @@ export function AnnaAutosaveStatus({ session, language }) {
   const storage = state.storage === "cloud" ? "cloud" : "local";
   const statusCopy = storage === "cloud" ? copy.cloud : copy;
   const StatusIcon = STATUS_ICONS[status];
-  const busy = status === "checking" || status === "restoring" || status === "saving";
+  const action = state.action || "";
+  const actionBusy = Boolean(action);
+  const busy = actionBusy || status === "checking" || status === "restoring" || status === "saving";
   const time = status === "saved" ? savedTime(state.savedAt) : "";
   const errorReason = status === "error" && Object.hasOwn(statusCopy.errorReasons, state.errorCode)
     ? statusCopy.errorReasons[state.errorCode]
     : "";
-  const label = errorReason || statusCopy[status];
+  const label = (state.errorCode === "busy" || (status === "conflict" && session.blockedReason === "busy")) ? copy.operationBusy : errorReason || statusCopy[status];
   const migrationWarning = state.migrationErrorCode ? copy.cloud.migrationWarning : "";
   const description = `${statusCopy[status]}${time ? ` · ${time}` : ""}${errorReason ? `\n${errorReason}` : ""}\n${statusCopy.scope}${migrationWarning ? `\n${migrationWarning}` : ""}`;
 
@@ -52,6 +54,7 @@ export function AnnaAutosaveStatus({ session, language }) {
       data-state={status}
       data-storage={storage}
       role="status"
+      aria-busy={busy}
       aria-live="polite"
       aria-atomic="true"
       title={description}
@@ -72,39 +75,39 @@ export function AnnaAutosaveStatus({ session, language }) {
           {migrationWarning}
         </span>
       ) : null}
-      {status === "error" ? (
+      {status === "error" || action === "retry" ? (
         <button
           type="button"
           className="anna-session-status__action"
-          disabled={typeof session.retry !== "function"}
+          disabled={actionBusy || session.actionBlocked || typeof session.retry !== "function"}
           onClick={() => session.retry()}
           title={copy.retry}
         >
-          <ArrowClockwise size={13} aria-hidden="true" />
+          {action === "retry" ? <CircleNotch className="anna-session-status__icon is-spinning" size={13} aria-hidden="true" /> : <ArrowClockwise size={13} aria-hidden="true" />}
           {copy.retry}
         </button>
       ) : null}
-      {status === "conflict" ? (
+      {status === "conflict" || action === "restore" || action === "keep" ? (
         <span className="anna-session-status__actions">
           <button
             type="button"
             className="anna-session-status__action"
-            disabled={typeof session.restore !== "function"}
+            disabled={actionBusy || session.actionBlocked || typeof session.restore !== "function"}
             onClick={() => session.restore()}
-            title={copy.restore}
+            title={action === "restore" ? copy.restoring : copy.restore}
           >
-            <ArrowCounterClockwise size={13} aria-hidden="true" />
-            {copy.restore}
+            {action === "restore" ? <CircleNotch className="anna-session-status__icon is-spinning" size={13} aria-hidden="true" /> : <ArrowCounterClockwise size={13} aria-hidden="true" />}
+            {action === "restore" ? copy.restoring : copy.restore}
           </button>
           <button
             type="button"
             className="anna-session-status__action"
-            disabled={typeof session.keepCurrent !== "function"}
+            disabled={actionBusy || session.actionBlocked || typeof session.keepCurrent !== "function"}
             onClick={() => session.keepCurrent()}
-            title={copy.keepCurrent}
+            title={action === "keep" ? statusCopy.saving : copy.keepCurrent}
           >
-            <Check size={13} aria-hidden="true" />
-            {copy.keepCurrent}
+            {action === "keep" ? <CircleNotch className="anna-session-status__icon is-spinning" size={13} aria-hidden="true" /> : <Check size={13} aria-hidden="true" />}
+            {action === "keep" ? statusCopy.saving : copy.keepCurrent}
           </button>
         </span>
       ) : null}

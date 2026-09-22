@@ -268,12 +268,13 @@ export function useAnnaSession({ enabled, fingerprint, hasContent, capture, rest
     c.loading = true;
     clearTimeout(c.timer);
     let commit;
-    publish(epoch, { status: "saving", errorCode: "" });
+    publish(epoch, { status: "checking", errorCode: "" });
     try {
       // Read the requested recovery BEFORE protecting current work rotates its previous snapshot.
       const target = !create && !rename ? await c.store.readProject(id, previous) : null;
       if (!unchanged()) throw Object.assign(new Error("changed"), { sessionCode: "conflict" });
       if (c.savedFingerprint !== before || !c.revision) {
+        publish(epoch, { status: "saving" });
         const data = await latest.current.capture();
         if (!unchanged()) throw Object.assign(new Error("changed"), { sessionCode: "conflict" });
         const protectedRecord = await c.store.save(data, { expectedRevision: c.revision });
@@ -306,6 +307,7 @@ export function useAnnaSession({ enabled, fingerprint, hasContent, capture, rest
         restoredFingerprint = await rendered;
         if (!active(epoch) || restoredFingerprint === null) throw new Error("unmounted");
       } else c.nextProject = project;
+      publish(epoch, { status: "saving" });
       const savingFingerprint = latest.current.fingerprint;
       const nextData = await latest.current.capture();
       if (!active(epoch)) throw new Error("unmounted");

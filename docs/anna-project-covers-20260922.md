@@ -5,3 +5,5 @@ The My projects list now displays a compact cover from the first available visua
 Capture runs alongside project preparation, with a 1.2-second bound, at 240×135 JPEG and at most 32 KiB. The optional cover is uploaded separately and referenced in the cloud catalog. Cover capture/upload failure must not prevent the project transaction. Cover blobs are excluded from the project graph and autosave fingerprint. Object URLs are revoked when list entries unmount.
 
 Verification: targeted ESLint, Anna production build and strict bundle validation passed. An external temporary harness exercised catalog serialization, fresh-store reads, switching projects while retaining earlier covers, missing covers and failed optional uploads without losing the saved project. Browser inspection of the real dialog and cover-capture module confirmed the image and fallback layout. No test harness or fixture media was added to the repository.
+
+Deployment: Anna app 254 working draft r29, ready; content hash `a5a7bb18ff4caf8cb5c2bcbb38aa6dec79e0682620919095e7b0062f7122a394`. No new frozen release or review submission.

@@ -11,3 +11,5 @@ Validation outside the product repository: production hook browser fixture passe
 This addresses the confirmed client handling defects; the original reviewer's specific network failure has not been reproduced against their account and is not attributed to the platform.
 
 Production build, targeted ESLint and strict Anna validation passed. Uploaded working draft r35, ready, hash `a04f04182377733b2de5be343765506fd50199c1d15a5a5ad9cc204f61d556f8`. Existing frozen alpha.9 remains the review candidate; this draft has not been cut/resubmitted. UI fixture also confirmed 25% / 1.0 of 4.0 MB progress and enabled actions after cancellation.
+
+Layout follow-up: moved the restore Cancel action into the progress header's trailing edge, with flexible wrapping status text and the full-width progress rail below. Verified the production component at regular and 350px dialog widths and exercised cancellation in an isolated browser fixture. Targeted ESLint, production build and strict Anna validation passed. Uploaded ready draft r36, hash `ca621f32eabd5d97d99c8581c52fa74d4a7ba6710f578385b3d756222323396a`; no new review submission.

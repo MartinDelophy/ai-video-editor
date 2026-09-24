@@ -29,8 +29,9 @@
 .anna-projects button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; }
 .anna-projects-spinner { flex: 0 0 auto; animation: anna-projects-spin 1s linear infinite; }
 .anna-projects-loading { margin: 16px 0; padding: 14px; border: 1px solid #26d6c530; border-radius: 10px; background: #26d6c508; color: #bdeee8; font-size: 13px; }
-.anna-projects-loading > div { display: flex; align-items: center; gap: 10px; }
-.anna-projects-loading > div > span { min-width: 0; overflow-wrap: anywhere; }
+.anna-projects-loading-header { display: flex; align-items: center; gap: 10px; }
+.anna-projects-loading-header > span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.anna-projects-loading-header > button { flex: 0 0 auto; margin-left: auto; white-space: nowrap; }
 .anna-projects-loading-track { display: block; position: relative; overflow: hidden; height: 3px; margin-top: 12px; border-radius: 3px; background: #26d6c518; }
 .anna-projects-loading-track i { display: block; height: 100%; width: 35%; border-radius: inherit; background: #26d6c5; animation: anna-projects-progress 1.5s ease-in-out infinite; }
 @keyframes anna-projects-spin { to { transform: rotate(360deg); } }

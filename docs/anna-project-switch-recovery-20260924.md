@@ -9,3 +9,5 @@ Pre-mutation read failures leave current editor content and save state intact an
 Validation outside the product repository: production hook browser fixture passed progress delivery, cancellation, no writes on target-read failure, current-state preservation, and successful subsequent retry. Production transfer-function fixture (accelerated clock) passed stalled GET timeout, continuously advancing chunks resetting idle time, exact byte progress and user cancellation. Existing cloud catalog/cover/deletion fixtures also passed. No real user projects were switched or deleted during validation.
 
 This addresses the confirmed client handling defects; the original reviewer's specific network failure has not been reproduced against their account and is not attributed to the platform.
+
+Production build, targeted ESLint and strict Anna validation passed. Uploaded working draft r35, ready, hash `a04f04182377733b2de5be343765506fd50199c1d15a5a5ad9cc204f61d556f8`. Existing frozen alpha.9 remains the review candidate; this draft has not been cut/resubmitted. UI fixture also confirmed 25% / 1.0 of 4.0 MB progress and enabled actions after cancellation.

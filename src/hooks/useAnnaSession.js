@@ -178,6 +178,7 @@ export function useAnnaSession({ enabled, fingerprint, hasContent, capture, rest
     c.ready = false;
     if (enabled) load();
     return () => {
+      c.projectReadController?.abort();
       c.alive = false; c.epoch += 1; clearTimeout(c.timer);
       c.restoreCommit?.finish(null);
       c.restoreCommit = null;
@@ -268,16 +269,27 @@ export function useAnnaSession({ enabled, fingerprint, hasContent, capture, rest
     c.loading = true;
     clearTimeout(c.timer);
     let commit;
+    let mutationStarted = false;
+    const controller = new AbortController();
+    c.projectReadController = controller;
     publish(epoch, { status: "checking", errorCode: "" });
     try {
       if (remove) {
+        mutationStarted = true;
         await c.store.deleteProject(id, { expectedRevision: c.revision });
         publish(epoch, { status: "saved" });
         return true;
       }
       // Read the requested recovery BEFORE protecting current work rotates its previous snapshot.
-      const target = !create && !rename ? await c.store.readProject(id, previous) : null;
+      publish(epoch, { canCancelProject: !create && !rename, projectTransfer: null });
+      const target = !create && !rename ? await c.store.readProject(id, previous, {
+        signal: controller.signal,
+        onProgress: (projectTransfer) => publish(epoch, { projectTransfer }),
+      }) : null;
+      if (controller.signal.aborted) { publish(epoch, { status: "saved", errorCode: "" }); return false; }
+      publish(epoch, { canCancelProject: false, projectTransfer: null });
       if (!unchanged()) throw Object.assign(new Error("changed"), { sessionCode: "conflict" });
+      mutationStarted = true;
       if (c.savedFingerprint !== before || !c.revision) {
         publish(epoch, { status: "saving" });
         const data = await latest.current.capture();
@@ -324,13 +336,19 @@ export function useAnnaSession({ enabled, fingerprint, hasContent, capture, rest
         projectId: saved.projectId, projectName: saved.projectName, errorCode: "" });
       return true;
     } catch (error) {
+      if (controller.signal.aborted && !mutationStarted) {
+        publish(epoch, { status: "saved", errorCode: "" });
+        return false;
+      }
       if (active(epoch)) {
-        c.paused = true;
+        c.paused = mutationStarted;
         const errorCode = getAnnaSessionErrorCode(error, "write");
         publish(epoch, { status: errorCode === "conflict" ? "conflict" : "error", errorCode });
       }
       throw error;
     } finally {
+      if (c.projectReadController === controller) c.projectReadController = null;
+      publish(epoch, { canCancelProject: false, projectTransfer: null });
       commit?.finish(null);
       if (c.restoreCommit === commit) c.restoreCommit = null;
       if (active(epoch)) { c.loading = false; setTick((v) => v + 1); }
@@ -346,6 +364,7 @@ export function useAnnaSession({ enabled, fingerprint, hasContent, capture, rest
     ? { ...state, status: "saving" } : state;
   return { state: visibleState,
     manageProject,
+    cancelProject: () => control.current.projectReadController?.abort(),
     listProjects: () => control.current.store.listProjects(),
     canManage: enabled && control.current.ready && !control.current.paused && !control.current.saving && !control.current.loading && !externalBusy,
     blockedReason: externalBusy ? "busy" : "",

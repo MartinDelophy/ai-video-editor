@@ -29,6 +29,7 @@ export function AnnaProjects({ session, language, initialMode = "list", onClose 
   const [name, setName] = useState("");
   const [projects, setProjects] = useState([]);
   const [busy, setBusy] = useState(false);
+  const lastOperation = useRef(null);
   const [operation, setOperation] = useState(null);
   const [error, setError] = useState(false);
   const [deleting, setDeleting] = useState(null);
@@ -50,6 +51,7 @@ export function AnnaProjects({ session, language, initialMode = "list", onClose 
   }, []); // One read per dialog opening; callbacks use the live session below.
   const run = async (options) => {
     if (busy || !session.canManage) return;
+    lastOperation.current = options;
     setBusy(true); setError(false); setOperation(options);
     try { if (await session.manageProject(options)) {
       if (options.remove) { setProjects(await session.listProjects()); setDeleting(null); }
@@ -60,15 +62,26 @@ export function AnnaProjects({ session, language, initialMode = "list", onClose 
   };
   const sessionCopy = getAnnaSessionCopy(language);
   const statusCopy = session.state.storage === "cloud" ? sessionCopy.cloud : sessionCopy;
-  const loadingLabel = operation ? statusCopy[session.state.status] && ["checking", "saving", "restoring"].includes(session.state.status) ? statusCopy[session.state.status] : copy.loading : copy.loading;
+  const loadingLabel = (operation || !session.canManage) ? statusCopy[session.state.status] && ["checking", "saving", "restoring"].includes(session.state.status) ? statusCopy[session.state.status] : copy.loading : copy.loading;
   const spinner = <CircleNotch className="anna-projects-spinner" size={16} aria-hidden="true" />;
   const disabled = busy || !session.canManage;
+  const backgroundBusy = !session.canManage && ["waiting", "checking", "saving", "restoring"].includes(session.state.status);
+  const transfer = session.state.projectTransfer;
+  const percent = transfer?.total > 0 ? Math.min(100, Math.floor(100 * transfer.loaded / transfer.total)) : null;
+  const sessionError = ["error", "conflict"].includes(session.state.status);
+  const retry = async () => {
+    if (busy) return;
+    if (lastOperation.current && session.canManage) return run(lastOperation.current);
+    setBusy(true); setError(false);
+    try { await session.retry(); } catch { setError(true); }
+    finally { setBusy(false); }
+  };
   return createPortal(
     <dialog ref={dialog} className="anna-projects" onCancel={(event) => { event.preventDefault(); if (!busy) onClose(); }} aria-labelledby="anna-projects-title">
       <header><h2 id="anna-projects-title">{mode === "new" ? copy.new : mode === "rename" ? copy.rename : copy.title}</h2><button type="button" aria-label={copy.cancel} disabled={busy} onClick={onClose}><X size={20} /></button></header>
       <p>{deleting ? copy.deleteHint : recovery ? copy.restoreHint : copy.hint}</p>
-      {error ? <p role="alert" className="anna-projects-error">{copy.error}</p> : null}
-      {busy ? <div className="anna-projects-loading" role="status" aria-live="polite"><div>{spinner}<span>{loadingLabel}</span></div><span className="anna-projects-loading-track" aria-hidden="true"><i /></span></div> : null}
+      {error || sessionError ? <div role="alert" className="anna-projects-error"><p>{statusCopy.errorReasons?.[session.state.errorCode] || copy.error}</p><button disabled={busy || backgroundBusy} onClick={retry}>{sessionCopy.retry}</button></div> : null}
+      {busy || backgroundBusy ? <div className="anna-projects-loading" role="status" aria-live="polite"><div>{spinner}<span>{transfer ? statusCopy.restoring : loadingLabel}{percent !== null ? ` · ${percent}% · ${(transfer.loaded / 1048576).toFixed(1)} / ${(transfer.total / 1048576).toFixed(1)} MB` : ""}</span></div><span className="anna-projects-loading-track" aria-hidden="true"><i style={percent !== null ? { width: `${percent}%`, animation: "none", transform: "none" } : undefined} /></span>{session.state.canCancelProject ? <button onClick={() => session.cancelProject()}>{copy.cancel}</button> : null}</div> : null}
       {deleting ? <section><strong>{deleting.name || copy.untitled}</strong><footer><button disabled={busy} onClick={() => setDeleting(null)}>{copy.cancel}</button><button className="danger" disabled={disabled} onClick={() => run({ id: deleting.id, remove: true })}>{busy ? spinner : <Trash size={16} />}{busy ? copy.loading : copy.delete}</button></footer></section> : mode !== "list" ? <form onSubmit={(event) => { event.preventDefault(); run({ create: mode === "new", rename: mode === "rename", id: session.state.projectId, name: name.trim() }); }}>
         <label>{copy.name}<input autoFocus value={name} maxLength={120} required disabled={busy} onChange={(event) => setName(event.target.value)} /></label>
         <footer><button type="button" disabled={busy} onClick={() => { setMode("list"); setRecovery(null); }}>{copy.cancel}</button><button className="primary" disabled={disabled || !name.trim()}>{operation ? spinner : null}{operation ? copy.loading : mode === "new" ? copy.create : copy.save}</button></footer>

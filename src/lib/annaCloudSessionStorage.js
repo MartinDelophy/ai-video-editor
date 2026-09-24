@@ -77,11 +77,11 @@ function pointer(value) {
   projectEntry({ id: projectId, name: projectName, revision: value.revision, savedAt: value.savedAt, current, previous });
   return { schemaVersion: 1, revision: value.revision, savedAt: value.savedAt, current, previous, projectId, projectName, projects, preview: previewFile(value.preview) };
 }
-async function readPointer() {
+async function readPointer(signal) {
   // Isolate the catalog from older installed clients, whose single-session
   // writes must never erase the multi-project index. Migrate by reference only.
-  const catalog = await readAnnaCloudSessionPointer({ projectCatalog: true });
-  const stored = catalog || await readAnnaCloudSessionPointer();
+  const catalog = await readAnnaCloudSessionPointer({ projectCatalog: true, signal });
+  const stored = catalog || await readAnnaCloudSessionPointer({ signal });
   return stored === null ? null : { etag: stored.etag, value: pointer(stored.value), legacy: !catalog };
 }
 
@@ -363,24 +363,29 @@ export function createAnnaCloudSessionStore() {
     catch (error) { identityHashes.delete(blob); throw error; }
   };
   const remember = (blob, hash) => identityHashes.set(blob, Promise.resolve(hash));
-  async function readEntry(entry) {
+  async function readEntry(entry, { signal, onProgress } = {}) {
     const file = entry.current;
-    const blob = await readAnnaFile({ path: file.path, expectedFile: file });
+    const blob = await readAnnaFile({ path: file.path, expectedFile: file, signal });
     assert(blob.size === file.size && blob.size <= MAX_MANIFEST);
     let parsed;
     try { parsed = JSON.parse(await blob.text()); } catch { throw failure("invalid"); }
     const saved = manifest(parsed, entry);
     const blobs = [], downloaded = new Map();
+    const totalBytes = saved.binaries.reduce((sum, item) => sum + item.size, 0);
+    let completedBytes = 0;
+    onProgress?.({ loaded: 0, total: totalBytes });
     for (const item of saved.binaries) {
       let media = downloaded.get(item.sha256);
       if (media) assert(media.size === item.size && sameFile(media.file, item.file));
       else {
-        const bytes = item.file ? await readAnnaFile({ path: item.file.path, expectedFile: item.file }) : new Blob([]);
+        const bytes = item.file ? await readAnnaFile({ path: item.file.path, expectedFile: item.file, signal, onProgress: (loaded) => onProgress?.({ loaded: completedBytes + loaded, total: totalBytes }) }) : new Blob([]);
         assert(bytes.size === item.size && await hashBlob(bytes) === item.sha256);
         media = { blob: bytes, file: item.file, size: item.size };
         downloaded.set(item.sha256, media);
       }
       blobs.push(media.blob);
+      completedBytes += item.size;
+      onProgress?.({ loaded: completedBytes, total: totalBytes });
     }
     const data = await hydrate(saved.graph, blobs, (value, id) => remember(value, saved.binaries[id].sha256));
     // Restore dedup references only after all files and the graph passed.
@@ -414,16 +419,16 @@ export function createAnnaCloudSessionStore() {
         return true;
       }, "write");
     },
-    readProject(id, previous = false) {
+    readProject(id, previous = false, options = {}) {
       return exclusively(async () => {
-        const entry = projectList((await readPointer())?.value).find((p) => p.id === id);
+        const entry = projectList((await readPointer(options.signal))?.value).find((p) => p.id === id);
         if (!entry) throw failure("read");
-        if (!previous) return readEntry(entry);
+        if (!previous) return readEntry(entry, options);
         if (!entry.previous) throw failure("read");
-        const blob = await readAnnaFile({ path: entry.previous.path, expectedFile: entry.previous });
+        const blob = await readAnnaFile({ path: entry.previous.path, expectedFile: entry.previous, signal: options.signal });
         assert(blob.size <= MAX_MANIFEST);
         const parsed = JSON.parse(await blob.text());
-        return readEntry({ ...entry, current: entry.previous, revision: parsed.revision, savedAt: parsed.savedAt });
+        return readEntry({ ...entry, current: entry.previous, revision: parsed.revision, savedAt: parsed.savedAt }, options);
       }, "read");
     },
     save(data, { expectedRevision = 0, project } = {}) {

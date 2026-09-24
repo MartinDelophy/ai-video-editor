@@ -321,12 +321,18 @@ function validateTransferUrl(value) {
   if (url.protocol !== "https:" || url.username || url.password) throw new AnnaRuntimeError("invalid_file_response");
   return url.href;
 }
-async function transferFile(url, options, { signal, timeoutMs = 300000, expectedSize } = {}) {
+async function transferFile(url, options, { signal, timeoutMs = 300000, expectedSize, onProgress, stallTimeoutMs = 45000 } = {}) {
   checkSignal(signal);
   const controller = new AbortController();
   const onAbort = () => controller.abort();
   let timedOut = false;
   const timer = setTimeout(() => { timedOut = true; controller.abort(); }, timeoutMs);
+  let stallTimer;
+  const advancing = () => {
+    clearTimeout(stallTimer);
+    if (options.method === "GET") stallTimer = setTimeout(() => { timedOut = true; controller.abort(); }, stallTimeoutMs);
+  };
+  advancing();
   signal?.addEventListener("abort", onAbort, { once: true });
   try {
     const response = await fetch(validateTransferUrl(url), { ...options, signal: controller.signal, credentials: "omit", referrerPolicy: "no-referrer", redirect: "error" });
@@ -352,6 +358,7 @@ async function transferFile(url, options, { signal, timeoutMs = 300000, expected
         size += value.byteLength;
         if (size > expectedSize) throw new AnnaRuntimeError("invalid_file_response");
         chunks.push(value);
+        if (value.byteLength) { advancing(); onProgress?.(size, expectedSize); }
       }
       if (size !== expectedSize) throw new AnnaRuntimeError("invalid_file_response");
       return new Blob(chunks, { type: response.headers.get("content-type") || "application/octet-stream" });
@@ -365,6 +372,7 @@ async function transferFile(url, options, { signal, timeoutMs = 300000, expected
     throw error instanceof AnnaRuntimeError ? error : new AnnaRuntimeError("file_transfer_failed");
   } finally {
     clearTimeout(timer);
+    clearTimeout(stallTimer);
     signal?.removeEventListener("abort", onAbort);
   }
 }
@@ -529,11 +537,11 @@ export async function deleteAnnaFile({ file: requestedFile, allowCurrent = false
   }
 }
 
-export async function readAnnaFile({ path, signal, expectedFile } = {}) {
+export async function readAnnaFile({ path, signal, expectedFile, onProgress } = {}) {
   const download = await hostCall("files", "download_url", { path: validatePath(path) }, { signal });
   if (!Number.isSafeInteger(download?.size_bytes) || download.size_bytes <= 0) throw new AnnaRuntimeError("invalid_file_response");
   if (expectedFile && (download.size_bytes !== expectedFile.size || download.etag !== expectedFile.etag)) throw new AnnaRuntimeError("file_changed");
-  const blob = await transferFile(download.get_url, { method: "GET" }, { signal, expectedSize: download.size_bytes });
+  const blob = await transferFile(download.get_url, { method: "GET" }, { signal, expectedSize: download.size_bytes, onProgress });
   if (blob.size !== download.size_bytes) throw new AnnaRuntimeError("invalid_file_response");
   return blob;
 }
@@ -571,9 +579,9 @@ async function readProjectPointer(signal) {
 /** Separate from manual project archives and browser-local session namespaces.
  * These narrow wrappers cannot select another KV scope or project key.
  */
-export async function readAnnaCloudSessionPointer({ projectCatalog = false } = {}) {
+export async function readAnnaCloudSessionPointer({ projectCatalog = false, signal } = {}) {
   let stored;
-  try { stored = await hostCall("storage", "get", { key: projectCatalog ? "timeline-studio/project-catalog-v1" : CLOUD_SESSION_KEY, scope: "app" }); }
+  try { stored = await hostCall("storage", "get", { key: projectCatalog ? "timeline-studio/project-catalog-v1" : CLOUD_SESSION_KEY, scope: "app" }, { signal }); }
   catch (error) { if (error?.code === "not_found") return null; throw error; }
   if (!stored || typeof stored !== "object") throw new AnnaRuntimeError("invalid_storage_response");
   if (stored.exists === false) return null;

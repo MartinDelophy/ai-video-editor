@@ -1,6 +1,6 @@
 # Sanity storyboards
 
-Timeline Studio can now connect an optional, authenticated storyboard workbench to its local video editor. The editor remains at `/`; `/storyboard/` is a separate, lazily loaded Sanity Studio custom tool. Opening the editor does not download the Studio or require a Sanity account.
+Timeline Studio can now connect an optional, authenticated storyboard workbench to its local video editor. The editor remains at `/`; `/storyboard/` is a separate Astro frontend mounting the shared React/Sanity Studio custom tool. Opening the editor does not download the Studio or require a Sanity account.
 
 ## Workflow
 
@@ -31,11 +31,11 @@ VITE_SANITY_PROJECT_ID=rgq98xsq
 VITE_SANITY_DATASET=production
 ```
 
-Use Node.js 22.12 or newer (required by the pinned Sanity Studio dependency), install with `npm ci`, and start the editor with `npm run dev:storyboards`. This uses `http://localhost:3333`, Sanity's standard development origin. The same process serves both `/` and `/storyboard/`. For this project's initial setup that origin was already allowed; other projects may need it added.
+Use Node.js 22.19 or newer (required by the build dependencies), install with `npm ci`, and start the editor with `npm run dev:storyboards`. This uses `http://localhost:3333`, Sanity's standard development origin. The same process serves both `/` and `/storyboard/`. For this project's initial setup that origin was already allowed; other projects may need it added.
 
 In Sanity project management, **API → CORS origins**, allow the exact development/deployment origin and enable credentials for the authenticated Studio. Do not add a wildcard origin. A login in Sanity's management dashboard is not necessarily a login in the embedded Studio on another origin. Let the user finish the official login flow; never request their password or copy their browser session.
 
-For a deployment at `https://video-editor.ai-creator.top`, that exact origin must be added before cloud reads/login work. The existing SPA fallback serves `/storyboard/` and its login callback. The editor's cross-origin isolation headers stay intact. Production deployment is a separate action from developing this branch.
+For a deployment at `https://video-editor.ai-creator.top`, that exact origin must be added before cloud reads/login work. The Netlify storyboard fallback serves the Astro-generated `/storyboard/index.html` for nested workbench routes and login callbacks before the editor SPA fallback. The editor's cross-origin isolation headers stay intact. Production deployment is a separate action from developing this branch.
 
 Run `npm run sanity:schema` after authenticating the official Sanity CLI to publish the shared schema to the selected project. The command needs write access and does not upgrade the billing plan. Schema publication is useful for Sanity's content inspection and agents; Content Lake CRUD itself does not require a deployed schema. The application and CLI share `src/sanity/schema.js`.
 
@@ -48,7 +48,7 @@ Run `npm run sanity:schema` after authenticating the official Sanity CLI to publ
 
 The custom tool uses `ifRevisionId` on all updates/transitions. Release creation and board approval are atomic. The import reader uses the non-CDN API with cache disabled and rereads the currently approved reference immediately before applying locally. Because Sanity and the browser do not share a transaction, this establishes an approval check at fetch time, not a distributed lock against a later cloud revision.
 
-UI copy for the integration is defined directly in 13 languages. Sanity's own authentication/provider screens are platform-owned. Sanity Studio and styled-components are pinned; React was raised within the existing 19.2 patch series to satisfy Studio's peer requirement. The large Studio bundle loads only on the separate workbench route.
+UI copy for the integration is defined directly in 13 languages. Sanity's own authentication/provider screens are platform-owned. Astro, its React integration, Sanity Studio and styled-components are pinned; React was raised within the existing 19.2 patch series to satisfy Studio's peer requirement. The large Studio bundle loads only on the separate workbench route.
 
 ## Development evidence and checks
 
@@ -64,8 +64,16 @@ Local validation on 2026-09-26:
 - A follow-up check in the user’s signed-in Chrome verified real authenticated creation/save, submission, change request, unsaved local recovery after a confirmed reload, resubmission, and approval in `rgq98xsq/production`. The resulting public demo board is `ts-board-19e4f5ec-b9be-4a0b-9a8d-8f577f929e12`; its approved snapshot is `ts-release-37ad30b2-04d4-4a10-a23a-652efb239341`.
 - The real editor read that approved snapshot without intercepted responses and matched it to three existing public repository screenshots held as local assets. Import produced three editable visual clips of 4s, 5s and 4s, three range markers with shot notes and release provenance, and a 13s preview duration. No media was uploaded to Sanity.
 - The real Chrome session exported the demo as a `.timeline` archive containing all three screenshots. A fresh browser reopened that archive and verified three visual clips, three markers and the 13s preview duration; ZIP media integrity checks also passed.
-- Remote schema deployment remains pending official CLI authentication; no browser credentials were extracted for the CLI.
+- After official GitHub CLI login, the shared schema was deployed successfully (1/1). No browser credentials were extracted for the CLI. The independent preview origin was added with credentials using Sanity’s official CLI.
 
 Disposable verification scripts, transport doubles, schema extracts and screenshots live outside the product repository. Isolated transport checks are not evidence of authenticated cloud writes.
 
 References: [Sanity transactions](https://www.sanity.io/docs/content-lake/transactions), [Studio](https://www.sanity.io/studio), [Growth trial and downgrade](https://www.sanity.io/docs/platform-management/growth-plan-trial), [DEV challenge](https://dev.to/devteam/join-the-sanity-challenge-2500-in-prizes-for-five-winners-514m).
+
+## Astro production frontend and submission materials
+
+`npm run build` builds the Vite editor, builds the Astro workbench into a separate temporary output, and assembles both into `dist`. Astro never clears the editor output or duplicates its public media/runtime directory. The workbench reuses the same `Workbench.jsx`, schema and workflow functions. `npm run dev:storyboards` remains the combined Vite development convenience; `npm run dev:workbench` runs the actual Astro frontend on port 3334 and needs that origin allowed in Sanity. Production preview must honor the `/storyboard/*` rewrite in `netlify.toml`.
+
+See the [English submission draft](sanity-challenge/submission.md), [reviewer guide](sanity-challenge/reviewer-guide.md), and [eligibility clarification draft](sanity-challenge/eligibility-question.md). These are preparation materials, not evidence of a published entry or confirmed eligibility.
+
+Preview deployment: [https://sanity-storyboards--web-player-ai-voice-editor.netlify.app](https://sanity-storyboards--web-player-ai-voice-editor.netlify.app/). This is a Netlify draft deployment; the production domain is unchanged. Public demo archive and screenshot were copied into the ignored deployment output from the external demo folder, not stored as test media in the product repository.

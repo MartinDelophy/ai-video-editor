@@ -42,5 +42,17 @@ export default defineConfig({
   preview: {
     headers: isolationHeaders,
   },
-  plugins: [agentDiscoveryPlugin(), react()],
+  plugins: [agentDiscoveryPlugin(), react(), {
+    name: 'storyboard-production-preview',
+    configurePreviewServer(server) {
+      // Match the deployed Astro route fallback, including Studio login callbacks.
+      server.middlewares.use((req, _res, next) => {
+        const url = new URL(req.url || '/', 'http://localhost');
+        if (url.pathname === '/storyboard' || url.pathname.startsWith('/storyboard/')) {
+          req.url = `/storyboard/index.html${url.search}`;
+        }
+        next();
+      });
+    },
+  }],
 });

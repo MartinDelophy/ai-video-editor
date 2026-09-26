@@ -3,6 +3,8 @@ node_modules/
 
 # build output
 dist/
+.storyboard-dist/
+.astro/
 blob-report/
 
 # AI model weights are hosted externally and downloaded at runtime.

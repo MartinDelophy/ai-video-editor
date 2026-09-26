@@ -15,7 +15,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
-    "build": "vite build",
+    "build": "vite build && npm run build:storyboards && node scripts/assemble-storyboard-site.mjs",
     "agent": "node scripts/timeline-command.mjs",
     "mcp": "node skills/edit-timeline-studio/mcp/server.mjs",
     "skill:doctor": "node skills/edit-timeline-studio/scripts/setup-host.mjs --check",
@@ -27,7 +27,9 @@
     "typecheck": "tsc --noEmit",
     "check": "npm run lint && npm run typecheck && npm run build",
     "dev:storyboards": "vite --host localhost --port 3333 --strictPort",
-    "sanity:schema": "sanity schema deploy"
+    "sanity:schema": "sanity schema deploy",
+    "build:storyboards": "astro build --config astro.config.mjs",
+    "dev:workbench": "astro dev --host localhost --port 3334 --config astro.config.mjs"
   },
   "dependencies": {
     "@diffusionstudio/vits-web": "^1.0.3",
@@ -48,15 +50,17 @@
     "onnxruntime-web": "^1.27.0",
     "onnxruntime-web-migan": "npm:onnxruntime-web@^1.16.3",
     "pinyin-pro": "^3.27.0",
-    "react": "19.2.4",
-    "react-dom": "19.2.4",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
     "sanity": "6.16.0",
     "styled-components": "6.1.19",
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@astrojs/react": "5.0.7",
     "@eslint/js": "^10.0.1",
     "@vitejs/plugin-react": "^5.0.4",
+    "astro": "6.4.8",
     "eslint": "^10.7.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.3",
@@ -67,5 +71,8 @@
   },
   "overrides": {
     "tar": "7.5.21"
+  },
+  "engines": {
+    "node": ">=22.19.0"
   }
 }

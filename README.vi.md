@@ -19,7 +19,7 @@ Người dùng tự chịu mọi trách nhiệm pháp lý phát sinh từ việc
 
 ## Cập nhật dự án
 
-- **2026-09-26** — Bảng phân cảnh Sanity: không gian tùy chọn hỗ trợ sửa kịch bản và cảnh, duyệt có kiểm tra phiên bản, rồi thêm cảnh vào dòng thời gian bằng tư liệu cục bộ và ghi chú chỉnh sửa được. Trình dựng vẫn ưu tiên xử lý cục bộ; điều khiển mới hỗ trợ 13 ngôn ngữ.
+- **2026-09-26** — Bảng phân cảnh Sanity: không gian tùy chọn hỗ trợ sửa kịch bản và cảnh, duyệt có kiểm tra phiên bản, rồi thêm cảnh vào dòng thời gian bằng tư liệu cục bộ và ghi chú chỉnh sửa được. Trình dựng vẫn ưu tiên xử lý cục bộ; điều khiển mới hỗ trợ 13 ngôn ngữ. Bản triển khai dùng Astro và dùng chung thành phần duyệt React.
 - **2026-09-21 — Xóa khoảng nghỉ:** menu Thông minh dùng Silero VAD để phát hiện khoảng nghỉ dài ngay trong trình duyệt. Có thể xem lại, chọn cắt đồng bộ video chính và âm thanh gốc, chỉnh ngưỡng và khoảng giữ lại, dùng ripple, hủy và hoàn tác. Giao diện hỗ trợ đủ 13 ngôn ngữ.
 - **2026-09-20 — Bám mốc cho đầu phát:** Kéo đầu phát màu trắng để xem trước hình ảnh trực tiếp và bám vào mốc hoặc hai đầu khoảng, kèm đường căn chỉnh và thời gian. Giữ Alt để kéo tự do. Chi tiết dấu mốc hiển thị Xong trước khi sửa và Áp dụng thay đổi sau khi sửa.
 - **2026-09-17 — Tinh chỉnh và kiểm tra qua WebMCP:** 21 công cụ trình duyệt hỗ trợ 26 thao tác có thể xem xét trước, gồm di chuyển và cắt nguồn clip định thời, biến đổi lớp phủ, kiểu/vị trí phụ đề và tỷ lệ dự án. Tác nhân có thể lấy mẫu hình và tiếng đã dựng, chạy thuyết minh hoặc chép lời ngay trong trình duyệt với tiến độ và khả năng hủy, rồi kiểm tra trước khi chèn vào dòng thời gian. Các điều khiển và thông báo mới hỗ trợ đủ 13 ngôn ngữ.

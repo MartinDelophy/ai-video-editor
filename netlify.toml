@@ -20,6 +20,11 @@
   status = 404
 
 [[redirects]]
+  from = "/storyboard/*"
+  to = "/storyboard/index.html"
+  status = 200
+
+[[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200

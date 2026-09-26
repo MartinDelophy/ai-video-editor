@@ -61,7 +61,10 @@ Local validation on 2026-09-26:
 - An isolated transport exercised draft save, review, change request, resubmission, approval, revision conflict, preserved edits and saving a separate copy.
 - The real editor, with intercepted approval responses and a temporary uploaded image, appended two shots plus two range notes, restored the original sequence with one undo, and rejected withdrawn approval. The same interaction passed at 1440px and 412px widths.
 - Direct browser reads against the real `rgq98xsq/production` dataset succeeded from `http://localhost:3333`, and the official Studio login screen loaded.
-- Authenticated cloud writes and remote schema deployment remain unverified until the user completes official authentication. The CLI explicitly reported that it was not logged in.
+- A follow-up check in the user’s signed-in Chrome verified real authenticated creation/save, submission, change request, unsaved local recovery after a confirmed reload, resubmission, and approval in `rgq98xsq/production`. The resulting public demo board is `ts-board-19e4f5ec-b9be-4a0b-9a8d-8f577f929e12`; its approved snapshot is `ts-release-37ad30b2-04d4-4a10-a23a-652efb239341`.
+- The real editor read that approved snapshot without intercepted responses and matched it to three existing public repository screenshots held as local assets. Import produced three editable visual clips of 4s, 5s and 4s, three range markers with shot notes and release provenance, and a 13s preview duration. No media was uploaded to Sanity.
+- The real Chrome session exported the demo as a `.timeline` archive containing all three screenshots. A fresh browser reopened that archive and verified three visual clips, three markers and the 13s preview duration; ZIP media integrity checks also passed.
+- Remote schema deployment remains pending official CLI authentication; no browser credentials were extracted for the CLI.
 
 Disposable verification scripts, transport doubles, schema extracts and screenshots live outside the product repository. Isolated transport checks are not evidence of authenticated cloud writes.
 

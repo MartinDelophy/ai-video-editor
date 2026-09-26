@@ -39,7 +39,7 @@ The entry is the new storyboard workflow. The existing Timeline Studio editor is
 - Organizer confirmation of existing-project/new-module eligibility. The FAQ allows substantial reuse but the general rules require the Entry to begin during the entry period. A new branch alone does not settle that interpretation.
 - The entrant must satisfy the official personal eligibility rules and accept the contest terms; code checks cannot establish this.
 - Review and publication of the DEV post. The draft must include verified deployment/code links and the project ID before it is submitted. English is required for prize eligibility.
-- No organizer message or DEV post has been sent by preparing these files.
+- The eligibility question was posted with explicit user authorization on 2026-09-26: [public comment](https://dev.to/martindelophy/comment/3fkli). No organizer ruling has been received. The DEV submission article remains unpublished.
 
 Deadline: 2026-10-04 23:59 PDT / 2026-10-05 14:59 Asia/Shanghai.
 

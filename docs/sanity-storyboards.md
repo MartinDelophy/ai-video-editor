@@ -77,3 +77,5 @@ References: [Sanity transactions](https://www.sanity.io/docs/content-lake/transa
 See the [English submission draft](sanity-challenge/submission.md), [reviewer guide](sanity-challenge/reviewer-guide.md), and [eligibility clarification draft](sanity-challenge/eligibility-question.md). These are preparation materials, not evidence of a published entry or confirmed eligibility.
 
 Preview deployment: [https://sanity-storyboards--web-player-ai-voice-editor.netlify.app](https://sanity-storyboards--web-player-ai-voice-editor.netlify.app/). This is a Netlify draft deployment; the production domain is unchanged. Public demo archive and screenshot were copied into the ignored deployment output from the external demo folder, not stored as test media in the product repository.
+
+The deployed Astro workbench was also opened in the user’s signed-in Chrome: it loaded the actual approved three-shot / 13-second board and its matching release ID. The live anonymous import and one-step undo passed without network interception.

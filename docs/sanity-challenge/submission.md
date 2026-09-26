@@ -1,6 +1,6 @@
 ---
 title: "Timeline Studio: From Approved Storyboard to Editable Video with Sanity"
-published: false
+published: true
 tags: devchallenge, sanitychallenge, sanity, ai
 ---
 

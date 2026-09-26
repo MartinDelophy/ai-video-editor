@@ -39,8 +39,14 @@ The entry is the new storyboard workflow. The existing Timeline Studio editor is
 - Organizer confirmation of existing-project/new-module eligibility. The FAQ allows substantial reuse but the general rules require the Entry to begin during the entry period. A new branch alone does not settle that interpretation.
 - The entrant must satisfy the official personal eligibility rules and accept the contest terms; code checks cannot establish this.
 - Review and publication of the DEV post. The draft must include verified deployment/code links and the project ID before it is submitted. English is required for prize eligibility.
-- The eligibility question was posted with explicit user authorization on 2026-09-26: [public comment](https://dev.to/martindelophy/comment/3fkli). No organizer ruling has been received. The DEV submission article remains unpublished.
+- The eligibility question was posted with explicit user authorization on 2026-09-26: [public comment](https://dev.to/martindelophy/comment/3fkli). No organizer ruling has been received. The submission article was subsequently published; see the record below.
 
 Deadline: 2026-10-04 23:59 PDT / 2026-10-05 14:59 Asia/Shanghai.
 
 Sources checked on 2026-09-26: [challenge/FAQ](https://dev.to/challenges/sanity-2026-09-16), [specific contest rules](https://dev.to/page/sanity-challenge-v26-09-16-contest-rules), [general rules](https://dev.to/page/official-hackathon-rules).
+
+## Published entry — 2026-09-26
+
+[Published DEV article](https://dev.to/martindelophy/timeline-studio-from-approved-storyboard-to-editable-video-with-sanity-2o2m). Published with explicit user authorization; the rendered article contains all four tags (`devchallenge`, `sanitychallenge`, `sanity`, `ai`), the project ID, demo, screenshot, code and development writeup. A fresh unauthenticated browser returned HTTP 200 and verified the title and project ID. The article identifies the newly built workflow without a separate existing-project disclaimer or a claim that the entire editor was built during the challenge.
+
+Organizer pre-approval was not treated as a submission prerequisite. Final eligibility remains for the organizers to assess.

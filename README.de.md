@@ -19,11 +19,11 @@ Für sämtliche rechtlichen Folgen eines Verstoßes gegen diese Anforderungen is
 
 ## Projektneuigkeiten
 
+- **2026-09-26** — Sanity-Storyboards: Ein optionaler Arbeitsplatz bietet Skript- und Einstellungsbearbeitung, revisionsgeprüfte Freigaben sowie das Anhängen an die Timeline mit lokalen Medien und editierbaren Notizen. Der Editor bleibt lokal ausgerichtet; neue Bedienelemente unterstützen 13 Sprachen.
 - **2026-09-21 — Pausen entfernen:** Smart erkennt lange Sprechpausen lokal mit Silero VAD. Schnitte im ausgewählten Hauptvideo und Originalton lassen sich prüfen und auswählen. Mindestpause, verbleibender Abstand, Ripple-Schnitt, Abbruch und Rückgängig sind verfügbar; die Oberfläche unterstützt 13 Sprachen.
 - **2026-09-20 — Abspielkopf an Markern einrasten:** Beim Ziehen des weißen Abspielkopfs wird das Bild live angezeigt. Er rastet an Markern und Bereichsgrenzen ein, mit gemeinsamer Hilfslinie und Zeitanzeige. Alt ermöglicht freies Verschieben. Markerdetails zeigen zunächst Fertig und nach Bearbeitung Änderungen anwenden.
 - **2026-09-17 — Feinschnitt und Prüfung mit WebMCP:** 21 Browserwerkzeuge unterstützen 26 prüfbare Bearbeitungen, darunter das Verschieben und Zuschneiden zeitgesteuerter Clips, Overlay-Transformationen, Untertitelstil und -position sowie das Projektformat. Agents können gerenderte Bild- und Audioproben anfordern, lokale Sprechertexte oder Transkriptionen mit Fortschritt und Abbruch ausführen und Ergebnisse vor dem Einfügen prüfen. Neue Bedienelemente und Meldungen unterstützen alle 13 Oberflächensprachen.
 - **2026-09-15 — Bearbeitetes Audio exportieren:** Beim Export eines Audioclips werden jetzt der Zuschnitt, die Wiedergabegeschwindigkeit, die Lautstärke, Ein- und Ausblendungen sowie Raumeffekte berücksichtigt. Einzelne Clips und die Mischung der gesamten Timeline lassen sich als WAV oder MP3 exportieren. Neben dem Videoexport steht ein reiner Audioexport zur Verfügung.
-- **2026-09-14 — Exportkorrektur und erneuter Versuch:** Clips mit einfarbigem Hintergrund und Deckkraft-Keyframes lassen sich jetzt auch ohne Personenmaske korrekt exportieren. Bei einem Fehler bleibt die Meldung sichtbar und der Export kann mit denselben Einstellungen erneut gestartet werden.
 
 Geplante Arbeiten stehen in der [Roadmap](ROADMAP.md), veröffentlichte Änderungen in den [Releases](https://github.com/MartinDelophy/ai-video-editor/releases) und einzelne Aufgaben in den [Issues](https://github.com/MartinDelophy/ai-video-editor/issues).
 

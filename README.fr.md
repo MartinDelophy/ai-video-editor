@@ -19,11 +19,11 @@ L’utilisateur assume seul toute responsabilité juridique découlant du non-re
 
 ## Actualités du projet
 
+- **2026-09-26** — Storyboards Sanity : un espace facultatif permet de modifier scripts et plans, de les approuver avec contrôle de version et de les ajouter à la timeline avec des médias locaux et des notes modifiables. Le montage reste local et les nouveaux contrôles couvrent 13 langues.
 - **2026-09-21 — Suppression des pauses :** Smart détecte localement les longues pauses avec Silero VAD. Vérifiez et sélectionnez les coupes du clip principal et de son audio, réglez les seuils et intervalles, utilisez le montage ripple, annulez l’analyse ou la modification. Interface en 13 langues.
 - **2026-09-20 — Alignement de la tête de lecture :** Glisser la tête blanche affiche un aperçu en direct et l’aligne sur les marqueurs et les extrémités des plages, avec un guide commun et l’heure. Maintenez Alt pour la déplacer librement. Les détails affichent Terminé avant modification, puis Appliquer les modifications.
 - **2026-09-17 — Finitions et vérification avec WebMCP :** 21 outils du navigateur couvrent 26 opérations vérifiables, dont le déplacement et la découpe source des clips temporisés, les transformations d’incrustations, le style et la position des sous-titres et le format du projet. Les agents peuvent obtenir des images et extraits audio rendus, lancer une voix off ou une transcription locale avec suivi et annulation, puis vérifier les résultats avant insertion. Les nouveaux contrôles et messages sont disponibles dans les 13 langues.
 - **2026-09-15 — Exportation du son monté :** l’exportation d’un clip audio respecte désormais la plage découpée et applique la vitesse de lecture, le volume, les fondus et les effets d’espace. Les clips et le mixage de toute la timeline peuvent être exportés en WAV ou MP3. Une option d’exportation audio seule complète l’exportation vidéo.
-- **2026-09-14 — Correction de l’exportation et nouvelles tentatives :** les clips avec un fond uni et des images clés d’opacité s’exportent correctement, même sans masque de personne. En cas d’échec, le message d’erreur reste affiché et l’exportation peut être relancée avec les mêmes réglages.
 
 Consultez la [Roadmap](ROADMAP.md) pour les travaux prévus, les [Releases](https://github.com/MartinDelophy/ai-video-editor/releases) pour les changements publiés et les [Issues](https://github.com/MartinDelophy/ai-video-editor/issues) pour les tâches et anomalies.
 

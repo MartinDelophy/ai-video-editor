@@ -1,13 +1,6 @@
-import React from "react";
-import { createRoot } from "react-dom/client";
-import { App } from "./App.jsx";
-import { registerModelCacheServiceWorker } from "./lib/serviceWorker.js";
-import "./styles.css";
-
-registerModelCacheServiceWorker();
-
-createRoot(document.getElementById("root")).render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>,
-);
+// Keep the authenticated content workspace out of the editor startup bundle.
+if (window.location.pathname === "/storyboard" || window.location.pathname.startsWith("/storyboard/")) {
+  import("./sanity/entry.jsx");
+} else {
+  import("./editorEntry.jsx");
+}

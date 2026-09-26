@@ -19,11 +19,11 @@ El usuario será el único responsable de cualquier consecuencia legal derivada 
 
 ## Novedades del proyecto
 
+- **2026-09-26** — Storyboards de Sanity: una mesa opcional permite editar guiones y planos, revisar y aprobar con control de versión y añadir planos a la línea de tiempo con medios locales y notas editables. El editor mantiene su enfoque local y los nuevos controles admiten 13 idiomas.
 - **2026-09-21 — Quitar pausas:** Smart detecta pausas largas localmente con Silero VAD. Permite revisar y seleccionar cortes del vídeo principal y su audio, ajustar el umbral y el intervalo conservado, usar edición ripple, cancelar y deshacer, con interfaz en 13 idiomas.
 - **2026-09-20 — Ajuste del cabezal a marcadores:** Al arrastrar el cabezal blanco, la imagen se previsualiza en directo y se ajusta a marcadores y extremos de rangos, con guía de alineación y tiempo. Mantén Alt para desplazarte libremente. Los detalles muestran Listo antes de editar y Aplicar cambios después.
 - **2026-09-17 — Ajustes y revisión con WebMCP:** 21 herramientas del navegador cubren 26 operaciones revisables, incluidos movimiento y recorte de origen de clips temporizados, transformaciones de superposiciones, estilo/posición de subtítulos y formato del proyecto. Los agentes pueden obtener imágenes y audio renderizados, ejecutar locución o transcripción local con progreso y cancelación, y revisar los resultados antes de insertarlos. Los nuevos controles y mensajes admiten los 13 idiomas de la interfaz.
 - **2026-09-15 — Exportación del audio editado:** al exportar un clip de audio se respeta el recorte y se aplican la velocidad de reproducción, el volumen, los fundidos y los efectos de espacio. Tanto los clips como la mezcla de toda la línea de tiempo pueden exportarse en WAV o MP3. La exportación de vídeo también ofrece una opción de solo audio.
-- **2026-09-14 — Corrección de la exportación y reintentos:** los clips con fondos de color sólido y fotogramas clave de opacidad se exportan correctamente aunque no tengan una máscara de persona. Si la exportación falla, el error permanece visible y se puede reintentar con los mismos ajustes.
 
 Consulta el [Roadmap](ROADMAP.md) para el trabajo planificado, [Releases](https://github.com/MartinDelophy/ai-video-editor/releases) para los cambios publicados e [Issues](https://github.com/MartinDelophy/ai-video-editor/issues) para tareas y errores.
 

@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { X } from "@phosphor-icons/react";
 
 import { LanguageIntro } from "./components/panels.jsx";
 import { PreviewStage } from "./components/PreviewStage.jsx";
 import { VoicePanel } from "./components/VoicePanel.jsx";
 import { Timeline } from "./components/Timeline.jsx";
+import { storyboardCopy } from "./sanity/copy.js";
 import { Topbar } from "./components/Topbar.jsx";
 import { AssetDragPreview, ExportProgressOverlay } from "./components/EditorOverlays.jsx";
 import { EditorSidebar } from "./components/EditorSidebar.jsx";
@@ -104,7 +105,11 @@ import { getVisualPropertyTabIds } from "./lib/visualPropertyTabs.js";
 import { applyTimelineRipple } from "./lib/timelineRipple.js";
 import { COMPACT_WORKSPACE_QUERY } from "./config/editor.js";
 
+const StoryboardImport = lazy(() => import("./sanity/StoryboardImport.jsx"));
+
 export function App() {
+  const [showStoryboards, setShowStoryboards] = useState(false);
+
   const [uiLanguage, setUiLanguage] = useState(() => getStoredLanguage());
   const [mobilePanel, setMobilePanel] = useState("");
   const [mobilePanelClosing, setMobilePanelClosing] = useState(false);
@@ -1500,8 +1505,23 @@ export function App() {
         handleExportProject={handleExportProject}
         handleImportProject={handleImportProject}
         projectFileInputRef={projectFileInputRef}
+        onOpenStoryboards={() => { pauseTimelineMedia(); setIsPlaying(false); setShowFileMenu(false); setShowStoryboards(true); }}
       />
 
+      {showStoryboards && <Suspense fallback={<div role="status">{storyboardCopy(activeLanguage).loading}</div>}>
+        <StoryboardImport language={activeLanguage} assets={userAssets} visuals={visualSegments}
+          markers={timelineMarkers} locked={trackLocks.image || Boolean(projectImportProgress) || exporting}
+          onClose={() => setShowStoryboards(false)}
+          onImport={(plan) => {
+            checkpointHistory();
+            pauseTimelineMedia();
+            setIsPlaying(false);
+            rippleTimelineAfter(plan.start, plan.duration);
+            commitVisualSegments([...visualSegments, ...plan.segments], storyboardCopy(activeLanguage).imported, visualSegments.length);
+            setTimelineMarkers(plan.markers);
+            seekTo(plan.start);
+          }} />
+      </Suspense>}
       <WebMcpReview agent={webMcp} language={activeLanguage} />
       <WebMcpAiStatus agent={webMcp} />
       <ProjectImportOverlay progress={projectImportProgress} language={activeLanguage} />

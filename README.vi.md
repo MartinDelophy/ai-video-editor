@@ -19,11 +19,11 @@ Người dùng tự chịu mọi trách nhiệm pháp lý phát sinh từ việc
 
 ## Cập nhật dự án
 
+- **2026-09-26** — Bảng phân cảnh Sanity: không gian tùy chọn hỗ trợ sửa kịch bản và cảnh, duyệt có kiểm tra phiên bản, rồi thêm cảnh vào dòng thời gian bằng tư liệu cục bộ và ghi chú chỉnh sửa được. Trình dựng vẫn ưu tiên xử lý cục bộ; điều khiển mới hỗ trợ 13 ngôn ngữ.
 - **2026-09-21 — Xóa khoảng nghỉ:** menu Thông minh dùng Silero VAD để phát hiện khoảng nghỉ dài ngay trong trình duyệt. Có thể xem lại, chọn cắt đồng bộ video chính và âm thanh gốc, chỉnh ngưỡng và khoảng giữ lại, dùng ripple, hủy và hoàn tác. Giao diện hỗ trợ đủ 13 ngôn ngữ.
 - **2026-09-20 — Bám mốc cho đầu phát:** Kéo đầu phát màu trắng để xem trước hình ảnh trực tiếp và bám vào mốc hoặc hai đầu khoảng, kèm đường căn chỉnh và thời gian. Giữ Alt để kéo tự do. Chi tiết dấu mốc hiển thị Xong trước khi sửa và Áp dụng thay đổi sau khi sửa.
 - **2026-09-17 — Tinh chỉnh và kiểm tra qua WebMCP:** 21 công cụ trình duyệt hỗ trợ 26 thao tác có thể xem xét trước, gồm di chuyển và cắt nguồn clip định thời, biến đổi lớp phủ, kiểu/vị trí phụ đề và tỷ lệ dự án. Tác nhân có thể lấy mẫu hình và tiếng đã dựng, chạy thuyết minh hoặc chép lời ngay trong trình duyệt với tiến độ và khả năng hủy, rồi kiểm tra trước khi chèn vào dòng thời gian. Các điều khiển và thông báo mới hỗ trợ đủ 13 ngôn ngữ.
 - **2026-09-15 — Xuất âm thanh đã chỉnh sửa:** khi xuất clip âm thanh, bản xuất dùng đúng phần đã cắt và áp dụng tốc độ phát, âm lượng, hiệu ứng tăng/giảm âm cùng hiệu ứng không gian. Có thể xuất từng clip hoặc bản trộn của toàn bộ dòng thời gian sang WAV hay MP3. Tùy chọn chỉ xuất âm thanh được bổ sung bên cạnh xuất video.
-- **2026-09-14 — Sửa lỗi xuất và hỗ trợ thử lại:** các clip có nền màu đồng nhất và khung hình chính điều chỉnh độ mờ đục nay xuất đúng ngay cả khi không có mặt nạ người. Khi xuất thất bại, thông báo lỗi vẫn hiển thị và có thể thử lại với cùng cài đặt.
 
 Xem [Roadmap](ROADMAP.md) cho công việc dự kiến, [Releases](https://github.com/MartinDelophy/ai-video-editor/releases) cho thay đổi đã phát hành và [Issues](https://github.com/MartinDelophy/ai-video-editor/issues) cho nhiệm vụ và lỗi.
 

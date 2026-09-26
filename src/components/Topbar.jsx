@@ -9,6 +9,7 @@ import {
   FileArrowDown,
   FileArrowUp,
   FilePlus,
+  FilmSlate,
   GearSix,
   GithubLogo,
   Pause,
@@ -18,6 +19,7 @@ import {
   XLogo,
 } from "@phosphor-icons/react";
 
+import { storyboardCopy } from "../sanity/copy.js";
 import { RATIO_OPTIONS } from "../config/editor.js";
 import { APP_LANGUAGES, saveLanguagePreference } from "../i18n.js";
 import { getPrimaryShortcutModifier, releasePointerActivatedFocus } from "../lib/editorShortcuts.js";
@@ -68,6 +70,7 @@ export function Topbar({
   handleExportProject,
   handleImportProject,
   projectFileInputRef,
+  onOpenStoryboards,
 }) {
   const exportAnchorRef = useRef(null);
   const ratioAnchorRef = useRef(null);
@@ -141,6 +144,10 @@ export function Topbar({
                     <button className="file-menu-action file-menu-new" type="button" onClick={handleNewProject}>
                       <span className="file-menu-icon"><FilePlus size={17} /></span>
                       <span className="file-menu-copy"><strong>{t("newProject")}</strong><small>{t("newProjectHint")}</small></span>
+                    </button>
+                    <button className="file-menu-action" type="button" onClick={onOpenStoryboards}>
+                      <span className="file-menu-icon"><FilmSlate size={17} /></span>
+                      <span className="file-menu-copy"><strong>{storyboardCopy(activeLanguage).title}</strong><small>Sanity</small></span>
                     </button>
                     <div className="file-menu-divider" />
                     <button className="file-menu-action" type="button" onClick={() => handleImportProject()}>

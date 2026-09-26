@@ -24,11 +24,11 @@ Users are solely responsible for any legal liability arising from violations of 
 
 ## Project updates
 
+- **2026-09-26** — Sanity storyboards: an optional workbench now supports script and shot editing, revision-checked review and approval, and appending approved shots with locally matched media and editable timeline notes. The editor stays local-first; the new controls support 13 languages.
 - **2026-09-21 — Remove pauses:** Smart now detects long speech pauses locally with Silero VAD, lets you review and select cuts, and trims the selected main-track video with its source audio. Adjustable pause thresholds, retained gaps, ripple editing, cancellation and undo are included, with direct UI copy in all 13 languages.
 - **2026-09-20 — Playhead marker snapping:** Dragging the white playhead previews the picture live and snaps to markers and range edges, with a shared alignment guide and time readout. Hold Alt to scrub freely. Marker details show Done until edited, then Apply changes.
 - **2026-09-17 — WebMCP finishing and review:** 21 browser tools now cover 26 reviewed edits, including timed-clip movement and source trimming, overlay transforms, caption style/position and project framing. Agents can request rendered frame/audio samples, run browser-local voiceover or transcription with progress and cancellation, and review results before timeline insertion. New controls and messages support all 13 interface languages.
 - **2026-09-15 — Edited audio export:** exporting an audio clip now renders its trimmed range with playback speed, volume, fades and space effects applied. Clips and the complete timeline mix can be exported as WAV or MP3; audio-only export is available alongside video export.
-- **2026-09-14 — Export reliability:** clips with solid-color backgrounds and opacity keyframes now export correctly without a person mask. Failed exports keep the error visible and can be retried with the same settings.
 
 See the public [Roadmap](ROADMAP.md) for planned work, [Releases](https://github.com/MartinDelophy/ai-video-editor/releases) for shipped changes, and [Issues](https://github.com/MartinDelophy/ai-video-editor/issues) for focused tasks and bugs.
 

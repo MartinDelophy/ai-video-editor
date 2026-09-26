@@ -19,11 +19,11 @@ O usuário é o único responsável por quaisquer consequências legais decorren
 
 ## Novidades do projeto
 
+- **2026-09-26** — Storyboards do Sanity: um espaço opcional permite editar roteiros e planos, revisar e aprovar com verificação de versão e adicionar planos à linha do tempo com mídia local e notas editáveis. O editor mantém o processamento local e os novos controles oferecem 13 idiomas.
 - **2026-09-21 — Remover pausas:** Smart detecta pausas longas localmente com Silero VAD. Revise e selecione cortes no vídeo principal e seu áudio, ajuste o limite e o intervalo mantido, use edição ripple, cancele ou desfaça. Interface disponível em 13 idiomas.
 - **2026-09-20 — Encaixe do cursor nos marcadores:** Arrastar o cursor branco exibe a imagem em tempo real e encaixa nos marcadores e limites de intervalos, com guia de alinhamento e tempo. Segure Alt para mover livremente. Os detalhes mostram Concluído antes da edição e Aplicar alterações depois.
 - **2026-09-17 — Ajustes e revisão com WebMCP:** 21 ferramentas do navegador cobrem 26 operações revisáveis, incluindo movimento e recorte da origem de clipes temporizados, transformações de sobreposições, estilo/posição de legendas e formato do projeto. Agentes podem obter amostras renderizadas de imagem e áudio, executar narração ou transcrição local com progresso e cancelamento e revisar os resultados antes da inserção. Os novos controles e mensagens estão nos 13 idiomas da interface.
 - **2026-09-15 — Exportação do áudio editado:** a exportação de um clipe de áudio respeita o trecho recortado e aplica velocidade de reprodução, volume, fades e efeitos de espaço. Clipes individuais e a mixagem de toda a linha do tempo podem ser exportados em WAV ou MP3. A exportação de vídeo também oferece uma opção de somente áudio.
-- **2026-09-14 — Correção da exportação e novas tentativas:** clipes com fundos de cor sólida e quadros-chave de opacidade agora são exportados corretamente mesmo sem máscara de pessoa. Se a exportação falhar, a mensagem de erro permanece visível e é possível tentar novamente com as mesmas configurações.
 
 Consulte o [Roadmap](ROADMAP.md) para o trabalho planejado, [Releases](https://github.com/MartinDelophy/ai-video-editor/releases) para mudanças publicadas e [Issues](https://github.com/MartinDelophy/ai-video-editor/issues) para tarefas e erros.
 

@@ -25,7 +25,9 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "typecheck": "tsc --noEmit",
-    "check": "npm run lint && npm run typecheck && npm run build"
+    "check": "npm run lint && npm run typecheck && npm run build",
+    "dev:storyboards": "vite --host localhost --port 3333 --strictPort",
+    "sanity:schema": "sanity schema deploy"
   },
   "dependencies": {
     "@diffusionstudio/vits-web": "^1.0.3",
@@ -46,8 +48,10 @@
     "onnxruntime-web": "^1.27.0",
     "onnxruntime-web-migan": "npm:onnxruntime-web@^1.16.3",
     "pinyin-pro": "^3.27.0",
-    "react": "19.2.0",
-    "react-dom": "19.2.0",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "sanity": "6.16.0",
+    "styled-components": "6.1.19",
     "zod": "^4.4.3"
   },
   "devDependencies": {

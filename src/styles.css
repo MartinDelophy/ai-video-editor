@@ -12628,3 +12628,18 @@ button:disabled {
 .halo-card-preview { background: #101424; }
 @media (prefers-reduced-motion: no-preference) { .subject-outline-entry:hover .halo-card-wheel, .subject-outline-entry:focus-visible .halo-card-wheel { animation: disco-card-spin 8s linear infinite; } }
 @keyframes disco-card-spin { to { transform: rotate(360deg); } }
+
+
+.audio-clip > .waveform-strip.is-timeline-waveform {
+  display: block;
+  padding: 0;
+}
+.is-timeline-waveform canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  --waveform-color: #20d2bf;
+}
+.audio-clip.is-source .is-timeline-waveform canvas,
+.audio-clip.is-video-source .is-timeline-waveform canvas { --waveform-color: #f7c256; }
+.audio-clip.is-music .is-timeline-waveform canvas { --waveform-color: #6ab3ff; }

@@ -20,11 +20,12 @@ export function createEmbeddedVideoAudioSegments(visualSegments = [], audioAsset
       id: segment.id,
       assetId: segment.assetId,
       start: preserveTimelineStarts ? Math.max(0, Number(segment.start) || 0) : timeline[index]?.start || 0,
-      duration: Math.min(segment.duration, sourceDuration / playbackRate),
+      duration: segment.speedCurve?.enabled ? segment.duration : Math.min(segment.duration, sourceDuration / playbackRate),
       sourceStart: audio.offset + sourceStart,
       sourceDuration,
       playbackRate,
       speedCurve: segment.speedCurve,
+      volume: Math.max(0, Math.min(4, segment.volume ?? 1)),
     }];
   });
 }

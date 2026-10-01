@@ -15,7 +15,7 @@ export function useSourceAudioExtraction(d) {
         const sourceStart = Math.max(0, Number(asset.sourceStart) || 0);
         const timelineDuration = Math.min(
           Math.max(0, Number(asset.duration) || 0),
-          Math.max(0, (extracted.duration - sourceStart) / playbackRate),
+          asset.speedCurve?.enabled ? asset.duration : Math.max(0, (extracted.duration - sourceStart) / playbackRate),
         );
         if (!(timelineDuration > 0)) throw new Error("画中画片段没有可分离的音频区间");
         const sourceName = `${asset.name.replace(/\.[^.]+$/, "")} 原声.wav`;
@@ -23,13 +23,16 @@ export function useSourceAudioExtraction(d) {
           assetId: getSourceAudioAssetId(asset),
           name: sourceName,
           playbackRate,
+          volume: asset.volume ?? 1,
+          speedCurve: asset.speedCurve,
+          sourceDuration: asset.sourceDuration,
           sourceKind: "overlay-video-audio",
           sourceStart,
           start: timelineStart,
           timelineDuration,
         });
         d.setVisualOverlaySegments?.((segments) => segments.map((segment) => (
-          segment.id === asset.id ? { ...segment, muted: true } : segment
+          segment.id === asset.id ? { ...segment, muted: true, audioSeparated: true } : segment
         )));
         d.notify("画中画原声已分离到音频轨");
         return { track: "audio", segmentId: audioSegment.id };

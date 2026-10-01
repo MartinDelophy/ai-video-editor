@@ -29,7 +29,7 @@ export function attachSourceAudioOffset(visualSegments = [], source = {}, source
     const matchesAssetFallback = !hasExactClipTarget && Boolean(assetId && segment.assetId === assetId);
     const matchesUnboundClip = !hasExactClipTarget && Boolean(clipId && !segment.assetId && segment.id === clipId);
     return matchesExactClip || matchesAssetFallback || matchesUnboundClip
-      ? { ...segment, sourceAudioOffset: offset, sourceAudioUnmapped: false }
+      ? { ...segment, sourceAudioOffset: offset, sourceAudioUnmapped: false, audioSeparated: true, sourceAudioVolume: segment.volume ?? 1 }
       : segment;
   });
 }
@@ -59,11 +59,12 @@ export function getLinkedSourceAudioSegments(visualSegments = [], sourceAudioAss
       id: segment.id,
       assetId: segment.assetId || linkedAssetId,
       start: Math.max(0, range.start + timelineOffset),
-      duration: Math.min(range.duration, sourceDuration / playbackRate),
+      duration: segment.speedCurve?.enabled ? range.duration : Math.min(range.duration, sourceDuration / playbackRate),
       sourceStart,
       sourceDuration,
       playbackRate,
       speedCurve: segment.speedCurve,
+      volume: segment.sourceAudioVolume,
     }];
   });
 }

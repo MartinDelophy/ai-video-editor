@@ -190,8 +190,9 @@ export function createPlaybackControls(deps) {
         if (!audio.paused) audio.pause();
         return;
       }
-      const playbackRate = Math.max(0.25, Math.min(4, Number(segment.playbackRate) || 1));
-      audio.currentTime = Math.max(0, Number(segment.sourceStart) || 0) + getTimelineTrackLocalTime(timelineTime, segment.start, segment.duration) * playbackRate;
+      const localTime = getTimelineTrackLocalTime(timelineTime, segment.start, segment.duration);
+      const playbackRate = getVisualPlaybackRateAtTime(segment, localTime);
+      audio.currentTime = getVisualSourceTime(segment, localTime);
       setTimelineAudioGain(audio, getAudioSegmentPreviewVolume(segment, timelineTime), segment.spatialEffect, segment.spatialAmount); audio.playbackRate = playbackRate;
       if ("preservesPitch" in audio) audio.preservesPitch = true;
       playIf(audio, active);
@@ -200,7 +201,7 @@ export function createPlaybackControls(deps) {
       const sourceState = getSourceState(timelineTime);
       source.currentTime = sourceState.sourceTime;
       source.playbackRate = sourceState.playbackRate;
-      setTimelineAudioGain(source, deps.sourceAudioVolume, deps.sourceAudioSpatialEffect, deps.sourceAudioSpatialAmount);
+      setTimelineAudioGain(source, sourceState.segment?.volume ?? deps.sourceAudioVolume, deps.sourceAudioSpatialEffect, deps.sourceAudioSpatialAmount);
       if ("preservesPitch" in source) source.preservesPitch = true;
       playIf(source, sourceState.active);
     }

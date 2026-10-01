@@ -745,7 +745,8 @@ export function App() {
       peaks: linkedPiece
         ? sliceSourceAudioPeaks(sourceAudioPeaks, linkedPiece, sourceAudioDuration)
         : sourceAudioPeaks,
-      volume: sourceAudioVolume,
+      volume: linkedPiece?.volume ?? sourceAudioVolume,
+      ...(linkedPiece?.speedCurve ? { speedCurve: linkedPiece.speedCurve } : {}),
       fadeIn: 0,
       fadeOut: 0,
       reversed: false,
@@ -817,7 +818,7 @@ export function App() {
     : selectedTrack === "music" && musicBlob
       ? { ...(selectedMusicSegment ?? musicSegments[0] ?? { id: "music-audio", start: musicStart, duration: musicDuration, sourceStart: 0, sourceDuration: musicDuration, playbackRate: 1 }), blob: musicBlob, name: musicName || t("musicTrack"), segmentId: selectedMusicSegment?.id || musicSegments[0]?.id || "music-audio", track: "music", volume: selectedMusicSegment?.volume ?? musicSegments[0]?.volume ?? musicVolume, canChangeSpeed: true }
       : selectedTrack === "source" && sourceAudioBlob
-        ? { ...(selectedSourceAudioPiece ?? {}), blob: sourceAudioBlob, name: sourceAudioName, start: selectedSourceAudioPiece?.start ?? sourceAudioStart, sourceStart: selectedSourceAudioPiece?.sourceStart ?? 0, duration: selectedSourceAudioPiece?.duration ?? sourceAudioDuration, sourceDuration: selectedSourceAudioPiece?.sourceDuration ?? sourceAudioDuration, playbackRate: selectedSourceAudioPiece?.playbackRate ?? 1, segmentId: selectedSourceAudioSegmentId || "source-audio", track: "source", volume: sourceAudioVolume, spatialEffect: sourceAudioSpatialEffect, spatialAmount: sourceAudioSpatialAmount, canChangeStart: !sourceAudioLinked, canChangeSpeed: Boolean(sourceAudioLinked && selectedSourceAudioPiece), voiceColorOriginalBlob: sourceVoiceColorOriginalRef.current?.blob || null }
+        ? { ...(selectedSourceAudioPiece ?? {}), blob: sourceAudioBlob, name: sourceAudioName, start: selectedSourceAudioPiece?.start ?? sourceAudioStart, sourceStart: selectedSourceAudioPiece?.sourceStart ?? 0, duration: selectedSourceAudioPiece?.duration ?? sourceAudioDuration, sourceDuration: selectedSourceAudioPiece?.sourceDuration ?? sourceAudioDuration, playbackRate: selectedSourceAudioPiece?.playbackRate ?? 1, segmentId: selectedSourceAudioSegmentId || "source-audio", track: "source", volume: selectedSourceAudioPiece?.volume ?? sourceAudioVolume, spatialEffect: sourceAudioSpatialEffect, spatialAmount: sourceAudioSpatialAmount, canChangeStart: !sourceAudioLinked, canChangeSpeed: Boolean(sourceAudioLinked && selectedSourceAudioPiece), voiceColorOriginalBlob: sourceVoiceColorOriginalRef.current?.blob || null }
         : null;
   const separateSelectedAudioVocals = () => selectedAudioToolTarget?.track === "source"
     ? separateSourceVocals()
@@ -996,7 +997,11 @@ export function App() {
       return;
     }
     if (selectedTrack === "source") {
-      if (Number.isFinite(patch.volume)) setSourceAudioVolume(Math.max(0, Math.min(4, patch.volume)));
+      if (Number.isFinite(patch.volume)) {
+        const volume = Math.max(0, Math.min(4, patch.volume));
+        if (sourceAudioLinked && id !== "source-audio") setVisualSegments((items) => items.map((item) => item.id === id ? { ...item, sourceAudioVolume: volume } : item));
+        else setSourceAudioVolume(volume);
+      }
       if (typeof patch.spatialEffect === "string") setSourceAudioSpatialEffect(patch.spatialEffect);
       if (Number.isFinite(patch.spatialAmount)) setSourceAudioSpatialAmount(Math.max(0, Math.min(1, patch.spatialAmount)));
       if (!sourceAudioLinked && Number.isFinite(patch.start)) setSourceAudioStart(Math.max(0, patch.start));
@@ -1905,6 +1910,10 @@ export function App() {
         selectedSegmentId={selectedSegmentId}
         setSelectedSegmentId={setSelectedSegmentId}
         captionTargetDuration={captionTargetDuration}
+        sourceAudioVolume={sourceAudioVolume}
+        setSourceAudioVolume={setSourceAudioVolume}
+        musicVolume={musicVolume}
+        setMusicVolume={setMusicVolume}
         sourceAudioLinked={sourceAudioLinked}
         linkedSourceAudioSegments={linkedSourceAudioSegments}
         sourceAudioBlob={sourceAudioBlob}

@@ -5,7 +5,7 @@ const COLLECTIONS = {
 const FIELDS = [
   "id", "type", "name", "text", "start", "end", "duration", "sourceStart", "sourceDuration",
   "playbackRate", "volume", "fadeIn", "fadeOut", "muted", "layer", "lane", "hidden", "audioSegmentId",
-  "sourceAudioDisabled", "sourceAudioUnmapped",
+  "sourceAudioDisabled", "sourceAudioUnmapped", "sourceAudioVolume", "audioSeparated",
   "detachedAudioSegmentId", "x", "y", "scale", "rotation", "opacity", "fontId",
 ];
 const GLOBAL_FIELDS = ["script", "ratioId", "fitMode", "musicName", "musicDuration", "musicStart", "musicVolume", "sourceAudioStart", "sourceAudioVolume", "captionsEnabled", "trackVisibility", "trackLocks"];

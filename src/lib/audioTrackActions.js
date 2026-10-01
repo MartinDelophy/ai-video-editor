@@ -18,7 +18,7 @@ export function createAudioTrackActions(d) {
       : Number.isFinite(estimatedFallback) && estimatedFallback > 0 ? estimatedFallback : 0;
     const playbackRate = Math.max(0.25, Math.min(4, Number(options.playbackRate) || 1));
     const sourceStart = Math.max(0, Math.min(fullDuration, Number(options.sourceStart) || 0));
-    const availableTimelineDuration = Math.max(0, (fullDuration - sourceStart) / playbackRate);
+    const availableTimelineDuration = options.speedCurve?.enabled ? options.timelineDuration : Math.max(0, (fullDuration - sourceStart) / playbackRate);
     const requestedTimelineDuration = Number(options.timelineDuration);
     const nextDuration = Number.isFinite(requestedTimelineDuration) && requestedTimelineDuration > 0
       ? Math.min(requestedTimelineDuration, availableTimelineDuration || requestedTimelineDuration)
@@ -32,10 +32,11 @@ export function createAudioTrackActions(d) {
       start,
       duration: nextDuration,
       sourceStart,
-      sourceDuration: Math.min(Math.max(0, fullDuration - sourceStart), nextDuration * playbackRate),
+      sourceDuration: Math.min(Math.max(0, fullDuration - sourceStart), options.sourceDuration ?? nextDuration * playbackRate),
       playbackRate,
       peaks: Array.isArray(nextPeaks) ? nextPeaks : [],
-      volume: 1,
+      volume: Math.max(0, Math.min(4, options.volume ?? 1)),
+      ...(options.speedCurve ? { speedCurve: options.speedCurve } : {}),
       fadeIn: 0,
       fadeOut: 0,
       reversed: false,

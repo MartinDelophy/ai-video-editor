@@ -54,18 +54,81 @@ export function Popover({ children, onClose, closeLabel = "Close", className = "
 
 // The playhead updates its parent frequently; immutable peaks and CSS-driven
 // zoom sizing let the entire waveform subtree stay unchanged between edits.
-export const WaveformStrip = memo(function WaveformStrip({ peaks, active = false, hidden = false, sourceStart, sourceDuration, sourceAudioDuration = 0 }) {
+export const WaveformStrip = memo(function WaveformStrip({ peaks, active = false, hidden = false, sourceStart, sourceDuration, sourceAudioDuration = 0, timeline = false, volume = 1 }) {
   const visiblePeaks = useMemo(() => Array.isArray(peaks) && sourceAudioDuration > 0
     ? sliceSourceAudioPeaks(peaks, { sourceStart, sourceDuration }, sourceAudioDuration)
     : peaks, [peaks, sourceStart, sourceDuration, sourceAudioDuration]);
-  const safePeaks = getWaveformDisplayPeaks(visiblePeaks);
+  const safePeaks = useMemo(() => {
+    const values = getWaveformDisplayPeaks(visiblePeaks);
+    if (timeline || values.length <= 118) return values;
+    return Array.from({ length: 118 }, (_, i) => {
+      let peak = 0;
+      for (let j = Math.floor(i * values.length / 118); j < Math.ceil((i + 1) * values.length / 118); j++) peak = Math.max(peak, values[j] || 0);
+      return peak;
+    });
+  }, [visiblePeaks, timeline]);
   const placeholder = isWaveformPlaceholder(visiblePeaks);
+  const canvasRef = useRef(null);
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!timeline || !canvas) return undefined;
+    const draw = () => {
+      const width = Math.max(1, Math.round(canvas.clientWidth));
+      const height = Math.max(1, Math.round(canvas.clientHeight));
+      const dpr = Math.min(2, window.devicePixelRatio || 1);
+      canvas.width = width * dpr; canvas.height = height * dpr;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+      ctx.scale(dpr, dpr);
+      if (placeholder) return;
+      const gain = hidden ? 0 : Math.max(0, Math.min(4, volume));
+      const count = Math.min(2048, Math.max(1, Math.floor(width / 3)));
+      const ceiling = height * 0.76;
+      const amplitudes = Array.from({ length: count }, (_, i) => {
+        const from = i / count * safePeaks.length;
+        const to = (i + 1) / count * safePeaks.length;
+        let peak = 0;
+        if (to - from < 1) {
+          const index = Math.floor(from);
+          const a = safePeaks[Math.min(index, safePeaks.length - 1)] || 0;
+          const b = safePeaks[Math.min(index + 1, safePeaks.length - 1)] || 0;
+          peak = a + (b - a) * (from - index);
+        } else {
+          for (let j = Math.floor(from); j < Math.ceil(to); j++) peak = Math.max(peak, safePeaks[j] || 0);
+        }
+        return peak * gain;
+      });
+      const color = getComputedStyle(canvas).getPropertyValue("--waveform-color").trim() || "#20d2bf";
+      const step = width / count;
+      const barWidth = Math.max(1, step - 1);
+      amplitudes.forEach((value, i) => {
+        const barHeight = Math.min(1, value) * ceiling;
+        if (barHeight <= 0) return;
+        const x = i * step;
+        const y = height - barHeight;
+        ctx.save();
+        ctx.beginPath();
+        ctx.roundRect(x, y, barWidth, barHeight, Math.min(barWidth / 2, barHeight / 2));
+        ctx.clip();
+        ctx.fillStyle = color;
+        ctx.fillRect(x, y, barWidth, barHeight);
+        if (value > 1) {
+          ctx.fillStyle = "#ff6355";
+          ctx.fillRect(x, y, barWidth, Math.min(barHeight, Math.max(7, barHeight * 0.28)));
+        }
+        ctx.restore();
+      });
+    };
+    const observer = new ResizeObserver(draw);
+    observer.observe(canvas); draw();
+    return () => observer.disconnect();
+  }, [timeline, safePeaks, placeholder, volume, hidden]);
   return (
     <div
-      className={`waveform-strip ${active ? "is-active" : ""} ${hidden ? "is-muted" : ""} ${placeholder ? "is-placeholder" : ""}`}
+      className={`waveform-strip ${timeline ? "is-timeline-waveform" : ""} ${active ? "is-active" : ""} ${hidden ? "is-muted" : ""} ${placeholder ? "is-placeholder" : ""}`}
       aria-hidden="true"
     >
-      {safePeaks.map((peak, index) => (
+      {timeline ? <canvas ref={canvasRef} /> : safePeaks.map((peak, index) => (
         <span key={`${index}-${peak}`} style={{ "--bar": peak }} />
       ))}
     </div>

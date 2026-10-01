@@ -1,0 +1,48 @@
+/* One video clip, with a name rail, filmstrip and its own source-audio footer. */
+.timeline .image-clip.is-video:not(.is-preparing),
+.image-track .image-clip.is-video:not(.is-preparing),
+.visual-overlay-track .visual-overlay-clip.is-video {
+  height: calc(var(--timeline-visual-row-height, 80px) - 10px);
+  background: #063b40;
+}
+.image-clip.is-video:not(.is-preparing) > .image-thumbnails,
+.visual-overlay-clip.is-video > .visual-overlay-thumbnails {
+  position: absolute; inset: 17px 0 19px; height: auto;
+}
+.image-clip.is-video:not(.is-preparing) > .image-thumbnails img,
+.image-clip.is-video:not(.is-preparing) > .image-thumbnails video,
+.visual-overlay-clip.is-video > .visual-overlay-thumbnails img,
+.visual-overlay-clip.is-video > .visual-overlay-thumbnails video { height: 100%; }
+.image-clip.is-video > .video-clip-name,
+.visual-overlay-clip.is-video > .video-clip-name {
+  position: absolute; left: 26px; top: 0; right: 72px; bottom: auto;
+  height: 17px; line-height: 17px; font-size: 11px; color: #ddf9f7;
+  overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+  z-index: 2; pointer-events: none; text-shadow: none;
+}
+.image-clip.is-video > .image-clip-duration,
+.visual-overlay-clip.is-video > .image-clip-duration {
+  top: 1px; bottom: auto; left: auto; right: 8px; height: 15px;
+  line-height: 15px; font-size: 11px; padding: 0 3px;
+}
+.image-clip.is-video > .clip-mute-toggle,
+.visual-overlay-clip.is-video > .clip-mute-toggle { top: 0; left: 5px; width: 18px; height: 17px; }
+.video-clip-audio {
+  position: absolute; bottom: 0; left: 0; right: 0; height: 18px;
+  background: #043d42; border-top: 1px solid #328487; z-index: 2;
+}
+.video-clip-audio canvas { display: block; width: 100%; height: 100%; pointer-events: none; }
+.video-clip-audio .timeline-gain {
+  position: absolute; left: 7px; right: 7px; height: 14px; transform: translateY(-50%);
+  cursor: ns-resize; touch-action: none; z-index: 3;
+}
+.video-clip-audio .timeline-gain::before { background: #b5efeb; height: 1px; }
+.video-clip-audio .timeline-gain:hover::before,
+.video-clip-audio .timeline-gain:focus-visible::before,
+.video-clip-audio .timeline-gain.is-adjusting::before { background: #67e8f9; height: 2px; }
+.video-clip-audio-status { position: absolute; left: 8px; right: 8px; bottom: 0; font-size: 11px; line-height: 12px; color: #c1dddd; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; pointer-events: none; }
+.video-clip-audio.is-muted canvas { opacity: .35; }
+
+.image-clip.is-video:not(:has(.video-clip-audio)) > .image-thumbnails,
+.visual-overlay-clip.is-video:not(:has(.video-clip-audio)) > .visual-overlay-thumbnails { bottom: 0; }
+.video-clip-audio .timeline-gain:focus-visible { outline: none; box-shadow: none; }

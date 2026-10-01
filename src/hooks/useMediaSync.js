@@ -3,7 +3,7 @@ import { PLAYBACK_UI_FRAME_MS, getAudioSegmentPreviewVolume, getTimelineTrackLoc
 import { getLinkedSourceAudioState } from "../lib/sourceAudioSync.js";
 import { filterTimedSegmentsByLaneVisibility } from "../lib/timeline.js";
 import { cancelLatestVideoFrameRequest, requestLatestVideoFrame } from "../lib/videoFrameSync.js";
-import { getVisualPlaybackRateAtTime } from "../lib/visualEffects.js";
+import { getVisualPlaybackRateAtTime, getVisualSourceTime } from "../lib/visualEffects.js";
 
 export function syncTimelineAudioElement(media, { active, shouldPlay, expectedTime, playbackRate = 1 }) {
   if (!media) return;
@@ -35,8 +35,9 @@ export function syncVoiceAudioSegments({ segments, refs, timelineTime, isPlaying
       return;
     }
     const active = isTimelineTimeInsideTrack(timelineTime, segment.start, segment.duration);
-    const playbackRate = Math.max(0.25, Math.min(4, Number(segment.playbackRate) || 1));
-    const expected = Math.max(0, Number(segment.sourceStart) || 0) + getTimelineTrackLocalTime(timelineTime, segment.start, segment.duration) * playbackRate;
+    const localTime = getTimelineTrackLocalTime(timelineTime, segment.start, segment.duration);
+    const playbackRate = getVisualPlaybackRateAtTime(segment, localTime);
+    const expected = getVisualSourceTime(segment, localTime);
     syncTimelineAudioElement(audio, { active, shouldPlay: true, expectedTime: expected, playbackRate });
   });
 }
@@ -61,7 +62,7 @@ export function useMediaSync(d) {
       visibleSegmentIds: visibleAudioSegmentIds,
     });
   }, [d.audioSegments, d.currentTime, d.isPlaying, d.trackVisibility, visibleAudioSegmentIds]);
-  useEffect(() => { if (d.sourceAudioRef.current) setTimelineAudioGain(d.sourceAudioRef.current, d.sourceAudioVolume, d.sourceAudioSpatialEffect, d.sourceAudioSpatialAmount); }, [d.sourceAudioSpatialAmount, d.sourceAudioSpatialEffect, d.sourceAudioVolume, d.sourceAudioUrl]);
+  useEffect(() => { if (d.sourceAudioRef.current) setTimelineAudioGain(d.sourceAudioRef.current, d.sourceAudioLinked ? getLinkedSourceAudioState(d.linkedSourceAudioSegments, d.currentTime).segment?.volume ?? d.sourceAudioVolume : d.sourceAudioVolume, d.sourceAudioSpatialEffect, d.sourceAudioSpatialAmount); }, [d.currentTime, d.linkedSourceAudioSegments, d.sourceAudioLinked, d.sourceAudioSpatialAmount, d.sourceAudioSpatialEffect, d.sourceAudioVolume, d.sourceAudioUrl]);
   useEffect(() => {
     const a = d.sourceAudioRef.current; if (!a || !d.sourceAudioUrl) return;
     const state = d.sourceAudioLinked
@@ -122,6 +123,9 @@ export function useMediaSync(d) {
     const v = d.previewVideoRef.current; if (!v || d.previewVisualType !== "video") return;
     if (!d.isPlaying || d.trackVisibility?.image === false) v.pause(); else requestTimelineMediaPlay(v);
   }, [d.isPlaying, d.previewVisualSegment?.id, d.previewVisualSrc, d.previewVisualType, d.trackVisibility.image]);
+  useEffect(() => {
+    if (d.previewVisualType === "video") setTimelineAudioGain(d.previewVideoRef.current, d.previewVisualSegment?.volume ?? 1);
+  }, [d.previewVideoRef, d.previewVisualType, d.previewVisualSrc, d.previewVisualSegment?.volume]);
   // Clip changes and filmstrip refinement must not re-anchor the master clock.
   // Explicit seeks update its refs directly; only playback state or the actual
   // project duration starts a new clock session.

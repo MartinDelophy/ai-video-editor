@@ -505,6 +505,8 @@ export async function decodeWaveform(blob, barCount = 118, options = {}) {
       }
     }
     const channelData = decoded.getChannelData(0);
+    // Keep bounded fine detail for timeline envelopes, even when callers request a legacy strip.
+    barCount = Math.max(barCount, Math.min(8192, Math.max(1024, Math.ceil(decoded.duration * 48))));
     const blockSize = Math.max(1, Math.floor(channelData.length / barCount));
     const peaks = Array.from({ length: barCount }, (_, index) => {
       const start = index * blockSize;
@@ -1718,7 +1720,7 @@ export async function exportBrowserVideo({
     ...(sourceAudioBlob && sourceAudioSegments.length
       ? sourceAudioSegments.map((segment) => ({
           blob: sourceAudioBlob,
-          volume: sourceAudioVolume,
+          volume: segment.volume ?? sourceAudioVolume,
           role: "source",
           start: Math.max(0, segment.start || 0),
           sourceOffset: Math.max(0, segment.sourceStart || 0),

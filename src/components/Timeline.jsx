@@ -85,6 +85,8 @@ import {
 } from "../lib/timelineScale.js";
 import { IconButton, WaveformStrip } from "./ui.jsx";
 import { TimelineThumbnails } from "./TimelineThumbnails.jsx";
+import { VideoClipAudio } from "./VideoClipAudio.jsx";
+import { TimelineGain } from "./TimelineGain.jsx";
 import { TimelineAudioClip, TimelineCaptionClip } from "./TimelineClips.jsx";
 import { TimelineMarkerRail, TimelineMarkerToolbar } from "./TimelineMarkers.jsx";
 import { useTimelineMarkers } from "../hooks/useTimelineMarkers.js";
@@ -309,6 +311,10 @@ export function Timeline({
   selectedSegmentId,
   setSelectedSegmentId,
   captionTargetDuration,
+  sourceAudioVolume,
+  setSourceAudioVolume,
+  musicVolume,
+  setMusicVolume,
   sourceAudioLinked,
   linkedSourceAudioSegments,
   sourceAudioBlob,
@@ -1099,8 +1105,8 @@ export function Timeline({
     [displayedCaptionSegments, displayedCaptionTimeline],
   );
   const contentRows = [
-    TIMELINE_TRACK_ROW_HEIGHT,
-    ...overlayLanes.map(() => TIMELINE_TRACK_ROW_HEIGHT),
+    displayedVisualSegments.some((item) => item.type === "video") ? "var(--timeline-visual-row-height, 80px)" : TIMELINE_TRACK_ROW_HEIGHT,
+    ...overlayLanes.map((lane) => lane.some((item) => item.type === "video") ? "var(--timeline-visual-row-height, 80px)" : TIMELINE_TRACK_ROW_HEIGHT),
     ...(showStickerTrack ? stickerLanes.map(() => TIMELINE_TRACK_ROW_HEIGHT) : []),
     ...captionLanes.map(() => TIMELINE_TRACK_ROW_HEIGHT),
     ...(showSourceTrack ? [TIMELINE_TRACK_ROW_HEIGHT] : []),
@@ -1335,6 +1341,7 @@ export function Timeline({
   const timelineClipHandlersRef = useRef(null);
   useLayoutEffect(() => {
     timelineClipHandlersRef.current = {
+      setAudioSegments,
       startAudioSegmentMove,
       startTimelineClipDrag,
       startCaptionResize,
@@ -2781,7 +2788,9 @@ export function Timeline({
             overlay
           />
           {segment.type === "video" ? <button className="clip-mute-toggle" type="button" aria-label={t(segment.muted ? "unmuteClip" : "muteClip", segment.muted ? "取消静音" : "静音")} title={t(segment.muted ? "unmuteClip" : "muteClip", segment.muted ? "取消静音" : "静音")} onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); if (trackLocks.overlay) return void notify("画中画轨已锁定，无法切换静音"); setVisualOverlaySegments((items) => items.map((item) => item.id === segment.id ? { ...item, muted: !item.muted } : item)); }}>{segment.muted ? <SpeakerSlash size={13} /> : <SpeakerHigh size={13} />}</button> : null}
-          <span>{segment.name || t("overlayTrack", "Overlay")}</span>
+          {segment.type === "video" && !segment.audioSeparated ? <VideoClipAudio segment={segment} disabled={trackLocks.overlay || !isOverlayLaneVisible(lane)} muted={segment.muted} t={t} onChange={(volume) => setVisualOverlaySegments((items) => items.map((item) => item.id === segment.id ? { ...item, volume } : item))} /> : null}
+          <span className={segment.type === "video" ? "video-clip-name" : undefined}>{segment.name || t("overlayTrack", "Overlay")}</span>
+          {segment.type === "video" ? <span className="image-clip-duration">{formatClock(segment.duration)}</span> : null}
           <i className="visual-overlay-resize is-start" onPointerDown={(event) => startOverlayEdit(event, "resize-start")} />
           <i className="visual-overlay-resize is-end" onPointerDown={(event) => startOverlayEdit(event, "resize-end")} />
         </div>;
@@ -3332,6 +3341,10 @@ export function Timeline({
                             timelineSeekActive={isCurrentVisualSegment && timelineSeekActive}
                           />
                         ) : null}
+                        {!segment.preparing && segmentType === "video" ? <>
+                          <span className="video-clip-name">{segment.name}</span>
+                          {!Number.isFinite(segment.sourceAudioOffset) && !segment.audioSeparated ? <VideoClipAudio segment={segment} disabled={trackLocks.image || !trackVisibility.image} muted={segment.sourceAudioDisabled} t={t} onChange={(volume) => setVisualSegments((items) => items.map((item) => item.id === segment.id ? { ...item, volume } : item))} /> : null}
+                        </> : null}
                         {!segment.preparing && segment.speedCurve?.enabled ? (
                           <span className="image-clip-speed-markers" aria-label={t("visualSpeedCurveTitle", "速度曲线")}>
                             {normalizeVisualSpeedCurve(segment.speedCurve).points.slice(1, -1).map((point) => (
@@ -3507,7 +3520,8 @@ export function Timeline({
                     revealMobileClipActions("source");
                   }}
                 >
-                  <WaveformStrip peaks={sourceAudioPeaks} sourceStart={segment.sourceStart} sourceDuration={segment.sourceDuration} sourceAudioDuration={sourceAudioDuration} active />
+                  <TimelineGain volume={segment.volume ?? sourceAudioVolume} disabled={trackLocks.source || !trackVisibility.source} t={t} onChange={(volume) => setVisualSegments((items) => items.map((item) => item.id === segment.id ? { ...item, sourceAudioVolume: volume } : item))} />
+                  <WaveformStrip timeline volume={segment.volume ?? sourceAudioVolume} peaks={sourceAudioPeaks} sourceStart={segment.sourceStart} sourceDuration={segment.sourceDuration} sourceAudioDuration={sourceAudioDuration} active />
                   <span className="audio-clip-duration" data-compact-duration={formatCompactDuration(segment.duration)}>{formatTime(segment.duration)}</span>
                 </div>
               )) : sourceAudioBlob ? (
@@ -3533,7 +3547,8 @@ export function Timeline({
                     revealMobileClipActions("source");
                   }}
                 >
-                  <WaveformStrip peaks={sourceAudioPeaks} active />
+                  <TimelineGain volume={sourceAudioVolume} disabled={trackLocks.source || !trackVisibility.source} t={t} onChange={setSourceAudioVolume} />
+                  <WaveformStrip timeline volume={sourceAudioVolume} peaks={sourceAudioPeaks} active />
                   <span className="audio-clip-duration" data-compact-duration={formatCompactDuration(sourceAudioDuration)}>{formatTime(sourceAudioDuration)}</span>
                 </div>
               ) : null}
@@ -3575,6 +3590,8 @@ export function Timeline({
                     key={segment.id}
                     segment={segment}
                     laneIndex={laneIndex}
+                    t={t}
+                    gainDisabled={rowLocked || !rowVisible}
                     timelineDuration={timelineDuration}
                     selected={selectedAudioSegmentId === segment.id}
                     rangeSelected={isRangeSelected("audio", segment.id)}
@@ -3609,10 +3626,11 @@ export function Timeline({
               {renderAssetDropSlot("music")}
               {musicBlob ? (musicSegments.length ? musicSegments : [{ id: "music-audio", start: musicStartPercent / 100 * timelineDuration, duration: musicDuration, peaks: musicPeaks }]).map((segment) => (
                 <div className={`audio-clip is-music ${selectedMusicSegmentId === segment.id ? "is-selected" : ""}`} key={segment.id} data-timeline-segment-track="music" data-timeline-segment-id={segment.id} data-range-selected={isRangeSelected("music", segment.id) || undefined} style={{ width: `${timelineDuration > 0 ? segment.duration / timelineDuration * 100 : 0}%`, left: `${timelineDuration > 0 ? segment.start / timelineDuration * 100 : 0}%` }} onPointerDown={(event) => startMusicMove(event, segment.id)} onContextMenu={(event) => showTrackContextMenu(event, "music", segment.id)} onClick={(event) => { event.stopPropagation(); if (suppressTimelineClipClickRef.current === "music") return void (suppressTimelineClipClickRef.current = ""); setSelectedTrack("music"); activateAudioToolForClipSelection(); clearClipSelections("music"); setSelectedMusicSegmentId?.(segment.id); ensureMobileTimedClipVisible(segment.id); revealMobileClipActions("music"); }}>
+                  <TimelineGain volume={segment.volume ?? musicVolume} disabled={trackLocks.music || !trackVisibility.music} t={t} onChange={(volume) => { if (musicSegments.length) setMusicSegments((items) => items.map((item) => item.id === segment.id ? { ...item, volume } : item)); else setMusicVolume(volume); }} />
                   {(rulerViewport.viewportWidth <= 0 || (
                     segment.start + segment.duration >= rulerVisibleStart - 240 * secondsPerPixel
                     && segment.start <= rulerVisibleEnd + 240 * secondsPerPixel
-                  )) ? <WaveformStrip peaks={segment.peaks?.length ? segment.peaks : musicPeaks} active /> : null}
+                  )) ? <WaveformStrip timeline volume={segment.volume ?? musicVolume} peaks={segment.peaks?.length ? segment.peaks : musicPeaks} active /> : null}
                   <span className="audio-clip-duration" data-compact-duration={formatCompactDuration(segment.duration)}>{formatTime(segment.duration)}</span>
                 </div>
               )) : null}

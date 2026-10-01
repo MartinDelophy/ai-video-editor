@@ -1,3 +1,4 @@
+import { TIMELINE_GAIN_COPY } from "./i18nTimelineGain.js";
 import { HALO_COPY } from "./i18nHalo.js";
 import { I18N_COMPLETION_COPY } from "./i18nCompletion.js";
 import { EFFECTS_LOCALIZED_COPY } from "./i18nEffects.js";
@@ -3631,7 +3632,7 @@ export function createTranslator(languageId) {
     AUTO_EDIT_RESULT_COPY, IMAGE_AI_CAPTION_COPY, PICTURE_IN_PICTURE_COPY, EFFECTS_WORKSPACE_COPY, VECTOR_STATE_COPY, VECTOR_DOCUMENT_COPY, VECTOR_ADVANCED_COPY,
     SRT_IMPORT_COPY, CLICK_RIPPLE_COPY, BEST_AI_TOOL_COPY,
   ].map((source) => ({ ...(source.en ?? {}), ...(source[languageId] ?? {}) })));
-  return (key, fallbackText) => (HALO_COPY[languageId] ?? HALO_COPY.en)[key] ?? audioExportCopy[key] ?? markerCopy[key] ?? reviewedCopy[key] ?? completionCopy[key] ?? coreLabelCopy[key] ?? repairCopy[key] ?? specializedCopy[key] ?? exportOptionsCopy[key] ?? EXPORT_OPTIONS_COPY.en[key] ?? exportExtraStatusCopy[key] ?? EXPORT_EXTRA_STATUS_COPY.en[key] ?? projectChromeCopy[key] ?? PROJECT_CHROME_COPY.en[key] ?? captionAudioLinkCopy[key] ?? CAPTION_AUDIO_LINK_COPY.en[key] ?? ttsBackendCopy[key] ?? TTS_BACKEND_COPY.en[key] ?? mobileStickerCopy[key] ?? MOBILE_STICKER_COPY.en[key] ?? mobileClipActionCopy[key] ?? MOBILE_CLIP_ACTION_COPY.en[key] ?? mobileDrawerCopy[key] ?? MOBILE_DRAWER_COPY.en[key] ?? srtImportCopy[key] ?? exportCopy[key] ?? EXPORT_RENDER_COPY.en[key] ?? assetPreviewCopy[key] ?? ASSET_PREVIEW_COPY.en[key] ?? assetDropCopy[key] ?? ASSET_DROP_COPY.en[key] ?? autoCaptionStatusCopy[key] ?? AUTO_CAPTION_STATUS_COPY.en[key] ?? copy[key] ?? fallback[key] ?? UI_COPY.zh[key] ?? fallbackText ?? key;
+  return (key, fallbackText) => (TIMELINE_GAIN_COPY[languageId] ?? TIMELINE_GAIN_COPY.en)[key] ?? (HALO_COPY[languageId] ?? HALO_COPY.en)[key] ?? audioExportCopy[key] ?? markerCopy[key] ?? reviewedCopy[key] ?? completionCopy[key] ?? coreLabelCopy[key] ?? repairCopy[key] ?? specializedCopy[key] ?? exportOptionsCopy[key] ?? EXPORT_OPTIONS_COPY.en[key] ?? exportExtraStatusCopy[key] ?? EXPORT_EXTRA_STATUS_COPY.en[key] ?? projectChromeCopy[key] ?? PROJECT_CHROME_COPY.en[key] ?? captionAudioLinkCopy[key] ?? CAPTION_AUDIO_LINK_COPY.en[key] ?? ttsBackendCopy[key] ?? TTS_BACKEND_COPY.en[key] ?? mobileStickerCopy[key] ?? MOBILE_STICKER_COPY.en[key] ?? mobileClipActionCopy[key] ?? MOBILE_CLIP_ACTION_COPY.en[key] ?? mobileDrawerCopy[key] ?? MOBILE_DRAWER_COPY.en[key] ?? srtImportCopy[key] ?? exportCopy[key] ?? EXPORT_RENDER_COPY.en[key] ?? assetPreviewCopy[key] ?? ASSET_PREVIEW_COPY.en[key] ?? assetDropCopy[key] ?? ASSET_DROP_COPY.en[key] ?? autoCaptionStatusCopy[key] ?? AUTO_CAPTION_STATUS_COPY.en[key] ?? copy[key] ?? fallback[key] ?? UI_COPY.zh[key] ?? fallbackText ?? key;
 }
 
 export function translateOptionName(languageId, name) {

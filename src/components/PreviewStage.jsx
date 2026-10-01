@@ -1,3 +1,4 @@
+import { requestTimelineMediaPlay, setTimelineAudioGain } from "../lib/editorRuntime.js";
 import { DriftingHaloOverlay } from "./DriftingHalo.jsx";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -16,7 +17,7 @@ import {
 } from "@phosphor-icons/react";
 
 import { formatTime } from "../lib/timeline.js";
-import { getVisualMaskInsets, getVisualMaskSvgDataUrl, resolveVisualTransform, snapVisualScaleToFrameEdges } from "../lib/visualEffects.js";
+import { getVisualMaskInsets, getVisualMaskSvgDataUrl, getVisualSourceTime, getVisualPlaybackRateAtTime, resolveVisualTransform, snapVisualScaleToFrameEdges } from "../lib/visualEffects.js";
 import { resolveVisualClipAnimation } from "../lib/visualClipAnimations.js";
 import { getStickerBaseSize } from "../lib/stickerGeometry.js";
 import { resolveCaptionStyleForSegment } from "../lib/captionFonts.js";
@@ -80,13 +81,14 @@ function VisualOverlayMedia({ overlay, src, style, isPlaying, localTime }) {
   useEffect(() => {
     const video = videoRef.current;
     if (!video || overlay.type !== "video") return;
-    const playbackRate = Math.max(0.25, Math.min(4, Number(overlay.playbackRate) || 1));
-    const sourceTime = Math.max(0, Number(overlay.sourceStart) || 0) + Math.max(0, localTime) * playbackRate;
+    const playbackRate = getVisualPlaybackRateAtTime(overlay, localTime);
+    const sourceTime = getVisualSourceTime(overlay, localTime);
     video.playbackRate = playbackRate;
     if (Number.isFinite(video.duration) && Math.abs(video.currentTime - sourceTime) > 0.12) video.currentTime = Math.min(sourceTime, Math.max(0, video.duration - 0.01));
-    if (isPlaying) video.play().catch(() => {});
+    setTimelineAudioGain(video, overlay.volume ?? 1);
+    if (isPlaying) requestTimelineMediaPlay(video);
     else video.pause();
-  }, [isPlaying, localTime, overlay.playbackRate, overlay.sourceStart, overlay.type]);
+  }, [isPlaying, localTime, overlay, src]);
   useEffect(() => {
     if (!depthRenderActive || !canvasRef.current) return undefined;
     let canceled = false;

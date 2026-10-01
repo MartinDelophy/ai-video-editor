@@ -139,7 +139,6 @@ function ClickRippleEffectCard({ t, active, onClick }) {
         <img src="/assets/sample-portrait.png" alt="" />
         <span className="click-ripple-card-gray" />
         <span className="click-ripple-card-hit"><i /><b /></span>
-        <span className="subject-outline-entry-preview-state"><CursorClick size={13} weight="fill" />{previewing ? t("effectPreviewPlaying") : t("clickRippleKicker")}</span>
       </span>
       <span className="subject-outline-entry-footer">
         <span className="subject-outline-entry-copy"><strong>{t("clickRippleTitle")}</strong><small>{t("clickRippleHint")}</small></span>

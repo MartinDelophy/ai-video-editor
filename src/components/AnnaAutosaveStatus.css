@@ -146,3 +146,5 @@
     animation: none;
   }
 }
+
+.anna-session-status__backup { display: inline-flex; align-items: center; gap: 5px; color: var(--text-muted, #8ea3ad); font-size: 11px; }

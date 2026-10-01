@@ -392,7 +392,17 @@ export function createAnnaCloudSessionStore() {
     for (const item of saved.binaries) if (item.file) contentFiles.set(item.sha256, item.file);
     return { revision: entry.revision, savedAt: entry.savedAt, data, projectId: entry.id, projectName: entry.name };
   }
+  const head = () => ({ anchor: base ? `${base.legacy ? 'legacy:' : ''}${base.etag}` : null,
+    revision: base?.value.revision || 0, projects: projectList(base?.value), current: base?.value.projectId, files: [...contentFiles] });
   return {
+    head,
+    initialize(files = []) {
+      return exclusively(async () => {
+        for (const [hash, file] of files) if (SHA_PATTERN.test(hash)) contentFiles.set(hash, fileDescriptor(file));
+        base = await readPointer(); loaded = true; pending = null;
+        return head();
+      }, "read");
+    },
     read() {
       return exclusively(async () => {
         const next = await readPointer();

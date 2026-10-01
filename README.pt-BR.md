@@ -19,6 +19,7 @@ O usuário é o único responsável por quaisquer consequências legais decorren
 
 ## Novidades do projeto
 
+- **2026-10-01 — Anna salva projetos e mídia primeiro localmente, com backup na nuvem em segundo plano. A troca de projetos não aguarda uploads e os estados de salvamento e backup são separados.**
 - **2026-10-01 — Anna adiciona Tremor rítmico em terceiro lugar, com BPM manual, direção, intensidade, decaimento e deslocamento iguais na prévia e exportação.**
 - **2026-10-01 — Anna adiciona Glitch configurável primeiro, seguido por ondulações rítmicas e feixes Disco. Prévia e exportação compartilham separação RGB, distorção horizontal e ruído determinísticos.**
 - **2026-10-01 — O Smart do Anna oferece apenas remoção de marca-d’água em vídeo, com múltiplas regiões, intervalos, quadros-chave de movimento, comparação e aplicação reversível trazidos da main.**

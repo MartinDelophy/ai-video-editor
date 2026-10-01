@@ -19,6 +19,7 @@ Für sämtliche rechtlichen Folgen eines Verstoßes gegen diese Anforderungen is
 
 ## Projektneuigkeiten
 
+- **2026-10-01 — Anna speichert Projekte und Medien zuerst lokal und sichert sie im Hintergrund in der Cloud. Projektwechsel warten nicht auf Uploads; beide Speicherzustände werden getrennt angezeigt.**
 - **2026-10-01 — Anna ergänzt Beat-Beben an dritter Stelle mit manuellen BPM, Richtung, Stärke, Abklingen und Beat-Versatz für Vorschau und Export.**
 - **2026-10-01 — Anna ergänzt konfigurierbares Glitch an erster Stelle, gefolgt von Rhythmuswellen und Disco-Strahlen. Vorschau und Export nutzen denselben deterministischen RGB-Versatz, horizontale Bildrisse und Rauschen.**
 - **2026-10-01 — Anna Smart bietet ausschließlich die Video-Wasserzeichenentfernung aus main: mehrere Bereiche, Zeitfenster, Bewegungs-Keyframes, Ergebnisvergleich und reversible Anwendung.**

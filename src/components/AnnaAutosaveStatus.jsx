@@ -1,3 +1,4 @@
+import { getAnnaBackupCopy } from "../i18nAnnaBackup.js";
 import {
   ArrowClockwise,
   ArrowCounterClockwise,
@@ -34,7 +35,9 @@ export function AnnaAutosaveStatus({ session, language }) {
   const { state } = session;
   const status = Object.hasOwn(STATUS_ICONS, state.status) ? state.status : "waiting";
   const copy = getAnnaSessionCopy(language);
+  const backupCopy = getAnnaBackupCopy(language);
   const storage = state.storage === "cloud" ? "cloud" : "local";
+  const backupStatus = state.backup === "saved" && !["saved", "idle"].includes(status) ? null : state.backup;
   const statusCopy = storage === "cloud" ? copy.cloud : copy;
   const StatusIcon = STATUS_ICONS[status];
   const action = state.action || "";
@@ -46,7 +49,8 @@ export function AnnaAutosaveStatus({ session, language }) {
     : "";
   const label = (state.errorCode === "busy" || (status === "conflict" && session.blockedReason === "busy")) ? copy.operationBusy : errorReason || statusCopy[status];
   const migrationWarning = state.migrationErrorCode ? copy.cloud.migrationWarning : "";
-  const description = `${statusCopy[status]}${time ? ` · ${time}` : ""}${errorReason ? `\n${errorReason}` : ""}\n${statusCopy.scope}${migrationWarning ? `\n${migrationWarning}` : ""}`;
+  const scopeCopy = state.backup ? backupCopy.hint : statusCopy.scope;
+  const description = `${statusCopy[status]}${time ? ` · ${time}` : ""}${errorReason ? `\n${errorReason}` : ""}\n${scopeCopy}${migrationWarning ? `\n${migrationWarning}` : ""}`;
 
   return (
     <div
@@ -69,7 +73,12 @@ export function AnnaAutosaveStatus({ session, language }) {
         <span className="anna-session-status__label">{label}</span>
         {time ? <time className="anna-session-status__time" dateTime={state.savedAt}>{time}</time> : null}
       </span>
-      <span className="anna-session-status__scope">{statusCopy.scope}</span>
+      {backupStatus ? <span className="anna-session-status__backup" title={backupCopy[backupStatus]}>
+        {state.backup === "syncing" ? <CircleNotch className="anna-session-status__icon is-spinning" size={13} aria-hidden="true" /> : null}
+        {backupCopy[backupStatus]}
+        {state.backup === "error" ? <button type="button" className="anna-session-status__action" onClick={session.retryBackup}>{backupCopy.retry}</button> : null}
+      </span> : null}
+      <span className="anna-session-status__scope">{scopeCopy}</span>
       {migrationWarning ? (
         <span className="anna-session-status__migration" style={{ flexBasis: "100%" }} role="note">
           {migrationWarning}

@@ -19,6 +19,7 @@ Người dùng tự chịu mọi trách nhiệm pháp lý phát sinh từ việc
 
 ## Cập nhật dự án
 
+- **2026-10-01 — Anna lưu dự án và phương tiện cục bộ trước, rồi sao lưu đám mây trong nền. Chuyển dự án không chờ tải lên và hiển thị riêng trạng thái lưu và sao lưu.**
 - **2026-10-01 — Anna thêm Rung theo nhịp ở vị trí thứ ba, với BPM thủ công, hướng, cường độ, suy giảm và độ lệch nhịp dùng chung khi xem trước và xuất.**
 - **2026-10-01 — Anna thêm Glitch có thể điều chỉnh ở đầu, tiếp theo là gợn sóng nhịp điệu và tia Disco. Xem trước và xuất dùng chung tách RGB, xé ngang và nhiễu xác định theo thời gian.**
 - **2026-10-01 — Smart trên Anna chỉ hiển thị xóa hình mờ video, chuyển từ main với nhiều vùng, khoảng thời gian, khung hình chính cho vùng di chuyển, so sánh và khôi phục bản gốc.**

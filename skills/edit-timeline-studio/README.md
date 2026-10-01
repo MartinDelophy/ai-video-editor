@@ -17,6 +17,7 @@ Users are solely responsible for any legal liability arising from violations of 
 
 ## Project updates
 
+- **2026-10-01 — Anna now saves projects and media locally first, with a durable background cloud backup queue, local project switching and separate save/backup status.**
 - **2026-10-01 — Anna Effects adds Beat shake in third position, with manual BPM, direction, strength, decay and beat offset shared by preview and export.**
 - **2026-10-01 — Anna Effects adds configurable Glitch animation first, followed by Rhythm click ripple and Disco beams. Preview and export share deterministic RGB splitting, horizontal tearing and signal noise.**
 - **2026-10-01 — Anna Smart now exposes only AI video watermark removal, ported from main with multiple regions, time ranges, moving-region keyframes, result comparison and reversible application.**

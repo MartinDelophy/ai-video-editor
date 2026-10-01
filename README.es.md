@@ -19,6 +19,7 @@ El usuario será el único responsable de cualquier consecuencia legal derivada 
 
 ## Novedades del proyecto
 
+- **2026-10-01 — Anna guarda primero proyectos y medios localmente, con copia en la nube en segundo plano. Cambiar de proyecto no espera a la subida y los estados de guardado y copia se muestran por separado.**
 - **2026-10-01 — Anna añade Sacudida rítmica en tercer lugar, con BPM manual, dirección, intensidad, caída y desfase compartidos por vista previa y exportación.**
 - **2026-10-01 — Anna añade Glitch configurable en primer lugar, seguido de ondas rítmicas y haces Disco. Vista previa y exportación comparten separación RGB, distorsión horizontal y ruido deterministas.**
 - **2026-10-01 — Smart de Anna muestra solo la eliminación de marcas de agua de vídeo: varias zonas, intervalos, fotogramas clave de movimiento, comparación y aplicación reversible desde main.**

@@ -1,3 +1,4 @@
+import { getAnnaBackupCopy } from "../i18nAnnaBackup.js";
 import { readAnnaFile } from "../lib/annaRuntime.js";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -11,7 +12,7 @@ function ProjectCover({ preview }) {
   useEffect(() => {
     let alive = true, objectUrl = "";
     setUrl("");
-    if (preview) readAnnaFile({ path: preview.path, expectedFile: preview }).then(blob => {
+    if (preview) (preview instanceof Blob ? Promise.resolve(preview) : readAnnaFile({ path: preview.path, expectedFile: preview })).then(blob => {
       if (!alive || blob.size > 32768) return;
       objectUrl = URL.createObjectURL(new Blob([blob], { type: "image/jpeg" }));
       setUrl(objectUrl);
@@ -79,7 +80,7 @@ export function AnnaProjects({ session, language, initialMode = "list", onClose 
   return createPortal(
     <dialog ref={dialog} className="anna-projects" onCancel={(event) => { event.preventDefault(); if (!busy) onClose(); }} aria-labelledby="anna-projects-title">
       <header><h2 id="anna-projects-title">{mode === "new" ? copy.new : mode === "rename" ? copy.rename : copy.title}</h2><button type="button" aria-label={copy.cancel} disabled={busy} onClick={onClose}><X size={20} /></button></header>
-      <p>{deleting ? copy.deleteHint : recovery ? copy.restoreHint : copy.hint}</p>
+      <p>{deleting ? copy.deleteHint : recovery ? copy.restoreHint : session.state.storage === "local" ? getAnnaBackupCopy(language).hint : copy.hint}</p>
       {error || sessionError ? <div role="alert" className="anna-projects-error"><p>{statusCopy.errorReasons?.[session.state.errorCode] || copy.error}</p><button disabled={busy || backgroundBusy} onClick={retry}>{sessionCopy.retry}</button></div> : null}
       {busy || backgroundBusy ? <div className="anna-projects-loading" role="status" aria-live="polite"><div className="anna-projects-loading-header">{spinner}<span>{transfer ? statusCopy.restoring : loadingLabel}{percent !== null ? ` · ${percent}% · ${(transfer.loaded / 1048576).toFixed(1)} / ${(transfer.total / 1048576).toFixed(1)} MB` : ""}</span>{session.state.canCancelProject ? <button onClick={() => session.cancelProject()}>{copy.cancel}</button> : null}</div><span className="anna-projects-loading-track" aria-hidden="true"><i style={percent !== null ? { width: `${percent}%`, animation: "none", transform: "none" } : undefined} /></span></div> : null}
       {deleting ? <section><strong>{deleting.name || copy.untitled}</strong><footer><button disabled={busy} onClick={() => setDeleting(null)}>{copy.cancel}</button><button className="danger" disabled={disabled} onClick={() => run({ id: deleting.id, remove: true })}>{busy ? spinner : <Trash size={16} />}{busy ? copy.loading : copy.delete}</button></footer></section> : mode !== "list" ? <form onSubmit={(event) => { event.preventDefault(); run({ create: mode === "new", rename: mode === "rename", id: session.state.projectId, name: name.trim() }); }}>

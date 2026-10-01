@@ -6,7 +6,7 @@ import { createAnnaSessionPersistence } from "../lib/annaSessionPersistence.js";
  * Startup never writes until the previous record has been read or restored.
  */
 export function useAnnaSession({ enabled, fingerprint, hasContent, capture, restoreProject, getIntent, externalBusy, isExternallyBusy, newProject }) {
-  const [state, setState] = useState({ status: "waiting", savedAt: "", errorCode: "", storage: "cloud", migrationErrorCode: "" });
+  const [state, setState] = useState({ status: "waiting", savedAt: "", errorCode: "", storage: "local", migrationErrorCode: "", backup: "pending" });
   const [tick, setTick] = useState(0);
   const latest = useRef(null);
   latest.current = { enabled, fingerprint, hasContent, capture, restoreProject, getIntent, externalBusy, isExternallyBusy, newProject };
@@ -167,6 +167,11 @@ export function useAnnaSession({ enabled, fingerprint, hasContent, capture, rest
     }
   }, [active, publish]);
   flushRef.current = flush;
+
+  useEffect(() => {
+    if (!enabled) return undefined;
+    return control.current.store.subscribe((backup) => setState(previous => ({ ...previous, backup })));
+  }, [enabled]);
 
   useEffect(() => {
     const c = control.current;
@@ -361,9 +366,10 @@ export function useAnnaSession({ enabled, fingerprint, hasContent, capture, rest
     && control.current.savedFingerprint !== fingerprint
     && (hasContent || control.current.revision > 0 || control.current.baseline !== fingerprint || getIntent() > 0);
   const visibleState = dirty && (state.status === "saved" || state.status === "idle")
-    ? { ...state, status: "saving" } : state;
+    ? { ...state, status: "saving", backup: state.backup === "saved" ? "pending" : state.backup } : state;
   return { state: visibleState,
     manageProject,
+    retryBackup: () => control.current.store.retryBackup(),
     cancelProject: () => control.current.projectReadController?.abort(),
     listProjects: () => control.current.store.listProjects(),
     canManage: enabled && control.current.ready && !control.current.paused && !control.current.saving && !control.current.loading && !externalBusy,

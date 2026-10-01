@@ -13,3 +13,5 @@ Validation:
 - Temporary fixtures and test media are outside the repository.
 
 Production Anna container rendering remains a user acceptance check; local editor cloud warnings are expected because this local page is outside the Anna host.
+
+Anna build and strict validation passed. Uploaded working draft r39, ready, hash `94df623119dec2cf3276b223817b359b7259bdb25371624f7f5209e785bc2020`, 173 files / 212,057,142 bytes. Developer console confirmed: “Installed working draft (0.0.0-draft) — now available in chat”. No version cut or review submission. Code commit: `321dbbc`.

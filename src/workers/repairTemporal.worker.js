@@ -74,6 +74,40 @@ async function compare(data) {
     // ambiguous flat backgrounds. Never propagate a previous generated result.
     if (inliers / points.length < 0.85 || sectors.filter((count) => count >= 8).length < 3
       || median(errors) > 6 || Math.hypot(dx, dy) < 0.5) return null;
+    // Validate motion locally around each hole edge as well as globally. A
+    // background majority must not vote away a moving shoulder/hair boundary.
+    const safe = new Uint32Array((w + 1) * (h + 1));
+    const unsafe = new Uint32Array((w + 1) * (h + 1));
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      let good = 0, bad = 0;
+      if (x >= 2 && y >= 2 && x < w - 2 && y < h - 2
+        && !inside(x / sx, y / sy, targetMasks, 12 / scale)) {
+        const i = y * w + x;
+        const texture = Math.abs(a.data[i + 1] - a.data[i - 1]) + Math.abs(a.data[i + w] - a.data[i - w]);
+        if (texture >= 8) {
+          const rx = Math.round(x + dx), ry = Math.round(y + dy);
+          if (rx >= 2 && ry >= 2 && rx < w - 2 && ry < h - 2
+            && !inside(rx / sx, ry / sy, referenceMasks, 12 / scale)) {
+            const j = ry * w + rx;
+            const flowError = Math.hypot(forward.data32F[i * 2] - dx, forward.data32F[i * 2 + 1] - dy);
+            const reverseError = Math.hypot(backward.data32F[j * 2] + dx, backward.data32F[j * 2 + 1] + dy);
+            let colorError = 0;
+            for (let c = 0; c < 3; c++) colorError += Math.abs(targetFrame.rgba.data[i * 4 + c] - referenceFrame.rgba.data[j * 4 + c]);
+            if (flowError < 0.5 && reverseError < 0.7 && colorError / 3 < 10) good = 1;
+            else bad = 1;
+          } // Masked donor context is unknown, not evidence of a motion conflict.
+        }
+      }
+      const j = (y + 1) * (w + 1) + x + 1;
+      safe[j] = good + safe[j - 1] + safe[j - w - 1] - safe[j - w - 2];
+      unsafe[j] = bad + unsafe[j - 1] + unsafe[j - w - 1] - unsafe[j - w - 2];
+    }
+    const support = (integral, x, y) => {
+      const x1 = Math.max(0, x - 20), y1 = Math.max(0, y - 20);
+      const x2 = Math.min(w, x + 21), y2 = Math.min(h, y + 21);
+      return integral[y2 * (w + 1) + x2] - integral[y1 * (w + 1) + x2]
+        - integral[y2 * (w + 1) + x1] + integral[y1 * (w + 1) + x1];
+    };
     const full = new OffscreenCanvas(width, height);
     const fullContext = full.getContext("2d", { willReadFrequently: true });
     fullContext.drawImage(reference, 0, 0);
@@ -82,6 +116,9 @@ async function compare(data) {
     const coverage = new Uint8Array(box.width * box.height);
     let count = 0;
     for (let y = 0; y < box.height; y++) for (let x = 0; x < box.width; x++) {
+      const ax = Math.round((box.x + x) * sx), ay = Math.round((box.y + y) * sy);
+      const localSupport = support(safe, ax, ay), localConflicts = support(unsafe, ax, ay);
+      if (localSupport < 12 || localConflicts > Math.max(2, localSupport * 0.08)) continue;
       const rx = box.x + x + dx / sx, ry = box.y + y + dy / sy;
       const ix = Math.floor(rx), iy = Math.floor(ry);
       if (ix < 0 || iy < 0 || ix + 1 >= width || iy + 1 >= height || inside(rx, ry, referenceMasks, 4 / scale)) continue;

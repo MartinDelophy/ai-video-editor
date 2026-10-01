@@ -139,15 +139,15 @@ function findMaskBounds(mask, width, height) {
 }
 
 function getInferenceCrop(bounds, width, height) {
-  let cropWidth = Math.min(width, Math.max(512, bounds.width + 192));
-  let cropHeight = Math.min(height, Math.max(512, bounds.height + 192));
-  cropWidth = Math.min(width, Math.ceil(cropWidth / 256) * 256);
-  cropHeight = Math.min(height, Math.ceil(cropHeight / 256) * 256);
+  // Small marks retain more pixels in the 256px model input. Keep a square
+  // context where possible instead of stretching a wide crop into a square.
+  const size = Math.max(256, Math.max(bounds.width, bounds.height) * 2, Math.max(bounds.width, bounds.height) + 96);
+  const cropWidth = Math.min(width, Math.ceil(size));
+  const cropHeight = Math.min(height, Math.ceil(size));
   return {
     x: clamp(Math.round(bounds.x + bounds.width / 2 - cropWidth / 2), 0, width - cropWidth),
     y: clamp(Math.round(bounds.y + bounds.height / 2 - cropHeight / 2), 0, height - cropHeight),
-    width: cropWidth,
-    height: cropHeight,
+    width: cropWidth, height: cropHeight,
   };
 }
 
@@ -182,15 +182,21 @@ async function inpaint({ requestId, rgbaBuffer, maskBuffer, width, height, model
   });
   const data = output[runtime.session.outputNames[0]].data;
   const result = new Uint8ClampedArray(plane * 4);
-  for (let y = 0; y < crop.height; y += 1) {
-    const my = Math.min(MODEL_SIZE - 1, Math.floor((y + 0.5) * MODEL_SIZE / crop.height));
-    for (let x = 0; x < crop.width; x += 1) {
-      const mx = Math.min(MODEL_SIZE - 1, Math.floor((x + 0.5) * MODEL_SIZE / crop.width));
-      const modelIndex = my * MODEL_SIZE + mx;
+  for (let y = 0; y < crop.height; y++) {
+    const fy = clamp((y + 0.5) * MODEL_SIZE / crop.height - 0.5, 0, MODEL_SIZE - 1);
+    const y0 = Math.floor(fy), y1 = Math.min(MODEL_SIZE - 1, y0 + 1), wy = fy - y0;
+    for (let x = 0; x < crop.width; x++) {
+      const fx = clamp((x + 0.5) * MODEL_SIZE / crop.width - 0.5, 0, MODEL_SIZE - 1);
+      const x0 = Math.floor(fx), x1 = Math.min(MODEL_SIZE - 1, x0 + 1), wx = fx - x0;
       const targetIndex = (y * crop.width + x) * 4;
-      result[targetIndex] = (data[modelIndex] * 0.5 + 0.5) * 255;
-      result[targetIndex + 1] = (data[modelPlane + modelIndex] * 0.5 + 0.5) * 255;
-      result[targetIndex + 2] = (data[modelPlane * 2 + modelIndex] * 0.5 + 0.5) * 255;
+      for (let c = 0; c < 3; c++) {
+        const offset = c * modelPlane;
+        const value = data[offset + y0 * MODEL_SIZE + x0] * (1 - wx) * (1 - wy)
+          + data[offset + y0 * MODEL_SIZE + x1] * wx * (1 - wy)
+          + data[offset + y1 * MODEL_SIZE + x0] * (1 - wx) * wy
+          + data[offset + y1 * MODEL_SIZE + x1] * wx * wy;
+        result[targetIndex + c] = (value * 0.5 + 0.5) * 255;
+      }
       result[targetIndex + 3] = 255;
     }
   }

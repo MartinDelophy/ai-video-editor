@@ -1,3 +1,4 @@
+import { openRepairFrameSource, selectRepairFrames } from "./repairFrameSource.js";
 import { createTemporalRepair } from "./repairTemporal.js";
 import { encodeRepairedVideoRanges } from "./media.js";
 import { repairMiganFrame } from "./miganRepair.js";
@@ -75,7 +76,6 @@ export async function repairMiganClip({
   selection,
   regions = null,
   videoElement = null,
-  frameRate = 25,
   rangeIn = 0,
   rangeOut = null,
   signal,
@@ -95,76 +95,79 @@ export async function repairMiganClip({
     Number(segment.sourceDuration) || Number(segment.duration) || Number(video.duration) || 0.001,
   ));
   const playbackRate = Math.max(0.25, Number(segment.playbackRate) || 1);
-  const safeRate = Math.max(1, Math.min(30, Math.round(frameRate || 25)));
-  const totalFrames = Math.max(1, Math.ceil(sourceDuration * safeRate));
   const applyStart = Math.max(0, Number(rangeIn) || 0) * playbackRate;
   const applyEnd = Math.min(sourceDuration, Number.isFinite(rangeOut) ? rangeOut * playbackRate : sourceDuration);
   const repairRegions = Array.isArray(regions) && regions.length
     ? regions
     : [{ start: applyStart / playbackRate, end: applyEnd / playbackRate, selection }];
 
-  // Work only on the union of selected source-time intervals. Keep the normal
-  // source video for every other frame; do not seek or serialize untouched frames.
-  const frameIndices = [];
-  for (let index = 0; index < totalFrames; index += 1) {
-    const time = index / safeRate / playbackRate;
-    if (repairRegions.some((region) => time >= region.start && time < region.end)) frameIndices.push(index);
-  }
-  if (!frameIndices.length) {
-    if (!reusable) { video.removeAttribute("src"); video.load(); }
-    throw new Error("No video frames inside the selected repair ranges");
-  }
   let backend = "";
   let temporalFrames = 0;
   const repairedFrames = [];
+  const textHints = new Map();
   let referenceVideo;
   let temporal;
+  let frameSource;
+  let referenceFrames;
   try {
-    // Keep reference decoding separate from both preview playback and the
-    // current pass, which may itself be repairing a previous generated result.
-    try {
-      referenceVideo = await loadVideo(referenceSegment.src, signal);
-      const referenceStart = Math.max(0, Number(referenceSegment.sourceStart) || 0);
-      temporal = createTemporalRepair({ video: referenceVideo, seek, regions: repairRegions,
-        resolveSelection: resolveRepairSelection, sourceStart: referenceStart,
-        sourceDuration: Math.min(sourceDuration, referenceVideo.duration - referenceStart), playbackRate, signal });
-    } catch (error) {
-      if (signal?.aborted || error.name === "AbortError") throw error;
-      console.info("Temporal source unavailable; retaining model repair.", error);
-    }
     let sourceBlob = segment.blob;
     if (!(sourceBlob instanceof Blob)) {
       const response = await fetch(segment.src, { signal });
       if (!response.ok) throw new Error("Could not read the source video");
       sourceBlob = await response.blob();
     }
-    for (const [completed, index] of frameIndices.entries()) {
-      if (signal?.aborted) throw abortError();
-      const localSourceTime = index / safeRate;
-      await seek(video, sourceStart + localSourceTime, signal);
+    frameSource = await openRepairFrameSource(sourceBlob, signal);
+    const selectedFrames = selectRepairFrames(frameSource.frames, sourceStart, sourceDuration, repairRegions, playbackRate);
+    if (!selectedFrames.length) throw new Error("No video frames inside the selected repair ranges");
+    try {
+      referenceVideo = await loadVideo(referenceSegment.src, signal);
+      const referenceStart = Math.max(0, Number(referenceSegment.sourceStart) || 0);
+      if (referenceSegment.src === segment.src) referenceFrames = frameSource;
+      else {
+        const blob = referenceSegment.blob instanceof Blob ? referenceSegment.blob
+          : await (await fetch(referenceSegment.src, { signal })).blob();
+        referenceFrames = await openRepairFrameSource(blob, signal);
+      }
+      temporal = createTemporalRepair({ video: referenceVideo, seek, frameSource: referenceFrames, regions: repairRegions,
+        resolveSelection: resolveRepairSelection, sourceStart: referenceStart,
+        sourceDuration: Math.min(sourceDuration, referenceVideo.duration - referenceStart), playbackRate, signal });
+    } catch (error) {
+      if (signal?.aborted || error.name === "AbortError") throw error;
+      console.info("Temporal source unavailable; retaining model repair.", error);
+    }
+    for await (const { completed, frame, decoded } of frameSource.decodeFrames(selectedFrames)) {
+      if (signal?.aborted) { decoded?.bitmap.close(); throw abortError(); }
+      const localSourceTime = frame.time;
       const timelineTime = localSourceTime / playbackRate;
-      const activeRegions = repairRegions.filter((region) => timelineTime >= region.start && timelineTime < region.end);
-      let bitmap = await createImageBitmap(video);
+      const activeRegions = frame.activeRegions;
+      if (decoded && Math.abs(decoded.timestamp - frame.timestamp) > 0.000002) {
+        decoded.bitmap.close();
+        throw new Error("Source presentation frame mismatch");
+      }
+      // A browser decoder fallback still seeks real PTS, never a fixed FPS grid.
+      if (!decoded) await seek(video, frame.timestamp + Math.min(frame.duration / 2, 0.001), signal);
+      let bitmap = decoded?.bitmap || await createImageBitmap(video);
       let result;
       let temporalPixels = 0;
       const repairedRects = [];
       try {
         for (const [regionIndex, region] of activeRegions.entries()) {
           const selection = resolveRepairSelection(region, timelineTime);
-          const temporalGuide = await temporal?.guide(selection, localSourceTime);
           result = await repairMiganFrame({
-            bitmap, temporalGuide,
+            bitmap, textHint: textHints.get(region),
+            getTemporalGuide: () => temporal?.guide(selection, localSourceTime),
             selection,
             signal,
             onProgress: (message) => {
               backend = message.backend || backend;
               onProgress?.({
-                progress: Math.min(90, 2 + completed / frameIndices.length * 88),
+                progress: Math.min(90, 2 + completed / selectedFrames.length * 88),
                 phaseKey: message.stage === "download" ? "repairPhaseDownload" : message.stage === "compile" ? "repairPhaseCompile" : "repairPhaseFrame",
-                frameIndex: completed, totalFrames: frameIndices.length, backend,
+                frameIndex: completed, totalFrames: selectedFrames.length, backend,
               });
             },
           });
+          if (result.textMask) textHints.set(region, result.textMask);
           temporalPixels += result.temporalPixels || 0;
           repairedRects.push(result.rect);
           backend = result.backend || backend;
@@ -188,17 +191,19 @@ export async function repairMiganClip({
         patchContext.clip();
         patchContext.drawImage(repairedBitmap, 0, 0);
       } finally { repairedBitmap.close(); }
-      repairedFrames.push({ blob: await patchCanvas.convertToBlob({ type: "image/png" }), index });
-      await onFrame?.({ blob: result.blob, index: completed, totalFrames: frameIndices.length, time: timelineTime, repaired: true });
+      repairedFrames.push({ blob: await patchCanvas.convertToBlob({ type: "image/png" }), time: frame.time, duration: frame.duration });
+      await onFrame?.({ blob: result.blob, index: completed, totalFrames: selectedFrames.length, time: timelineTime, repaired: true });
       onProgress?.({
-        progress: Math.min(90, 2 + (completed + 1) / frameIndices.length * 88),
+        progress: Math.min(90, 2 + (completed + 1) / selectedFrames.length * 88),
         phaseKey: "repairPhaseFrame", frameIndex: completed + 1,
-        totalFrames: frameIndices.length, backend,
+        totalFrames: selectedFrames.length, backend,
       });
     }
     const blob = await encodeRepairedVideoRanges({
-      frames: repairedFrames, frameRate: safeRate, sourceBlob,
-      sourceStart, sourceDuration, signal,
+      frames: repairedFrames, sourceBlob,
+      sourceStart, sourceDuration,
+      sourceDecodeStart: Math.max(0, Math.min(sourceStart, frameSource.frames.find((frame) => frame.timestamp + frame.duration > sourceStart)?.timestamp ?? sourceStart)),
+      signal,
       onProgress: (progress) => onProgress?.({
         ...progress,
         phaseKey: progress.phaseKey === "remasterPhaseEncodeVideo"
@@ -206,9 +211,11 @@ export async function repairMiganClip({
           : REPAIR_ENCODING_PHASES[progress.phaseKey] || progress.phaseKey,
       }),
     });
-    return { blob, width: video.videoWidth, height: video.videoHeight, sourceDuration, frameRate: safeRate, totalFrames, backend, temporalFrames };
+    return { blob, width: video.videoWidth, height: video.videoHeight, sourceDuration, frameRate: frameSource.frames.length / frameSource.duration, totalFrames: selectedFrames.length, backend, temporalFrames };
   } finally {
     temporal?.dispose();
+    if (referenceFrames !== frameSource) referenceFrames?.dispose();
+    frameSource?.dispose();
     if (referenceVideo) { referenceVideo.pause(); referenceVideo.removeAttribute("src"); referenceVideo.load(); }
     video.pause();
     if (reusable) video.currentTime = Math.min(restoreTime, Math.max(0, video.duration - 0.001));

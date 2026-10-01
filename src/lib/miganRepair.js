@@ -1,3 +1,6 @@
+import { blendRepairPoisson } from "./repairPoisson.js";
+import { repairTextMask, fuseRepairText } from "./repairTextMask.js";
+import { blendRepairBoundary, repairColorOffset } from "./repairBlend.js";
 import { blendTemporalGuide } from "./repairTemporal.js";
 import { getModelSourcePreference } from "./modelSources.js";
 
@@ -32,12 +35,15 @@ function getWorker() {
 
 function makeMask(width, height, selection) {
   const mask = new Uint8Array(width * height);
-  const x1 = Math.max(0, Math.floor(selection.x * width));
-  const y1 = Math.max(0, Math.floor(selection.y * height));
-  const x2 = Math.min(width, Math.ceil((selection.x + selection.width) * width));
-  const y2 = Math.min(height, Math.ceil((selection.y + selection.height) * height));
-  for (let y = y1; y < y2; y += 1) mask.fill(255, y * width + x1, y * width + x2);
-  return { mask, rect: { x: x1, y: y1, width: x2 - x1, height: y2 - y1 } };
+  const x1 = Math.max(0, Math.floor(selection.x * width + 1e-7));
+  const y1 = Math.max(0, Math.floor(selection.y * height + 1e-7));
+  const x2 = Math.min(width, Math.ceil((selection.x + selection.width) * width - 1e-7));
+  const y2 = Math.min(height, Math.ceil((selection.y + selection.height) * height - 1e-7));
+  const padding = Math.max(2, Math.min(6, Math.round(Math.min(x2 - x1, y2 - y1) * 0.03)));
+  for (let y = Math.max(0, y1 - padding); y < Math.min(height, y2 + padding); y += 1) {
+    mask.fill(255, y * width + Math.max(0, x1 - padding), y * width + Math.min(width, x2 + padding));
+  }
+  return { mask, padding, rect: { x: x1, y: y1, width: x2 - x1, height: y2 - y1 } };
 }
 
 function canvasToBlob(canvas) {
@@ -47,7 +53,7 @@ function canvasToBlob(canvas) {
   ));
 }
 
-export async function repairMiganFrame({ bitmap, selection, signal, onProgress, temporalGuide = null }) {
+export async function repairMiganFrame({ bitmap, selection, signal, onProgress, temporalGuide = null, getTemporalGuide, textHint = null }) {
   if (!bitmap?.width || !bitmap?.height) throw new Error("No frame is available");
   if (!selection || selection.width < 0.005 || selection.height < 0.005) throw new Error("Select a watermark region first");
   const canvas = document.createElement("canvas");
@@ -57,13 +63,28 @@ export async function repairMiganFrame({ bitmap, selection, signal, onProgress, 
   context.drawImage(bitmap, 0, 0);
   bitmap.close?.();
   const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-  const { mask, rect } = makeMask(canvas.width, canvas.height, selection);
+  const { mask, rect, padding } = makeMask(canvas.width, canvas.height, selection);
   const originalPixels = new Uint8ClampedArray(imageData.data);
+  const hint = textHint?.width === rect.width && textHint?.height === rect.height ? textHint.data : null;
+  const textMask = repairTextMask(originalPixels, canvas.width, rect, hint);
+  if (textMask) {
+    mask.fill(0);
+    for (let y = 0; y < rect.height; y++) for (let x = 0; x < rect.width; x++) {
+      if (textMask[y * rect.width + x]) mask[(rect.y + y) * canvas.width + rect.x + x] = 255;
+    }
+  }
   const originalRegion = new Uint8ClampedArray(rect.width * rect.height * 4);
   for (let y = 0; y < rect.height; y += 1) {
     const sourceStart = ((rect.y + y) * canvas.width + rect.x) * 4;
     originalRegion.set(originalPixels.subarray(sourceStart, sourceStart + rect.width * 4), y * rect.width * 4);
   }
+  if (textMask && !textMask.some(Boolean)) {
+    return { blob: await canvasToBlob(canvas), rect, width: canvas.width, height: canvas.height,
+      backend: "", inferenceMs: 0, temporalPixels: 0, maskKind: "text", textMask: textHint };
+  }
+  // For a confidently isolated text line the untouched original is the nearest
+  // reliable context. Reserve expensive far-frame matching for broader holes.
+  if (!textMask && getTemporalGuide) temporalGuide = await getTemporalGuide();
   const requestId = `migan-${crypto.randomUUID?.() ?? Date.now()}`;
   const result = await new Promise((resolve, reject) => {
     const activeWorker = getWorker();
@@ -105,29 +126,20 @@ export async function repairMiganFrame({ bitmap, selection, signal, onProgress, 
     }
   }
   const repairedRegion = new Uint8ClampedArray(rect.width * rect.height * 4);
-  const feather = Math.max(6, Math.min(36, Math.round(Math.min(rect.width, rect.height) * 0.12)));
-  for (let y = 0; y < rect.height; y += 1) {
-    const sourceStart = ((rect.y - result.crop.y + y) * result.crop.width + (rect.x - result.crop.x)) * 4;
-    const targetStart = y * rect.width * 4;
-    repairedRegion.set(cropData.data.subarray(sourceStart, sourceStart + rect.width * 4), targetStart);
-    for (let x = 0; x < rect.width; x += 1) {
-      const edgeDistance = Math.min(
-        rect.x > 0 ? x : feather,
-        rect.y > 0 ? y : feather,
-        rect.x + rect.width < canvas.width ? rect.width - 1 - x : feather,
-        rect.y + rect.height < canvas.height ? rect.height - 1 - y : feather,
-      );
-      const linear = Math.max(0, Math.min(1, edgeDistance / feather));
-      const alpha = linear * linear * (3 - 2 * linear);
-      const pixelIndex = targetStart + x * 4;
-      const originalIndex = (y * rect.width + x) * 4;
-      repairedRegion[pixelIndex] = originalRegion[originalIndex] * (1 - alpha) + repairedRegion[pixelIndex] * alpha;
-      repairedRegion[pixelIndex + 1] = originalRegion[originalIndex + 1] * (1 - alpha) + repairedRegion[pixelIndex + 1] * alpha;
-      repairedRegion[pixelIndex + 2] = originalRegion[originalIndex + 2] * (1 - alpha) + repairedRegion[pixelIndex + 2] * alpha;
-      repairedRegion[pixelIndex + 3] = 255;
-    }
+  const colorOffset = repairColorOffset(originalPixels, cropData.data, canvas.width, canvas.height, result.crop, rect, padding);
+  for (let y = 0; y < rect.height; y++) for (let x = 0; x < rect.width; x++) {
+    const i = (y * rect.width + x) * 4;
+    const j = ((rect.y - result.crop.y + y) * result.crop.width + rect.x - result.crop.x + x) * 4;
+    for (let c = 0; c < 3; c++) repairedRegion[i + c] = cropData.data[j + c] + colorOffset[c];
+    repairedRegion[i + 3] = 255;
   }
   const temporalPixels = blendTemporalGuide(repairedRegion, temporalGuide, rect.width, rect.height);
+  if (!textMask) await blendRepairPoisson({ original: originalPixels, repaired: repairedRegion,
+    model: cropData.data, modelOffset: colorOffset, crop: result.crop, rect, width: canvas.width, height: canvas.height, signal });
+  // Poisson correction is bounded and cannot guarantee a matching perimeter.
+  // Always anchor the final edge while leaving the repaired core untouched.
+  blendRepairBoundary(originalRegion, repairedRegion, rect, canvas.width, canvas.height);
+  if (textMask) await fuseRepairText(originalRegion, repairedRegion, textMask, rect.width, rect.height, signal);
   const outputPixels = originalPixels;
   for (let y = 0; y < rect.height; y += 1) {
     const targetStart = ((rect.y + y) * canvas.width + rect.x) * 4;
@@ -153,6 +165,8 @@ export async function repairMiganFrame({ bitmap, selection, signal, onProgress, 
     backend: result.backend,
     inferenceMs: result.inferenceMs,
     temporalPixels,
+    maskKind: textMask ? "text" : "region",
+    textMask: textMask ? { data: hint || textMask, width: rect.width, height: rect.height } : null,
     changedRatio: changedPixels / Math.max(1, rect.width * rect.height),
     meanDelta: totalDelta / Math.max(1, rect.width * rect.height * 3),
     composedChangedRatio: composedChangedPixels / Math.max(1, rect.width * rect.height),

@@ -11,7 +11,7 @@ self.onmessage = async ({ data }) => {
   try {
     if (typeof VideoEncoder === "undefined" || typeof VideoDecoder === "undefined") throw new Error("WebCodecs unavailable");
     registerAacEncoder();
-    const { frames, frameRate, sourceBlob, sourceStart, sourceDuration } = data;
+    const { frames, sourceBlob, sourceStart, sourceDuration } = data;
     input = new Input({ source: new BlobSource(sourceBlob), formats: ALL_FORMATS });
     const track = await input.getPrimaryVideoTrack();
     if (!track) throw new Error("Source video track unavailable");
@@ -24,7 +24,7 @@ self.onmessage = async ({ data }) => {
     const output = new Output({ format: new Mp4OutputFormat({ fastStart: "in-memory" }), target });
     const canvas = new OffscreenCanvas(width, height);
     const context = canvas.getContext("2d", { alpha: false, colorSpace: "srgb" });
-    const patches = new Map(frames.map((frame) => [frame.index, frame.blob]));
+    const patches = new Map(frames.map((frame) => [Math.round(frame.time * 1e6), frame.blob]));
     let bitmapIndex = -1;
     conversion = await Conversion.init({
       input, output, tracks: "primary", showWarnings: false,
@@ -35,7 +35,7 @@ self.onmessage = async ({ data }) => {
         // Conversion presents source samples with timestamps relative to trim.start.
         // Keep native timestamps and frame rate, including variable-rate sources.
         process: async (sample) => {
-          const index = Math.floor(sample.timestamp * frameRate + 1e-6);
+          const index = Math.round(sample.timestamp * 1e6);
           const patch = patches.get(index);
           sample.draw(context, 0, 0, width, height);
           if (!patch) return canvas;

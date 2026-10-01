@@ -2219,12 +2219,12 @@ function getAbortableFfmpeg(signal) {
 // Repair only supplies selected PNG frames. FFmpeg decodes the original video
 // directly for the rest instead of a browser seek/PNG round trip for every frame.
 export async function encodeRepairedVideoRanges({
-  frames, frameRate, sourceBlob, sourceStart, sourceDuration, signal, onProgress,
+  frames, sourceBlob, sourceStart, sourceDuration, sourceDecodeStart = sourceStart, signal, onProgress,
 }) {
   if (typeof Worker !== "undefined" && typeof VideoEncoder !== "undefined") {
     try {
       onProgress?.({ progress: 91, phaseKey: "remasterPhaseLoadEncoder" });
-      const blob = await composeRepairWithWebCodecs({ frames, frameRate, sourceBlob, sourceStart, sourceDuration, signal, onProgress });
+      const blob = await composeRepairWithWebCodecs({ frames, sourceBlob, sourceStart, sourceDuration, signal, onProgress });
       onProgress?.({ progress: 99, phaseKey: "remasterPhaseCreateAsset" });
       return blob;
     } catch (error) {
@@ -2243,7 +2243,7 @@ export async function encodeRepairedVideoRanges({
     const sourceName = `${id}-source`;
     const manifestName = `${id}.ffconcat`;
     const outputName = `${id}.mp4`;
-    const plan = createRepairRangeEncoding(frames, frameRate, sourceDuration, id);
+    const plan = createRepairRangeEncoding(frames, sourceDuration, id, sourceStart - sourceDecodeStart);
     const files = [];
     let ffmpeg;
     let terminated = false;
@@ -2277,12 +2277,13 @@ export async function encodeRepairedVideoRanges({
       ffmpeg.on("progress", progress);
       onProgress?.({ progress: 92, phaseKey: "remasterPhaseEncodeVideo" });
       const code = await ffmpeg.exec([
-        "-ss", String(sourceStart), "-t", String(sourceDuration), "-i", sourceName,
+        "-ss", String(sourceDecodeStart), "-t", String(sourceDuration + sourceStart - sourceDecodeStart), "-i", sourceName,
         "-f", "concat", "-safe", "0", "-i", manifestName,
         "-filter_complex", plan.filter,
         "-map", "[repaired]", "-map", "0:a?",
         "-c:v", "libx264", "-preset", "veryfast", "-crf", "18",
-        "-pix_fmt", "yuv420p", "-vsync", "0",
+        "-pix_fmt", "yuv420p", "-vsync", "0", "-enc_time_base", "1:1000000",
+        "-af", `atrim=start=${sourceStart - sourceDecodeStart},asetpts=PTS-STARTPTS`,
         "-c:a", "aac", "-b:a", "192k",
         "-t", String(sourceDuration), "-movflags", "faststart", outputName,
       ]);

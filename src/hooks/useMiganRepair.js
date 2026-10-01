@@ -74,7 +74,10 @@ export function useMiganRepair({
     clipPreviewRef.current = null;
     setPreview(null);
     setClipPreview(null);
-  }, [selectedSegment?.id]);
+    setJob({ running: false, progress: 0, phaseKey: "", frameIndex: 0, totalFrames: 0, backend: "" });
+  // Toggling back to the original or replacing a clip must not reuse a preview
+  // generated from its previous source, even when the segment ID stays stable.
+  }, [selectedSegment?.id, selectedSegment?.src]);
 
   useEffect(() => {
     const duration = Math.max(0.1, Number(selectedSegment?.duration) || 5);
@@ -293,7 +296,7 @@ export function useMiganRepair({
           regions, original,
           processed: { src: url, blob, width, height, sourceStart: 0, sourceDuration: sourceDuration || item.sourceDuration, trackFrames: [] },
           backend, frameRate, totalFrames,
-          temporal: { method: "farneback-context-translation-v1", reference: "original", offsetSeconds: 0.24, reusedFrames: temporalFrames },
+          temporal: { method: "farneback-bidirectional-reference-v4", reference: "original", neighborOffsets: [-2, -1, 1, 2], maxGapSeconds: 0.2, referenceSearchSeconds: 3, minimumFarDonors: 2, reusedFrames: temporalFrames },
         },
       };
     }));
@@ -330,7 +333,7 @@ export function useMiganRepair({
     setJob({ running: true, mode: "clip", progress: 1, phaseKey: "repairPhasePrepare", frameIndex: 0, totalFrames: 0, backend: "", startedAt: Date.now() });
     try {
       const result = await repairMiganClip({
-        segment: source, referenceSegment, regions, videoElement: null, frameRate: 25,
+        segment: source, referenceSegment, regions, videoElement: null,
         signal: controller.signal,
         onProgress: (progress) => {
           if (progress.phaseKey === "repairPhaseLoadEncoder") clearPreview();

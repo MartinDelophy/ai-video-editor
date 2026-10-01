@@ -1419,7 +1419,14 @@ export function ToolPanel(props) {
   }
 
   if (activeTool === "smart") {
-    if (import.meta.env?.VITE_ANNA_EDITION === "true") return null;
+    if (import.meta.env?.VITE_ANNA_EDITION === "true") return <div className="tool-panel smart-hub-panel">
+      <div className="smart-hub-grid" role="tablist" aria-label={t("smartTools")}>
+        <button className="is-active" type="button" role="tab" aria-selected="true" onClick={() => {
+          setSmartMode("watermark");
+          if (window.matchMedia?.(COMPACT_WORKSPACE_QUERY).matches) openMobileInspector?.();
+        }}><MagicWand size={24} weight="duotone" /><strong>{t("annaVideoWatermark")}</strong><span>{t("repairWatermarkCapabilityHint")}</span></button>
+      </div>
+    </div>;
     const aiCopy = AI_MUSIC_COPY[uiLanguage] || AI_MUSIC_COPY.en;
     return (
       <div className="tool-panel smart-hub-panel">

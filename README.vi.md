@@ -19,11 +19,11 @@ Người dùng tự chịu mọi trách nhiệm pháp lý phát sinh từ việc
 
 ## Cập nhật dự án
 
+- **2026-10-01 — Smart trên Anna chỉ hiển thị xóa hình mờ video, chuyển từ main với nhiều vùng, khoảng thời gian, khung hình chính cho vùng di chuyển, so sánh và khôi phục bản gốc.**
 - **2026-10-01 — Âm thanh trên Anna: video và clip hình trong hình hiển thị dạng sóng gốc. Kéo đường âm lượng lên xuống để chỉnh decibel; xem trước, xuất và dự án đã lưu giữ cùng mức âm lượng.**
 - **15 tháng 9, 2026 — Anna mặc định tự động lưu trên đám mây:** dự án hiện tại và phương tiện được lưu tự động vào tài khoản Anna và khôi phục bằng cùng tài khoản, không cần bật thủ công. Phương tiện không bị tải lên trùng lặp; trạng thái đã lưu chỉ xuất hiện sau xác nhận của đám mây. Lỗi lưu trữ, gồm hạn mức, và cảnh báo khôi phục cục bộ có đủ 13 ngôn ngữ. Đã bỏ liên kết X, giữ Discord và GitHub. Bản nháp r19 đã được cài; alpha.6 thay thế phiên bản gửi duyệt và đang chờ xét duyệt, chưa phát hành công khai. Anna giữ kích thước cửa sổ do người dùng tự chỉnh.
 - **2026-09-15 — Xuất âm thanh đã chỉnh sửa:** khi xuất clip âm thanh, bản xuất dùng đúng phần đã cắt và áp dụng tốc độ phát, âm lượng, hiệu ứng tăng/giảm âm cùng hiệu ứng không gian. Có thể xuất từng clip hoặc bản trộn của toàn bộ dòng thời gian sang WAV hay MP3. Tùy chọn chỉ xuất âm thanh được bổ sung bên cạnh xuất video.
 - **2026-09-14 — Sửa lỗi xuất và hỗ trợ thử lại:** các clip có nền màu đồng nhất và khung hình chính điều chỉnh độ mờ đục nay xuất đúng ngay cả khi không có mặt nạ người. Khi xuất thất bại, thông báo lỗi vẫn hiển thị và có thể thử lại với cùng cài đặt. cấu hình kết nối của Anna bổ sung CDN phân phối tệp mô hình ModelScope và giữ lại phản hồi tải xuống thành công khi việc lưu bộ nhớ đệm tùy chọn thất bại.
-- **2026-09-14 — Cải thiện hiệu năng dự án lớn:** nhập dự án giảm tải cho luồng chính. Bộ nhớ đệm tính toán làn âm thanh, cách vẽ dạng sóng nhẹ hơn và ít thao tác tua âm thanh không cần thiết giúp giảm tải khi kéo đầu phát và phát video. Toàn bộ phương tiện, thời điểm clip, công cụ chỉnh sửa, hiệu ứng và cách xuất vẫn được giữ nguyên. Quá trình nhập hiển thị tiến độ thực tế và cho phép chỉnh sửa ngay sau khi khôi phục phương tiện; hình thu nhỏ tiếp tục được hoàn thiện trong nền.
 
 Xem [Roadmap](ROADMAP.md) cho công việc dự kiến, [Releases](https://github.com/MartinDelophy/ai-video-editor/releases) cho thay đổi đã phát hành và [Issues](https://github.com/MartinDelophy/ai-video-editor/issues) cho nhiệm vụ và lỗi.
 

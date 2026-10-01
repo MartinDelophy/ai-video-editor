@@ -218,7 +218,7 @@ export function App() {
     phase: "",
   });
   const [avatarPanelOpen, setAvatarPanelOpen] = useState(false);
-  const [smartMode, setSmartMode] = useState("auto-edit");
+  const [smartMode, setSmartMode] = useState(import.meta.env?.VITE_ANNA_EDITION === "true" ? "watermark" : "auto-edit");
   const [avatarJob, setAvatarJob] = useState({ running: false, progress: 0, phase: "" });
   const lastSaved = useAutosaveTimestamp([
     script, imageSrc, visualType, imageDuration, captionPlacement, selectedVoiceId, speed,

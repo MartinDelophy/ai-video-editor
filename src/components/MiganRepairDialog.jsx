@@ -34,6 +34,7 @@ export function MiganRepairDialog({ repair, segment, t, onApplied }) {
   const [compare, setCompare] = useState(62);
   const [mode, setMode] = useState("move");
   const [isPreviewPlaying, setIsPreviewPlaying] = useState(false);
+  const [followProcessing, setFollowProcessing] = useState(true);
   const duration = Math.max(0.1, Number(segment?.duration) || 5);
   const isVideo = segment?.type === "video";
   const activeRegion = repair?.activeRegion;
@@ -54,22 +55,26 @@ export function MiganRepairDialog({ repair, segment, t, onApplied }) {
     const sourceStart = Math.max(0, Number(segment?.sourceStart) || 0);
     const playbackRate = Math.max(0.25, Number(segment?.playbackRate) || 1);
     const target = sourceStart + currentTime * playbackRate;
-    if (Number.isFinite(target) && Math.abs(video.currentTime - target) > 0.03) video.currentTime = target;
+    // Native playback owns its clock. Do not seek it on React time updates.
+    if (!video.paused) return;
+    if (Number.isFinite(target) && Math.abs(video.currentTime - target) > 0.0005) video.currentTime = target;
     video.playbackRate = playbackRate;
     if (resultVideoRef.current) {
       const resultTarget = currentTime * playbackRate;
-      if (Math.abs(resultVideoRef.current.currentTime - resultTarget) > 0.03) resultVideoRef.current.currentTime = resultTarget;
+      if (Math.abs(resultVideoRef.current.currentTime - resultTarget) > 0.0005) resultVideoRef.current.currentTime = resultTarget;
       resultVideoRef.current.playbackRate = playbackRate;
     }
   }, [currentTime, isVideo, repair?.dialogOpen, repair?.clipPreview?.url, segment?.playbackRate, segment?.sourceStart]);
 
   useEffect(() => {
     const frame = repair?.preview;
-    if (!repair?.job?.running || frame?.type !== "video-progress" || !Number.isFinite(frame.time)) return;
+    if (!followProcessing || isPreviewPlaying || !repair?.job?.running || frame?.type !== "video-progress" || !Number.isFinite(frame.time)) return;
     setCurrentTime(clamp(frame.time, 0, duration));
-  }, [duration, repair?.job?.running, repair?.preview]);
+  }, [duration, followProcessing, isPreviewPlaying, repair?.job?.running, repair?.preview]);
 
   if (!repair?.dialogOpen || !segment) return null;
+
+  const updateRegion = (id, patch) => repair.updateRegion(id, patch, currentTime);
 
   const pointFromEvent = (event) => {
     const rect = stageRef.current?.getBoundingClientRect();
@@ -88,10 +93,10 @@ export function MiganRepairDialog({ repair, segment, t, onApplied }) {
     const point = pointFromEvent(event);
     if (!point) return;
     repair.setActiveRegionId(region.id);
-    dragRef.current = { action, point, regionId: region.id, selection: { ...region.selection } };
+    dragRef.current = { action, point, regionId: region.id, selection: { ...repair.resolveSelection(region, currentTime) } };
     event.currentTarget.setPointerCapture?.(event.pointerId);
     if (action === "draw") {
-      repair.updateRegion(region.id, { selection: { x: point.x, y: point.y, width: 0.015, height: 0.015 } });
+      updateRegion(region.id, { selection: { x: point.x, y: point.y, width: 0.015, height: 0.015 } });
     }
   };
 
@@ -104,7 +109,7 @@ export function MiganRepairDialog({ repair, segment, t, onApplied }) {
     const dx = point.x - drag.point.x;
     const dy = point.y - drag.point.y;
     if (drag.action === "draw") {
-      repair.updateRegion(drag.regionId, {
+      updateRegion(drag.regionId, {
         selection: {
           x: Math.min(drag.point.x, point.x),
           y: Math.min(drag.point.y, point.y),
@@ -115,7 +120,7 @@ export function MiganRepairDialog({ repair, segment, t, onApplied }) {
       return;
     }
     if (drag.action === "resize") {
-      repair.updateRegion(drag.regionId, {
+      updateRegion(drag.regionId, {
         selection: {
           ...drag.selection,
           width: clamp(drag.selection.width + dx, 0.015, 1 - drag.selection.x),
@@ -124,7 +129,7 @@ export function MiganRepairDialog({ repair, segment, t, onApplied }) {
       });
       return;
     }
-    repair.updateRegion(drag.regionId, {
+    updateRegion(drag.regionId, {
       selection: {
         ...drag.selection,
         x: clamp(drag.selection.x + dx, 0, 1 - drag.selection.width),
@@ -137,18 +142,22 @@ export function MiganRepairDialog({ repair, segment, t, onApplied }) {
     dragRef.current = null;
   };
 
-  const previewFrame = async () => {
+  const previewFrame = async (usePrevious = true) => {
+    videoRef.current?.pause();
+    resultVideoRef.current?.pause();
     const visibleRegions = isVideo
       ? repair.regions.filter((region) => currentTime >= region.start && currentTime <= region.end)
       : repair.regions;
     await repair.runFramePreview({
-      videoElement: videoRef.current,
-      selections: visibleRegions.map((region) => region.selection),
+      videoElement: isVideo && resultVideoRef.current ? resultVideoRef.current : videoRef.current,
+      selections: visibleRegions.map((region) => repair.resolveSelection(region, currentTime)),
+      usePrevious,
     });
     setCompare(62);
   };
 
   const beginRangeDrag = (event, region, action) => {
+    if (repair.job.running) return;
     event.preventDefault();
     event.stopPropagation();
     repair.checkpoint();
@@ -161,12 +170,12 @@ export function MiganRepairDialog({ repair, segment, t, onApplied }) {
     const move = (moveEvent) => {
       const pointerTime = clamp((moveEvent.clientX - rect.left) / Math.max(1, rect.width), 0, 1) * duration;
       const delta = pointerTime - startPointerTime;
-      if (action === "start") repair.updateRegion(region.id, { start: clamp(pointerTime, 0, region.end - 0.04) });
-      else if (action === "end") repair.updateRegion(region.id, { end: clamp(pointerTime, region.start + 0.04, duration) });
+      if (action === "start") updateRegion(region.id, { start: clamp(pointerTime, 0, region.end - 0.04) });
+      else if (action === "end") updateRegion(region.id, { end: clamp(pointerTime, region.start + 0.04, duration) });
       else {
         const length = original.end - original.start;
         const nextStart = clamp(original.start + delta, 0, duration - length);
-        repair.updateRegion(region.id, { start: nextStart, end: nextStart + length });
+        updateRegion(region.id, { start: nextStart, end: nextStart + length });
       }
     };
     const stop = () => {
@@ -177,8 +186,11 @@ export function MiganRepairDialog({ repair, segment, t, onApplied }) {
     window.addEventListener("pointerup", stop, { once: true });
   };
 
-  const processRanges = async () => {
-    const processed = await repair.processVideoRepair();
+  const processRanges = async (usePrevious = true) => {
+    setFollowProcessing(true);
+    videoRef.current?.pause();
+    resultVideoRef.current?.pause();
+    const processed = await repair.processVideoRepair({ usePrevious });
     if (processed) setCompare(62);
   };
 
@@ -198,17 +210,32 @@ export function MiganRepairDialog({ repair, segment, t, onApplied }) {
       setIsPreviewPlaying(false);
       return;
     }
+    setFollowProcessing(false);
     const rate = Math.max(0.25, Number(segment?.playbackRate) || 1);
+    const sourceStart = Math.max(0, Number(segment?.sourceStart) || 0);
+    const playTime = currentTime >= duration - 0.04 ? 0 : currentTime;
+    if (playTime !== currentTime) setCurrentTime(playTime);
+    source.currentTime = sourceStart + playTime * rate;
     source.playbackRate = rate;
     if (resultVideoRef.current) {
-      resultVideoRef.current.currentTime = Math.max(0, currentTime * rate);
+      resultVideoRef.current.currentTime = Math.max(0, playTime * rate);
       resultVideoRef.current.playbackRate = rate;
     }
-    await Promise.allSettled([source.play(), resultVideoRef.current?.play()]);
-    setIsPreviewPlaying(true);
+    const [played] = await Promise.allSettled([source.play(), resultVideoRef.current?.play()]);
+    setIsPreviewPlaying(played.status === "fulfilled");
   };
 
-  const hasComparison = Boolean(isVideo ? (repair.clipPreview?.url || repair.preview?.url) : repair.preview?.url);
+  const showFramePreview = Boolean(repair.preview?.url) && (!isVideo || (!isPreviewPlaying
+    && (repair.preview.type !== "video-progress" || followProcessing)));
+  const hasComparison = Boolean(isVideo ? (repair.clipPreview?.url || showFramePreview) : showFramePreview);
+  const seekPreview = (time) => {
+    setFollowProcessing(false);
+    videoRef.current?.pause();
+    resultVideoRef.current?.pause();
+    setIsPreviewPlaying(false);
+    setCurrentTime(clamp(time, 0, duration));
+    if (!repair.job.running) repair.clearPreview();
+  };
   const showCompareControl = isVideo || hasComparison;
 
   const dialog = (
@@ -234,11 +261,11 @@ export function MiganRepairDialog({ repair, segment, t, onApplied }) {
               <button type="button" onClick={() => {
                 if (!activeRegion) return;
                 repair.checkpoint();
-                repair.updateRegion(activeRegion.id, { selection: { x: 0.79, y: 0.9, width: 0.21, height: 0.1 } });
+                updateRegion(activeRegion.id, { selection: { x: 0.79, y: 0.9, width: 0.21, height: 0.1 } });
               }}>{t("repairPresetBottomRight")}</button>
               <span className="repair-history-actions">
-                <button type="button" disabled={!repair.canUndo} aria-label={t("undo")} onClick={repair.undo}><ArrowCounterClockwise size={15} /></button>
-                <button type="button" disabled={!repair.canRedo} aria-label={t("redo")} onClick={repair.redo}><ArrowClockwise size={15} /></button>
+                <button type="button" disabled={repair.job.running || !repair.canUndo} aria-label={t("undo")} onClick={repair.undo}><ArrowCounterClockwise size={15} /></button>
+                <button type="button" disabled={repair.job.running || !repair.canRedo} aria-label={t("redo")} onClick={repair.redo}><ArrowClockwise size={15} /></button>
               </span>
               </div>
               <span>{t("repairLocalOnly")}</span>
@@ -263,28 +290,40 @@ export function MiganRepairDialog({ repair, segment, t, onApplied }) {
                   if (event.currentTarget.paused) return;
                   const sourceStart = Math.max(0, Number(segment?.sourceStart) || 0);
                   const rate = Math.max(0.25, Number(segment?.playbackRate) || 1);
-                  setCurrentTime(clamp((event.currentTarget.currentTime - sourceStart) / rate, 0, duration));
+                  const localTime = (event.currentTarget.currentTime - sourceStart) / rate;
+                  if (localTime >= duration) {
+                    event.currentTarget.pause();
+                    resultVideoRef.current?.pause();
+                  }
+                  setCurrentTime(clamp(localTime, 0, duration));
+                  const result = resultVideoRef.current;
+                  if (result && Math.abs(result.currentTime - localTime * rate) > 0.06) result.currentTime = localTime * rate;
                 }}
-                onPause={() => setIsPreviewPlaying(false)}
-                onEnded={() => setIsPreviewPlaying(false)}
+                onPause={() => { setIsPreviewPlaying(false); resultVideoRef.current?.pause(); }}
+                onEnded={() => { setIsPreviewPlaying(false); resultVideoRef.current?.pause(); }}
               /> : <img src={segment.src} alt={segment.name || ""} />}
               {hasComparison ? (
                 <div className="repair-compare-result" style={{ clipPath: `inset(0 0 0 ${compare}%)` }}>
-                  {isVideo && repair.clipPreview?.url
-                    ? <video ref={resultVideoRef} src={repair.clipPreview.url} muted playsInline preload="auto" />
+                  {isVideo && repair.clipPreview?.url && !showFramePreview
+                    ? <video ref={resultVideoRef} src={repair.clipPreview.url} muted playsInline preload="auto" onLoadedData={(event) => {
+                      event.currentTarget.currentTime = Math.max(0, (videoRef.current?.currentTime || 0) - (Number(segment.sourceStart) || 0));
+                      event.currentTarget.playbackRate = Math.max(0.25, Number(segment.playbackRate) || 1);
+                      if (videoRef.current && !videoRef.current.paused) event.currentTarget.play().catch(() => {});
+                    }} />
                     : <img src={repair.preview.url} alt={t("repairPreviewAlt")} />}
                 </div>
               ) : null}
               {repair.regions.filter((region) => !isVideo || (currentTime >= region.start && currentTime <= region.end)).map((region) => {
+                const selection = repair.resolveSelection(region, currentTime);
                 const isActive = region.id === activeRegion?.id;
                 return <div
                   className={`repair-dialog-region ${isActive ? "is-active" : "is-inactive"}`}
                   key={region.id}
                   style={{
-                    left: `${region.selection.x * 100}%`,
-                    top: `${region.selection.y * 100}%`,
-                    width: `${region.selection.width * 100}%`,
-                    height: `${region.selection.height * 100}%`,
+                    left: `${selection.x * 100}%`,
+                    top: `${selection.y * 100}%`,
+                    width: `${selection.width * 100}%`,
+                    height: `${selection.height * 100}%`,
                   }}
                   onPointerDown={(event) => beginRegionDrag(event, "move", region)}
                 >
@@ -327,17 +366,15 @@ export function MiganRepairDialog({ repair, segment, t, onApplied }) {
                 >
                   <button className="is-start" type="button" aria-label={t("repairRangeStart")} onPointerDown={(event) => beginRangeDrag(event, region, "start")} />
                   <button className="repair-range-body" type="button" onPointerDown={(event) => beginRangeDrag(event, region, "move")} onClick={() => {
-                    repair.clearPreview();
                     repair.setActiveRegionId(region.id);
-                    setCurrentTime(clamp(region.start, 0, duration));
+                    seekPreview(region.start);
                   }}>{index + 1}</button>
                   <button className="is-end" type="button" aria-label={t("repairRangeEnd")} onPointerDown={(event) => beginRangeDrag(event, region, "end")} />
                 </div>)}
                 <i className="repair-video-playhead" style={{ left: `${currentTime / duration * 100}%` }} />
               </div>
               <input aria-label={t("repairFrameTimeline")} type="range" min="0" max={duration} step="0.04" value={currentTime} onChange={(event) => {
-                setCurrentTime(Number(event.target.value));
-                repair.clearPreview();
+                seekPreview(Number(event.target.value));
               }} />
             </section> : null}
           </main>
@@ -349,22 +386,25 @@ export function MiganRepairDialog({ repair, segment, t, onApplied }) {
             </div>
             <div className="repair-region-list">
               {repair.regions.map((region, index) => <article key={region.id} className={region.id === activeRegion?.id ? "is-active" : ""} onClick={() => {
-                repair.clearPreview();
                 repair.setActiveRegionId(region.id);
               }}>
                 <div><span>{t("repairRegion")} {index + 1}</span>{repair.regions.length > 1 ? <button type="button" aria-label={t("delete")} onClick={(event) => { event.stopPropagation(); repair.removeRegion(region.id); }}><Trash size={14} /></button> : null}</div>
                 {isVideo ? <div className="repair-region-time-fields">
-                  <label>{t("repairRangeStart")}<input type="number" min="0" max={region.end} step="0.1" value={region.start.toFixed(2)} onFocus={repair.checkpoint} onChange={(event) => repair.updateRegion(region.id, { start: clamp(Number(event.target.value), 0, region.end - 0.04) })} /></label>
-                  <label>{t("repairRangeEnd")}<input type="number" min={region.start} max={duration} step="0.1" value={region.end.toFixed(2)} onFocus={repair.checkpoint} onChange={(event) => repair.updateRegion(region.id, { end: clamp(Number(event.target.value), region.start + 0.04, duration) })} /></label>
+                  <label>{t("repairRangeStart")}<input type="number" min="0" max={region.end} step="0.1" value={region.start.toFixed(2)} onFocus={repair.checkpoint} onChange={(event) => updateRegion(region.id, { start: clamp(Number(event.target.value), 0, region.end - 0.04) })} /></label>
+                  <label>{t("repairRangeEnd")}<input type="number" min={region.start} max={duration} step="0.1" value={region.end.toFixed(2)} onFocus={repair.checkpoint} onChange={(event) => updateRegion(region.id, { end: clamp(Number(event.target.value), region.start + 0.04, duration) })} /></label>
                 </div> : null}
                 <small>{Math.round(region.selection.width * 100)}% × {Math.round(region.selection.height * 100)}%</small>
-                {isVideo ? <button type="button" className="repair-keyframe-action" onClick={(event) => {
+                {isVideo ? <button type="button" className="repair-keyframe-action" disabled={repair.job.running || currentTime < region.start || currentTime > region.end} title={t("repairPositionHint")} onClick={(event) => {
                   event.stopPropagation();
-                  repair.addRegionKeyframe(region.id, currentTime, region.selection);
-                }}><Diamond size={13} weight="fill" />{t("repairAddPositionKeyframe")} · {region.keyframes?.length || 0}</button> : null}
+                  repair.addRegionKeyframe(region.id, currentTime, repair.resolveSelection(region, currentTime));
+                }}><Diamond size={13} weight="fill" />{t("repairRecordMotionPosition")} · {region.keyframes?.length || 0}</button> : null}
               </article>)}
             </div>
-            <p className="repair-dialog-hint">{isVideo ? t("repairVideoHint") : t("repairImageHint")}</p>
+            {isVideo && repair.job.running ? <p className="repair-dialog-hint" role="status">{t("repairBackgroundHint")}</p> : null}
+            {isVideo ? <p className="repair-dialog-hint">{t("repairTemporalHint")}</p> : null}
+            <p className="repair-dialog-hint">{t("repairIterationHint")}</p>
+            {repair.resultDirty && hasComparison ? <p className="repair-dialog-hint" role="status">{t("repairDraftChanged")}</p> : null}
+            <p className="repair-dialog-hint">{isVideo ? t("repairPositionHint") : t("repairImageHint")}</p>
             {repair.preview && !isVideo ? <div className="repair-change-diagnostic">
               <span>{t("repairPixelChange")}</span>
               <strong>{Math.round((repair.preview.composedChangedRatio ?? repair.preview.changedRatio ?? 0) * 100)}%</strong>
@@ -383,10 +423,10 @@ export function MiganRepairDialog({ repair, segment, t, onApplied }) {
           <div>
             {repair.job.running ? <button type="button" className="panel-secondary is-danger" disabled={repair.job.phaseKey === "repairPhaseStopping"} onClick={repair.cancel}>{repair.job.phaseKey === "repairPhaseStopping" ? t("repairStopping") : t("repairCancel")}</button> : <>
               <button type="button" className="panel-secondary" onClick={repair.closeDialog}>{t("repairCancel")}</button>
-              <button type="button" className="panel-secondary" onClick={previewFrame}>{isVideo ? t("repairTestFrame") : t("repairPreviewFrame")}</button>
+              <button type="button" className="panel-secondary" onClick={() => previewFrame()}>{isVideo ? t("repairTestFrame") : t("repairPreviewFrame")}</button>
               {isVideo ? <>
-                <button type="button" className="panel-secondary repair-process-ranges" onClick={processRanges}>{t("repairProcessRanges")}</button>
-                <button type="button" className="panel-primary" disabled={!repair.clipPreview} onClick={apply}><Check size={16} />{t("repairApplyVideo")}</button>
+                <button type="button" className="panel-secondary repair-process-ranges" onClick={() => processRanges()}>{t("repairProcessRanges")}</button>
+                <button type="button" className="panel-primary" disabled={!repair.clipPreview || repair.resultDirty} onClick={apply}><Check size={16} />{t("repairApplyVideo")}</button>
               </> : <button type="button" className="panel-primary" onClick={apply}><Check size={16} />{t("repairApplyImage")}</button>}
             </>}
           </div>

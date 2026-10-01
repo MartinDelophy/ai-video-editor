@@ -1661,7 +1661,16 @@ export function VoicePanel({
     panelRef.current?.querySelector(".voice-tab-body")?.scrollTo({ top: 0 });
   }, [activeTool, smartMode]);
 
-  if (import.meta.env?.VITE_ANNA_EDITION === "true" && isSmartContext) return null;
+  if (import.meta.env?.VITE_ANNA_EDITION === "true" && isSmartContext) return <aside className={`voice-panel ${mobileInspectorSection ? "is-focused-mobile-section" : ""}`} ref={panelRef}>
+    {mobileInspectorSection ? <header className="focused-mobile-sheet-header"><strong>{t("annaVideoWatermark")}</strong><button type="button" aria-label={t("close")} onClick={onCloseMobileInspector}><X size={20} /></button></header> : null}
+    <div className="panel-title-row"><h1>{t("annaVideoWatermark")}</h1></div>
+    <div className="voice-tab-body"><section className="visual-editor-card repair-card">
+      <p>{t("repairVideoHint")}</p>
+      <p>{selectedVisualSegment?.type === "video" ? selectedVisualSegment.name : t("annaSelectWatermarkVideo")}</p>
+      <AnnaModelGate anna={anna}><button className="panel-primary" type="button" disabled={selectedVisualSegment?.type !== "video" || miganRepair?.job?.running} onClick={miganRepair?.openDialog}>{selectedVisualSegment?.repair ? t("repairEditAgain") : t("repairOpenEditor")}</button></AnnaModelGate>
+      {selectedVisualSegment?.type === "video" && selectedVisualSegment.repair ? <label className="switch-row repair-result-toggle"><input type="checkbox" checked={selectedVisualSegment.repair.enabled !== false} onChange={(event) => updateSelectedVisualEffects?.({ repairEnabled: event.target.checked })} />{t("repairUseResult")}</label> : null}
+    </section></div>
+  </aside>;
 
   return (
     <aside ref={panelRef} className={`voice-panel ${isCaptionContext ? "is-caption-context" : ""} ${isAvatarContext ? "is-avatar-context" : ""} ${isAudioClipContext ? "is-audio-clip-context" : ""} ${isStickerContext ? "is-sticker-context" : ""} ${isVisualContext ? "is-visual-context" : ""} ${isEffectsContext ? "is-effects-context" : ""} ${isPluginsContext ? "is-plugins-context" : ""} ${isVectorOverlay ? "is-vector-overlay-context" : ""} ${mobileInspectorSection ? "is-focused-mobile-section" : ""}`}>

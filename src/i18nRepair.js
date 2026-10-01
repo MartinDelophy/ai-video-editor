@@ -246,3 +246,139 @@ export const DENOISE_HUB_HINT_COPY = {
   vi: { denoiseCapabilityHint: "Giảm nhiễu, giữ chi tiết." },
   ru: { denoiseCapabilityHint: "Шум меньше, детали целы." },
 };
+
+export const REPAIR_ITERATION_COPY = {
+  "zh": {
+    "repairIterationHint": "调整区域或时段后，再次点击修复即可在当前结果上处理。重复修复同一区域可能损失细节，建议先单帧测试。",
+    "repairDraftChanged": "区域已调整；当前显示上次结果，请重新修复后应用。",
+    "repairRecordMotionPosition": "记录移动位置",
+    "repairPositionHint": "仅移动水印需要：在不同时间移动选框并记录位置。固定水印无需记录。",
+    "repairPhaseComposeVideo": "正在合成视频（未选时段使用原片）",
+    "repairBackgroundHint": "仅处理所选时段，再单独合成视频。处理中可播放原片或上次结果；本轮完整结果将在合成完成后显示。",
+    "repairTemporalHint": "识别到白色文字时，只修复笔画附近并保留字缝细节。其他区域参考前后原始帧，仅采用可靠匹配。"
+  },
+  "en": {
+    "repairIterationHint": "Adjust the regions or time ranges, then repair again to update the current result. Repeated passes over the same area may lose detail; test a frame first.",
+    "repairDraftChanged": "Regions changed. The previous result is shown; repair again before applying.",
+    "repairRecordMotionPosition": "Record motion position",
+    "repairPositionHint": "Only for moving marks: move the box at different times and record positions. Static marks need no position records.",
+    "repairPhaseComposeVideo": "Composing video with original unselected ranges",
+    "repairBackgroundHint": "Only selected ranges are repaired, then the video is composed separately. You can play the source or previous result while processing; the new full result appears after composition.",
+    "repairTemporalHint": "Recognized white text is repaired around its strokes, preserving detail between them. Other regions use only reliable matches from surrounding original frames."
+  },
+  "ja": {
+    "repairIterationHint": "範囲や時間帯を調整し、再度修復すると現在の結果に反映されます。同じ範囲の繰り返し処理は細部を損なう場合があるため、まず1フレームで確認してください。",
+    "repairDraftChanged": "範囲を変更しました。前回の結果を表示中です。再修復してから適用してください。",
+    "repairRecordMotionPosition": "移動位置を記録",
+    "repairPositionHint": "動く透かし用です。時刻ごとに枠を動かして位置を記録します。固定の透かしには不要です。",
+    "repairPhaseComposeVideo": "未選択区間は元映像を使って動画を合成中",
+    "repairBackgroundHint": "選択区間のみ修復し、その後に動画を合成します。処理中も元映像や前回の結果を再生できます。今回の全体結果は合成後に表示されます。",
+    "repairTemporalHint": "白文字を認識した場合は字画の周辺だけを修復し、字画間の細部を保ちます。他の領域では前後の元フレームから信頼できる一致のみを使います。"
+  },
+  "ko": {
+    "repairIterationHint": "영역이나 시간 구간을 조정한 뒤 다시 복원하면 현재 결과에 반영됩니다. 같은 영역을 반복 처리하면 세부 묘사가 줄 수 있으니 먼저 한 프레임을 테스트하세요.",
+    "repairDraftChanged": "영역이 변경되었습니다. 이전 결과를 표시 중입니다. 다시 복원한 뒤 적용하세요.",
+    "repairRecordMotionPosition": "이동 위치 기록",
+    "repairPositionHint": "움직이는 워터마크에만 사용하세요. 시간별로 상자를 옮기고 위치를 기록합니다. 고정 워터마크에는 필요 없습니다.",
+    "repairPhaseComposeVideo": "선택하지 않은 구간은 원본으로 영상 합성 중",
+    "repairBackgroundHint": "선택한 구간만 복원한 뒤 영상을 별도로 합성합니다. 처리 중 원본이나 이전 결과를 재생할 수 있으며 새 전체 결과는 합성 후 표시됩니다.",
+    "repairTemporalHint": "흰색 글자가 인식되면 획 주변만 복구하고 획 사이의 디테일은 보존합니다. 다른 영역은 앞뒤 원본 프레임에서 신뢰할 수 있는 일치만 사용합니다."
+  },
+  "es": {
+    "repairIterationHint": "Ajusta las zonas o los intervalos y vuelve a reparar sobre el resultado actual. Repetir una zona puede perder detalle; prueba primero un fotograma.",
+    "repairDraftChanged": "Zonas modificadas. Se muestra el resultado anterior; repara de nuevo antes de aplicar.",
+    "repairRecordMotionPosition": "Registrar posición en movimiento",
+    "repairPositionHint": "Solo para marcas móviles: mueve el cuadro en distintos momentos y registra posiciones. Las marcas fijas no lo necesitan.",
+    "repairPhaseComposeVideo": "Componiendo con los intervalos originales no seleccionados",
+    "repairBackgroundHint": "Solo se reparan los intervalos seleccionados y después se compone el vídeo. Puedes reproducir la fuente o el resultado anterior durante el proceso; el nuevo resultado completo aparece al terminar.",
+    "repairTemporalHint": "El texto blanco reconocido se repara alrededor de sus trazos, conservando los detalles entre ellos. Otras zonas usan solo coincidencias fiables de fotogramas originales cercanos."
+  },
+  "fr": {
+    "repairIterationHint": "Ajustez les zones ou les plages, puis relancez la réparation sur le résultat actuel. Répéter une zone peut perdre des détails ; testez une image d’abord.",
+    "repairDraftChanged": "Zones modifiées. Le résultat précédent reste affiché ; relancez la réparation avant application.",
+    "repairRecordMotionPosition": "Enregistrer la position mobile",
+    "repairPositionHint": "Pour les marques mobiles uniquement : déplacez le cadre à différents instants et enregistrez les positions. Inutile pour les marques fixes.",
+    "repairPhaseComposeVideo": "Composition avec les plages originales non sélectionnées",
+    "repairBackgroundHint": "Seules les plages sélectionnées sont réparées, puis la vidéo est assemblée séparément. Pendant le traitement, vous pouvez lire la source ou le résultat précédent. Le nouveau résultat complet apparaît après assemblage.",
+    "repairTemporalHint": "Le texte blanc reconnu est réparé autour de ses traits, en préservant les détails entre eux. Les autres zones utilisent uniquement des correspondances fiables des images originales voisines."
+  },
+  "de": {
+    "repairIterationHint": "Bereiche oder Zeiträume anpassen und das aktuelle Ergebnis erneut reparieren. Wiederholte Bearbeitung kann Details verlieren; zuerst ein Einzelbild testen.",
+    "repairDraftChanged": "Bereiche geändert. Das vorige Ergebnis bleibt sichtbar; vor dem Anwenden erneut reparieren.",
+    "repairRecordMotionPosition": "Bewegungsposition speichern",
+    "repairPositionHint": "Nur für bewegte Wasserzeichen: Rahmen zu verschiedenen Zeiten verschieben und Positionen speichern. Bei festen Wasserzeichen nicht nötig.",
+    "repairPhaseComposeVideo": "Video mit unveränderten Quellabschnitten zusammenstellen",
+    "repairBackgroundHint": "Nur ausgewählte Bereiche werden repariert, danach wird das Video zusammengesetzt. Währenddessen können Sie die Quelle oder das vorige Ergebnis abspielen. Das neue Gesamtergebnis erscheint nach der Zusammenstellung.",
+    "repairTemporalHint": "Erkannte weiße Schrift wird nur um ihre Striche repariert; Details dazwischen bleiben erhalten. Andere Bereiche nutzen nur zuverlässige Treffer aus umliegenden Originalbildern."
+  },
+  "pt": {
+    "repairIterationHint": "Ajuste as áreas ou intervalos e repare novamente sobre o resultado atual. Repetir a mesma área pode perder detalhes; teste um quadro primeiro.",
+    "repairDraftChanged": "Áreas alteradas. O resultado anterior está visível; repare novamente antes de aplicar.",
+    "repairRecordMotionPosition": "Registrar posição em movimento",
+    "repairPositionHint": "Apenas para marcas móveis: mova a caixa em momentos diferentes e registre as posições. Marcas fixas não precisam disso.",
+    "repairPhaseComposeVideo": "Compondo com os trechos originais não selecionados",
+    "repairBackgroundHint": "Só os trechos selecionados são reparados; depois o vídeo é composto separadamente. Durante o processo, você pode reproduzir a origem ou o resultado anterior. O novo resultado completo aparece ao concluir.",
+    "repairTemporalHint": "O texto branco reconhecido é reparado ao redor dos traços, preservando os detalhes entre eles. Outras áreas usam apenas correspondências confiáveis de quadros originais próximos."
+  },
+  "th": {
+    "repairIterationHint": "ปรับพื้นที่หรือช่วงเวลาแล้วซ่อมอีกครั้งบนผลลัพธ์ปัจจุบัน การซ่อมพื้นที่เดิมซ้ำอาจทำให้รายละเอียดหายไป ควรทดสอบหนึ่งเฟรมก่อน",
+    "repairDraftChanged": "พื้นที่เปลี่ยนแล้ว กำลังแสดงผลลัพธ์เดิม โปรดซ่อมใหม่ก่อนนำไปใช้",
+    "repairRecordMotionPosition": "บันทึกตำแหน่งเคลื่อนที่",
+    "repairPositionHint": "สำหรับลายน้ำที่เคลื่อนที่เท่านั้น เลื่อนกรอบในเวลาต่างกันแล้วบันทึกตำแหน่ง ลายน้ำคงที่ไม่จำเป็นต้องบันทึก",
+    "repairPhaseComposeVideo": "กำลังรวมวิดีโอโดยใช้ต้นฉบับในช่วงที่ไม่ได้เลือก",
+    "repairBackgroundHint": "ซ่อมเฉพาะช่วงที่เลือกแล้วจึงรวมวิดีโอแยกต่างหาก ระหว่างประมวลผลสามารถเล่นต้นฉบับหรือผลลัพธ์ก่อนหน้าได้ ผลลัพธ์ใหม่ทั้งคลิปจะแสดงเมื่อรวมเสร็จ",
+    "repairTemporalHint": "เมื่อตรวจพบข้อความสีขาว จะซ่อมเฉพาะรอบเส้นอักษรและคงรายละเอียดระหว่างเส้นไว้ พื้นที่อื่นใช้เฉพาะส่วนที่จับคู่ได้อย่างน่าเชื่อถือจากเฟรมต้นฉบับก่อนและหลัง"
+  },
+  "vi": {
+    "repairIterationHint": "Chỉnh vùng hoặc khoảng thời gian rồi sửa lại trên kết quả hiện tại. Sửa nhiều lần cùng một vùng có thể mất chi tiết; hãy thử một khung hình trước.",
+    "repairDraftChanged": "Vùng đã thay đổi. Đang hiển thị kết quả trước; hãy sửa lại trước khi áp dụng.",
+    "repairRecordMotionPosition": "Ghi vị trí di chuyển",
+    "repairPositionHint": "Chỉ dùng cho dấu di chuyển: đổi vị trí khung ở các thời điểm rồi ghi lại. Dấu cố định không cần ghi vị trí.",
+    "repairPhaseComposeVideo": "Đang ghép video với các đoạn gốc không được chọn",
+    "repairBackgroundHint": "Chỉ sửa các khoảng đã chọn rồi ghép video riêng. Có thể phát nguồn hoặc kết quả trước trong khi xử lý; kết quả mới đầy đủ xuất hiện sau khi ghép xong.",
+    "repairTemporalHint": "Chữ trắng được nhận diện chỉ được sửa quanh nét, giữ chi tiết giữa các nét. Vùng khác chỉ dùng phần khớp đáng tin cậy từ các khung hình gốc trước và sau."
+  },
+  "ru": {
+    "repairIterationHint": "Измените области или интервалы и снова запустите исправление текущего результата. Повторная обработка одной области может терять детали; сначала проверьте один кадр.",
+    "repairDraftChanged": "Области изменены. Показан прошлый результат; повторите обработку перед применением.",
+    "repairRecordMotionPosition": "Записать позицию движения",
+    "repairPositionHint": "Только для движущихся знаков: перемещайте рамку в разные моменты и записывайте позиции. Для неподвижных знаков это не нужно.",
+    "repairPhaseComposeVideo": "Сборка видео с исходными невыбранными участками",
+    "repairBackgroundHint": "Обрабатываются только выбранные интервалы, затем видео собирается отдельно. Во время обработки можно воспроизводить исходник или прошлый результат. Новый полный результат появится после сборки.",
+    "repairTemporalHint": "Распознанный белый текст исправляется вокруг штрихов с сохранением деталей между ними. Для других областей используются только надежные совпадения соседних исходных кадров."
+  },
+  "it": {
+    "repairIterationHint": "Regola le aree o gli intervalli e ripara di nuovo il risultato attuale. Ripetere la stessa area può perdere dettagli; prova prima un fotogramma.",
+    "repairDraftChanged": "Aree modificate. È visibile il risultato precedente; ripara di nuovo prima di applicare.",
+    "repairRecordMotionPosition": "Registra posizione in movimento",
+    "repairPositionHint": "Solo per filigrane mobili: sposta il riquadro in momenti diversi e registra le posizioni. Non serve per filigrane fisse.",
+    "repairPhaseComposeVideo": "Composizione con gli intervalli originali non selezionati",
+    "repairBackgroundHint": "Si riparano solo gli intervalli selezionati, poi si compone il video separatamente. Durante il processo puoi riprodurre la sorgente o il risultato precedente. Il nuovo risultato completo appare al termine.",
+    "repairTemporalHint": "Il testo bianco riconosciuto viene riparato attorno ai tratti, preservando i dettagli tra essi. Le altre aree usano solo corrispondenze affidabili dei fotogrammi originali vicini."
+  },
+  "id": {
+    "repairIterationHint": "Sesuaikan area atau rentang waktu, lalu perbaiki lagi pada hasil saat ini. Mengulang area yang sama dapat mengurangi detail; uji satu bingkai dahulu.",
+    "repairDraftChanged": "Area berubah. Hasil sebelumnya ditampilkan; perbaiki lagi sebelum menerapkan.",
+    "repairRecordMotionPosition": "Rekam posisi gerakan",
+    "repairPositionHint": "Hanya untuk tanda bergerak: pindahkan kotak pada waktu berbeda dan rekam posisinya. Tanda tetap tidak memerlukannya.",
+    "repairPhaseComposeVideo": "Menyusun video dengan bagian asli yang tidak dipilih",
+    "repairBackgroundHint": "Hanya rentang terpilih yang diperbaiki, lalu video disusun terpisah. Sumber atau hasil sebelumnya dapat diputar selama proses; hasil lengkap baru muncul setelah penyusunan selesai.",
+    "repairTemporalHint": "Teks putih yang dikenali diperbaiki di sekitar guratannya, dengan detail di antaranya tetap terjaga. Area lain hanya memakai kecocokan tepercaya dari bingkai asli sebelum dan sesudahnya."
+  }
+};
+
+export const ANNA_VIDEO_REPAIR_COPY = Object.fromEntries(Object.entries({
+  zh: ["AI 视频去水印", "请先在画面轨道选择一个视频片段。"],
+  en: ["AI video watermark removal", "Select a video clip on the visual track first."],
+  ja: ["AI動画透かし除去", "映像トラックの動画クリップを選択してください。"],
+  ko: ["AI 영상 워터마크 제거", "먼저 영상 트랙에서 동영상 클립을 선택하세요."],
+  es: ["Quitar marcas de agua de vídeo", "Selecciona primero un clip de vídeo en la pista visual."],
+  fr: ["Suppression de filigrane vidéo", "Sélectionnez d’abord un clip vidéo sur la piste visuelle."],
+  de: ["KI-Video-Wasserzeichen entfernen", "Wähle zuerst einen Videoclip auf der Bildspur aus."],
+  pt: ["Remover marca de água do vídeo", "Selecione primeiro um clipe de vídeo na faixa visual."],
+  th: ["AI ลบลายน้ำวิดีโอ", "เลือกคลิปวิดีโอบนแทร็กภาพก่อน"],
+  vi: ["AI xóa hình mờ video", "Trước tiên, chọn một đoạn video trên rãnh hình ảnh."],
+  ru: ["Удаление водяных знаков из видео", "Сначала выберите видеоклип на видеодорожке."],
+  it: ["Rimozione filigrana video IA", "Seleziona prima un clip video nella traccia visiva."],
+  id: ["Hapus tanda air video AI", "Pilih klip video di trek visual terlebih dahulu."],
+}).map(([language, [annaVideoWatermark, annaSelectWatermarkVideo]]) => [language, { annaVideoWatermark, annaSelectWatermarkVideo }]));

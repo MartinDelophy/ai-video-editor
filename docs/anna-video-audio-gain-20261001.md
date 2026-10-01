@@ -9,3 +9,5 @@ Validation in a temporary browser fixture outside the repository passed source w
 This is a local integration, not a cloud deployment or review submission. Live Anna container playback and cloud end-to-end persistence have not been retested for this port.
 
 Remote draft update (2026-10-01): uploaded working draft r37, bundle ready, content hash `37db6e05694937bc62480be89d95cacddd4562ad2f4db8f7c550b5d848b4b2d3`, 170 files / 210481537 bytes. No frozen version or review submission was created. Installing the draft is pending browser login; the console currently redirects to sign-in.
+
+Installed r37 through the user's already signed-in Chrome session. The developer console confirmed: “Installed working draft (0.0.0-draft) — now available in chat.” No review submission or release change was made.

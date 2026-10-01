@@ -19,11 +19,11 @@ Người dùng tự chịu mọi trách nhiệm pháp lý phát sinh từ việc
 
 ## Cập nhật dự án
 
+- **2026-10-01** — Sửa hình mờ dùng một thao tác cho các khoảng đã chọn trên kết quả hiện tại. Chỉ ghép vùng đã sửa và thống nhất chuyển đổi màu để giữ chuyển động bên ngoài. Tham chiếu khung hình gốc lân cận; ưu tiên mã hóa gốc trong Worker, dự phòng FFmpeg.
 - **2026-09-27** — Phụ đề tự động dùng thời gian từng từ, chia thành cụm ngắn hoặc từng từ để tránh khối chữ dài trong video dọc. Xem trước, xuất video và SRT dùng chung các đoạn có thể chỉnh sửa; giao diện hỗ trợ 13 ngôn ngữ. Giọng nói AI cũng chia văn bản dài trước khi tổng hợp và căn mỗi phụ đề theo âm thanh thực tế, kể cả khi tạo giọng từ phụ đề đang chọn. Hiển thị phụ đề và SRT ẩn dấu phẩy, chấm và chấm phẩy cuối câu, giữ dấu biểu cảm cùng nguyên văn để chỉnh sửa và tạo giọng nói.
 - **2026-09-27** — Khi phát trên máy tính, dòng thời gian chuyển trang ở mốc 85%, đưa đầu phát về khoảng 20%. Cuộn ngang thủ công tạm dừng theo dõi; trở về đầu phát hoặc phát lại sẽ khôi phục. Tạm dừng giữ nguyên khung nhìn.
 - **2026-09-27** — Clip hình và tiếng hợp nhất: video chính và hình trong hình hiển thị tên tệp, ảnh thu nhỏ và sóng âm gốc trong cùng clip. Chỉnh dB từng clip ngay trên sóng âm, thống nhất khi xem trước và xuất, giữ nguyên âm lượng khi tách âm thanh. Hỗ trợ 13 ngôn ngữ. Mọi làn âm thanh dùng sóng chi tiết từ đáy, thay đổi theo độ khuếch đại; đỉnh vượt giới hạn hiển thị có màu cam và giữ nguyên kiểu dáng. Khi kéo đầu phát, bản xem trước cập nhật mà không chờ xác nhận hiển thị; khi thả vẫn kiểm tra khung hình chính xác.
 - **2026-09-21 — Xóa khoảng nghỉ:** menu Thông minh dùng Silero VAD để phát hiện khoảng nghỉ dài ngay trong trình duyệt. Có thể xem lại, chọn cắt đồng bộ video chính và âm thanh gốc, chỉnh ngưỡng và khoảng giữ lại, dùng ripple, hủy và hoàn tác. Giao diện hỗ trợ đủ 13 ngôn ngữ.
-- **2026-09-20 — Bám mốc cho đầu phát:** Kéo đầu phát màu trắng để xem trước hình ảnh trực tiếp và bám vào mốc hoặc hai đầu khoảng, kèm đường căn chỉnh và thời gian. Giữ Alt để kéo tự do. Chi tiết dấu mốc hiển thị Xong trước khi sửa và Áp dụng thay đổi sau khi sửa.
 
 Xem [Roadmap](ROADMAP.md) cho công việc dự kiến, [Releases](https://github.com/MartinDelophy/ai-video-editor/releases) cho thay đổi đã phát hành và [Issues](https://github.com/MartinDelophy/ai-video-editor/issues) cho nhiệm vụ và lỗi.
 

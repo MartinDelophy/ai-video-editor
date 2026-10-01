@@ -1,3 +1,5 @@
+import { composeRepairWithWebCodecs } from "./repairVideoComposition.js";
+import { createRepairRangeEncoding } from "./repairRangeEncoding.js";
 import ffmpegCoreURL from "@ffmpeg/core?url";
 import ffmpegCoreWasmURL from "@ffmpeg/core/wasm?url";
 import ffmpegClassWorkerURL from "@ffmpeg/ffmpeg/worker?worker&url";
@@ -2211,6 +2213,93 @@ function getAbortableFfmpeg(signal) {
       settled = true;
       reject(error);
     });
+  });
+}
+
+// Repair only supplies selected PNG frames. FFmpeg decodes the original video
+// directly for the rest instead of a browser seek/PNG round trip for every frame.
+export async function encodeRepairedVideoRanges({
+  frames, frameRate, sourceBlob, sourceStart, sourceDuration, signal, onProgress,
+}) {
+  if (typeof Worker !== "undefined" && typeof VideoEncoder !== "undefined") {
+    try {
+      onProgress?.({ progress: 91, phaseKey: "remasterPhaseLoadEncoder" });
+      const blob = await composeRepairWithWebCodecs({ frames, frameRate, sourceBlob, sourceStart, sourceDuration, signal, onProgress });
+      onProgress?.({ progress: 99, phaseKey: "remasterPhaseCreateAsset" });
+      return blob;
+    } catch (error) {
+      if (signal?.aborted || error.name === "AbortError") throw error;
+      // Unsupported codec, accelerator, or decode failure: preserve all tracks
+      // using the existing software path, without rerunning AI repair.
+      console.info("Native repair composition unavailable; using FFmpeg.", error);
+    }
+  }
+  return runFfmpegTask(async () => {
+    const checkCanceled = () => {
+      if (signal?.aborted) throw createAbortError();
+    };
+    checkCanceled();
+    const id = makeId("repair-ranges");
+    const sourceName = `${id}-source`;
+    const manifestName = `${id}.ffconcat`;
+    const outputName = `${id}.mp4`;
+    const plan = createRepairRangeEncoding(frames, frameRate, sourceDuration, id);
+    const files = [];
+    let ffmpeg;
+    let terminated = false;
+    const abort = () => {
+      if (!ffmpeg) return;
+      terminated = true;
+      ffmpeg.terminate();
+      ffmpegLoadPromise = null;
+    };
+    signal?.addEventListener("abort", abort, { once: true });
+    const progress = ({ time }) => {
+      onProgress?.({
+        progress: Math.min(98, 92 + Math.max(0, time / 1e6) / sourceDuration * 6),
+        phaseKey: "remasterPhaseEncodeVideo",
+      });
+    };
+    try {
+      onProgress?.({ progress: 91, phaseKey: "remasterPhaseLoadEncoder" });
+      ffmpeg = await getAbortableFfmpeg(signal);
+      checkCanceled();
+      files.push(sourceName);
+      await ffmpeg.writeFile(sourceName, new Uint8Array(await sourceBlob.arrayBuffer()));
+      for (let index = 0; index < frames.length; index += 1) {
+        checkCanceled();
+        files.push(plan.names[index]);
+        await ffmpeg.writeFile(plan.names[index], new Uint8Array(await frames[index].blob.arrayBuffer()));
+      }
+      checkCanceled();
+      files.push(manifestName, outputName);
+      await ffmpeg.writeFile(manifestName, new TextEncoder().encode(plan.manifest));
+      ffmpeg.on("progress", progress);
+      onProgress?.({ progress: 92, phaseKey: "remasterPhaseEncodeVideo" });
+      const code = await ffmpeg.exec([
+        "-ss", String(sourceStart), "-t", String(sourceDuration), "-i", sourceName,
+        "-f", "concat", "-safe", "0", "-i", manifestName,
+        "-filter_complex", plan.filter,
+        "-map", "[repaired]", "-map", "0:a?",
+        "-c:v", "libx264", "-preset", "veryfast", "-crf", "18",
+        "-pix_fmt", "yuv420p", "-vsync", "0",
+        "-c:a", "aac", "-b:a", "192k",
+        "-t", String(sourceDuration), "-movflags", "faststart", outputName,
+      ]);
+      checkCanceled();
+      if (code !== 0) throw new Error("Could not compose the repaired video");
+      const data = await ffmpeg.readFile(outputName);
+      checkCanceled();
+      onProgress?.({ progress: 99, phaseKey: "remasterPhaseCreateAsset" });
+      return new Blob([data], { type: "video/mp4" });
+    } catch (error) {
+      checkCanceled();
+      throw error;
+    } finally {
+      signal?.removeEventListener("abort", abort);
+      ffmpeg?.off("progress", progress);
+      if (ffmpeg && !terminated) await Promise.all(files.map((name) => ffmpeg.deleteFile(name).catch(() => {})));
+    }
   });
 }
 

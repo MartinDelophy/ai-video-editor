@@ -1,3 +1,4 @@
+import { blendTemporalGuide } from "./repairTemporal.js";
 import { getModelSourcePreference } from "./modelSources.js";
 
 let worker = null;
@@ -46,7 +47,7 @@ function canvasToBlob(canvas) {
   ));
 }
 
-export async function repairMiganFrame({ bitmap, selection, signal, onProgress }) {
+export async function repairMiganFrame({ bitmap, selection, signal, onProgress, temporalGuide = null }) {
   if (!bitmap?.width || !bitmap?.height) throw new Error("No frame is available");
   if (!selection || selection.width < 0.005 || selection.height < 0.005) throw new Error("Select a watermark region first");
   const canvas = document.createElement("canvas");
@@ -126,6 +127,7 @@ export async function repairMiganFrame({ bitmap, selection, signal, onProgress }
       repairedRegion[pixelIndex + 3] = 255;
     }
   }
+  const temporalPixels = blendTemporalGuide(repairedRegion, temporalGuide, rect.width, rect.height);
   const outputPixels = originalPixels;
   for (let y = 0; y < rect.height; y += 1) {
     const targetStart = ((rect.y + y) * canvas.width + rect.x) * 4;
@@ -145,10 +147,12 @@ export async function repairMiganFrame({ bitmap, selection, signal, onProgress }
   }
   return {
     blob: await canvasToBlob(outputCanvas),
+    rect,
     width: canvas.width,
     height: canvas.height,
     backend: result.backend,
     inferenceMs: result.inferenceMs,
+    temporalPixels,
     changedRatio: changedPixels / Math.max(1, rect.width * rect.height),
     meanDelta: totalDelta / Math.max(1, rect.width * rect.height * 3),
     composedChangedRatio: composedChangedPixels / Math.max(1, rect.width * rect.height),

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
-import { repairMiganClip } from "../lib/miganClipRepair.js";
+import { repairMiganClip, resolveRepairSelection } from "../lib/miganClipRepair.js";
 import { captureMiganSource, repairMiganFrame } from "../lib/miganRepair.js";
 
 const DEFAULT_SELECTION = { x: 0.72, y: 0.05, width: 0.23, height: 0.15 };
@@ -48,6 +48,7 @@ export function useMiganRepair({
   const [undoStack, setUndoStack] = useState([]);
   const [redoStack, setRedoStack] = useState([]);
   const [preview, setPreview] = useState(null);
+  const [resultDirty, setResultDirty] = useState(false);
   const [clipPreview, setClipPreview] = useState(null);
   const [job, setJob] = useState({ running: false, progress: 0, phaseKey: "", frameIndex: 0, totalFrames: 0, backend: "" });
   const controllerRef = useRef(null);
@@ -62,6 +63,7 @@ export function useMiganRepair({
   useEffect(() => {
     const next = initialRegions(selectedSegment);
     setDialogOpen(false);
+    setResultDirty(false);
     setRegions(next);
     setActiveRegionId(next[0]?.id || "");
     setUndoStack([]);
@@ -109,27 +111,27 @@ export function useMiganRepair({
   };
 
   const undo = () => {
+    if (job.running) return;
     setUndoStack((items) => {
       if (!items.length) return items;
       const previous = items.at(-1);
       setRedoStack((future) => [...future.slice(-39), structuredClone(regionsRef.current)]);
       setRegions(previous);
       setActiveRegionId((current) => previous.some((region) => region.id === current) ? current : previous[0]?.id || "");
-      clearPreview();
-      clearClipPreview();
+      setResultDirty(true);
       return items.slice(0, -1);
     });
   };
 
   const redo = () => {
+    if (job.running) return;
     setRedoStack((items) => {
       if (!items.length) return items;
       const next = items.at(-1);
       setUndoStack((past) => [...past.slice(-39), structuredClone(regionsRef.current)]);
       setRegions(next);
       setActiveRegionId((current) => next.some((region) => region.id === current) ? current : next[0]?.id || "");
-      clearPreview();
-      clearClipPreview();
+      setResultDirty(true);
       return items.slice(0, -1);
     });
   };
@@ -147,26 +149,26 @@ export function useMiganRepair({
     setDialogOpen(false);
   };
 
-  const updateRegion = (id, patch) => {
-    if (patch.selection || Number.isFinite(patch.start) || Number.isFinite(patch.end)) {
-      if (previewRef.current?.url) URL.revokeObjectURL(previewRef.current.url);
-      previewRef.current = null;
-      setPreview(null);
-      clearClipPreview();
-    }
-    setRegions((items) => items.map((region) => region.id === id ? {
-      ...region,
-      ...patch,
-      selection: patch.selection ? normalizeSelection(patch.selection) : region.selection,
-    } : region));
+  const updateRegion = (id, patch, time = null) => {
+    if (job.running) return;
+    setResultDirty(true);
+    setRegions((items) => items.map((region) => {
+      if (region.id !== id) return region;
+      const selection = patch.selection ? normalizeSelection(patch.selection) : region.selection;
+      const localTime = Math.max(region.start, Math.min(region.end, time));
+      const keyframes = patch.selection && region.keyframes?.length && Number.isFinite(time)
+        ? [...region.keyframes.filter((frame) => Math.abs(frame.time - localTime) > 0.0001), {
+          time: localTime, selection,
+        }].sort((a, b) => a.time - b.time)
+        : region.keyframes;
+      return { ...region, ...patch, selection, keyframes };
+    }));
   };
 
   const addRegion = (time = 0) => {
+    if (job.running) return;
     checkpoint();
-    if (previewRef.current?.url) URL.revokeObjectURL(previewRef.current.url);
-    previewRef.current = null;
-    setPreview(null);
-    clearClipPreview();
+    setResultDirty(true);
     const duration = Math.max(0.1, Number(selectedSegment?.duration) || 5);
     const start = Math.max(0, Math.min(duration - 0.1, Number(time) || 0));
     const region = {
@@ -181,11 +183,9 @@ export function useMiganRepair({
   };
 
   const removeRegion = (id) => {
+    if (job.running) return;
     checkpoint();
-    if (previewRef.current?.url) URL.revokeObjectURL(previewRef.current.url);
-    previewRef.current = null;
-    setPreview(null);
-    clearClipPreview();
+    setResultDirty(true);
     setRegions((items) => {
       if (items.length <= 1) return items;
       const next = items.filter((region) => region.id !== id);
@@ -195,12 +195,12 @@ export function useMiganRepair({
   };
 
   const addRegionKeyframe = (id, time, selection) => {
+    if (job.running) return;
     checkpoint();
-    clearClipPreview();
     setRegions((items) => items.map((region) => {
       if (region.id !== id) return region;
       const localTime = Math.max(region.start, Math.min(region.end, Number(time) || 0));
-      const keyframes = [...(region.keyframes || []).filter((frame) => Math.abs(frame.time - localTime) > 0.04), {
+      const keyframes = [...(region.keyframes || []).filter((frame) => Math.abs(frame.time - localTime) > 0.0001), {
         time: localTime,
         selection: normalizeSelection(selection || region.selection),
       }].sort((a, b) => a.time - b.time);
@@ -217,14 +217,16 @@ export function useMiganRepair({
     return next;
   };
 
-  const runFramePreview = async ({ videoElement = null, selection = activeRegion?.selection, selections = null } = {}) => {
-    const requestedSelections = (Array.isArray(selections) && selections.length ? selections : [selection]).filter(Boolean);
+  const runFramePreview = async ({ videoElement = null, selection = activeRegion?.selection, selections = null, usePrevious = false } = {}) => {
+    const requestedSelections = (Array.isArray(selections) ? selections : [selection]).filter(Boolean);
     if (!selectedSegment || job.running || !requestedSelections.length) return null;
     const controller = new AbortController();
     controllerRef.current = controller;
     setJob({ running: true, mode: "frame", progress: 1, phaseKey: "repairPhasePrepare", frameIndex: 0, totalFrames: 1, backend: "" });
     try {
-      let bitmap = await captureMiganSource({ segment: selectedSegment, video: videoElement });
+      let bitmap = usePrevious && selectedSegment.type === "image" && previewRef.current
+        ? await createImageBitmap(previewRef.current.blob)
+        : await captureMiganSource({ segment: selectedSegment, video: videoElement });
       let result = null;
       for (let index = 0; index < requestedSelections.length; index += 1) {
         result = await repairMiganFrame({
@@ -245,6 +247,7 @@ export function useMiganRepair({
         if (index < requestedSelections.length - 1) bitmap = await createImageBitmap(result.blob);
       }
       replacePreview(result);
+      if (selectedSegment.type === "image") setResultDirty(false);
       setJob({ running: false, mode: "frame", progress: 100, phaseKey: "repairPhaseReady", frameIndex: 1, totalFrames: 1, backend: result.backend });
       notify(t("repairPreviewReady"));
       return result;
@@ -262,7 +265,7 @@ export function useMiganRepair({
     }
   };
 
-  const commitResult = ({ blob, width, height, type, backend, sourceDuration, frameRate, totalFrames }) => {
+  const commitResult = ({ blob, width, height, type, backend, sourceDuration, frameRate, totalFrames, temporalFrames = 0 }) => {
     const url = URL.createObjectURL(blob);
     imageUrlRefs.current.add(url);
     const name = makeAssetName(selectedSegment, type);
@@ -290,6 +293,7 @@ export function useMiganRepair({
           regions, original,
           processed: { src: url, blob, width, height, sourceStart: 0, sourceDuration: sourceDuration || item.sourceDuration, trackFrames: [] },
           backend, frameRate, totalFrames,
+          temporal: { method: "farneback-context-translation-v1", reference: "original", offsetSeconds: 0.24, reusedFrames: temporalFrames },
         },
       };
     }));
@@ -300,9 +304,8 @@ export function useMiganRepair({
     if (!selectedSegment || job.running) return false;
     if (selectedSegment.type === "image") {
       let result = previewRef.current;
-      if (!result) {
-        await runFramePreview({ videoElement, selections: regions.map((region) => region.selection) });
-        result = previewRef.current;
+      if (!result || resultDirty) {
+        result = await runFramePreview({ videoElement, selections: regions.map((region) => region.selection) });
       }
       if (!result) return false;
       commitResult({ ...result, type: "image" });
@@ -313,17 +316,26 @@ export function useMiganRepair({
     return processVideoRepair();
   };
 
-  const processVideoRepair = async () => {
+  const processVideoRepair = async ({ usePrevious = true } = {}) => {
     if (!selectedSegment || selectedSegment.type !== "video" || job.running) return false;
+    const original = selectedSegment.repair?.original;
+    const referenceSegment = original && selectedSegment.src !== original.src
+      ? { ...selectedSegment, ...original, sourceStart: (Number(original.sourceStart) || 0) + (Number(selectedSegment.sourceStart) || 0) }
+      : selectedSegment;
+    const previous = usePrevious ? clipPreviewRef.current : null;
+    const source = previous ? { ...selectedSegment, src: previous.url, blob: previous.blob, sourceStart: 0, sourceDuration: previous.sourceDuration } : selectedSegment;
     const controller = new AbortController();
     controllerRef.current = controller;
     clearPreview();
     setJob({ running: true, mode: "clip", progress: 1, phaseKey: "repairPhasePrepare", frameIndex: 0, totalFrames: 0, backend: "", startedAt: Date.now() });
     try {
       const result = await repairMiganClip({
-        segment: selectedSegment, regions, videoElement: null, frameRate: 25,
+        segment: source, referenceSegment, regions, videoElement: null, frameRate: 25,
         signal: controller.signal,
-        onProgress: (progress) => setJob((current) => ({ ...current, ...progress, running: true, mode: "clip" })),
+        onProgress: (progress) => {
+          if (progress.phaseKey === "repairPhaseLoadEncoder") clearPreview();
+          setJob((current) => ({ ...current, ...progress, running: true, mode: "clip" }));
+        },
         onFrame: async (frame) => {
           if (controller.signal.aborted) return;
           const url = URL.createObjectURL(frame.blob);
@@ -351,6 +363,7 @@ export function useMiganRepair({
       const nextPreview = { ...result, url, type: "video" };
       clipPreviewRef.current = nextPreview;
       setClipPreview(nextPreview);
+      setResultDirty(false);
       clearPreview();
       setJob((current) => ({ ...current, running: false, progress: 100, phaseKey: "repairPhaseReady" }));
       notify(t("repairClipPreviewReady"));
@@ -365,12 +378,13 @@ export function useMiganRepair({
       }
       return false;
     } finally {
+      clearPreview();
       if (controllerRef.current === controller) controllerRef.current = null;
     }
   };
 
   const applyVideoPreview = () => {
-    if (!clipPreviewRef.current || !selectedSegment || selectedSegment.type !== "video") return false;
+    if (job.running || resultDirty || !clipPreviewRef.current || !selectedSegment || selectedSegment.type !== "video") return false;
     commitResult({ ...clipPreviewRef.current, type: "video" });
     notify(t("repairClipReady"));
     clearClipPreview();
@@ -389,7 +403,7 @@ export function useMiganRepair({
     checkpoint, undo, redo, canUndo: undoStack.length > 0, canRedo: redoStack.length > 0,
     regions, activeRegion, activeRegionId, setActiveRegionId,
     updateRegion, addRegion, removeRegion, addRegionKeyframe,
-    preview, clipPreview, job, runFramePreview, applyRepair, processVideoRepair, applyVideoPreview,
+    preview, clipPreview, resultDirty, resolveSelection: resolveRepairSelection, job, runFramePreview, applyRepair, processVideoRepair, applyVideoPreview,
     cancel, clearPreview, clearClipPreview,
   };
 }

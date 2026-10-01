@@ -6092,7 +6092,7 @@ button:disabled {
 .repair-change-diagnostic strong { color: #72eee3; font-size: 11px; }
 .repair-change-diagnostic small { grid-column: 1 / -1; color: #65757e; line-height: 1.45; }
 .repair-dialog-footer { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: center; gap: 16px; min-height: 72px; border-top: 1px solid rgba(255,255,255,.08); padding: 10px 16px; }
-.repair-dialog-footer > div:last-child { display: flex; gap: 7px; }
+.repair-dialog-footer > div:last-child { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 7px; }
 .repair-dialog-footer button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-width: 88px; }
 .repair-dialog-footer button:disabled { opacity: .38; cursor: not-allowed; }
 .repair-dialog-progress { display: grid; gap: 6px; min-width: 0; color: #7e8e97; font-size: 9px; }

@@ -12643,3 +12643,7 @@ button:disabled {
 .audio-clip.is-source .is-timeline-waveform canvas,
 .audio-clip.is-video-source .is-timeline-waveform canvas { --waveform-color: #f7c256; }
 .audio-clip.is-music .is-timeline-waveform canvas { --waveform-color: #6ab3ff; }
+
+.glitch-card-preview { position:relative; overflow:hidden; display:grid; place-items:center; background:linear-gradient(135deg,#16202e,#080d13); }
+.glitch-card-preview b { font-size:24px; letter-spacing:.13em; color:#e1f9fc; text-shadow:-3px 0 #ff326c,3px 0 #20e9e9; }
+.glitch-card-preview i { position:absolute; inset:0; background:repeating-linear-gradient(0deg,transparent 0 9px,#27ede522 10px 11px,transparent 12px 21px); }

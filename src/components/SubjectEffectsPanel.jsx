@@ -738,6 +738,8 @@ export function SubjectEffectsWorkspace({
   onOpenPhotoParallax,
   onOpenClickRipple,
   onChangeClickRipple,
+  onChangeGlitch,
+  onOpenGlitch,
   onChangeDriftingHalo,
   onOpenDriftingHalo,
   faceSwapActive = false,
@@ -791,10 +793,11 @@ export function SubjectEffectsWorkspace({
     <div className="tool-panel subject-effects-workspace mobile-panel-scroll-body">
       <header className="subject-effects-heading">
         <div><MagicWand size={22} /><span><strong>{t("effects")}</strong><small>{segment.name || (hasVideo ? t("effectVideoClip") : t("effectImageClip"))}</small></span></div>
-        {(effect.enabled && analysis?.complete) || clickRipple.enabled || segment?.driftingHalo?.enabled ? <em>{t("effectApplied")}</em> : null}
+        {(effect.enabled && analysis?.complete) || clickRipple.enabled || segment?.driftingHalo?.enabled || segment?.glitch?.enabled ? <em>{t("effectApplied")}</em> : null}
       </header>
 
       <div className="subject-effect-capability-grid">
+        <button type="button" className={`subject-outline-entry ${segment?.glitch?.enabled ? "is-active" : ""}`} onClick={() => { onChangeGlitch?.({ ...segment?.glitch, enabled: true }); onOpenGlitch?.(); }}><span className="subject-outline-entry-preview glitch-card-preview"><b>GLITCH</b><i /></span><span className="subject-outline-entry-footer"><span className="subject-outline-entry-copy"><strong>{t("glitchTitle")}</strong><small>{t("glitchHint")}</small></span><CaretRight size={17} /></span></button>
         {!basicEffectsOnly ? <>
         <OutlinePreviewCard
           t={t}
@@ -831,7 +834,7 @@ export function SubjectEffectsWorkspace({
           onClick={onOpenPhotoParallax}
         />
         </> : null}
-        <button type="button" className={`subject-outline-entry ${segment?.driftingHalo?.enabled ? "is-active" : ""}`} onClick={() => { onChangeDriftingHalo?.({ ...segment?.driftingHalo, enabled: true }); onOpenDriftingHalo?.(); }}><span className="subject-outline-entry-preview halo-card-preview"><span className="halo-card-wheel" /></span><span className="subject-outline-entry-footer"><span className="subject-outline-entry-copy"><strong>{t("haloTitle")}</strong><small>{t("haloHint")}</small></span><CaretRight size={17} /></span></button>
+
         <ClickRippleEffectCard
           t={t}
           active={clickRipple.enabled}
@@ -840,6 +843,7 @@ export function SubjectEffectsWorkspace({
             onOpenClickRipple?.();
           }}
         />
+        <button type="button" className={`subject-outline-entry ${segment?.driftingHalo?.enabled ? "is-active" : ""}`} onClick={() => { onChangeDriftingHalo?.({ ...segment?.driftingHalo, enabled: true }); onOpenDriftingHalo?.(); }}><span className="subject-outline-entry-preview halo-card-preview"><span className="halo-card-wheel" /></span><span className="subject-outline-entry-footer"><span className="subject-outline-entry-copy"><strong>{t("haloTitle")}</strong><small>{t("haloHint")}</small></span><CaretRight size={17} /></span></button>
       </div>
     </div>
   );

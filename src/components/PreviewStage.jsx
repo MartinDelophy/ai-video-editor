@@ -1,3 +1,4 @@
+import { GlitchPreview } from "./GlitchEffect.jsx";
 import { requestTimelineMediaPlay, setTimelineAudioGain } from "../lib/editorRuntime.js";
 import { DriftingHaloOverlay } from "./DriftingHalo.jsx";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
@@ -759,6 +760,7 @@ export function PreviewStage({
                 /> : null}
               </div>
             ) : null}
+            {renderedVisualSrc && trackVisibility.image ? <GlitchPreview effect={visualEffects?.glitch} time={visualLocalTime} targetRef={previewVisualType === "video" ? previewVideoRef : previewImageRef} /> : null}
             {renderedVisualSrc && trackVisibility.image ? <ClickRippleOverlay effect={visualEffects?.clickRipple} time={visualLocalTime} /> : null}
             {renderedVisualSrc && trackVisibility.image ? <DriftingHaloOverlay effect={visualEffects?.driftingHalo} time={visualLocalTime} /> : null}
             {renderedVisualSrc && trackVisibility.image && visualTransformEditable && !visualMaskEditable ? (
@@ -883,6 +885,7 @@ export function PreviewStage({
                     alt=""
                     style={{ filter: cutoutFilter }}
                   /> : null}
+                  <GlitchPreview effect={overlay.glitch} time={localTime} />
                   <DriftingHaloOverlay effect={overlay.driftingHalo} time={localTime} />
                   <ClickRippleOverlay effect={overlay.clickRipple} time={localTime} />
                   {selected && !isPlaying && hasOverlayMask && visualOverlayMaskEditable ? <div

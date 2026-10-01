@@ -1,3 +1,4 @@
+import { GlitchInspector } from "./GlitchEffect.jsx";
 import { DriftingHaloInspector } from "./DriftingHalo.jsx";
 import { AnnaEditPanel } from "./AnnaEditPanel.jsx";
 import { AnnaModelGate } from "./AnnaCapabilityNotice.jsx";
@@ -1514,6 +1515,7 @@ export function VoicePanel({
   effectsPanelMode: requestedEffectsPanelMode = "outline",
   updateSelectedSubjectEffect,
   updateSelectedClickRipple,
+  updateSelectedGlitch,
   updateSelectedDriftingHalo,
   removeSelectedSubjectEffect,
   faceSwap,
@@ -1525,7 +1527,7 @@ export function VoicePanel({
   generationPlugins,
   anna,
 }) {
-  const effectsPanelMode = import.meta.env?.VITE_ANNA_EDITION === "true" ? (requestedEffectsPanelMode === "drifting-halo" ? "drifting-halo" : "click-ripple") : requestedEffectsPanelMode;
+  const effectsPanelMode = import.meta.env?.VITE_ANNA_EDITION === "true" ? (["drifting-halo", "click-ripple", "glitch"].includes(requestedEffectsPanelMode) ? requestedEffectsPanelMode : "glitch") : requestedEffectsPanelMode;
   const [captionPanelTab, setCaptionPanelTab] = useState("caption");
   const panelRef = useRef(null);
   const panelContext = resolveInspectorPanelContext({
@@ -1546,6 +1548,7 @@ export function VoicePanel({
   const isOpticalFlowContext = isEffectsContext && effectsPanelMode === "vector-tracking";
   const isCinematicDepthContext = isEffectsContext && effectsPanelMode === "cinematic-depth";
   const isPhotoParallaxContext = isEffectsContext && effectsPanelMode === "photo-parallax";
+  const isGlitchContext = isEffectsContext && effectsPanelMode === "glitch";
   const isHaloContext = isEffectsContext && effectsPanelMode === "drifting-halo";
   const isClickRippleContext = isEffectsContext && effectsPanelMode === "click-ripple";
   const audioPropertySegment = selectedTrack === "audio" ? selectedAudioSegment : selectedTrackAudioSegment;
@@ -1596,7 +1599,7 @@ export function VoicePanel({
     edge: t("effectEdgeCleanup"),
   }[mobileInspectorSection];
   const title = focusedSectionTitle || (isPluginsContext ? getPluginCopy(uiLanguage).title : isFaceSwapContext ? t("faceSwapTitle") : isOpticalFlowContext ? t("effectVectorTracking") : isCinematicDepthContext ? t("depthTitle") : isPhotoParallaxContext ? t("parallaxTitle") : isEffectsContext ? t("effectProperties") : isAiMusicContext ? (AI_MUSIC_COPY[uiLanguage] || AI_MUSIC_COPY.en).title : isSmartAutoContext ? (anna?.enabled ? anna.t("title") : t("smartAutoEdit")) : isSmartFrameContext ? t("smartFrame") : isAvatarContext ? t("avatarTitle") : isVectorOverlay || isVectorVisual ? t("vectorProperties", "矢量图形") : isOverlayContext ? t("pictureInPicture", "画中画") : isStickerContext ? t("stickerProperties") : isVisualContext ? t("visualPanelTitle") : isCaptionContext ? t("caption") : isAudioClipContext ? t("audioClipProperties") : t("aiVoice"));
-  const isLocalInferenceContext = (isEffectsContext && !isClickRippleContext && !isHaloContext) || isAiMusicContext || isSmartFrameContext || isAvatarContext
+  const isLocalInferenceContext = (isEffectsContext && !isClickRippleContext && !isHaloContext && !isGlitchContext) || isAiMusicContext || isSmartFrameContext || isAvatarContext
     || (isCaptionContext && captionPanelTab === "voice")
     || (isAudioClipContext && mobileInspectorSection === "voice-color")
     || (!isSmartContext && !isPluginsContext && !isEffectsContext && !isCaptionContext && !isAudioClipContext && !isVisualContext && !isStickerContext && !isOverlayContext && ["synthesis", "mine"].includes(voiceTab));
@@ -1612,6 +1615,7 @@ export function VoicePanel({
       ? `${Math.round(photoParallaxDepth.job.progress || 0)}%`
       : photoParallaxDepth?.record?.complete ? t("parallaxLayersReady") : t("depthAnalysisNeeded")
     : isPluginsContext ? (selectedPluginConnection?.state === "connected" ? getPluginCopy(uiLanguage).connected : getPluginCopy(uiLanguage).available)
+    : isGlitchContext ? (effectSegment ? t(effectSegment.glitch?.enabled ? "effectApplied" : "glitchTitle") : t("effectSelectClip"))
     : isHaloContext ? (effectSegment ? t(effectSegment.driftingHalo?.enabled ? "effectApplied" : "haloTitle") : t("effectSelectClip"))
     : isClickRippleContext ? (effectSegment ? t(effectSegment.clickRipple?.enabled ? "effectApplied" : "clickRippleKicker") : t("effectSelectClip"))
     : isEffectsContext ? (effectRunning
@@ -1729,7 +1733,7 @@ export function VoicePanel({
 
       <div className={`voice-tab-body ${isVisualContext && !selectedVisualSegment ? "is-empty-visual-context" : ""}`}>
         {isPluginsContext ? <PluginInspector language={uiLanguage} plugins={generationPlugins} /> : null}
-        {isEffectsContext && !isFaceSwapContext && !isOpticalFlowContext && !isCinematicDepthContext && !isPhotoParallaxContext && !isClickRippleContext && !isHaloContext ? <AnnaModelGate anna={anna}><SubjectEffectsInspector
+        {isEffectsContext && !isFaceSwapContext && !isOpticalFlowContext && !isCinematicDepthContext && !isPhotoParallaxContext && !isClickRippleContext && !isHaloContext && !isGlitchContext ? <AnnaModelGate anna={anna}><SubjectEffectsInspector
           t={t}
           segment={effectSegment}
           analysis={effectAnalysis}
@@ -1741,6 +1745,7 @@ export function VoicePanel({
           onRemove={removeSelectedSubjectEffect}
           singleSection={mobileInspectorSection}
         /></AnnaModelGate> : null}
+        {isGlitchContext ? <GlitchInspector t={t} segment={effectSegment} onChange={updateSelectedGlitch} /> : null}
         {isHaloContext ? <DriftingHaloInspector t={t} segment={effectSegment} onChange={updateSelectedDriftingHalo} /> : null}
         {isClickRippleContext ? <ClickRippleInspector t={t} segment={effectSegment} onChange={updateSelectedClickRipple} /> : null}
         {isFaceSwapContext ? <AnnaModelGate anna={anna}><FaceSwapContextPanel t={t} hasVisual={hasVisual} visualType={visualType} faceSwap={faceSwap} /></AnnaModelGate> : null}

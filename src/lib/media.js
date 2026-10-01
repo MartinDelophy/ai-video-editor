@@ -1,3 +1,4 @@
+import { drawGlitch } from "./glitchEffect.js";
 import { composeRepairWithWebCodecs } from "./repairVideoComposition.js";
 import { createRepairRangeEncoding } from "./repairRangeEncoding.js";
 import { drawDriftingHalo } from "./driftingHaloEffect.js";
@@ -1276,6 +1277,7 @@ export function drawPreviewFrame(context, visual, canvas, options) {
     context.restore();
   }
 
+  drawGlitch(context, canvas, visualEffects?.glitch, visualTime);
   drawClickRippleEffect(context, canvas, visualEffects?.clickRipple, visualTime);
   drawDriftingHalo(context, canvas.width, canvas.height, visualEffects?.driftingHalo, visualTime);
 
@@ -1399,9 +1401,10 @@ export function drawPreviewFrame(context, visual, canvas, options) {
       layerContext.restore();
       context.save();
       if (isVector) context.globalCompositeOperation = vectorAppearance.compositeOperation;
+      drawGlitch(layerContext, layers.visual, overlay.glitch, overlayTime);
       context.drawImage(layers.visual, 0, 0);
       context.restore();
-    } else if (overlayClickRipple.enabled) {
+    } else if (overlayClickRipple.enabled || overlay.glitch?.enabled) {
       const layers = getVisualEffectsLayers(canvas);
       const layerContext = layers.visual.getContext("2d");
       layerContext.clearRect(0, 0, width, height);
@@ -1415,6 +1418,7 @@ export function drawPreviewFrame(context, visual, canvas, options) {
       });
       context.save();
       if (isVector) context.globalCompositeOperation = vectorAppearance.compositeOperation;
+      drawGlitch(layerContext, layers.visual, overlay.glitch, overlayTime);
       context.drawImage(layers.visual, 0, 0);
       context.restore();
     } else {

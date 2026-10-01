@@ -19,11 +19,11 @@ Für sämtliche rechtlichen Folgen eines Verstoßes gegen diese Anforderungen is
 
 ## Projektneuigkeiten
 
+- **2026-10-01 — Anna ergänzt konfigurierbares Glitch an erster Stelle, gefolgt von Rhythmuswellen und Disco-Strahlen. Vorschau und Export nutzen denselben deterministischen RGB-Versatz, horizontale Bildrisse und Rauschen.**
 - **2026-10-01 — Anna Smart bietet ausschließlich die Video-Wasserzeichenentfernung aus main: mehrere Bereiche, Zeitfenster, Bewegungs-Keyframes, Ergebnisvergleich und reversible Anwendung.**
 - **2026-10-01 — Audio in Anna: Videos und Bild-in-Bild-Clips zeigen ihre Audiowellenform. Die Lautstärkelinie lässt sich in Dezibel verstellen; Vorschau, Export und gespeicherte Projekte verwenden denselben Pegel.**
 - **15. September 2026 — Anna Cloud speichert standardmäßig automatisch:** Das aktuelle Projekt und seine Medien werden ohne manuelle Aktivierung im Anna-Konto gespeichert und mit demselben Konto wiederhergestellt. Medien werden nicht doppelt hochgeladen; Gespeichert erscheint erst nach Cloud-Bestätigung. Speicherfehler einschließlich Quoten und Hinweise zur lokalen Wiederherstellung sind in allen 13 Sprachen verfügbar. Der X-Link wurde entfernt; Discord und GitHub bleiben. Testentwurf r19 ist installiert; alpha.6 ersetzt den Prüfungskandidaten und wartet auf Prüfung, ohne öffentliche Veröffentlichung. Anna behält manuell gewählte Fenstergrößen bei.
 - **2026-09-15 — Bearbeitetes Audio exportieren:** Beim Export eines Audioclips werden jetzt der Zuschnitt, die Wiedergabegeschwindigkeit, die Lautstärke, Ein- und Ausblendungen sowie Raumeffekte berücksichtigt. Einzelne Clips und die Mischung der gesamten Timeline lassen sich als WAV oder MP3 exportieren. Neben dem Videoexport steht ein reiner Audioexport zur Verfügung.
-- **2026-09-14 — Exportkorrektur und erneuter Versuch:** Clips mit einfarbigem Hintergrund und Deckkraft-Keyframes lassen sich jetzt auch ohne Personenmaske korrekt exportieren. Bei einem Fehler bleibt die Meldung sichtbar und der Export kann mit denselben Einstellungen erneut gestartet werden. Annas Verbindungskonfiguration enthält das CDN für ModelScope-Modelldateien. Erfolgreiche Downloadantworten bleiben auch bei Fehlern der optionalen Zwischenspeicherung verfügbar.
 
 Geplante Arbeiten stehen in der [Roadmap](ROADMAP.md), veröffentlichte Änderungen in den [Releases](https://github.com/MartinDelophy/ai-video-editor/releases) und einzelne Aufgaben in den [Issues](https://github.com/MartinDelophy/ai-video-editor/issues).
 

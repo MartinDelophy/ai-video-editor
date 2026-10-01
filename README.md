@@ -24,11 +24,11 @@ Users are solely responsible for any legal liability arising from violations of 
 
 ## Project updates
 
+- **2026-10-01 — Anna Effects adds Beat shake in third position, with manual BPM, direction, strength, decay and beat offset shared by preview and export.**
 - **2026-10-01 — Anna Effects adds configurable Glitch animation first, followed by Rhythm click ripple and Disco beams. Preview and export share deterministic RGB splitting, horizontal tearing and signal noise.**
 - **2026-10-01 — Anna Smart now exposes only AI video watermark removal, ported from main with multiple regions, time ranges, moving-region keyframes, result comparison and reversible application.**
 - **2026-10-01 — Anna timeline audio: videos and picture-in-picture clips show source waveforms; drag clip gain lines to adjust decibels. Preview, export and saved projects share the same gain.**
 - **September 15, 2026 — Anna cloud autosave by default:** the current project and media save automatically to your Anna account and restore with the same account, without an activation step. Media uploads are deduplicated; Saved appears only after cloud confirmation. Storage errors and legacy local-recovery warnings cover all 13 languages. The X link is removed, leaving Discord and GitHub. Draft r19 is installed; alpha.6 has replaced the review candidate and is pending review, not publicly released. Anna preserves manually chosen window sizes.
-- **2026-09-15 — Edited audio export:** exporting an audio clip now renders its trimmed range with playback speed, volume, fades and space effects applied. Clips and the complete timeline mix can be exported as WAV or MP3; audio-only export is available alongside video export.
 
 See the public [Roadmap](ROADMAP.md) for planned work, [Releases](https://github.com/MartinDelophy/ai-video-editor/releases) for shipped changes, and [Issues](https://github.com/MartinDelophy/ai-video-editor/issues) for focused tasks and bugs.
 

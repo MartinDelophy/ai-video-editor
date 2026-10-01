@@ -12647,3 +12647,6 @@ button:disabled {
 .glitch-card-preview { position:relative; overflow:hidden; display:grid; place-items:center; background:linear-gradient(135deg,#16202e,#080d13); }
 .glitch-card-preview b { font-size:24px; letter-spacing:.13em; color:#e1f9fc; text-shadow:-3px 0 #ff326c,3px 0 #20e9e9; }
 .glitch-card-preview i { position:absolute; inset:0; background:repeating-linear-gradient(0deg,transparent 0 9px,#27ede522 10px 11px,transparent 12px 21px); }
+.beat-shake-card-preview { display:grid;place-items:center;position:relative;overflow:hidden;background:radial-gradient(ellipse at center,#205a63,#0b1521 70%); }
+.beat-shake-card-preview i { width:54%;height:54%;border:2px solid #65ece0;border-radius:8px;transform:rotate(-7deg);box-shadow:8px 0 0 #49ded422,-8px 0 0 #49ded422; }
+.beat-shake-card-preview b { position:absolute;color:#cafff4;font-size:36px;font-weight:400; }

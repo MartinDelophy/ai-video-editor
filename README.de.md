@@ -19,11 +19,11 @@ Für sämtliche rechtlichen Folgen eines Verstoßes gegen diese Anforderungen is
 
 ## Projektneuigkeiten
 
+- **2026-10-01 — Anna ergänzt Beat-Beben an dritter Stelle mit manuellen BPM, Richtung, Stärke, Abklingen und Beat-Versatz für Vorschau und Export.**
 - **2026-10-01 — Anna ergänzt konfigurierbares Glitch an erster Stelle, gefolgt von Rhythmuswellen und Disco-Strahlen. Vorschau und Export nutzen denselben deterministischen RGB-Versatz, horizontale Bildrisse und Rauschen.**
 - **2026-10-01 — Anna Smart bietet ausschließlich die Video-Wasserzeichenentfernung aus main: mehrere Bereiche, Zeitfenster, Bewegungs-Keyframes, Ergebnisvergleich und reversible Anwendung.**
 - **2026-10-01 — Audio in Anna: Videos und Bild-in-Bild-Clips zeigen ihre Audiowellenform. Die Lautstärkelinie lässt sich in Dezibel verstellen; Vorschau, Export und gespeicherte Projekte verwenden denselben Pegel.**
 - **15. September 2026 — Anna Cloud speichert standardmäßig automatisch:** Das aktuelle Projekt und seine Medien werden ohne manuelle Aktivierung im Anna-Konto gespeichert und mit demselben Konto wiederhergestellt. Medien werden nicht doppelt hochgeladen; Gespeichert erscheint erst nach Cloud-Bestätigung. Speicherfehler einschließlich Quoten und Hinweise zur lokalen Wiederherstellung sind in allen 13 Sprachen verfügbar. Der X-Link wurde entfernt; Discord und GitHub bleiben. Testentwurf r19 ist installiert; alpha.6 ersetzt den Prüfungskandidaten und wartet auf Prüfung, ohne öffentliche Veröffentlichung. Anna behält manuell gewählte Fenstergrößen bei.
-- **2026-09-15 — Bearbeitetes Audio exportieren:** Beim Export eines Audioclips werden jetzt der Zuschnitt, die Wiedergabegeschwindigkeit, die Lautstärke, Ein- und Ausblendungen sowie Raumeffekte berücksichtigt. Einzelne Clips und die Mischung der gesamten Timeline lassen sich als WAV oder MP3 exportieren. Neben dem Videoexport steht ein reiner Audioexport zur Verfügung.
 
 Geplante Arbeiten stehen in der [Roadmap](ROADMAP.md), veröffentlichte Änderungen in den [Releases](https://github.com/MartinDelophy/ai-video-editor/releases) und einzelne Aufgaben in den [Issues](https://github.com/MartinDelophy/ai-video-editor/issues).
 

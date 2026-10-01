@@ -738,6 +738,8 @@ export function SubjectEffectsWorkspace({
   onOpenPhotoParallax,
   onOpenClickRipple,
   onChangeClickRipple,
+  onChangeBeatShake,
+  onOpenBeatShake,
   onChangeGlitch,
   onOpenGlitch,
   onChangeDriftingHalo,
@@ -793,7 +795,7 @@ export function SubjectEffectsWorkspace({
     <div className="tool-panel subject-effects-workspace mobile-panel-scroll-body">
       <header className="subject-effects-heading">
         <div><MagicWand size={22} /><span><strong>{t("effects")}</strong><small>{segment.name || (hasVideo ? t("effectVideoClip") : t("effectImageClip"))}</small></span></div>
-        {(effect.enabled && analysis?.complete) || clickRipple.enabled || segment?.driftingHalo?.enabled || segment?.glitch?.enabled ? <em>{t("effectApplied")}</em> : null}
+        {(effect.enabled && analysis?.complete) || clickRipple.enabled || segment?.driftingHalo?.enabled || segment?.glitch?.enabled || segment?.beatShake?.enabled ? <em>{t("effectApplied")}</em> : null}
       </header>
 
       <div className="subject-effect-capability-grid">
@@ -843,6 +845,7 @@ export function SubjectEffectsWorkspace({
             onOpenClickRipple?.();
           }}
         />
+        <button type="button" className={`subject-outline-entry ${segment?.beatShake?.enabled ? "is-active" : ""}`} onClick={() => { onChangeBeatShake?.({ ...segment?.beatShake, enabled: true }); onOpenBeatShake?.(); }}><span className="subject-outline-entry-preview beat-shake-card-preview"><i/><b>↔</b></span><span className="subject-outline-entry-footer"><span className="subject-outline-entry-copy"><strong>{t("shakeTitle")}</strong><small>{t("shakeHint")}</small></span><CaretRight size={17}/></span></button>
         <button type="button" className={`subject-outline-entry ${segment?.driftingHalo?.enabled ? "is-active" : ""}`} onClick={() => { onChangeDriftingHalo?.({ ...segment?.driftingHalo, enabled: true }); onOpenDriftingHalo?.(); }}><span className="subject-outline-entry-preview halo-card-preview"><span className="halo-card-wheel" /></span><span className="subject-outline-entry-footer"><span className="subject-outline-entry-copy"><strong>{t("haloTitle")}</strong><small>{t("haloHint")}</small></span><CaretRight size={17} /></span></button>
       </div>
     </div>

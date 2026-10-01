@@ -1137,6 +1137,8 @@ export function ToolPanel(props) {
     effectPhase,
     updateSelectedSubjectEffect,
     updateSelectedClickRipple,
+    updateSelectedBeatShake,
+    openBeatShakeInspector,
     updateSelectedGlitch,
     openGlitchInspector,
     updateSelectedDriftingHalo,
@@ -1640,6 +1642,8 @@ export function ToolPanel(props) {
         progress={effectProgress}
         phase={effectPhase}
         onChange={updateSelectedSubjectEffect}
+        onChangeBeatShake={updateSelectedBeatShake}
+        onOpenBeatShake={openBeatShakeInspector}
         onChangeGlitch={updateSelectedGlitch}
         onOpenGlitch={openGlitchInspector}
         onChangeDriftingHalo={updateSelectedDriftingHalo}

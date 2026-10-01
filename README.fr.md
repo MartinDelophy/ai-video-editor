@@ -19,11 +19,11 @@ L’utilisateur assume seul toute responsabilité juridique découlant du non-re
 
 ## Actualités du projet
 
+- **2026-10-01 — Anna ajoute la Secousse rythmique en troisième position : BPM manuel, direction, intensité, atténuation et décalage communs à l’aperçu et à l’export.**
 - **2026-10-01 — Anna place Glitch configurable en premier, puis les ondulations rythmiques et les faisceaux Disco. Aperçu et export partagent le décalage RVB, les déchirures horizontales et le bruit déterministes.**
 - **2026-10-01 — Smart dans Anna propose uniquement la suppression de filigranes vidéo, avec zones multiples, plages temporelles, images clés de déplacement, comparaison et application réversible reprises de main.**
 - **2026-10-01 — Audio dans Anna : les vidéos et incrustations affichent leur forme d’onde. Faites glisser la ligne de volume pour régler les décibels ; aperçu, export et projet enregistré conservent le même gain.**
 - **15 septembre 2026 — Sauvegarde cloud Anna par défaut :** le projet actuel et ses médias sont automatiquement sauvegardés dans votre compte et restaurables avec le même compte, sans activation manuelle. Les médias ne sont pas envoyés en double et le statut sauvegardé attend la confirmation du cloud. Les erreurs de stockage, dont les quotas, et les avertissements de restauration locale couvrent les 13 langues. Le lien X est supprimé ; Discord et GitHub restent disponibles. Le brouillon r19 est installé ; alpha.6 remplace le candidat à la validation et attend son examen, sans publication publique. Anna conserve les dimensions de fenêtre choisies manuellement.
-- **2026-09-15 — Exportation du son monté :** l’exportation d’un clip audio respecte désormais la plage découpée et applique la vitesse de lecture, le volume, les fondus et les effets d’espace. Les clips et le mixage de toute la timeline peuvent être exportés en WAV ou MP3. Une option d’exportation audio seule complète l’exportation vidéo.
 
 Consultez la [Roadmap](ROADMAP.md) pour les travaux prévus, les [Releases](https://github.com/MartinDelophy/ai-video-editor/releases) pour les changements publiés et les [Issues](https://github.com/MartinDelophy/ai-video-editor/issues) pour les tâches et anomalies.
 

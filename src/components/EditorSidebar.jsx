@@ -222,6 +222,8 @@ export function EditorSidebar({ model: d }) {
             effectPhase={d.effectPhase}
             updateSelectedSubjectEffect={d.updateSelectedSubjectEffect}
             updateSelectedClickRipple={d.updateSelectedClickRipple}
+            updateSelectedBeatShake={d.updateSelectedBeatShake}
+            openBeatShakeInspector={() => { d.setEffectsPanelMode("beat-shake"); d.setMobilePanel("inspector"); }}
             updateSelectedGlitch={d.updateSelectedGlitch}
             openGlitchInspector={() => { d.setEffectsPanelMode("glitch"); d.setMobilePanel("inspector"); }}
             updateSelectedDriftingHalo={d.updateSelectedDriftingHalo}

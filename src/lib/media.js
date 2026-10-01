@@ -1,3 +1,4 @@
+import { applyBeatShakeTransform } from "./beatShakeEffect.js";
 import { drawGlitch } from "./glitchEffect.js";
 import { composeRepairWithWebCodecs } from "./repairVideoComposition.js";
 import { createRepairRangeEncoding } from "./repairRangeEncoding.js";
@@ -1201,13 +1202,13 @@ export function drawPreviewFrame(context, visual, canvas, options) {
   }
   const transform = resolveVisualTransform(visualEffects?.keyframes, visualTime, visualEffects?.baseTransform);
   const animation = resolveVisualClipAnimation(visualEffects?.animation, visualTime, visualEffects?.duration);
-  const animatedTransform = {
+  const animatedTransform = applyBeatShakeTransform({
     ...transform,
     x: transform.x + animation.x,
     y: transform.y + animation.y,
     scale: transform.scale * animation.scale,
     opacity: transform.opacity * animation.opacity,
-  };
+  }, visualEffects?.beatShake, visualTime);
   const mask = visualEffects?.mask ?? {};
   const maskCenterX = (Number.isFinite(mask.centerX) ? mask.centerX : 50) / 100 * width;
   const maskCenterY = (Number.isFinite(mask.centerY) ? mask.centerY : 50) / 100 * height;
@@ -1320,13 +1321,13 @@ export function drawPreviewFrame(context, visual, canvas, options) {
     const overlayTime = Math.max(0, visualTime - (overlay.start || 0));
     const overlayTransform = resolveVisualTransform(overlay.keyframes, overlayTime, overlay.baseTransform);
     const overlayAnimation = resolveVisualClipAnimation(overlay.animation, overlayTime, overlay.duration);
-    const animatedOverlayTransform = {
+    const animatedOverlayTransform = applyBeatShakeTransform({
       ...overlayTransform,
       x: overlayTransform.x + overlayAnimation.x,
       y: overlayTransform.y + overlayAnimation.y,
       scale: overlayTransform.scale * overlayAnimation.scale,
       opacity: overlayTransform.opacity * overlayAnimation.opacity,
-    };
+    }, overlay.beatShake, overlayTime);
     const isVector = overlay.kind === "vector" || Boolean(overlay.vectorBody);
     const vectorAppearance = getVectorDesignAppearance(overlay.vectorDesign);
     const overlayClickRipple = normalizeClickRippleEffect(overlay.clickRipple);

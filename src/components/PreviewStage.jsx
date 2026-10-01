@@ -1,3 +1,4 @@
+import { applyBeatShakeTransform } from "../lib/beatShakeEffect.js";
 import { GlitchPreview } from "./GlitchEffect.jsx";
 import { requestTimelineMediaPlay, setTimelineAudioGain } from "../lib/editorRuntime.js";
 import { DriftingHaloOverlay } from "./DriftingHalo.jsx";
@@ -275,8 +276,12 @@ export function PreviewStage({
   const usesAlphaMask = Boolean(shapeMaskUrl);
   const maskInsets = getVisualMaskInsets(visualMask);
   const roundedRadius = Math.min(maskWidth / 100 * frameWidth, maskHeight / 100 * frameHeight) * (Number.isFinite(visualMask.cornerRadius) ? visualMask.cornerRadius : 12) / 100;
+  const shakenTransform = applyBeatShakeTransform({
+    x: visualTransform.x + visualAnimation.x, y: visualTransform.y + visualAnimation.y,
+    rotation: visualTransform.rotation, scale: visualTransform.scale * visualAnimation.scale,
+  }, visualEffects?.beatShake, visualLocalTime);
   const visualTransformStyle = {
-    transform: `translate(${visualTransform.x + visualAnimation.x}%, ${visualTransform.y + visualAnimation.y}%) scale(${visualTransform.scale * visualAnimation.scale}) rotate(${visualTransform.rotation}deg)`,
+    transform: `translate(${shakenTransform.x}%, ${shakenTransform.y}%) scale(${shakenTransform.scale}) rotate(${shakenTransform.rotation}deg)`,
     opacity: visualTransform.opacity * visualAnimation.opacity,
   };
   const visualContentBox = activeObjectFit === "contain"
@@ -783,13 +788,13 @@ export function PreviewStage({
               const localTime = Math.max(0, currentTime - (overlay.start || 0));
               const transform = resolveVisualOverlayTransform(overlay, localTime);
               const animation = resolveVisualClipAnimation(overlay.animation, localTime, overlay.duration);
-              const animatedTransform = {
+              const animatedTransform = applyBeatShakeTransform({
                 ...transform,
                 x: transform.x + animation.x,
                 y: transform.y + animation.y,
                 scale: transform.scale * animation.scale,
                 opacity: transform.opacity * animation.opacity,
-              };
+              }, overlay.beatShake, localTime);
               const vectorAppearance = getVectorDesignAppearance(overlay.vectorDesign);
               const isVector = overlay.kind === "vector" || Boolean(overlay.vectorBody);
               const containBox = getVisualOverlayPixelBox(overlay, activePreviewFrameSize);

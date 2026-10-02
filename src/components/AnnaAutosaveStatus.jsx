@@ -37,7 +37,7 @@ export function AnnaAutosaveStatus({ session, language }) {
   const copy = getAnnaSessionCopy(language);
   const backupCopy = getAnnaBackupCopy(language);
   const storage = state.storage === "cloud" ? "cloud" : "local";
-  const backupStatus = state.backup === "saved" && !["saved", "idle"].includes(status) ? null : state.backup;
+  const backupStatus = storage === "cloud" ? null : state.backup === "saved" && !["saved", "idle"].includes(status) ? null : state.backup;
   const statusCopy = storage === "cloud" ? copy.cloud : copy;
   const StatusIcon = STATUS_ICONS[status];
   const action = state.action || "";

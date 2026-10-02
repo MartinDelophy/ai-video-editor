@@ -37,13 +37,20 @@ export function createAnnaLocalProjectStore(scope) {
   });
   return {
     metadata, read,
+    useCloud(expectedRevision) {
+      return transaction('readwrite', (account, _, done, put) => {
+        if (!account || account.revision !== expectedRevision) throw fail('conflict');
+        account.cloudFallback = true;
+        put(account); done(account);
+      });
+    },
     initialize(record, head) {
       return transaction('readwrite', (existing, snapshots, done, put) => {
         if (existing) return done(existing);
         const projects = head.projects || [];
         const current = record?.projectId || null;
         const account = { revision: record ? 1 : 0, current, projects, anchor: head.anchor,
-          cloudRevision: head.revision, cloudFiles: head.files || [], outbox: {}, deleted: {} };
+          cloudFallback: false, cloudRevision: head.revision, cloudFiles: head.files || [], outbox: {}, deleted: {} };
         if (record) {
           const saved = { ...record, revision: 1, source: 'browser' };
           snapshots.put(saved, key(current));
@@ -63,7 +70,7 @@ export function createAnnaLocalProjectStore(scope) {
       const snapshot = structuredClone(data);
       return transaction('readwrite', (account, snapshots, done, put) => {
         if (!account) throw fail('read');
-        if (account.revision !== expectedRevision) throw fail('conflict');
+        if (account.cloudFallback || account.revision !== expectedRevision) throw fail('conflict');
         const id = project?.id || account.current || 'legacy';
         const old = account.projects.find(p => p.id === id);
         const name = project?.name ?? old?.name ?? '';
@@ -81,7 +88,7 @@ export function createAnnaLocalProjectStore(scope) {
     },
     remove(id, { expectedRevision } = {}) {
       return transaction('readwrite', (account, snapshots, done, put) => {
-        if (!account || account.revision !== expectedRevision || account.current === id) throw fail('conflict');
+        if (!account || account.cloudFallback || account.revision !== expectedRevision || account.current === id) throw fail('conflict');
         account.projects = account.projects.filter(p => p.id !== id);
         delete account.outbox[id]; account.deleted[id] = true;
         snapshots.delete(key(id)); snapshots.delete(key(id, true));

@@ -24,11 +24,11 @@ Users are solely responsible for any legal liability arising from violations of 
 
 ## Project updates
 
+- **2026-10-02 — Anna automatically switches to cloud saving when browser storage is full, with cloud recovery after reload and conflict-safe retries.**
 - **2026-10-02 — Anna Smart adds environment-gated browser automatic captions, editable text, cancellation and pause-based timing. Bilingual output is available when the browser translation model is ready.**
 - **2026-10-02 — Anna ChatCut adds a unified media, text and voice composer with locally saved conversations and history switching.** The agent calls current-frame and sampled-video inspection when needed; proposed edits still require review and explicit application.
 - **2026-10-01 — Anna now saves projects and media locally first, with a durable background cloud backup queue, local project switching and separate save/backup status.**
 - **2026-10-01 — Anna Effects adds Beat shake in third position, with manual BPM, direction, strength, decay and beat offset shared by preview and export.**
-- **2026-10-01 — Anna Effects adds configurable Glitch animation first, followed by Rhythm click ripple and Disco beams. Preview and export share deterministic RGB splitting, horizontal tearing and signal noise.**
 
 See the public [Roadmap](ROADMAP.md) for planned work, [Releases](https://github.com/MartinDelophy/ai-video-editor/releases) for shipped changes, and [Issues](https://github.com/MartinDelophy/ai-video-editor/issues) for focused tasks and bugs.
 

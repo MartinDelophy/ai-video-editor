@@ -19,11 +19,11 @@ L’utilisateur assume seul toute responsabilité juridique découlant du non-re
 
 ## Actualités du projet
 
+- **2026-10-02 — Anna passe au stockage cloud si le navigateur manque d’espace, avec restauration après rechargement et reprise protégeant les conflits.**
 - **2026-10-02 — Anna ajoute les sous-titres automatiques selon l’environnement, avec édition, annulation et temps estimés par les pauses. Le mode bilingue nécessite un modèle de traduction disponible.**
 - **2026-10-02 — Anna regroupe médias, texte et voix dans le chat, avec historique local et changement de discussion.** L’agent consulte les images et photogrammes selon le besoin ; les modifications nécessitent une vérification et une application explicite.
 - **2026-10-01 — Anna enregistre d’abord les projets et médias localement, puis les sauvegarde dans le cloud en arrière-plan. Le changement de projet n’attend plus le transfert et les deux états sont distincts.**
 - **2026-10-01 — Anna ajoute la Secousse rythmique en troisième position : BPM manuel, direction, intensité, atténuation et décalage communs à l’aperçu et à l’export.**
-- **2026-10-01 — Anna place Glitch configurable en premier, puis les ondulations rythmiques et les faisceaux Disco. Aperçu et export partagent le décalage RVB, les déchirures horizontales et le bruit déterministes.**
 
 Consultez la [Roadmap](ROADMAP.md) pour les travaux prévus, les [Releases](https://github.com/MartinDelophy/ai-video-editor/releases) pour les changements publiés et les [Issues](https://github.com/MartinDelophy/ai-video-editor/issues) pour les tâches et anomalies.
 

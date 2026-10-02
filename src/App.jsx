@@ -1556,7 +1556,7 @@ export function App() {
         projectFileInputRef={projectFileInputRef}
       />
 
-      {chatCutVisible && <ChatCut closing={chatCutClosing} projectId={anna.session?.state?.projectId} key={anna.session?.state?.projectId || "startup"} language={activeLanguage} editor={webMcp} assets={userAssets} onImport={() => fileInputRef.current?.click()} inspectMedia={(input, options) => sampleChatCutMedia(userAssets, input, options)} hasMedia={exportContentDuration > 0} onClose={() => setSmartMode("watermark")} captureFrame={() => {
+      {chatCutVisible && <ChatCut closing={chatCutClosing} projectId={anna.session?.state?.projectId} key={anna.session?.state?.projectId || "startup"} language={activeLanguage} editor={webMcp} assets={userAssets} onAssetPointerDown={handleAssetPointerDown} onImport={() => fileInputRef.current?.click()} inspectMedia={(input, options) => sampleChatCutMedia(userAssets, input, options)} hasMedia={exportContentDuration > 0} onClose={() => setSmartMode("watermark")} captureFrame={() => {
         try {
           const source = previewVisualType === "video" ? previewVideoRef.current : previewCanvasRef.current?.querySelector(".visual-media-layer > img:not(.smart-frame-fill-background)");
           const width = source?.videoWidth || source?.naturalWidth;

@@ -143,3 +143,6 @@
 .chatcut { animation: chatcut-enter 220ms cubic-bezier(.2,.7,.2,1) both; }
 .app-shell.is-chatcut-closing > .chatcut { animation: chatcut-exit 180ms ease-in both; pointer-events: none; }
 @media (prefers-reduced-motion: reduce) { .chatcut, .app-shell.is-chatcut-closing > .chatcut { animation: none; } }
+
+.chatcut-asset { cursor: grab; touch-action: none; user-select: none; }
+.chatcut-asset:active { cursor: grabbing; }

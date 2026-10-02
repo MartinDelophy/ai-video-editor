@@ -14,7 +14,7 @@ function sessionDate(value, language) {
   return days >= -1 && days <= 0 ? new Intl.RelativeTimeFormat(language, { numeric: "auto" }).format(days, "day") : new Date(value).toLocaleDateString(language);
 }
 
-export function ChatCut({ language, editor, captureFrame, hasMedia, assets = [], onImport, inspectMedia, projectId, closing = false, onClose }) {
+export function ChatCut({ language, editor, captureFrame, hasMedia, assets = [], onImport, onAssetPointerDown, inspectMedia, projectId, closing = false, onClose }) {
   const copy = getChatCutCopy(language);
   const [input, setInput] = useState("");
   const [sessions, setSessions] = useState([]);
@@ -106,8 +106,8 @@ export function ChatCut({ language, editor, captureFrame, hasMedia, assets = [],
     </div>
     {historyError && <p className="chatcut-history-error" role="status">{copy.historyError}</p>}
     <form onSubmit={send} className="chatcut-composer">
-      {visibleAssets.length > 0 && <div className="chatcut-assets" tabIndex={0} role="region" aria-label={copy.importMedia}>{visibleAssets.map(asset => <div key={asset.id} className="chatcut-asset" title={asset.name}>
-        {asset.thumbnail || asset.type === "image" ? <img src={asset.thumbnail || asset.src} alt="" /> : asset.type === "video" ? <video src={asset.src} muted playsInline preload="metadata" aria-hidden="true" /> : <Waveform size={24} />}
+      {visibleAssets.length > 0 && <div className="chatcut-assets" tabIndex={0} role="region" aria-label={copy.importMedia}>{visibleAssets.map(asset => <div key={asset.id} className="chatcut-asset" title={asset.name} onPointerDown={event => { if (!asset.preparing && !closing && !(event.target instanceof Element && event.target.closest("button"))) onAssetPointerDown?.(event, asset); }} onDragStart={event => event.preventDefault()}>
+        {asset.thumbnail || asset.type === "image" ? <img src={asset.thumbnail || asset.src} alt="" draggable={false} /> : asset.type === "video" ? <video src={asset.src} muted playsInline preload="metadata" draggable={false} aria-hidden="true" /> : <Waveform size={24} />}
         <span>{asset.name}</span>{asset.preparing && <SpinnerGap className="chatcut-spinner" size={14} />}
         <button type="button" aria-label={`${copy.removeAttachment}: ${asset.name}`} disabled={Boolean(stage)} onClick={() => setSessions(items => items.map(item => item.id === activeId ? { ...item, excluded: [...item.excluded, asset.id] } : item))}><X size={14} /></button>
       </div>)}</div>}

@@ -10,6 +10,15 @@ import { captureVideoTrackFrame } from "../lib/media.js";
 
 const EMPTY_FRAMES = [];
 
+// A failed cell keeps its geometry without exposing the browser's broken-image
+// surface. Do not substitute a different source-time frame near a shot change.
+function TimelineThumbnailImage({ src }) {
+  const [failedSource, setFailedSource] = useState(null);
+  return <img src={src || undefined} alt="" crossOrigin="anonymous" draggable={false}
+    style={{ visibility: !src || failedSource === src ? "hidden" : undefined }}
+    onError={() => setFailedSource(src)} />;
+}
+
 // Only the active visual receives the changing playback time. The other
 // filmstrips keep their full frame density without rebuilding their image
 // elements for every playback tick, selection, or unrelated audio update.
@@ -142,11 +151,11 @@ export const TimelineThumbnails = memo(function TimelineThumbnails({
       {type === "video"
         ? visibleFrames.length
           ? visibleFrames.map((frame, index) => (
-            <img src={getVideoTrackFrameSource(frame)} alt="" crossOrigin="anonymous" draggable={false} key={index} />
+            <TimelineThumbnailImage src={getVideoTrackFrameSource(frame)} key={index} />
           ))
           : <video src={src} crossOrigin="anonymous" muted playsInline preload="metadata" draggable={false} />
         : Array.from({ length: Math.max(1, imageFrameCount) }, (_, index) => (
-          <img src={src} alt="" crossOrigin="anonymous" draggable={false} key={index} />
+          <TimelineThumbnailImage src={src} key={index} />
         ))}
     </div>
   );

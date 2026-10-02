@@ -1,19 +1,22 @@
 import { useEffect, useRef, useState } from "react";
 import { ClosedCaptioning, SpinnerGap } from "@phosphor-icons/react";
 import { supportsFileSpeech, transcribeBrowserFile } from "../lib/browserFileSpeech.js";
+import { getVisualSpeedCurveTimelineProgress } from "../lib/visualSpeedCurve.js";
 import { CHATCUT_SPEECH_LANGUAGES } from "../hooks/useChatCutSpeech.js";
 import { getBrowserCaptionCopy } from "../i18nBrowserCaptions.js";
 import "./BrowserCaptions.css";
 
-export function BrowserCaptions({ language, assets, projectId, locked, onCommit, captionSize, setCaptionSize, captionStyle, setCaptionStyle }) {
+export function BrowserCaptions({ language, assets, timelineMedia = [], preferredClipId, projectId, locked, onCommit, captionSize, setCaptionSize, captionStyle, setCaptionStyle }) {
   const copy = getBrowserCaptionCopy(language);
-  const media = assets.filter(asset => ["video", "audio"].includes(asset.type) && !asset.preparing && asset.blob instanceof Blob);
-  const [assetId, setAssetId] = useState(""); const asset = media.find(item => item.id === assetId) || media[0];
+  const clips = timelineMedia.filter(item => ["video", "audio"].includes(item.type) && item.blob instanceof Blob)
+    .map(item => ({ ...item, id: `caption-target-${item.id}`, clipId: item.id, name: `${item.name || ""} (${item.timelineStart.toFixed(2)}–${(item.timelineStart + item.duration).toFixed(2)}s)` }));
+  const media = [...clips, ...assets.filter(asset => ["video", "audio"].includes(asset.type) && !asset.preparing && asset.blob instanceof Blob)];
+  const [assetId, setAssetId] = useState(""); const asset = media.find(item => item.id === assetId) || clips.find(item => item.clipId === preferredClipId) || media[0];
   const [speechLanguage, setSpeechLanguage] = useState(language); const [target, setTarget] = useState(language === "en" ? "zh" : "en");
-  const [offset, setOffset] = useState(0); const [bilingual, setBilingual] = useState(false);
+  const [offset, setOffset] = useState(null); const [bilingual, setBilingual] = useState(false);
   const [translationReady, setTranslationReady] = useState(false); const [running, setRunning] = useState(false);
   const [progress, setProgress] = useState(0); const [message, setMessage] = useState("");
-  const latest = useRef({ locked, onCommit, assets }); latest.current = { locked, onCommit, assets };
+  const latest = useRef({ locked, onCommit, media }); latest.current = { locked, onCommit, media };
   const controller = useRef(null); const mounted = useRef(true); const currentProject = useRef(projectId); currentProject.current = projectId;
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; controller.current?.abort(); }; }, []);
   useEffect(() => { controller.current?.abort(); setMessage(""); }, [projectId]);
@@ -38,14 +41,22 @@ export function BrowserCaptions({ language, assets, projectId, locked, onCommit,
       const translation = bilingual && translationReady ? window.Translator.create({ sourceLanguage: speechLanguage, targetLanguage: target }) : null;
       await resumed;
       translator = translation ? await translation : null;
-      const segments = await transcribeBrowserFile(asset.blob, { language: CHATCUT_SPEECH_LANGUAGES[speechLanguage], offset: Number(offset) || 0, signal: abort.signal, context, onProgress: value => { if (mounted.current) setProgress(value * (translator ? 85 : 100)); } });
+      const segments = await transcribeBrowserFile(asset.blob, { language: CHATCUT_SPEECH_LANGUAGES[speechLanguage], offset: 0, sourceStart: asset.clipId ? asset.sourceStart || 0 : 0, sourceDuration: asset.clipId ? asset.sourceDuration || asset.duration * (asset.playbackRate || 1) : undefined, signal: abort.signal, context, onProgress: value => { if (mounted.current) setProgress(value * (translator ? 85 : 100)); } });
+      const start = Number(offset ?? asset.timelineStart) || 0;
+      for (const segment of segments) {
+        const mapTime = time => asset.clipId ? asset.speedCurve?.enabled
+          ? getVisualSpeedCurveTimelineProgress(asset.speedCurve, time / (asset.sourceDuration || asset.duration * (asset.playbackRate || 1))) * asset.duration
+          : time / (asset.playbackRate || 1) : time;
+        segment.start = start + mapTime(segment.start);
+        segment.end = start + mapTime(segment.end);
+      }
       if (translator) for (let i = 0; i < segments.length; i++) {
         if (abort.signal.aborted) throw new DOMException("Cancelled", "AbortError");
         const translated = await translator.translate(segments[i].text, { signal: abort.signal });
         segments[i].text += `\n${translated}`; if (mounted.current) setProgress(85 + (i + 1) / segments.length * 15);
       }
       if (abort.signal.aborted || currentProject.current !== startedProject || !mounted.current) return;
-      if (latest.current.locked || !latest.current.assets.some(item => item.id === asset.id)) return;
+      if (latest.current.locked || !latest.current.media.some(item => item.id === asset.id && item.sourceStart === asset.sourceStart && item.sourceDuration === asset.sourceDuration && item.duration === asset.duration && item.timelineStart === asset.timelineStart && JSON.stringify(item.speedCurve) === JSON.stringify(asset.speedCurve))) return;
       latest.current.onCommit(segments); setMessage(copy.done); setProgress(100);
     } catch (error) {
       if (mounted.current && !abort.signal.aborted) setMessage(error.code === "too-long" ? copy.long : error.code === "empty" ? copy.noSpeech : copy.error);
@@ -59,10 +70,10 @@ export function BrowserCaptions({ language, assets, projectId, locked, onCommit,
     <div className="browser-captions-body">
       <p>{copy.hint}</p>
       <fieldset disabled={running}>
-        <label>{copy.source}<select value={asset?.id || ""} onChange={event => setAssetId(event.target.value)}>{media.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+        <label>{copy.source}<select value={asset?.id || ""} onChange={event => { setAssetId(event.target.value); setOffset(null); }}>{media.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
         {!asset && <p>{copy.empty}</p>}
         <label>{copy.language}<select value={speechLanguage} onChange={event => setSpeechLanguage(event.target.value)}>{options}</select></label>
-        <label>{copy.offset}<input type="number" min="0" max="86400" step="0.1" value={offset} onChange={event => setOffset(Math.max(0, Math.min(86400, Number(event.target.value))))} /></label>
+        <label>{copy.offset}<input type="number" min="0" max="86400" step="0.1" value={offset ?? asset?.timelineStart ?? 0} onChange={event => setOffset(Math.max(0, Math.min(86400, Number(event.target.value))))} /></label>
         {window.Translator && <label>{copy.target}<select value={target} onChange={event => setTarget(event.target.value)}>{options}</select></label>}
         {translationReady && <label className="browser-caption-check"><input type="checkbox" checked={bilingual} onChange={event => setBilingual(event.target.checked)} />{copy.bilingual}</label>}
       </fieldset>

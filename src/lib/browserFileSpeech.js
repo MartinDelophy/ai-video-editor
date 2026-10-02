@@ -73,12 +73,19 @@ function recognizeRange(context, buffer, range, language, signal) {
   });
 }
 
-export async function transcribeBrowserFile(blob, { language = "zh-CN", offset = 0, signal, onProgress, context } = {}) {
+export async function transcribeBrowserFile(blob, { language = "zh-CN", offset = 0, signal, onProgress, context, sourceStart = 0, sourceDuration } = {}) {
   if (!supportsFileSpeech()) throw fail("unsupported");
   const ctx = context || new (window.AudioContext || window.webkitAudioContext)();
   try {
     check(signal); await ctx.resume();
-    const buffer = await ctx.decodeAudioData(await blob.arrayBuffer()); check(signal);
+    const decoded = await ctx.decodeAudioData(await blob.arrayBuffer()); check(signal);
+    const start = Math.max(0, Math.min(decoded.duration, sourceStart));
+    const duration = Math.min(decoded.duration - start, sourceDuration ?? decoded.duration);
+    if (!(duration > 0)) throw fail("empty");
+    const first = Math.floor(start * decoded.sampleRate);
+    const length = Math.min(decoded.length - first, Math.round(duration * decoded.sampleRate));
+    const buffer = start === 0 && length === decoded.length ? decoded : ctx.createBuffer(decoded.numberOfChannels, length, decoded.sampleRate);
+    if (buffer !== decoded) for (let channel = 0; channel < decoded.numberOfChannels; channel++) buffer.copyToChannel(decoded.getChannelData(channel).subarray(first, first + length), channel);
     if (buffer.duration > 1800) throw fail("too-long");
     const ranges = speechRanges(buffer); if (!ranges.length) throw fail("empty");
     const segments = [];

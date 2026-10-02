@@ -49,7 +49,7 @@ export function AnnaAutosaveStatus({ session, language }) {
     : "";
   const label = (state.errorCode === "busy" || (status === "conflict" && session.blockedReason === "busy")) ? copy.operationBusy : errorReason || statusCopy[status];
   const migrationWarning = state.migrationErrorCode ? copy.cloud.migrationWarning : "";
-  const scopeCopy = state.backup ? backupCopy.hint : statusCopy.scope;
+  const scopeCopy = storage === "local" && state.backup ? backupCopy.hint : statusCopy.scope;
   const description = `${statusCopy[status]}${time ? ` · ${time}` : ""}${errorReason ? `\n${errorReason}` : ""}\n${scopeCopy}${migrationWarning ? `\n${migrationWarning}` : ""}`;
 
   return (

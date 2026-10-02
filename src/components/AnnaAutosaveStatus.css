@@ -15,7 +15,7 @@
 .anna-session-status__summary {
   display: flex;
   align-items: center;
-  flex: 1 1 160px;
+  flex: 0 1 auto;
   gap: 5px;
   min-width: 0;
   max-width: 100%;
@@ -147,4 +147,6 @@
   }
 }
 
-.anna-session-status__backup { display: inline-flex; align-items: center; gap: 5px; color: var(--text-muted, #8ea3ad); font-size: 11px; }
+.anna-session-status__backup { flex: 0 1 auto; min-width: 0; display: inline-flex; align-items: center; gap: 5px; color: var(--text-muted, #8ea3ad); font-size: 11px; }
+
+.anna-session-status__backup::before { content: "·"; color: var(--text-muted, #8ea3ad); margin-right: 3px; }

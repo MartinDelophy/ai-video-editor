@@ -66,9 +66,8 @@ export function BrowserCaptions({ language, assets, timelineMedia = [], preferre
     }
   };
   return <aside className="voice-panel browser-captions" aria-label={copy.title}>
-    <div className="panel-title-row"><h1><ClosedCaptioning size={20} />{copy.title}</h1></div>
+    <div className="browser-caption-header"><div className="panel-title-row"><h1><ClosedCaptioning size={20} />{copy.title}</h1></div><p>{copy.hint}</p></div>
     <div className="browser-captions-body">
-      <p>{copy.hint}</p>
       <fieldset disabled={running}>
         <label>{copy.source}<select value={asset?.id || ""} onChange={event => { setAssetId(event.target.value); setOffset(null); }}>{media.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
         {!asset && <p>{copy.empty}</p>}

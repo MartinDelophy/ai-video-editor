@@ -19,7 +19,7 @@ O usuário é o único responsável por quaisquer consequências legais decorren
 
 ## Novidades do projeto
 
-- **2026-10-02 — Anna muda para armazenamento na nuvem quando falta espaço local, com restauração ao recarregar e tentativas protegidas contra conflitos.** A restauração local reutiliza formas de onda salvas e divide os cálculos ausentes para reduzir bloqueios da interface.
+- **2026-10-02 — Anna muda para armazenamento na nuvem quando falta espaço local, com restauração ao recarregar e tentativas protegidas contra conflitos.** A restauração local reutiliza formas de onda salvas e divide os cálculos ausentes para reduzir bloqueios da interface. Formas de onda longas desenham apenas a área visível para evitar limites do canvas.
 - **2026-10-02 — Anna adiciona legendas automáticas conforme o ambiente, com edição, cancelamento e tempos estimados pelas pausas. Saída bilíngue quando o modelo de tradução está pronto.**
 - **2026-10-02 — Anna reúne mídia, texto e voz no chat, com histórico local e troca de conversas.** O agente consulta imagens e quadros quando necessário; alterações continuam exigindo revisão e aplicação explícita.
 - **2026-10-01 — Anna salva projetos e mídia primeiro localmente, com backup na nuvem em segundo plano. A troca de projetos não aguarda uploads e os estados de salvamento e backup são separados.**

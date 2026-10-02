@@ -2,6 +2,7 @@ import { memo, useEffect, useMemo, useRef } from "react";
 import { X } from "@phosphor-icons/react";
 import { getWaveformDisplayPeaks, isWaveformPlaceholder } from "../lib/waveform.js";
 import { formatShortcutLabel, releasePointerActivatedFocus } from "../lib/editorShortcuts.js";
+import { observeViewportCanvas } from "../lib/viewportCanvas.js";
 import { sliceSourceAudioPeaks } from "../lib/sourceAudioSync.js";
 
 export function IconButton({ label, children, active = false, disabled = false, onClick, tooltip = false, shortcut = "", releaseFocusOnPointer = false }) {
@@ -72,21 +73,14 @@ export const WaveformStrip = memo(function WaveformStrip({ peaks, active = false
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!timeline || !canvas) return undefined;
-    const draw = () => {
-      const width = Math.max(1, Math.round(canvas.clientWidth));
-      const height = Math.max(1, Math.round(canvas.clientHeight));
-      const dpr = Math.min(2, window.devicePixelRatio || 1);
-      canvas.width = width * dpr; canvas.height = height * dpr;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return;
-      ctx.scale(dpr, dpr);
+    return observeViewportCanvas(canvas, ({ context: ctx, width, height, offset, fullWidth }) => {
       if (placeholder) return;
       const gain = hidden ? 0 : Math.max(0, Math.min(4, volume));
       const count = Math.min(2048, Math.max(1, Math.floor(width / 3)));
       const ceiling = height * 0.76;
       const amplitudes = Array.from({ length: count }, (_, i) => {
-        const from = i / count * safePeaks.length;
-        const to = (i + 1) / count * safePeaks.length;
+        const from = (offset + i / count * width) / fullWidth * safePeaks.length;
+        const to = (offset + (i + 1) / count * width) / fullWidth * safePeaks.length;
         let peak = 0;
         if (to - from < 1) {
           const index = Math.floor(from);
@@ -118,10 +112,7 @@ export const WaveformStrip = memo(function WaveformStrip({ peaks, active = false
         }
         ctx.restore();
       });
-    };
-    const observer = new ResizeObserver(draw);
-    observer.observe(canvas); draw();
-    return () => observer.disconnect();
+    });
   }, [timeline, safePeaks, placeholder, volume, hidden]);
   return (
     <div

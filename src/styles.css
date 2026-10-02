@@ -12631,6 +12631,7 @@ button:disabled {
 
 
 .audio-clip > .waveform-strip.is-timeline-waveform {
+  position: relative;
   display: block;
   padding: 0;
 }

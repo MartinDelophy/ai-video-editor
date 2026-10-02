@@ -19,7 +19,7 @@ L’utilisateur assume seul toute responsabilité juridique découlant du non-re
 
 ## Actualités du projet
 
-- **2026-10-02 — Anna passe au stockage cloud si le navigateur manque d’espace, avec restauration après rechargement et reprise protégeant les conflits.** La restauration locale réutilise les formes d’onde enregistrées et répartit les calculs manquants pour limiter le blocage de l’interface.
+- **2026-10-02 — Anna passe au stockage cloud si le navigateur manque d’espace, avec restauration après rechargement et reprise protégeant les conflits.** La restauration locale réutilise les formes d’onde enregistrées et répartit les calculs manquants pour limiter le blocage de l’interface. Les longues formes d’onde ne dessinent que la zone visible pour éviter les limites du canevas.
 - **2026-10-02 — Anna ajoute les sous-titres automatiques selon l’environnement, avec édition, annulation et temps estimés par les pauses. Le mode bilingue nécessite un modèle de traduction disponible.**
 - **2026-10-02 — Anna regroupe médias, texte et voix dans le chat, avec historique local et changement de discussion.** L’agent consulte les images et photogrammes selon le besoin ; les modifications nécessitent une vérification et une application explicite.
 - **2026-10-01 — Anna enregistre d’abord les projets et médias localement, puis les sauvegarde dans le cloud en arrière-plan. Le changement de projet n’attend plus le transfert et les deux états sont distincts.**

@@ -19,7 +19,7 @@ Für sämtliche rechtlichen Folgen eines Verstoßes gegen diese Anforderungen is
 
 ## Projektneuigkeiten
 
-- **2026-10-02 — Anna wechselt bei vollem Browserspeicher zur Cloud, mit Wiederherstellung nach Neuladen und konfliktgeschützten Wiederholungen.** Die lokale Wiederherstellung nutzt gespeicherte Wellenformen und verteilt fehlende Berechnungen, um die Oberfläche weniger zu blockieren.
+- **2026-10-02 — Anna wechselt bei vollem Browserspeicher zur Cloud, mit Wiederherstellung nach Neuladen und konfliktgeschützten Wiederholungen.** Die lokale Wiederherstellung nutzt gespeicherte Wellenformen und verteilt fehlende Berechnungen, um die Oberfläche weniger zu blockieren. Lange Wellenformen zeichnen nur den sichtbaren Bereich und vermeiden Canvas-Größenlimits.
 - **2026-10-02 — Anna ergänzt browserabhängige automatische Untertitel mit Bearbeitung, Abbruch und pausengestützter Zeitabschätzung. Zweisprachige Ausgabe bei verfügbarem Übersetzungsmodell.**
 - **2026-10-02 — Anna bündelt Medien, Text und Sprache im Chat und speichert wechselbare Gespräche lokal.** Der Agent prüft aktuelle Bilder und Videoframes bei Bedarf; Änderungen werden weiterhin bewusst geprüft und angewendet.
 - **2026-10-01 — Anna speichert Projekte und Medien zuerst lokal und sichert sie im Hintergrund in der Cloud. Projektwechsel warten nicht auf Uploads; beide Speicherzustände werden getrennt angezeigt.**

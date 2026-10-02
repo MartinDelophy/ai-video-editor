@@ -16,6 +16,7 @@ export function getVideoAudioWaveform(blob) {
       if (!(duration > 0)) return null;
       const peaks = new Float32Array(Math.min(8192, Math.max(256, Math.ceil(duration * 24))));
       const sink = new AudioBufferSink(track);
+      let yieldedAt = performance.now();
       for await (const { buffer, timestamp } of sink.buffers()) {
         for (let channel = 0; channel < buffer.numberOfChannels; channel += 1) {
           const samples = buffer.getChannelData(channel);
@@ -23,6 +24,10 @@ export function getVideoAudioWaveform(blob) {
             const index = Math.floor((timestamp + i / buffer.sampleRate) / duration * peaks.length);
             if (index >= 0 && index < peaks.length) peaks[index] = Math.max(peaks[index], Math.abs(samples[i]));
           }
+        }
+        if (performance.now() - yieldedAt >= 8) {
+          await new Promise(resolve => setTimeout(resolve, 0));
+          yieldedAt = performance.now();
         }
       }
       return { peaks, duration };

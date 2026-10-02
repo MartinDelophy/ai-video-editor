@@ -17,11 +17,11 @@ Users are solely responsible for any legal liability arising from violations of 
 
 ## Project updates
 
+- **2026-10-02 — Anna adds ChatCut: conversational editing with a two-pane workspace, inspected command previews, explicit application and undo, plus optional current-frame input.**
 - **2026-10-01 — Anna now saves projects and media locally first, with a durable background cloud backup queue, local project switching and separate save/backup status.**
 - **2026-10-01 — Anna Effects adds Beat shake in third position, with manual BPM, direction, strength, decay and beat offset shared by preview and export.**
 - **2026-10-01 — Anna Effects adds configurable Glitch animation first, followed by Rhythm click ripple and Disco beams. Preview and export share deterministic RGB splitting, horizontal tearing and signal noise.**
 - **2026-10-01 — Anna Smart now exposes only AI video watermark removal, ported from main with multiple regions, time ranges, moving-region keyframes, result comparison and reversible application.**
-- **2026-10-01 — Anna timeline audio: videos and picture-in-picture clips show source waveforms; drag clip gain lines to adjust decibels. Preview, export and saved projects share the same gain.**
 - **September 15, 2026 — Anna cloud autosave by default:** the current project and media save automatically to your Anna account and restore with the same account, without an activation step. Media uploads are deduplicated; Saved appears only after cloud confirmation. Storage errors and legacy local-recovery warnings cover all 13 languages. The X link is removed, leaving Discord and GitHub. Draft r19 is installed; alpha.6 has replaced the review candidate and is pending review, not publicly released. Anna preserves manually chosen window sizes.
 
 Timeline Studio is a local-first browser video editor plus an Agent Skill for creating editable, multi-track `.timeline` projects. It combines visual assembly, timed captions, multilingual AI voiceover, overlays, audio tools, and deterministic browser rendering without turning the project into an opaque one-off script.

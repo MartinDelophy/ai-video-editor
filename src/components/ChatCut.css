@@ -1,0 +1,44 @@
+.app-shell.is-chatcut { grid-template-columns: clamp(290px, 30vw, 420px) minmax(0, 1fr) !important; grid-template-rows: 60px minmax(200px, 1fr) var(--timeline-panel-height) !important; min-width: 0; }
+.app-shell.is-chatcut > .topbar { grid-column: 1 / -1; grid-row: 1; }
+.app-shell.is-chatcut > .editor-grid { grid-column: 2; grid-row: 2; display: grid !important; grid-template-columns: minmax(0, 1fr) !important; grid-template-rows: minmax(0, 1fr); }
+.app-shell.is-chatcut > .editor-grid > .tool-rail-shell,
+.app-shell.is-chatcut > .editor-grid > .media-panel,
+.app-shell.is-chatcut > .editor-grid > .voice-panel { display: none !important; }
+.app-shell.is-chatcut > .editor-grid > .preview-stage:not(.is-focus-preview) { display: grid !important; grid-template-rows: minmax(0, 1fr) 70px; grid-column: 1; grid-row: 1; min-width: 0; min-height: 0; position: relative; inset: auto; width: auto; height: auto; }
+.app-shell.is-chatcut > .timeline { grid-column: 2; grid-row: 3; min-width: 0; }
+.chatcut { grid-column: 1; grid-row: 2 / 4; display: flex; flex-direction: column; min-height: 0; min-width: 0; background: #11191f; border-right: 1px solid #2a3942; z-index: 2; }
+.chatcut header { display: flex; align-items: center; gap: 10px; padding: 16px; border-bottom: 1px solid #ffffff10; }
+.chatcut header strong { flex: 1; }
+.chatcut button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; cursor: pointer; border: 1px solid #334750; border-radius: 9px; padding: 9px 12px; color: #dfedf0; background: #1e2b33; font-size: 12px; }
+.chatcut button:disabled { opacity: .45; cursor: not-allowed; }
+.chatcut button:focus-visible, .chatcut textarea:focus-visible { outline: 2px solid #20d4c4; outline-offset: 2px; }
+.chatcut-messages { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 18px; }
+.chatcut-welcome { margin: 26px 0; }
+.chatcut-welcome h2 { font-size: 20px; line-height: 1.5; }
+.chatcut-welcome p { color: #9caeb7; font-size: 13px; line-height: 1.7; }
+.chatcut-message { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.65; font-size: 13px; padding: 12px; border-radius: 12px; margin: 0 0 14px; background: #1b252d; }
+.chatcut-message.is-user { margin-left: 24px; background: #173c3e; }
+.chatcut-status { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #75d7cd; }
+.chatcut-spinner { animation: chatcut-spin 1s linear infinite; flex-shrink: 0; }
+@keyframes chatcut-spin { to { transform: rotate(360deg); } }
+.chatcut form { padding: 14px; border-top: 1px solid #ffffff10; }
+.chatcut-attach { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; font-size: 12px; color: #b2c5cd; }
+.chatcut-attach input { width: 15px; height: 15px; accent-color: #23d5c6; }
+.chatcut textarea { box-sizing: border-box; width: 100%; resize: vertical; min-height: 90px; max-height: 180px; border: 1px solid #344a55; border-radius: 10px; background: #0b1218; color: #eef8fa; padding: 12px; font: inherit; font-size: 13px; }
+.chatcut-send { display: flex; justify-content: flex-end; margin: 8px 0; }
+.chatcut-send button { background: #23d5c6; color: #052326; font-weight: 600; }
+.chatcut small { display: block; font-size: 11px; line-height: 1.6; color: #8da3af; }
+@media (max-width: 760px) {
+  .app-shell.is-chatcut { height: auto !important; min-height: 100dvh; overflow: auto !important; grid-template-columns: minmax(0, 1fr) !important; grid-template-rows: auto 240px 420px 300px !important; }
+  .app-shell.is-chatcut > .editor-grid { grid-column: 1; grid-row: 2; }
+  .app-shell.is-chatcut > .chatcut { grid-column: 1; grid-row: 3; }
+  .app-shell.is-chatcut > .timeline { grid-column: 1; grid-row: 4; }
+}
+@media (prefers-reduced-motion: reduce) { .chatcut-spinner { animation: none; } }
+.app-shell.is-chatcut .preview-stage:not(.is-focus-preview) { grid-template-columns: minmax(0, 1fr); }
+.app-shell.is-chatcut .preview-canvas { min-width: 0; max-width: 100%; }
+.app-shell.is-chatcut .transport-row { min-width: 0; max-width: 100%; gap: 6px; }
+@media (max-width: 760px) {
+  .app-shell.is-chatcut .preview-empty { min-height: 0; height: auto; padding: 12px; }
+  .app-shell.is-chatcut .preview-empty span { display: none; }
+}

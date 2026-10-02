@@ -19,11 +19,11 @@ O usuário é o único responsável por quaisquer consequências legais decorren
 
 ## Novidades do projeto
 
+- **2026-10-02 — Anna adiciona edição por conversa: área de dois painéis, validação e revisão de alterações, aplicação explícita e desfazer, com quadro atual opcional.**
 - **2026-10-01 — Anna salva projetos e mídia primeiro localmente, com backup na nuvem em segundo plano. A troca de projetos não aguarda uploads e os estados de salvamento e backup são separados.**
 - **2026-10-01 — Anna adiciona Tremor rítmico em terceiro lugar, com BPM manual, direção, intensidade, decaimento e deslocamento iguais na prévia e exportação.**
 - **2026-10-01 — Anna adiciona Glitch configurável primeiro, seguido por ondulações rítmicas e feixes Disco. Prévia e exportação compartilham separação RGB, distorção horizontal e ruído determinísticos.**
 - **2026-10-01 — O Smart do Anna oferece apenas remoção de marca-d’água em vídeo, com múltiplas regiões, intervalos, quadros-chave de movimento, comparação e aplicação reversível trazidos da main.**
-- **2026-10-01 — Áudio no Anna: vídeos e clipes picture-in-picture mostram a forma de onda original. Arraste a linha de volume para ajustar decibéis; prévia, exportação e projeto salvo mantêm o mesmo ganho.**
 - **15 de setembro de 2026 — Salvamento na nuvem Anna por padrão:** o projeto atual e suas mídias são salvos automaticamente na conta e restaurados com a mesma conta, sem ativação manual. As mídias não são enviadas em duplicidade e o status salvo aguarda a confirmação da nuvem. Erros de armazenamento, incluindo cotas, e avisos de recuperação local abrangem os 13 idiomas. O link do X foi removido; Discord e GitHub permanecem. O rascunho r19 está instalado; alpha.6 substituiu a versão candidata e aguarda análise, sem publicação pública. Anna mantém o tamanho de janela escolhido manualmente.
 
 Consulte o [Roadmap](ROADMAP.md) para o trabalho planejado, [Releases](https://github.com/MartinDelophy/ai-video-editor/releases) para mudanças publicadas e [Issues](https://github.com/MartinDelophy/ai-video-editor/issues) para tarefas e erros.

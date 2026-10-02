@@ -19,11 +19,11 @@ Người dùng tự chịu mọi trách nhiệm pháp lý phát sinh từ việc
 
 ## Cập nhật dự án
 
+- **2026-10-02 — Anna thêm dựng qua trò chuyện: hai khung làm việc, xác thực và xem trước chỉnh sửa, áp dụng rõ ràng và hoàn tác, tùy chọn gửi khung hình hiện tại.**
 - **2026-10-01 — Anna lưu dự án và phương tiện cục bộ trước, rồi sao lưu đám mây trong nền. Chuyển dự án không chờ tải lên và hiển thị riêng trạng thái lưu và sao lưu.**
 - **2026-10-01 — Anna thêm Rung theo nhịp ở vị trí thứ ba, với BPM thủ công, hướng, cường độ, suy giảm và độ lệch nhịp dùng chung khi xem trước và xuất.**
 - **2026-10-01 — Anna thêm Glitch có thể điều chỉnh ở đầu, tiếp theo là gợn sóng nhịp điệu và tia Disco. Xem trước và xuất dùng chung tách RGB, xé ngang và nhiễu xác định theo thời gian.**
 - **2026-10-01 — Smart trên Anna chỉ hiển thị xóa hình mờ video, chuyển từ main với nhiều vùng, khoảng thời gian, khung hình chính cho vùng di chuyển, so sánh và khôi phục bản gốc.**
-- **2026-10-01 — Âm thanh trên Anna: video và clip hình trong hình hiển thị dạng sóng gốc. Kéo đường âm lượng lên xuống để chỉnh decibel; xem trước, xuất và dự án đã lưu giữ cùng mức âm lượng.**
 - **15 tháng 9, 2026 — Anna mặc định tự động lưu trên đám mây:** dự án hiện tại và phương tiện được lưu tự động vào tài khoản Anna và khôi phục bằng cùng tài khoản, không cần bật thủ công. Phương tiện không bị tải lên trùng lặp; trạng thái đã lưu chỉ xuất hiện sau xác nhận của đám mây. Lỗi lưu trữ, gồm hạn mức, và cảnh báo khôi phục cục bộ có đủ 13 ngôn ngữ. Đã bỏ liên kết X, giữ Discord và GitHub. Bản nháp r19 đã được cài; alpha.6 thay thế phiên bản gửi duyệt và đang chờ xét duyệt, chưa phát hành công khai. Anna giữ kích thước cửa sổ do người dùng tự chỉnh.
 
 Xem [Roadmap](ROADMAP.md) cho công việc dự kiến, [Releases](https://github.com/MartinDelophy/ai-video-editor/releases) cho thay đổi đã phát hành và [Issues](https://github.com/MartinDelophy/ai-video-editor/issues) cho nhiệm vụ và lỗi.

@@ -19,11 +19,11 @@ El usuario será el único responsable de cualquier consecuencia legal derivada 
 
 ## Novedades del proyecto
 
+- **2026-10-02 — Anna añade edición por chat: espacio de dos paneles, validación y revisión de cambios, aplicación explícita y deshacer, con fotograma actual opcional.**
 - **2026-10-01 — Anna guarda primero proyectos y medios localmente, con copia en la nube en segundo plano. Cambiar de proyecto no espera a la subida y los estados de guardado y copia se muestran por separado.**
 - **2026-10-01 — Anna añade Sacudida rítmica en tercer lugar, con BPM manual, dirección, intensidad, caída y desfase compartidos por vista previa y exportación.**
 - **2026-10-01 — Anna añade Glitch configurable en primer lugar, seguido de ondas rítmicas y haces Disco. Vista previa y exportación comparten separación RGB, distorsión horizontal y ruido deterministas.**
 - **2026-10-01 — Smart de Anna muestra solo la eliminación de marcas de agua de vídeo: varias zonas, intervalos, fotogramas clave de movimiento, comparación y aplicación reversible desde main.**
-- **2026-10-01 — Audio en Anna: los vídeos y clips de imagen en imagen muestran su onda de audio. Arrastra la línea de volumen para ajustar los decibelios; la vista previa, la exportación y el proyecto guardado conservan la misma ganancia.**
 - **15 de septiembre de 2026 — Guardado en la nube de Anna por defecto:** el proyecto actual y sus medios se guardan automáticamente en tu cuenta y se restauran con la misma cuenta, sin activación manual. Se evitan subidas duplicadas y el estado guardado espera la confirmación de la nube. Los errores de almacenamiento, incluida la cuota, y los avisos de recuperación local cubren los 13 idiomas. Se eliminó el enlace a X; permanecen Discord y GitHub. El borrador r19 está instalado; alpha.6 sustituyó al candidato de revisión y está pendiente de revisión, sin publicación pública. Anna conserva el tamaño de ventana elegido manualmente.
 
 Consulta el [Roadmap](ROADMAP.md) para el trabajo planificado, [Releases](https://github.com/MartinDelophy/ai-video-editor/releases) para los cambios publicados e [Issues](https://github.com/MartinDelophy/ai-video-editor/issues) para tareas y errores.

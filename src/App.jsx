@@ -1,3 +1,4 @@
+import { ChatCut } from "./components/ChatCut.jsx";
 import { normalizeBeatShake } from "./lib/beatShakeEffect.js";
 import { normalizeGlitch } from "./lib/glitchEffect.js";
 import { normalizeDriftingHalo } from "./lib/driftingHaloEffect.js";
@@ -1468,8 +1469,10 @@ export function App() {
       visualOverlaySegments.some((clip) => clip.preparing) || visionJob.running || avatarJob.running || autoEdit.job.running),
   });
 
+  const chatCutActive = anna.enabled && activeTool === "smart" && smartMode === "chatcut";
+
   return (
-    <main className={`app-shell ${isCompactViewport ? "is-compact-workspace" : ""} ${mobilePanel ? `mobile-panel-${mobilePanel}` : ""} ${isCompactViewport && mobileInspectorSection ? `mobile-section-${mobileInspectorSection}` : ""} ${isCompactViewport && mobileInspectorSection === "mask" && (selectedVisualOverlay || selectedVisualSegment)?.mask?.type && (selectedVisualOverlay || selectedVisualSegment).mask.type !== "none" ? "mobile-mask-active" : ""} ${mobilePanelClosing ? "is-mobile-panel-closing" : ""}`} lang={activeLanguage} onDragOver={(event) => {
+    <main className={`app-shell ${chatCutActive ? "is-chatcut" : ""} ${isCompactViewport ? "is-compact-workspace" : ""} ${mobilePanel ? `mobile-panel-${mobilePanel}` : ""} ${isCompactViewport && mobileInspectorSection ? `mobile-section-${mobileInspectorSection}` : ""} ${isCompactViewport && mobileInspectorSection === "mask" && (selectedVisualOverlay || selectedVisualSegment)?.mask?.type && (selectedVisualOverlay || selectedVisualSegment).mask.type !== "none" ? "mobile-mask-active" : ""} ${mobilePanelClosing ? "is-mobile-panel-closing" : ""}`} lang={activeLanguage} onDragOver={(event) => {
       if (event.dataTransfer?.types?.includes("Files")) event.preventDefault();
     }} onDrop={async (event) => {
       const files = Array.from(event.dataTransfer?.files ?? []);
@@ -1543,6 +1546,20 @@ export function App() {
         projectFileInputRef={projectFileInputRef}
       />
 
+      {chatCutActive && <ChatCut key={anna.session?.state?.projectId || "startup"} language={activeLanguage} editor={webMcp} hasMedia={exportContentDuration > 0} onClose={() => setSmartMode("watermark")} captureFrame={() => {
+        try {
+          const source = previewVisualType === "video" ? previewVideoRef.current : previewCanvasRef.current?.querySelector(".visual-media-layer > img:not(.smart-frame-fill-background)");
+          const width = source?.videoWidth || source?.naturalWidth;
+          const height = source?.videoHeight || source?.naturalHeight;
+          if (!width || !height || !trackVisibility.image || source?.seeking || (previewVisualType === "video" && source.readyState < 2)) return null;
+          const canvas = document.createElement("canvas");
+          const scale = Math.min(1, 960 / Math.max(width, height));
+          canvas.width = Math.max(1, Math.round(width * scale));
+          canvas.height = Math.max(1, Math.round(height * scale));
+          canvas.getContext("2d").drawImage(source, 0, 0, canvas.width, canvas.height);
+          return canvas.toDataURL("image/jpeg", 0.8);
+        } catch { return null; }
+      }} />}
       <WebMcpReview agent={webMcp} language={activeLanguage} />
       <ProjectImportOverlay progress={projectImportProgress} language={activeLanguage} />
       <section className={`editor-grid ${compactRail ? "is-compact-rail" : ""}`}>

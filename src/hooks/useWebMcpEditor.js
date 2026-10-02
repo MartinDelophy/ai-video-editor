@@ -63,6 +63,8 @@ export function useWebMcpEditor(editor) {
   };
   return {
     t, view, error, working,
+    tools: () => createWebMcpTools(sessionRef.current, t),
+    execute: (name, input, options) => sessionRef.current?.run(name, input, options),
     stale: Boolean(view?.status === "pending" && sessionRef.current && !sessionRef.current.isCurrentPreview()),
     canUndo: Boolean(view?.status === "applied" && sessionRef.current?.canUndo()),
     apply: () => run("timeline_edit_apply", { previewId: view?.preview?.previewId }),

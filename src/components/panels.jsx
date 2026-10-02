@@ -1,3 +1,4 @@
+import { getChatCutCopy } from "../i18nChatCut.js";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal, flushSync } from "react-dom";
 import { AnnaModelGate } from "./AnnaCapabilityNotice.jsx";
@@ -1425,7 +1426,8 @@ export function ToolPanel(props) {
   if (activeTool === "smart") {
     if (import.meta.env?.VITE_ANNA_EDITION === "true") return <div className="tool-panel smart-hub-panel">
       <div className="smart-hub-grid" role="tablist" aria-label={t("smartTools")}>
-        <button className="is-active" type="button" role="tab" aria-selected="true" onClick={() => {
+        <button className={smartMode === "chatcut" ? "is-active" : ""} type="button" role="tab" aria-selected={smartMode === "chatcut"} onClick={() => setSmartMode("chatcut")}><Scissors size={24} weight="duotone" /><strong>{getChatCutCopy(uiLanguage).title}</strong><span>{getChatCutCopy(uiLanguage).hint}</span></button>
+        <button className={smartMode === "watermark" ? "is-active" : ""} type="button" role="tab" aria-selected={smartMode === "watermark"} onClick={() => {
           setSmartMode("watermark");
           if (window.matchMedia?.(COMPACT_WORKSPACE_QUERY).matches) openMobileInspector?.();
         }}><MagicWand size={24} weight="duotone" /><strong>{t("annaVideoWatermark")}</strong><span>{t("repairWatermarkCapabilityHint")}</span></button>

@@ -92,9 +92,12 @@ export function ChatCut({ language, editor, captureFrame, hasMedia, assets = [],
   return <aside className="chatcut" inert={closing} aria-hidden={closing || undefined} aria-label={copy.title}>
     <header className="chatcut-header" ref={menu}>
       <button type="button" className="chatcut-back" onClick={onClose} aria-label={copy.back} title={copy.back}><ArrowLeft size={20} /></button>
+      <div className="chatcut-session-heading">
+        <span>{copy.title}</span>
       <button type="button" className="chatcut-session-trigger" disabled={Boolean(stage) || speech.active} onClick={() => setHistoryOpen(value => !value)} aria-expanded={historyOpen} aria-label={copy.history}>
-        <span>{copy.title}</span><strong><span>{active?.title || copy.newSession}</span><CaretDown size={16} /></strong>
+        <strong><span>{active?.title || copy.newSession}</span><CaretDown size={16} /></strong>
       </button>
+      </div>
       <button type="button" className="chatcut-new" disabled={!activeId || Boolean(stage) || speech.active} onClick={newSession} aria-label={copy.newSession} title={copy.newSession}><Plus size={20} /></button>
       {historyOpen && <div className="chatcut-history"><div className="chatcut-history-label">{copy.history}</div>{[...sessions].sort((a, b) => b.updatedAt - a.updatedAt).map(item => <button type="button" key={item.id} aria-current={item.id === activeId ? "true" : undefined} className={item.id === activeId ? "is-current" : ""} onClick={() => switchSession(item)}><ChatCircleDots size={18} /><span>{item.title || copy.newSession}</span><time>{sessionDate(item.updatedAt, language)}</time>{item.id === activeId && <Check size={17} />}</button>)}</div>}
     </header>

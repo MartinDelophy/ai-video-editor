@@ -66,8 +66,9 @@
 .chatcut { background: #10191f; }
 .chatcut .chatcut-header { position: relative; min-height: 72px; padding: 12px 16px; gap: 12px; border-bottom: 1px solid #ffffff08; flex-shrink: 0; }
 .chatcut .chatcut-back { border: 0; background: transparent; padding: 6px; color: #e7f0f3; width: 32px; height: 32px; }
-.chatcut .chatcut-session-trigger { display: block; flex: 1; min-width: 0; padding: 0; border: 0; background: transparent; text-align: left; }
-.chatcut-session-trigger > span { display: block; color: #9ab0be; font-size: 11px; margin-bottom: 4px; font-weight: 400; }
+.chatcut-session-heading { flex: 1; min-width: 0; }
+.chatcut-session-heading > span { display: block; color: #9ab0be; font-size: 11px; margin-bottom: 2px; font-weight: 400; }
+.chatcut .chatcut-session-trigger { display: inline-flex; max-width: 100%; min-width: 0; padding: 5px 8px; margin-left: -8px; border: 0; border-radius: 8px; background: transparent; text-align: left; }
 .chatcut-session-trigger > strong { display: flex; align-items: center; justify-content: flex-start; gap: 8px; font-size: 15px; font-weight: 650; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .chatcut-session-trigger > strong svg { flex-shrink: 0; }
 .chatcut .chatcut-new { width: 34px; height: 34px; padding: 0; background: #17242d; border-color: #293e49; }

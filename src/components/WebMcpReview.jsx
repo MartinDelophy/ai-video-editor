@@ -3,6 +3,10 @@ import "./WebMcpReview.css";
 
 const TRACK_LABELS = { visuals: "trackVisuals", overlays: "trackOverlays", audio: "trackAudio", captions: "trackCaptions", stickers: "trackStickers", music: "trackMusic", markers: "trackMarkers" };
 const FIELD_LABELS = {
+  colorGrade: "editColor", glitch: "editGlitch", beatShake: "editShake", transition: "editTransition",
+  temperature: "editTemperature", tint: "editTint", saturation: "editSaturation", shadows: "editShadows", midtones: "editMidtones", highlights: "editHighlights", offset: "editOffset", hue: "editHue", luminance: "editLuminance",
+  intensity: "editIntensity", separation: "editSeparation", frequency: "editFrequency", scanlines: "editScanlines", bpm: "editBpm", decay: "editDecay", direction: "editDirection",
+
   name: "fieldName", title: "fieldName", text: "fieldText", script: "fieldText", note: "fieldNote", notes: "fieldNote", description: "fieldNote",
   time: "fieldStart", start: "fieldStart", end: "fieldEnd", rangeEnd: "fieldEnd", endTime: "fieldEnd", duration: "fieldDuration",
   sourceStart: "fieldSourceStart", sourceDuration: "fieldSourceDuration", volume: "fieldVolume", fadeIn: "fieldFadeIn", fadeOut: "fieldFadeOut",
@@ -61,7 +65,7 @@ function ReviewValue({ value, field, t, time, number, depth = 0 }) {
   if (typeof value === "object") {
     const entries = Object.entries(value).filter(([key]) => !PRIVATE_FIELDS.test(key));
     if (depth >= 2 || entries.length > 12) return t("valueProperties", { count: entries.length });
-    return <span className="webmcp-review-object">{entries.map(([key, entry]) => <span key={key}><span className="webmcp-review-object-label">{t(FIELD_LABELS[key] || TRACK_LABELS[key] || "fieldOther", { field: key })}: </span><ReviewValue value={entry} field={key} t={t} time={time} number={number} depth={depth + 1} /></span>)}</span>;
+    return <span className="webmcp-review-object">{entries.map(([key, entry]) => <span key={key}><span className="webmcp-review-object-label">{t(field === "beatShake" && key === "intensity" ? "editShakeIntensity" : field === "beatShake" && key === "offset" ? "editShakeOffset" : FIELD_LABELS[key] || TRACK_LABELS[key] || "fieldOther", { field: key })}: </span><ReviewValue value={entry} field={key} t={t} time={time} number={number} depth={depth + 1} /></span>)}</span>;
   }
   return t("valueEmpty");
 }
@@ -127,6 +131,10 @@ export function WebMcpReview({ agent, language }) {
         <button type="button" className="webmcp-review-close" aria-label={t("close")} onClick={agent.dismiss} disabled={working}><X size={17} /></button>
       </header>
       <div className="webmcp-review-body">
+        {view.processedMedia?.length > 0 && <section className="webmcp-review-section">
+          <h3>{t("toolAiFramesTitle")}</h3>
+          {view.processedMedia.map(media => <video key={media.src} className="webmcp-review-video" controls playsInline preload="metadata" src={media.src} aria-label={media.name} />)}
+        </section>}
         <p className={applied ? "webmcp-review-success" : "webmcp-review-status"} role="status">
           {applied ? <CheckCircle size={16} aria-hidden="true" /> : null}{t(applied ? "applied" : "pending")}
         </p>

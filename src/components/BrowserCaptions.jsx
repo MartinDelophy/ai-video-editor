@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ClosedCaptioning, SpinnerGap } from "@phosphor-icons/react";
-import { supportsFileSpeech, transcribeBrowserFile } from "../lib/browserFileSpeech.js";
-import { getVisualSpeedCurveTimelineProgress } from "../lib/visualSpeedCurve.js";
+import { supportsFileSpeech } from "../lib/browserFileSpeech.js";
+import { generateBrowserCaptionSegments } from "../lib/browserCaptionGeneration.js";
 import { CHATCUT_SPEECH_LANGUAGES } from "../hooks/useChatCutSpeech.js";
 import { getBrowserCaptionCopy } from "../i18nBrowserCaptions.js";
 import "./BrowserCaptions.css";
@@ -41,20 +41,11 @@ export function BrowserCaptions({ language, assets, timelineMedia = [], preferre
       const translation = bilingual && translationReady ? window.Translator.create({ sourceLanguage: speechLanguage, targetLanguage: target }) : null;
       await resumed;
       translator = translation ? await translation : null;
-      const segments = await transcribeBrowserFile(asset.blob, { language: CHATCUT_SPEECH_LANGUAGES[speechLanguage], offset: 0, sourceStart: asset.clipId ? asset.sourceStart || 0 : 0, sourceDuration: asset.clipId ? asset.sourceDuration || asset.duration * (asset.playbackRate || 1) : undefined, signal: abort.signal, context, onProgress: value => { if (mounted.current) setProgress(value * (translator ? 85 : 100)); } });
-      const start = Number(offset ?? asset.timelineStart) || 0;
-      for (const segment of segments) {
-        const mapTime = time => asset.clipId ? asset.speedCurve?.enabled
-          ? getVisualSpeedCurveTimelineProgress(asset.speedCurve, time / (asset.sourceDuration || asset.duration * (asset.playbackRate || 1))) * asset.duration
-          : time / (asset.playbackRate || 1) : time;
-        segment.start = start + mapTime(segment.start);
-        segment.end = start + mapTime(segment.end);
-      }
-      if (translator) for (let i = 0; i < segments.length; i++) {
-        if (abort.signal.aborted) throw new DOMException("Cancelled", "AbortError");
-        const translated = await translator.translate(segments[i].text, { signal: abort.signal });
-        segments[i].text += `\n${translated}`; if (mounted.current) setProgress(85 + (i + 1) / segments.length * 15);
-      }
+      const segments = await generateBrowserCaptionSegments(asset.blob, {
+        clip: asset.clipId ? asset : undefined, language: CHATCUT_SPEECH_LANGUAGES[speechLanguage],
+        offset: Number(offset ?? asset.timelineStart) || 0, signal: abort.signal, context, translator,
+        onProgress: value => { if (mounted.current) setProgress(value * 100); },
+      });
       if (abort.signal.aborted || currentProject.current !== startedProject || !mounted.current) return;
       if (latest.current.locked || !latest.current.media.some(item => item.id === asset.id && item.sourceStart === asset.sourceStart && item.sourceDuration === asset.sourceDuration && item.duration === asset.duration && item.timelineStart === asset.timelineStart && JSON.stringify(item.speedCurve) === JSON.stringify(asset.speedCurve))) return;
       latest.current.onCommit(segments); setMessage(copy.done); setProgress(100);

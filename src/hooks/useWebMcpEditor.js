@@ -15,12 +15,14 @@ export function useWebMcpEditor(editor) {
   latest.current = { ...editor, historyVersion: history.current.version, t };
   const sessionRef = useRef(null);
   const [view, setView] = useState(null);
+  const [aiJob, setAiJob] = useState(null);
   const [error, setError] = useState("");
   const [working, setWorking] = useState(false);
 
   useEffect(() => {
     const session = createWebMcpEditorSession(() => latest.current, {
       publish: (value) => { setView(value); setError(""); },
+      publishAi: setAiJob,
       commit: (action) => flushSync(action),
     });
     sessionRef.current = session;
@@ -62,7 +64,11 @@ export function useWebMcpEditor(editor) {
     } finally { setWorking(false); }
   };
   return {
-    t, view, error, working,
+    t, view, error, working, aiJob,
+    prepareAi: editor.prepareAi,
+    releaseAi: editor.releaseAi,
+    resetAi: () => sessionRef.current?.resetAi(),
+    aiAssets: () => sessionRef.current?.aiAssets() || [],
     tools: () => createWebMcpTools(sessionRef.current, t),
     execute: (name, input, options) => sessionRef.current?.run(name, input, options),
     stale: Boolean(view?.status === "pending" && sessionRef.current && !sessionRef.current.isCurrentPreview()),

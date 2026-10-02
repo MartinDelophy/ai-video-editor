@@ -56,6 +56,7 @@ export function ChatCut({ language, editor, captureFrame, hasMedia, assets = [],
     if (controller.current || speech.active || editor.working) return;
     setSessions(items => items.map(session => session.id === activeId ? { ...session, draft: input } : session));
     if (editor.view?.status === "pending") editor.dismiss?.();
+    editor.resetAi?.();
     setActiveId(item.id); setInput(item.draft); setHistoryOpen(false);
   };
   const newSession = () => { const item = makeSession(); switchSession(item); setSessions(items => [item, ...items]); };
@@ -72,6 +73,7 @@ export function ChatCut({ language, editor, captureFrame, hasMedia, assets = [],
   const send = async (event) => {
     event.preventDefault();
     if (!activeId || controller.current || speech.active || !input.trim() || editor.view?.status === "pending") return;
+    editor.prepareAi?.();
     const instruction = input.trim();
     const abort = new AbortController();
     controller.current = abort;
@@ -85,6 +87,7 @@ export function ChatCut({ language, editor, captureFrame, hasMedia, assets = [],
     } catch {
       if (mounted.current) setMessages(items => [...items, { role: "assistant", text: abort.signal.aborted ? copy.stopped : copy.error }]);
     } finally {
+      editor.releaseAi?.();
       controller.current = null;
       if (mounted.current) setStage("");
     }
@@ -104,7 +107,7 @@ export function ChatCut({ language, editor, captureFrame, hasMedia, assets = [],
     <div className="chatcut-messages" role="log" aria-live="polite">
       {!messages.length && <div className="chatcut-welcome"><h2>{copy.hint}</h2><p>{hasMedia ? copy.welcome : copy.empty}</p></div>}
       {messages.map((message, index) => <p key={index} className={`chatcut-message is-${message.role}`}>{message.text}</p>)}
-      {stage && <p className="chatcut-status" role="status"><SpinnerGap size={18} className="chatcut-spinner" />{copy[stage]}</p>}
+      {stage && <p className="chatcut-status" role="status"><SpinnerGap size={18} className="chatcut-spinner" />{copy[stage]}{stage === "processing" && editor.aiJob && ` ${Math.round(editor.aiJob.progress)}%`}</p>}
       <div ref={end} />
     </div>
     {historyError && <p className="chatcut-history-error" role="status">{copy.historyError}</p>}
@@ -125,7 +128,7 @@ export function ChatCut({ language, editor, captureFrame, hasMedia, assets = [],
         <button type="button" className="chatcut-info" aria-label={copy.info} aria-expanded={infoOpen} onClick={() => setInfoOpen(value => !value)}><Info size={18} /></button>
         <div className="chatcut-send">{speech.supported && <button type="button" className={`chatcut-microphone${speech.active ? " is-listening" : ""}`} disabled={Boolean(stage) || speech.status === "stopping"} onClick={speech.active ? speech.stop : speech.start} aria-label={speech.active ? copy.voiceStop : copy.voiceInput} title={speech.active ? copy.voiceStop : copy.voiceInput} aria-pressed={speech.active}>{speech.active ? <Stop size={19} /> : <Microphone size={19} />}</button>}{stage ? <button type="button" onClick={() => controller.current?.abort()} aria-label={copy.stop} title={copy.stop}><Stop size={20} /></button> : <button type="submit" disabled={speech.active || !activeId || !input.trim() || editor.view?.status === "pending"} aria-label={copy.send} title={copy.send}><PaperPlaneTilt size={21} /></button>}</div>
       </div>
-      {infoOpen && <div className="chatcut-info-copy"><small>{copy.visualPrivacy}</small>{speech.supported && <small>{copy.voiceHint}</small>}</div>}
+      {infoOpen && <div className="chatcut-info-copy"><small>{copy.visualPrivacy}</small><small>{copy.aiPrivacy}</small>{speech.supported && <small>{copy.voiceHint}</small>}</div>}
     </form>
   </aside>;
 }

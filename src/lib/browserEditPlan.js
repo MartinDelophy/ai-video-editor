@@ -90,7 +90,7 @@ export function supportsBrowserTrim(clip) {
     !Object.values(clip.propertyKeyframes || {}).some((frames) => frames?.length) &&
     ![clip.animation?.in, clip.animation?.out].some((phase) => phase?.id && phase.id !== "none") &&
     !clip.effects?.length &&
-    !clip.driftingHalo?.enabled || clip.clickRipple?.enabled &&
+    !clip.driftingHalo?.enabled && !clip.clickRipple?.enabled &&
     !clip.cinematicDepth?.enabled &&
     !clip.photoParallax?.enabled &&
     !clip.smartFrame?.enabled &&
@@ -140,7 +140,10 @@ function assertLockedSourceUnchanged(project, next, options) {
   if (!project.trackLocks?.source || !options.hasSourceAudio || project.sourceAudioLinked === false) return;
   const beforeSource = getLinkedSourceAudioSegments(project.visualSegments, project.sourceAudioAssetId, project.sourceAudioDuration);
   const afterSource = getLinkedSourceAudioSegments(next.visualSegments, next.sourceAudioAssetId, next.sourceAudioDuration);
-  if (JSON.stringify(beforeSource) !== JSON.stringify(afterSource)) reject("BROWSER_EDIT_TRACK_LOCKED");
+  // A processed video gets a new media ID; the separated source sound keeps
+  // its original buffer and rebased source time, so compare audible timing.
+  const audible = clips => clips.map(({ assetId: _assetId, ...clip }) => clip);
+  if (JSON.stringify(audible(beforeSource)) !== JSON.stringify(audible(afterSource))) reject("BROWSER_EDIT_TRACK_LOCKED");
 }
 
 /**
@@ -341,6 +344,9 @@ export const BROWSER_OPERATION_FIELDS = Object.freeze({
   "marker.add": ["markerId", "markerType", "time", "endTime", "title", "notes", "color"],
   "marker.update": ["markerId", "markerType", "time", "endTime", "title", "notes", "color"],
   "marker.delete": ["markerId"],
+  "visual.replace_media": ["clipId", "resultId"],
+  "visual.configure": ["clipId", "settings"],
+  "transition.set": ["clipId", "transitionId", "duration"],
   "visual.reorder": ["clipId", "toIndex"],
   "visual.trim": ["clipId", "sourceIn", "sourceOut"],
   "visual.split": ["clipId", "at", "rightClipId"],
@@ -412,7 +418,7 @@ function validateBrowserOperation(operation) {
   else assertId(operation.clipId);
   if (Object.hasOwn(operation, "text") && (typeof operation.text !== "string" || operation.text.length > 20000)) reject("BROWSER_EDIT_INVALID_PLAN");
   if (Object.hasOwn(operation, "muted") && typeof operation.muted !== "boolean") reject("BROWSER_EDIT_INVALID_PLAN");
-  if (Object.hasOwn(operation, "duration")) validTime(operation.duration, MIN_VISUAL_SEGMENT_SECONDS);
+  if (Object.hasOwn(operation, "duration")) validTime(operation.duration, operation.type === "transition.set" ? 0.01 : MIN_VISUAL_SEGMENT_SECONDS);
   for (const field of ["start", "end", "at"]) if (Object.hasOwn(operation, field)) validTime(operation[field]);
   for (const field of ["sourceIn", "sourceOut"]) if (Object.hasOwn(operation, field)) validSourceTime(operation[field]);
   if (Object.hasOwn(operation, "layer") && (!Number.isInteger(operation.layer) || operation.layer < 1 || operation.layer > 1000)) reject("BROWSER_EDIT_INVALID_PLAN");
@@ -521,7 +527,7 @@ export function buildBrowserOperationReview(inputProject, response, options = {}
     const sourceIndex = beforeVisuals.findIndex((clip) => clip.id === operation.clipId);
     const clipStart = sourceIndex >= 0 ? beforeVisuals.slice(0, sourceIndex).reduce((sum, clip) => sum + Number(clip.duration), 0) : 0;
     const isInsertion = ["visual.insert", "overlay.add", "asset.insert"].includes(operation.type);
-    if (operation.type.startsWith("visual.") || operation.type === "asset.insert" && operation.track === "visuals") {
+    if (operation.type.startsWith("visual.") && !["visual.configure", "visual.replace_media"].includes(operation.type) || operation.type === "asset.insert" && operation.track === "visuals") {
       if (locks.image) reject("BROWSER_EDIT_TRACK_LOCKED");
     }
     if (operation.type.startsWith("caption.")) {
@@ -529,6 +535,22 @@ export function buildBrowserOperationReview(inputProject, response, options = {}
       if (operation.type === "caption.add") reserve(operation.clipId);
     }
     if (operation.type === "marker.add") reserve(operation.markerId);
+    if (operation.type === "visual.replace_media") {
+      assertClipUnlocked(next, operation.clipId, locks, originalAudioLanes);
+      const { clip, key } = findProjectClip(next, operation.clipId);
+      const receipt = options.resolveAiResult?.(operation.resultId);
+      const asset = receipt?.asset;
+      if (!["visualSegments", "visualOverlaySegments"].includes(key) || receipt?.clipId !== clip.id || !(asset?.blob instanceof Blob) || asset.type !== "video" || clip.type !== "video" || clip.speedCurve?.enabled) reject("BROWSER_EDIT_INVALID_PLAN");
+      const hasMappings = original.visualSegments.some(item => Number.isFinite(item.sourceAudioOffset));
+      const mapped = Number.isFinite(clip.sourceAudioOffset) || !hasMappings && clip.assetId === original.sourceAudioAssetId;
+      operation = { ...operation, prepared: true, materializeSourceAudioOffsets: key === "visualSegments" && options.hasSourceAudio && !hasMappings && mapped, preparedSource: { assetId: asset.id, name: asset.name, type: asset.type, width: asset.width, height: asset.height, sourceDuration: asset.sourceDuration }, ...(key === "visualSegments" && options.hasSourceAudio && mapped ? { sourceAudioOffset: (clip.sourceAudioOffset || 0) + (clip.sourceStart || 0) } : {}) };
+      origins[clip.id] = { kind: "replacement", id: asset.id };
+    }
+    if (["visual.configure", "transition.set"].includes(operation.type)) {
+      assertClipUnlocked(next, operation.clipId, locks, originalAudioLanes);
+      const { key } = findProjectClip(next, operation.clipId);
+      if (!["visualSegments", "visualOverlaySegments"].includes(key) || operation.type === "transition.set" && key !== "visualSegments") reject("BROWSER_EDIT_INVALID_PLAN");
+    }
     if (operation.type === "clip.set_property" || operation.type === "clip.set_muted") {
       assertClipUnlocked(next, operation.clipId, locks, originalAudioLanes);
       const { key, clip } = findProjectClip(next, operation.clipId);
@@ -683,14 +705,19 @@ export function restoreBrowserSegmentMedia(segments = [], originals = [], origin
   return segments.map((clip) => {
     const existing = sourceById.get(clip.id);
     const origin = origins && Object.hasOwn(origins, clip.id) ? origins[clip.id] : null;
-    if (existing && origin) reject("BROWSER_EDIT_STALE_PLAN");
-    const original = existing || (origin?.kind === "clip" ? sourceById.get(origin.id) : origin?.kind === "asset" ? assetsById.get(origin.id) : null);
+    if (existing && origin && origin.kind !== "replacement") reject("BROWSER_EDIT_STALE_PLAN");
+    const original = origin?.kind === "replacement" ? assetsById.get(origin.id) : existing || (origin?.kind === "clip" ? sourceById.get(origin.id) : origin?.kind === "asset" ? assetsById.get(origin.id) : null);
     if (!original) reject("BROWSER_EDIT_STALE_PLAN");
-    if (existing && clip.assetId !== undefined && clip.assetId !== existing.assetId) reject("BROWSER_EDIT_STALE_PLAN");
+    if (existing && origin?.kind !== "replacement" && clip.assetId !== undefined && clip.assetId !== existing.assetId) reject("BROWSER_EDIT_STALE_PLAN");
     const restored = { ...(existing || (origin?.kind === "clip" ? original : {})), ...clip };
     for (const key of MEDIA_FIELDS) {
       if (Object.hasOwn(original, key)) restored[key] = original[key];
       else delete restored[key];
+    }
+    if (origin?.kind === "replacement") {
+      restored.assetId = original.id;
+      restored.archiveMediaId = clip.id;
+      restored.repair = { mode: "agent-video-repair", enabled: true, original: existing.repair?.original || { src: existing.src, blob: existing.blob, width: existing.width, height: existing.height, sourceStart: existing.sourceStart, sourceDuration: existing.sourceDuration, trackFrames: existing.trackFrames || [] }, processed: { src: original.src, blob: original.blob, width: original.width, height: original.height, sourceStart: 0, sourceDuration: original.sourceDuration, trackFrames: [] } };
     }
     if (!existing) {
       restored.assetId = original.assetId || (origin.kind === "asset" ? origin.id : "");

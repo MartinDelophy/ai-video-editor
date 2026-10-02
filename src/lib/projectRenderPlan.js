@@ -1,3 +1,5 @@
+import { isColorGradeNeutral } from "./colorGrade.js";
+import { normalizeVisualTransform } from "./visualEffects.js";
 const RATIO_SIZES = Object.freeze({
   "16:9": { width: 1280, height: 720 },
   "9:16": { width: 720, height: 1280 },
@@ -37,7 +39,7 @@ function assertSupportedProject(project) {
   if ((project.visualOverlaySegments || []).length) unsupported.push("overlays");
   if (project.trackVisibility?.source !== false && (project.sourceAudioSegments || []).length) unsupported.push("source audio");
   if ((project.visualSegments || []).some((item) => item.transition?.id && item.transition.id !== "none")) unsupported.push("transitions");
-  if ((project.visualSegments || []).some((item) => item.keyframes?.length || item.mask?.type || item.filter || item.effects?.length || item.vision || item.speedCurve?.enabled)) unsupported.push("visual effects");
+  if ((project.visualSegments || []).some((item) => item.keyframes?.length || item.mask?.type || item.filter || item.effects?.length || item.vision || item.speedCurve?.enabled || item.glitch?.enabled || item.beatShake?.enabled || !isColorGradeNeutral(item.colorGrade) || JSON.stringify(normalizeVisualTransform(item.baseTransform)) !== JSON.stringify(normalizeVisualTransform()))) unsupported.push("visual effects");
   if (unsupported.length) {
     throw renderError("UNSUPPORTED_RENDER_FEATURE", `Headless render does not yet support: ${[...new Set(unsupported)].join(", ")}`);
   }

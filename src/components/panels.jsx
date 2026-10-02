@@ -1433,6 +1433,7 @@ export function ToolPanel(props) {
           setSmartMode("watermark");
           if (window.matchMedia?.(COMPACT_WORKSPACE_QUERY).matches) openMobileInspector?.();
         }}><MagicWand size={24} weight="duotone" /><strong>{t("annaVideoWatermark")}</strong><span>{t("repairWatermarkCapabilityHint")}</span></button>
+        <button className={smartMode === "remove-pauses" ? "is-active" : ""} type="button" role="tab" aria-selected={smartMode === "remove-pauses"} onClick={() => { setSmartMode("remove-pauses"); if (window.matchMedia?.(COMPACT_WORKSPACE_QUERY).matches) openMobileInspector?.(); }}><Scissors size={24} weight="duotone" /><strong>{t("pauseTitle")}</strong><span>{t("pauseHint")}</span></button>
         {supportsFileSpeech() && <button className={smartMode === "browser-captions" ? "is-active" : ""} type="button" role="tab" aria-selected={smartMode === "browser-captions"} onClick={() => { setSmartMode("browser-captions"); if (window.matchMedia?.(COMPACT_WORKSPACE_QUERY).matches) openMobileInspector?.(); }}><ClosedCaptioning size={24} weight="duotone" /><strong>{getBrowserCaptionCopy(uiLanguage).title}</strong><span>{getBrowserCaptionCopy(uiLanguage).hint}</span></button>}
       </div>
     </div>;

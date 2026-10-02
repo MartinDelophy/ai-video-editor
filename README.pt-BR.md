@@ -19,11 +19,11 @@ O usuário é o único responsável por quaisquer consequências legais decorren
 
 ## Novidades do projeto
 
+- **2026-10-02 — O ChatCut da Anna adiciona transformações, rodas de cor, glitch, tremor rítmico e transições aos cortes, legendas e áudio. As alterações passam por revisão e podem ser desfeitas.** O agente também processa legendas automáticas e remove marcas de vídeo, inspeciona o resultado e prepara legendas sincronizadas ou substituição de clipes para revisão. Smart inclui Remover pausas; ChatCut detecta pausas localmente no trecho selecionado e prepara cortes sincronizados para revisão e desfazer.
 - **2026-10-02 — Anna muda para armazenamento na nuvem quando falta espaço local, com restauração ao recarregar e tentativas protegidas contra conflitos.** A restauração local reutiliza formas de onda salvas e divide os cálculos ausentes para reduzir bloqueios da interface. Formas de onda longas desenham apenas a área visível para evitar limites do canvas.
 - **2026-10-02 — Anna adiciona legendas automáticas conforme o ambiente, com edição, cancelamento e tempos estimados pelas pausas. Saída bilíngue quando o modelo de tradução está pronto.**
 - **2026-10-02 — Anna reúne mídia, texto e voz no chat, com histórico local e troca de conversas.** O agente consulta imagens e quadros quando necessário; alterações continuam exigindo revisão e aplicação explícita.
 - **2026-10-01 — Anna salva projetos e mídia primeiro localmente, com backup na nuvem em segundo plano. A troca de projetos não aguarda uploads e os estados de salvamento e backup são separados.**
-- **2026-10-01 — Anna adiciona Tremor rítmico em terceiro lugar, com BPM manual, direção, intensidade, decaimento e deslocamento iguais na prévia e exportação.**
 
 Consulte o [Roadmap](ROADMAP.md) para o trabalho planejado, [Releases](https://github.com/MartinDelophy/ai-video-editor/releases) para mudanças publicadas e [Issues](https://github.com/MartinDelophy/ai-video-editor/issues) para tarefas e erros.
 

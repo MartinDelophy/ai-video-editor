@@ -1,3 +1,6 @@
+import { SilenceRemovalPanel } from "./components/SilenceRemovalPanel.jsx";
+import { useSilenceRemoval } from "./hooks/useSilenceRemoval.js";
+import { useTimelineAiProcessor } from "./hooks/useTimelineAiProcessor.js";
 import { BrowserCaptions } from "./components/BrowserCaptions.jsx";
 import { sampleChatCutMedia } from "./lib/chatCutMedia.js";
 import { ChatCut } from "./components/ChatCut.jsx";
@@ -1416,7 +1419,9 @@ export function App() {
       throw Object.assign(new Error(), { code: "BROWSER_EDIT_STALE_PLAN" });
     }
     const firstChanged = review.rows?.find((row) => row.changed);
-    const next = restoreBrowserProjectMedia(review.project, runtime, review.mediaOrigins, userAssets);
+    const next = restoreBrowserProjectMedia(review.project, runtime, review.mediaOrigins, [...userAssets, ...webMcp.aiAssets()]);
+    const generated = webMcp.aiAssets().filter(asset => Object.values(review.mediaOrigins || {}).some(origin => origin.kind === "replacement" && origin.id === asset.id));
+    if (generated.length) setUserAssets(items => [...generated.filter(asset => !items.some(item => item.id === asset.id)), ...items]);
     const nextVisuals = next.visualSegments;
     const visualsChanged = JSON.stringify(snapshot.visualSegments) !== JSON.stringify(review.project.visualSegments);
     checkpointHistory();
@@ -1456,8 +1461,16 @@ export function App() {
     currentTimeRef.current = nextTime;
     setCurrentTime(nextTime);
   };
+  const silenceRemoval = useSilenceRemoval({
+    language: activeLanguage, selectedSegment: selectedTrack === "image" ? selectedVisualSegment : null, visualSegments, projectVersion: historySignature,
+    locked: Boolean(trackLocks.image || sourceAudioBlob && sourceAudioLinked !== false && trackLocks.source),
+    getSnapshot: getProjectSnapshot, getRuntime: getBrowserRuntimeProject,
+    applyReview: applyBrowserReview, rippleEditing, setRippleEditing, seekTo, t,
+  });
+  const agentAi = useTimelineAiProcessor({ imageUrlRefs });
   const webMcp = useWebMcpEditor({
-    language: activeLanguage, visualSegments, visualOverlaySegments, audioSegments, musicSegments,
+    selectedTrack, selectedVisualSegmentId, selectedVisualOverlayId,
+    language: activeLanguage, processAi: agentAi.process, discardAiAsset: agentAi.discard, prepareAi: agentAi.prepare, releaseAi: agentAi.release, aiSupport: agentAi.supports, visualSegments, visualOverlaySegments, audioSegments, musicSegments,
     sourceAudioBlob, musicBlob, audioBlob, rippleEditing, getProjectSnapshot,
     assets: userAssets, getRuntimeProject: getBrowserRuntimeProject,
     currentTime, duration: exportContentDuration, historySignature,
@@ -1468,7 +1481,7 @@ export function App() {
     seek: (time) => { pauseTimelineMedia(); setIsPlaying(false); seekTo(time, { immediate: true }); },
     isBusy: () => Boolean(isProjectImporting() || projectImportProgress || anna.job || anna.draft?.busy || anna.session?.busy || exporting || timelineClipDragRef.current || pointerAssetDragRef.current ||
       isDragging || draggedAssetId || visualSegments.some((clip) => clip.preparing) ||
-      visualOverlaySegments.some((clip) => clip.preparing) || visionJob.running || avatarJob.running || autoEdit.job.running),
+      visualOverlaySegments.some((clip) => clip.preparing) || visionJob.running || avatarJob.running || autoEdit.job.running || silenceRemoval.job.running),
   });
 
   const chatCutActive = anna.enabled && activeTool === "smart" && smartMode === "chatcut";
@@ -1712,7 +1725,7 @@ export function App() {
           })}
         />
 
-        {anna.enabled && activeTool === "smart" && smartMode === "browser-captions" ? <BrowserCaptions language={activeLanguage} assets={userAssets} timelineMedia={[
+        {anna.enabled && activeTool === "smart" && smartMode === "remove-pauses" ? <aside className="voice-panel"><h1>{t("pauseTitle")}</h1><SilenceRemovalPanel t={t} tool={silenceRemoval} /></aside> : anna.enabled && activeTool === "smart" && smartMode === "browser-captions" ? <BrowserCaptions language={activeLanguage} assets={userAssets} timelineMedia={[
           ...visualSegments.map((clip, index) => ({ ...clip, blob: clip.blob || userAssets.find(item => item.id === (clip.assetId || clip.id))?.blob, timelineStart: visualSegments.slice(0, index).reduce((sum, item) => sum + item.duration, 0) })),
           ...audioSegments.map(clip => ({ ...clip, type: "audio", timelineStart: clip.start || 0, blob: clip.blob || userAssets.find(item => item.id === (clip.assetId || clip.id))?.blob })),
         ]} preferredClipId={selectedTrack === "audio" ? selectedAudioSegmentId : selectedVisualSegment?.id} projectId={anna.session?.state?.projectId} locked={trackLocks.caption} onCommit={segments => {

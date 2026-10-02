@@ -103,5 +103,5 @@ export async function transcribeBrowserFile(blob, { language = "zh-CN", offset =
     }
     if (!segments.length) throw fail("empty");
     return segments;
-  } finally { await ctx.close().catch(() => {}); }
+  } finally { if (!context) await ctx.close().catch(() => {}); }
 }

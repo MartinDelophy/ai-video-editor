@@ -1,13 +1,18 @@
+import { createWebMcpAiJobs, AI_PROCESS_SCHEMA, AI_FRAMES_SCHEMA, AI_PREVIEW_SCHEMA } from "./webMcpAiJobs.js";
+import { inspectColorScopes } from "./webMcpColorScope.js";
 import { inspectClip, inspectMarkers, inspectProject, inspectTrack, inspectTranscript } from "./projectCommandEngine.js";
 import { browserProjectFingerprint, buildBrowserOperationReview, buildBrowserTimelineReview, getBrowserPlanningClips } from "./browserEditPlan.js";
 import { WEB_MCP_EDIT_CAPABILITIES, WEB_MCP_OPERATION_SCHEMA } from "./webMcpOperationSchema.js";
-import { browserAssetSummary, browserReviewDiff, browserReviewEntities } from "./webMcpProjectData.js";
+import { browserAssetSummary, browserReviewDiff, browserReviewEntities, browserVisualSettings } from "./webMcpProjectData.js";
 import { createWebMcpExportJobs, WEB_MCP_EXPORT_SETTINGS_SCHEMA } from "./webMcpExportJobs.js";
 
 const TRACKS = ["visuals", "overlays", "audio", "captions", "stickers", "music"];
 const MAX_PAGE = 100;
 const MAX_CLIPS = 500;
 const ERROR_KEYS = {
+  pauseUnsupported: "complexTiming", pauseLocked: "trackLocked", pauseStale: "stale", pauseComplexOverlap: "complexTiming", pauseLegacyOverlap: "complexTiming", pauseTooShort: "invalidPlan", pauseFailed: "failed", pauseModelFailed: "failed", pauseDecodeFailed: "failed", pauseNoAudio: "aiEmpty",
+  AI_NO_PAUSES: "aiNoPauses",
+  AI_UNAVAILABLE: "aiUnavailable", AI_EMPTY_RESULT: "aiEmpty", AI_RESULT_NOT_FOUND: "aiExpired", AI_INSPECTION_REQUIRED: "aiInspectRequired", AI_RESULT_LIMIT: "aiLimit",
   INVALID_ARGUMENT: "invalidInput", CLIP_NOT_FOUND: "notFound", TRACK_NOT_FOUND: "notFound",
   BROWSER_EDIT_INVALID_PLAN: "invalidPlan", BROWSER_EDIT_COMPLEX_TIMING: "complexTiming",
   BROWSER_EDIT_TRACK_LOCKED: "trackLocked", BROWSER_EDIT_STALE_PLAN: "stale",
@@ -47,6 +52,7 @@ function properties(clip) {
   const fields = ["type", "name", "start", "end", "duration", "text", "volume", "fadeIn", "fadeOut", "muted", "playbackRate", "sourceKind", "layer", "lane", "hidden", "sourceAudioDisabled", "sourceAudioUnmapped"];
   return {
     ...Object.fromEntries(fields.filter((key) => ["string", "boolean", "number"].includes(typeof clip[key])).map((key) => [key, clip[key]])),
+    ...browserVisualSettings(clip),
     speedCurveEnabled: Boolean(clip.speedCurve?.enabled),
     reversed: Boolean(clip.reversed || clip.reverse),
     hasKeyframes: Boolean(clip.keyframes?.length || Object.values(clip.propertyKeyframes || {}).some((frames) => frames?.length)),
@@ -54,7 +60,7 @@ function properties(clip) {
 }
 
 /** A page-scoped session. Callers provide the actual live editor actions, not reducers. */
-export function createWebMcpEditorSession(getEditor, { publish = () => {}, commit = (action) => action(), makeId = () => crypto.randomUUID() } = {}) {
+export function createWebMcpEditorSession(getEditor, { publish = () => {}, publishAi = () => {}, commit = (action) => action(), makeId = () => crypto.randomUUID() } = {}) {
   let closed = false;
   let busy = false;
   let pointerActive = false;
@@ -99,14 +105,17 @@ export function createWebMcpEditorSession(getEditor, { publish = () => {}, commi
     if (text(token) !== state.stateToken) fail("STALE_STATE");
   };
   const planningClips = (editor) => getBrowserPlanningClips(editor.visualSegments);
+  const aiJobs = createWebMcpAiJobs({ getEditor, capture, guard, publish: publishAi, makeId });
   const readProject = (state) => {
     const { duration: _duration, warnings: _warnings, appliedOperationIds: _ids, revision: _revision, ...summary } = inspectProject(state.project);
     return {
       ...summary, stateToken: state.stateToken, duration: state.editor.duration,
       playhead: state.editor.currentTime, rippleEditing: Boolean(state.editor.rippleEditing),
+      colorScopes: inspectColorScopes(state.editor, state.project),
       trackLocks: state.project.trackLocks, trackVisibility: state.project.trackVisibility,
       sourceAudio: { present: Boolean(state.editor.sourceAudioBlob), linked: state.project.sourceAudioLinked, start: state.project.sourceAudioStart, duration: state.project.sourceAudioDuration },
       capabilities: {
+        aiProcessing: state.editor.aiSupport?.() || { captions: false, watermark: false },
         edit: [...WEB_MCP_EDIT_CAPABILITIES], maxPlanClips: MAX_CLIPS, maxOperations: MAX_CLIPS,
         requiresPreview: true, projectSave: "download-timeline-archive", videoExport: Boolean(state.editor.exportVideo),
         assets: "existing-local-assets", exportRequiresPrepare: true,
@@ -142,6 +151,12 @@ export function createWebMcpEditorSession(getEditor, { publish = () => {}, commi
       const state = capture();
       let result;
       switch (name) {
+        case "timeline_ai_process":
+          result = await aiJobs.process(input, signal);
+          break;
+        case "timeline_ai_result_frames":
+          result = await aiJobs.inspectFrames(input, signal);
+          break;
         case "timeline_project_inspect":
           object(input, []);
           result = readProject(state);
@@ -189,6 +204,24 @@ export function createWebMcpEditorSession(getEditor, { publish = () => {}, commi
           result = { stateToken: state.stateToken, ...page(markers.markers, input) };
           break;
         }
+        case "timeline_ai_preview": {
+          object(input, ["stateToken", "resultId", "summary"]);
+          requireState(state, input.stateToken);
+          const receipt = aiJobs.preview(text(input.resultId), state.fingerprint);
+          if (receipt.review) {
+            guard(signal, true);
+            if (input.summary !== undefined && (typeof input.summary !== "string" || input.summary.length > 2000)) fail("INVALID_ARGUMENT");
+            const review = receipt.review;
+            pending = { id: makeId(), stateToken: state.stateToken, fingerprint: state.fingerprint, before: review.beforeProject || state.project, review, processedMedia: [] };
+            publish({ status: "pending", preview: previewSummary(pending), summary: input.summary || "", processedMedia: [] });
+            result = previewSummary(pending);
+            break;
+          }
+          input = { stateToken: input.stateToken, operations: receipt.operations, summary: input.summary };
+        }
+        // Result receipts compile through the exact same review path.
+        // falls through
+
         case "timeline_edit_preview": {
           object(input, ["stateToken", "clips", "operations", "summary"]);
           guard(signal, true);
@@ -207,11 +240,16 @@ export function createWebMcpEditorSession(getEditor, { publish = () => {}, commi
           const options = {
             visualSegments: state.editor.visualSegments, rippleEditing: state.editor.rippleEditing,
             hasMusic: Boolean(state.editor.musicBlob), hasSourceAudio: Boolean(state.editor.sourceAudioBlob),
-            runtimeProject: runtimeProject(state.editor, state.project), assets: state.editor.assets || [],
+            runtimeProject: runtimeProject(state.editor, state.project), assets: [...(state.editor.assets || []), ...aiJobs.assets()],
+            resolveAiResult: resultId => aiJobs.preview(resultId, state.fingerprint),
           };
           const review = input.operations ? buildBrowserOperationReview(state.project, input, options) : buildBrowserTimelineReview(state.project, input, options);
-          pending = { id: makeId(), stateToken: state.stateToken, fingerprint: state.fingerprint, before: review.beforeProject || state.project, review };
-          publish({ status: "pending", preview: previewSummary(pending), summary: input.summary || "" });
+          const processedMedia = [...new Set((input.operations || []).filter(operation => operation.type === "visual.replace_media").map(operation => operation.resultId))].map(resultId => {
+            const asset = aiJobs.preview(resultId, state.fingerprint).asset;
+            return { src: asset.src, name: asset.name, type: asset.type };
+          });
+          pending = { id: makeId(), stateToken: state.stateToken, fingerprint: state.fingerprint, before: review.beforeProject || state.project, review, processedMedia };
+          publish({ status: "pending", preview: previewSummary(pending), summary: input.summary || "", processedMedia });
           result = previewSummary(pending);
           break;
         }
@@ -319,7 +357,9 @@ export function createWebMcpEditorSession(getEditor, { publish = () => {}, commi
     dismiss() { pending = null; publish(null); },
     isCurrentPreview() { return Boolean(pending && pending.fingerprint === capture().fingerprint); },
     canUndo() { return Boolean(undoReceipt && undoReceipt.fingerprint === capture().fingerprint); },
-    close() { closed = true; pending = null; undoReceipt = null; exportPreview = null; exportJobs.close(); exportRequests.clear(); },
+    aiAssets: aiJobs.assets,
+    resetAi: aiJobs.reset,
+    close() { aiJobs.close(); closed = true; pending = null; undoReceipt = null; exportPreview = null; exportJobs.close(); exportRequests.clear(); },
   };
 }
 
@@ -341,6 +381,9 @@ export function createWebMcpTools(session, t) {
     ["timeline_transcript_inspect", "Transcript", schema({ audioClipId: stringSchema, ...pagination }), true],
     ["timeline_assets_inspect", "Assets", schema({ query: { type: "string", maxLength: 256 }, type: { type: "string", enum: ["image", "video", "audio"] }, readyOnly: { type: "boolean" }, ...pagination }), true],
     ["timeline_markers_inspect", "Markers", schema({ markerId: { ...stringSchema, maxLength: 160 }, ...pagination }), true],
+    ["timeline_ai_process", "AiProcess", AI_PROCESS_SCHEMA, false],
+    ["timeline_ai_result_frames", "AiFrames", AI_FRAMES_SCHEMA, true],
+    ["timeline_ai_preview", "AiPreview", AI_PREVIEW_SCHEMA, false],
     ["timeline_edit_preview", "Preview", editSchema, false],
     ["timeline_edit_apply", "Apply", schema({ previewId: stringSchema }, ["previewId"]), false],
     ["timeline_preview_seek", "Seek", schema({ time: { type: "number", minimum: 0, description: t("seekTimeDescription") } }, ["time"]), false],

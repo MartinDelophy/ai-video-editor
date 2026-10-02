@@ -19,11 +19,11 @@ Für sämtliche rechtlichen Folgen eines Verstoßes gegen diese Anforderungen is
 
 ## Projektneuigkeiten
 
+- **2026-10-02 — Anna ChatCut unterstützt nun Bildtransformationen, Farbräder, Glitch, Beat-Beben und Übergänge zusätzlich zu Schnitt, Untertiteln und Audio. Änderungen werden vor der Anwendung geprüft und können rückgängig gemacht werden.** Agent-Werkzeuge erstellen außerdem automatische Untertitel und entfernen Video-Wasserzeichen, prüfen das Ergebnis und bereiten zeitgenaue Untertitel oder Clipersatz zur Kontrolle vor. Smart bietet Pausen entfernen; ChatCut erkennt Pausen lokal im ausgewählten zugeschnittenen Video und erstellt synchronisierte Schnitte zur Prüfung und zum Rückgängigmachen.
 - **2026-10-02 — Anna wechselt bei vollem Browserspeicher zur Cloud, mit Wiederherstellung nach Neuladen und konfliktgeschützten Wiederholungen.** Die lokale Wiederherstellung nutzt gespeicherte Wellenformen und verteilt fehlende Berechnungen, um die Oberfläche weniger zu blockieren. Lange Wellenformen zeichnen nur den sichtbaren Bereich und vermeiden Canvas-Größenlimits.
 - **2026-10-02 — Anna ergänzt browserabhängige automatische Untertitel mit Bearbeitung, Abbruch und pausengestützter Zeitabschätzung. Zweisprachige Ausgabe bei verfügbarem Übersetzungsmodell.**
 - **2026-10-02 — Anna bündelt Medien, Text und Sprache im Chat und speichert wechselbare Gespräche lokal.** Der Agent prüft aktuelle Bilder und Videoframes bei Bedarf; Änderungen werden weiterhin bewusst geprüft und angewendet.
 - **2026-10-01 — Anna speichert Projekte und Medien zuerst lokal und sichert sie im Hintergrund in der Cloud. Projektwechsel warten nicht auf Uploads; beide Speicherzustände werden getrennt angezeigt.**
-- **2026-10-01 — Anna ergänzt Beat-Beben an dritter Stelle mit manuellen BPM, Richtung, Stärke, Abklingen und Beat-Versatz für Vorschau und Export.**
 
 Geplante Arbeiten stehen in der [Roadmap](ROADMAP.md), veröffentlichte Änderungen in den [Releases](https://github.com/MartinDelophy/ai-video-editor/releases) und einzelne Aufgaben in den [Issues](https://github.com/MartinDelophy/ai-video-editor/issues).
 

@@ -4,6 +4,7 @@ import { requestAnnaChatCompletion } from "./annaRuntime.js";
 // Only inspections and a validated preview are callable by the model. Applying
 // remains an explicit editor action; never execute model-supplied JavaScript.
 export const CHATCUT_TOOLS = new Set([
+  "timeline_ai_process", "timeline_ai_preview", "timeline_ai_result_frames",
   "timeline_project_inspect", "timeline_track_inspect", "timeline_clip_inspect",
   "timeline_transcript_inspect", "timeline_assets_inspect", "timeline_markers_inspect", "timeline_edit_preview",
 ]);
@@ -18,14 +19,14 @@ export async function runAnnaChatCut({ instruction, history = [], tools, execute
   if (captureFrame) catalog.push(currentFrameTool);
   let sampledFrames = 0;
   const messages = [{ role: "user", content: [{ type: "text", text: JSON.stringify({ instruction, language, history: history.slice(-8), project: initial, image: image ? "One current source-media frame at the reported playhead; excludes editor effects, captions and overlays. Not the whole video." : "No images or audio supplied." }) }, ...(image ? [{ type: "image", data: image, mimeType: "image/jpeg" }] : [])] }];
-  for (let step = 0; step < 8; step += 1) {
+  for (let step = 0; step < 16; step += 1) {
     check();
     onStage?.("thinking");
     const reply = await complete({ messages, catalog, language, signal });
     check();
     if (reply.type === "message" && typeof reply.text === "string" && reply.text.length <= 6000) return { text: reply.text };
     if (reply.type !== "tool" || !(CHATCUT_TOOLS.has(reply.name) || (inspectMedia && reply.name === CHATCUT_FRAME_TOOL.name) || (captureFrame && reply.name === currentFrameTool.name)) || !reply.arguments || typeof reply.arguments !== "object" || Array.isArray(reply.arguments)) throw new Error("Invalid model response");
-    onStage?.(reply.name === "timeline_edit_preview" ? "validating" : "inspecting");
+    onStage?.(reply.name === "timeline_ai_process" ? "processing" : ["timeline_edit_preview", "timeline_ai_preview"].includes(reply.name) ? "validating" : "inspecting");
     if (reply.name === currentFrameTool.name) {
       if (Object.keys(reply.arguments).length || sampledFrames >= 18) throw new Error("Invalid current frame request");
       sampledFrames += 1;
@@ -51,12 +52,20 @@ export async function runAnnaChatCut({ instruction, history = [], tools, execute
       continue;
     }
     // Reject edits computed from an older project, even if the model re-reads it.
-    const args = reply.name === "timeline_edit_preview" ? { ...reply.arguments, stateToken: initial.stateToken } : reply.arguments;
+    const args = ["timeline_edit_preview", "timeline_ai_preview", "timeline_ai_process"].includes(reply.name) ? { ...reply.arguments, stateToken: initial.stateToken } : reply.arguments;
+    if (reply.name === "timeline_ai_result_frames") {
+      const count = args.times?.length || 0;
+      if (!count || sampledFrames + count > 18) throw new Error("Visual sample budget exceeded");
+      sampledFrames += count;
+    }
     const result = await execute(reply.name, args, { signal });
     check();
-    if (reply.name === "timeline_edit_preview" && result.ok) return { preview: true, text: args.summary || "" };
+    if (["timeline_edit_preview", "timeline_ai_preview"].includes(reply.name) && result.ok) return { preview: true, text: args.summary || "" };
     if (result.error?.code === "STALE_STATE") throw new Error(result.error.message);
-    messages.push({ role: "assistant", content: { type: "text", text: JSON.stringify(reply) } }, { role: "user", content: { type: "text", text: JSON.stringify({ toolResult: result }) } });
+    const content = reply.name === "timeline_ai_result_frames" && result.ok
+      ? [{ type: "text", text: JSON.stringify({ resultId: args.resultId, sourceTimes: result.frames.map(frame => frame.sourceTime), note: "Processed video source frames; inspect repair quality before proposing replacement." }) }, ...result.frames.map(frame => ({ type: "image", data: frame.data, mimeType: "image/jpeg" }))]
+      : { type: "text", text: JSON.stringify({ toolResult: result }) };
+    messages.push({ role: "assistant", content: { type: "text", text: JSON.stringify(reply) } }, { role: "user", content });
   }
   throw new Error("Tool step limit reached");
 }

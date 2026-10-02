@@ -46,7 +46,7 @@ The standalone `validate_edit_plan.mjs` checks transport shape only. `project.di
 - `clip.delete`, `clip.set_property`, `clip.set_speed`, `clip.set_muted`
 - `caption.add`, `caption.update`, `caption.link_audio`, `caption.unlink_audio`
 - `marker.add`, `marker.update`, `marker.delete`
-- `transition.set`, `track.set_visibility`, `track.set_locked`
+- `visual.configure` (transform, color wheels, glitch, beat shake), `transition.set`, `track.set_visibility`, `track.set_locked`
 - `project.set_ratio`
 
 Use [../docs/command-reference.md](../docs/command-reference.md) for required fields and current media-import limits. Do not invent operation types not listed there.

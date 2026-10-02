@@ -19,11 +19,11 @@ El usuario será el único responsable de cualquier consecuencia legal derivada 
 
 ## Novedades del proyecto
 
+- **2026-10-02 — ChatCut de Anna incorpora transformaciones, ruedas de color, glitch, sacudida rítmica y transiciones junto al corte, subtítulos y audio. Los cambios se revisan antes de aplicarse y pueden deshacerse.** El agente también procesa subtítulos automáticos y elimina marcas de vídeo, inspecciona el resultado y prepara subtítulos temporizados o sustitución de clips para revisión. Smart incorpora Eliminar pausas; ChatCut detecta pausas localmente en el tramo seleccionado y prepara cortes sincronizados para revisar y deshacer.
 - **2026-10-02 — Anna cambia al guardado en la nube cuando falta espacio local, con recuperación al recargar y reintentos que protegen frente a conflictos.** La recuperación local reutiliza las formas de onda guardadas y divide los cálculos pendientes para reducir bloqueos de la interfaz. Las formas de onda largas dibujan solo el área visible para evitar los límites del lienzo.
 - **2026-10-02 — Anna añade subtítulos automáticos según la compatibilidad del navegador, con edición, cancelación y tiempos estimados por pausas. Hay salida bilingüe cuando el modelo de traducción está listo.**
 - **2026-10-02 — Anna integra medios, texto y voz en el chat, con conversaciones locales e historial intercambiable.** El agente consulta imágenes y fotogramas cuando los necesita; los cambios requieren revisión y aplicación explícita.
 - **2026-10-01 — Anna guarda primero proyectos y medios localmente, con copia en la nube en segundo plano. Cambiar de proyecto no espera a la subida y los estados de guardado y copia se muestran por separado.**
-- **2026-10-01 — Anna añade Sacudida rítmica en tercer lugar, con BPM manual, dirección, intensidad, caída y desfase compartidos por vista previa y exportación.**
 
 Consulta el [Roadmap](ROADMAP.md) para el trabajo planificado, [Releases](https://github.com/MartinDelophy/ai-video-editor/releases) para los cambios publicados e [Issues](https://github.com/MartinDelophy/ai-video-editor/issues) para tareas y errores.
 

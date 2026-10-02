@@ -1,3 +1,4 @@
+import { VISUAL_SETTINGS_SCHEMA } from "./webMcpOperationSchema.js";
 const COLLECTIONS = {
   visuals: "visualSegments", overlays: "visualOverlaySegments", audio: "audioSegments",
   captions: "captionSegments", stickers: "stickerSegments", music: "musicSegments",
@@ -12,9 +13,19 @@ const GLOBAL_FIELDS = ["script", "ratioId", "fitMode", "musicName", "musicDurati
 const scalar = (value) => ["string", "boolean", "number"].includes(typeof value) || value === null;
 const pick = (value, fields) => Object.fromEntries(fields.filter((key) => Object.hasOwn(value || {}, key) && scalar(value[key])).map((key) => [key, value[key]]));
 
+const structuredFields = { ...VISUAL_SETTINGS_SCHEMA.properties, transition: { type: "object", properties: { id: { type: "string" }, duration: { type: "number" } } } };
+function pickStructured(value, schema) {
+  if (schema.type !== "object") return scalar(value) ? value : null;
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return Object.fromEntries(Object.entries(schema.properties).filter(([key]) => Object.hasOwn(value, key)).map(([key, child]) => [key, pickStructured(value[key], child)]));
+}
+export function browserVisualSettings(clip) {
+  return Object.fromEntries(Object.entries(structuredFields).filter(([key]) => clip?.[key]).map(([key, schema]) => [key, pickStructured(clip[key], schema)]));
+}
+
 export function browserReviewEntities(project) {
   return Object.fromEntries(Object.entries(COLLECTIONS).map(([track, key]) => [track, (project[key] || []).map((clip) => ({
-    ...pick(clip, FIELDS), ...(clip.baseTransform ? { baseTransform: pick(clip.baseTransform, ["x", "y", "scale", "rotation", "opacity"]) } : {}),
+    ...pick(clip, FIELDS), ...browserVisualSettings(clip),
   }))]));
 }
 
@@ -39,8 +50,8 @@ export function browserReviewDiff(diff) {
   result.tracks = Object.fromEntries(Object.entries(diff.tracks || {}).map(([track, changes]) => [track, {
     ...changes,
     modified: (changes.modified || []).map((item) => {
-      const fields = (item.fields || []).filter((field) => FIELDS.includes(field) || field === "baseTransform");
-      const values = (source) => Object.fromEntries(fields.map((field) => [field, field === "baseTransform" ? pick(source?.[field], ["x", "y", "scale", "rotation", "opacity"]) : scalar(source?.[field]) ? source[field] : null]));
+      const fields = (item.fields || []).filter((field) => FIELDS.includes(field) || Object.hasOwn(structuredFields, field));
+      const values = (source) => Object.fromEntries(fields.map((field) => [field, Object.hasOwn(structuredFields, field) ? pickStructured(source?.[field], structuredFields[field]) : scalar(source?.[field]) ? source[field] : null]));
       return { id: item.id, fields, before: values(item.before), after: values(item.after) };
     }),
   }]));

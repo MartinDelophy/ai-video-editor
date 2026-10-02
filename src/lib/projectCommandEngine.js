@@ -1,3 +1,8 @@
+import { normalizeVisualTransform } from "./visualEffects.js";
+import { normalizeColorGrade } from "./colorGrade.js";
+import { normalizeGlitch } from "./glitchEffect.js";
+import { normalizeBeatShake } from "./beatShakeEffect.js";
+import { VISUAL_SETTINGS_SCHEMA } from "./webMcpOperationSchema.js";
 import { MAX_TIMELINE_MARKER_SECONDS, TIMELINE_MARKER_COLORS, TIMELINE_MARKER_TYPES, normalizeTimelineMarkers } from "./timelineMarkers.js";
 import { getCaptionTimeline, getTimedSegmentsEnd } from "./timeline.js";
 
@@ -387,6 +392,49 @@ function addOverlay(project, operation) {
   project.visualOverlaySegments = [...(project.visualOverlaySegments || []), overlay];
 }
 
+// Validate the same public contract for CLI, MCP and browser callers.
+function validateSettings(value, schema) {
+  const invalid = () => { throw Object.assign(new Error("Invalid visual settings"), { code: "INVALID_ARGUMENT" }); };
+  if (schema.type === "object") {
+    if (!value || typeof value !== "object" || Array.isArray(value) || !Object.keys(value).length) invalid();
+    for (const [key, child] of Object.entries(value)) {
+      if (!Object.hasOwn(schema.properties, key)) invalid();
+      validateSettings(child, schema.properties[key]);
+    }
+  } else if (schema.type === "number") {
+    if (typeof value !== "number" || !Number.isFinite(value) || value < schema.minimum || value > schema.maximum) invalid();
+  } else if (typeof value !== schema.type || schema.enum && !schema.enum.includes(value)) invalid();
+}
+function replaceVisualMedia(project, operation) {
+  const { track, clip } = findClipMatch(project, operation.clipId);
+  const source = operation.preparedSource;
+  if (!["visuals", "overlays"].includes(track) || clip.type !== "video" || operation.prepared !== true || source?.type !== "video" || typeof source.assetId !== "string" || !source.assetId || !Number.isFinite(source.sourceDuration) || Math.abs(source.sourceDuration - (clip.sourceDuration || clip.duration * visualPlaybackRate(clip))) > 0.05) throw Object.assign(new Error("Replacement requires a prepared video with matching source duration"), { code: "INVALID_ARGUMENT" });
+  if (operation.materializeSourceAudioOffsets === true) {
+    for (const sibling of project.visualSegments || []) if (sibling.type === "video" && sibling.assetId === project.sourceAudioAssetId && !sibling.sourceAudioDisabled && !sibling.sourceAudioUnmapped && !Number.isFinite(sibling.sourceAudioOffset)) sibling.sourceAudioOffset = 0;
+  }
+  clip.assetId = source.assetId;
+  clip.name = source.name;
+  clip.sourceStart = 0;
+  clip.sourceDuration = source.sourceDuration;
+  clip.width = source.width;
+  clip.height = source.height;
+  if (Number.isFinite(operation.sourceAudioOffset)) clip.sourceAudioOffset = operation.sourceAudioOffset;
+}
+
+function configureVisual(project, operation) {
+  const { track, clip } = findClipMatch(project, operation.clipId);
+  if (!["visuals", "overlays"].includes(track)) throw Object.assign(new Error("Visual settings require a visual clip"), { code: "UNSUPPORTED_TRACK" });
+  validateSettings(operation.settings, VISUAL_SETTINGS_SCHEMA);
+  for (const [key, patch] of Object.entries(operation.settings)) {
+    let merged = { ...clip[key], ...patch };
+    if (key === "colorGrade") {
+      for (const wheel of ["shadows", "midtones", "highlights", "offset"]) if (patch[wheel]) merged[wheel] = { ...clip[key]?.[wheel], ...patch[wheel] };
+    }
+    const normalize = { baseTransform: normalizeVisualTransform, colorGrade: normalizeColorGrade, glitch: normalizeGlitch, beatShake: normalizeBeatShake }[key];
+    clip[key] = normalize(merged);
+  }
+}
+
 function setTransition(project, operation) {
   const transitions = new Set(["none", "fade", "zoom", "flash", "wipe-left", "wipe-up", "blur", "split", "glitch"]);
   if (!transitions.has(operation.transitionId)) throw Object.assign(new Error(`Unknown transition: ${operation.transitionId}`), { code: "INVALID_TRANSITION" });
@@ -693,6 +741,8 @@ const reducers = {
   "visual.duplicate": duplicateVisual,
   "overlay.add": addOverlay,
   "transition.set": setTransition,
+  "visual.configure": configureVisual,
+  "visual.replace_media": replaceVisualMedia,
   "caption.add": addCaption,
   "caption.update": updateCaption,
   "caption.delete": (project, operation) => deleteClip(project, { ...operation, track: "caption" }),

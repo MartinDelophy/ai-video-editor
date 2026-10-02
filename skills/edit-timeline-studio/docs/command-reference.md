@@ -52,6 +52,7 @@ Supported write operations:
 | `visual.append` | `sourceClipId`, `clipId` | `duration` | Appends a new stable clip reusing media already stored in the archive. |
 | `visual.insert` | `sourceClipId`, `clipId`, `atIndex` | `duration` | Inserts archived media at a main-sequence boundary. |
 | `overlay.add` | `sourceClipId`, `clipId`, `start` | `duration`, `layer`, `muted`, `transform` | Adds a timed Overlay that reuses archived visual media. |
+| `visual.configure` | `clipId`, `settings` | — | Patches existing Visuals/Overlay `baseTransform`, `colorGrade` wheels, `glitch`, or `beatShake` with bounded editable parameters. Nested unrequested settings are preserved. Preview/export these effects in the browser; headless rendering rejects them. |
 | `transition.set` | `clipId`, `transitionId` | `duration` | Sets or clears a validated transition on an outgoing Visuals junction. |
 | `caption.add` | `clipId`, `text`, `start`, `end` | `audioClipId` | Adds a timed caption, optionally linked to voiceover audio. |
 | `caption.update` | `clipId` | `text`, `start`, `end` | Updates caption content or its finite, non-negative range. |

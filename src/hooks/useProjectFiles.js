@@ -81,6 +81,10 @@ export function useProjectFiles(deps = {}) {
       visuals: asArray(current.visualSegments), overlays: asArray(current.visualOverlaySegments),
       audioSegments: asArray(current.audioSegments), audio: current.audioBlob,
       sourceAudio: current.sourceAudioBlob, music: current.musicBlob,
+      audioWaveforms: {
+        sourceAudio: { duration: current.sourceAudioDuration, peaks: current.sourceAudioPeaks },
+        music: { duration: current.musicDuration, peaks: current.musicPeaks },
+      },
       userAssets: asArray(current.userAssets), historyItems: asArray(current.historyItems),
       recordedVoices: asArray(current.recordedVoices),
       rippleEditing: current.rippleEditing,
@@ -222,7 +226,20 @@ export function useProjectFiles(deps = {}) {
       // progressively after the complete project commits, not during import.
       reportProgress("visuals", visualUrls.size, visualUrls.size);
       const decoded = new Map();
-      const audioBlobs = [...new Set([...pendingAudioSegments.map((item) => item.blob), ...(!hasAudioSegments && audio ? [audio] : []), sourceAudio, music].filter(Boolean))];
+      // Account-scoped snapshots commit these peaks alongside their media.
+      // Portable imports still decode media to validate their audio contents.
+      if (options.session) {
+        const savedAudio = new Map(asArray(options.session.audioSegments).map(item => [item.id, item]));
+        const remember = (blob, value) => {
+          if (blob && Number(value?.duration) > 0 && Array.isArray(value?.peaks) && value.peaks.length && value.peaks.every(Number.isFinite)) decoded.set(blob, value);
+        };
+        for (const { segment, blob } of pendingAudioSegments) {
+          const saved = savedAudio.get(segment.id);
+          remember(blob, { duration: saved?.sourceAudioDuration || saved?.sourceDuration || saved?.duration, peaks: saved?.peaks });
+        }
+        for (const key of ["sourceAudio", "music"]) remember({ audio, sourceAudio, music }[key], options.session.audioWaveforms?.[key]);
+      }
+      const audioBlobs = [...new Set([...pendingAudioSegments.map((item) => item.blob), ...(!hasAudioSegments && audio ? [audio] : []), sourceAudio, music].filter(blob => blob && !decoded.has(blob)))];
       let audioCompleted = 0;
       let nextAudioIndex = 0;
       let decodeFailure = null;

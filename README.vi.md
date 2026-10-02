@@ -19,7 +19,7 @@ Người dùng tự chịu mọi trách nhiệm pháp lý phát sinh từ việc
 
 ## Cập nhật dự án
 
-- **2026-10-02 — Anna chuyển sang lưu đám mây khi trình duyệt hết dung lượng, khôi phục sau tải lại và bảo vệ xung đột khi thử lại.**
+- **2026-10-02 — Anna chuyển sang lưu đám mây khi trình duyệt hết dung lượng, khôi phục sau tải lại và bảo vệ xung đột khi thử lại.** Khôi phục cục bộ tái sử dụng dạng sóng đã lưu và chia nhỏ phép tính còn thiếu để giảm tình trạng giao diện bị đứng.
 - **2026-10-02 — Anna thêm phụ đề tự động theo môi trường, hỗ trợ chỉnh sửa, hủy và ước lượng thời gian theo khoảng nghỉ. Có phụ đề song ngữ khi mô hình dịch sẵn sàng.**
 - **2026-10-02 — Anna hợp nhất nội dung, văn bản và giọng nói trong chat, lưu và chuyển lịch sử trò chuyện cục bộ.** Agent đọc ảnh hiện tại và khung hình khi cần; chỉnh sửa vẫn cần xem lại và áp dụng rõ ràng.
 - **2026-10-01 — Anna lưu dự án và phương tiện cục bộ trước, rồi sao lưu đám mây trong nền. Chuyển dự án không chờ tải lên và hiển thị riêng trạng thái lưu và sao lưu.**

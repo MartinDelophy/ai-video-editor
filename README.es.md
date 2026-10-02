@@ -19,7 +19,7 @@ El usuario será el único responsable de cualquier consecuencia legal derivada 
 
 ## Novedades del proyecto
 
-- **2026-10-02 — Anna cambia al guardado en la nube cuando falta espacio local, con recuperación al recargar y reintentos que protegen frente a conflictos.**
+- **2026-10-02 — Anna cambia al guardado en la nube cuando falta espacio local, con recuperación al recargar y reintentos que protegen frente a conflictos.** La recuperación local reutiliza las formas de onda guardadas y divide los cálculos pendientes para reducir bloqueos de la interfaz.
 - **2026-10-02 — Anna añade subtítulos automáticos según la compatibilidad del navegador, con edición, cancelación y tiempos estimados por pausas. Hay salida bilingüe cuando el modelo de traducción está listo.**
 - **2026-10-02 — Anna integra medios, texto y voz en el chat, con conversaciones locales e historial intercambiable.** El agente consulta imágenes y fotogramas cuando los necesita; los cambios requieren revisión y aplicación explícita.
 - **2026-10-01 — Anna guarda primero proyectos y medios localmente, con copia en la nube en segundo plano. Cambiar de proyecto no espera a la subida y los estados de guardado y copia se muestran por separado.**

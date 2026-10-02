@@ -1300,7 +1300,7 @@ export function App() {
   }), [currentTime, depthRecords, previewVisualOverlays]);
 
   const { projectImportProgress, isProjectImporting, handleExportProject, handleImportProject, handleNewProject, getProjectSnapshot, createCurrentArchive, getSessionInput, captureSession, restoreSession, getProjectIntent } = useProjectFiles({
-    resetProjectHistory, setSelectedLibraryAssetId,
+    resetProjectHistory, setSelectedLibraryAssetId, sourceAudioPeaks, musicPeaks,
     userAssets, setUserAssets, historyItems, setHistoryItems, recordedVoices, setRecordedVoices, favoriteVoiceIds, setFavoriteVoiceIds, rippleEditing, setRippleEditing,
     sourceVoiceColorOriginalRef, visionRecords, setVisionRecords, visionObjectUrlsRef, depthRecords, setDepthRecords,
     language: activeLanguage, pauseTimelineMedia, setIsPlaying,

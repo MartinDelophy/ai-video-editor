@@ -512,7 +512,9 @@ export async function decodeWaveform(blob, barCount = 118, options = {}) {
     // Keep bounded fine detail for timeline envelopes, even when callers request a legacy strip.
     barCount = Math.max(barCount, Math.min(8192, Math.max(1024, Math.ceil(decoded.duration * 48))));
     const blockSize = Math.max(1, Math.floor(channelData.length / barCount));
-    const peaks = Array.from({ length: barCount }, (_, index) => {
+    const peaks = [];
+    let yieldedAt = performance.now();
+    for (let index = 0; index < barCount; index++) {
       const start = index * blockSize;
       let peak = 0;
       let sumSquares = 0;
@@ -528,8 +530,12 @@ export async function decodeWaveform(blob, barCount = 118, options = {}) {
         samples += 1;
       }
       const rms = samples ? Math.sqrt(sumSquares / samples) : 0;
-      return rms * 0.78 + peak * 0.22;
-    });
+      peaks.push(rms * 0.78 + peak * 0.22);
+      if (performance.now() - yieldedAt >= 8) {
+        await new Promise(resolve => setTimeout(resolve, 0));
+        yieldedAt = performance.now();
+      }
+    }
     const strongest = Math.max(...peaks, 0.001);
 
     return {

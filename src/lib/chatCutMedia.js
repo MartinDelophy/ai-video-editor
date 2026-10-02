@@ -1,7 +1,7 @@
 /** Browser-owned visual inspection. IDs resolve only against already imported assets. */
 export const CHATCUT_FRAME_TOOL = {
   name: "timeline_media_frames",
-  description: "Inspect an imported image or up to six video frames at absolute source seconds. Inspect assets first. Samples are sparse visual evidence, never speech or exhaustive video analysis. Requires the user's visual-analysis checkbox.",
+  description: "Inspect an imported image or up to six video frames at absolute source seconds. Inspect assets first. Samples are sparse visual evidence, never speech or exhaustive video analysis. Use when visual evidence is needed for the editing request.",
   inputSchema: { type: "object", additionalProperties: false, required: ["assetId", "times"], properties: {
     assetId: { type: "string" }, times: { type: "array", minItems: 1, maxItems: 6, items: { type: "number", minimum: 0 } },
   } },

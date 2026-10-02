@@ -62,3 +62,53 @@
 .chatcut-speech-status { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #75d7cd; overflow-wrap: anywhere; margin: 8px 0 0; }
 .chatcut-speech-status.is-error { color: #edbf82; }
 .chatcut-speech-hint { margin-bottom: 6px; }
+/* Conversation workspace: a quiet session switcher and one integrated composer. */
+.chatcut { background: #10191f; }
+.chatcut .chatcut-header { position: relative; min-height: 72px; padding: 12px 16px; gap: 12px; border-bottom: 1px solid #ffffff08; flex-shrink: 0; }
+.chatcut .chatcut-back { border: 0; background: transparent; padding: 6px; color: #e7f0f3; width: 32px; height: 32px; }
+.chatcut .chatcut-session-trigger { display: block; flex: 1; min-width: 0; padding: 0; border: 0; background: transparent; text-align: left; }
+.chatcut-session-trigger > span { display: block; color: #9ab0be; font-size: 11px; margin-bottom: 4px; font-weight: 400; }
+.chatcut-session-trigger > strong { display: flex; align-items: center; justify-content: flex-start; gap: 8px; font-size: 15px; font-weight: 650; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.chatcut-session-trigger > strong svg { flex-shrink: 0; }
+.chatcut .chatcut-new { width: 34px; height: 34px; padding: 0; background: #17242d; border-color: #293e49; }
+.chatcut-history { position: absolute; top: calc(100% - 4px); left: 56px; right: 16px; background: #13212b; border: 1px solid #2a4350; border-radius: 10px; box-shadow: 0 12px 28px #0004; z-index: 8; max-height: min(320px, 50vh); overflow-y: auto; }
+.chatcut-history-label { padding: 12px 14px; color: #91aab9; font-size: 11px; }
+.chatcut .chatcut-history > button { border: 0; border-radius: 0; width: 100%; min-height: 42px; padding: 10px 14px; background: transparent; gap: 12px; font-size: 12px; text-align: left; }
+.chatcut-history button > span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chatcut-history time { font-size: 10px; color: #9aafba; flex-shrink: 0; }
+.chatcut .chatcut-history > button:hover, .chatcut .chatcut-history > button.is-current { background: #173a46; }
+.chatcut-history .is-current > svg:last-child { color: #23d5c6; }
+.chatcut-messages { display: flex; flex-direction: column; padding: 20px 16px; scrollbar-width: thin; }
+.chatcut-welcome { margin: auto 0; text-align: center; padding: 30px 0; }
+.chatcut-welcome h2 { margin: 0 0 14px; font-size: clamp(18px, 1.7vw, 22px); font-weight: 650; line-height: 1.45; }
+.chatcut-welcome p { margin: 0; font-size: 13px; color: #9aafbd; line-height: 1.7; }
+.chatcut form.chatcut-composer { flex-shrink: 0; position: relative; padding: 10px; margin: 0 12px 16px; border: 1px solid #2d4958; border-radius: 15px; background: #0d171e; }
+.chatcut-composer:focus-within { border-color: #43838b; }
+.chatcut-assets { display: flex; flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; max-height: none; gap: 6px; margin: 0 0 10px; overscroll-behavior-x: contain; }
+.chatcut-assets::-webkit-scrollbar { display: none; }
+.chatcut-asset { display: flex; align-items: center; flex: 0 0 auto; width: 138px; height: 46px; padding: 6px; gap: 7px; background: #1a2933; border-radius: 8px; color: #d5e5ee; }
+.chatcut-asset > img { width: 32px; height: 34px; object-fit: cover; border-radius: 5px; }
+.chatcut-asset > svg { width: 32px; flex-shrink: 0; color: #69b9f5; }
+.chatcut-asset > span { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 11px; }
+.chatcut .chatcut-asset > button { padding: 2px; border: 0; background: transparent; color: #9eb9c7; }
+.chatcut .chatcut-composer textarea { display: block; border: 0; outline: none; background: transparent; border-radius: 0; resize: none; font-size: 13px; line-height: 1.65; min-height: 84px; height: 84px; max-height: 140px; padding: 9px 3px; }
+.chatcut .chatcut-composer textarea:focus-visible { outline: none; }
+.chatcut-composer-toolbar { display: flex; align-items: center; gap: 6px; padding-top: 10px; }
+.chatcut .chatcut-import { border: 0; background: transparent; color: #d6e6ec; padding: 6px 3px; margin: 0; font-size: 12px; }
+.chatcut .chatcut-info { padding: 6px; border: 0; background: transparent; color: #8faeba; }
+.chatcut-send { margin: 0 0 0 auto; gap: 8px; }
+.chatcut-send > button, .chatcut-send .chatcut-microphone { width: 38px; height: 38px; padding: 0; border-radius: 9px; }
+.chatcut-send > button:last-child { background: #23d5c6; color: #042a2d; border-color: #23d5c6; }
+.chatcut-info-copy { position: absolute; bottom: calc(100% + 8px); left: 0; right: 0; padding: 12px; background: #17242d; border: 1px solid #334b57; border-radius: 10px; box-shadow: 0 8px 20px #0005; }
+.chatcut-info-copy small + small { margin-top: 7px; }
+.chatcut-message { flex-shrink: 0; }
+@media (max-width: 760px) { .app-shell.is-chatcut > .chatcut { min-height: 480px; } .chatcut-welcome h2 { font-size: 20px; } }
+.chatcut-session-trigger > strong > span { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.chatcut-asset > video { width: 32px; height: 34px; object-fit: cover; border-radius: 5px; flex-shrink: 0; }
+.chatcut .chatcut-header { gap: 20px; }
+.chatcut-history { left: 16%; right: 14%; }
+.chatcut-welcome { padding: 60px 0 20px; }
+.chatcut form.chatcut-composer { margin-bottom: 40px; }
+.chatcut .chatcut-composer textarea { min-height: 74px; height: 74px; font-size: 14px; }
+@media (max-height: 700px), (max-width: 760px) { .chatcut form.chatcut-composer { margin-bottom: 12px; } .chatcut-welcome { padding: 20px 0; } }
+.chatcut-history-error { margin: 0 16px 8px; color: #edbf82; font-size: 12px; line-height: 1.5; }

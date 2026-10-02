@@ -24,7 +24,7 @@ Users are solely responsible for any legal liability arising from violations of 
 
 ## Project updates
 
-- **2026-10-02 — Anna adds ChatCut: conversational editing with a two-pane workspace, inspected command previews, explicit application and undo, plus optional current-frame input.** ChatCut now imports media in the conversation and can inspect permissioned, timestamped video frames. Browser-supported voice dictation is available in ChatCut.
+- **2026-10-02 — Anna ChatCut adds a unified media, text and voice composer with locally saved conversations and history switching.** The agent calls current-frame and sampled-video inspection when needed; proposed edits still require review and explicit application.
 - **2026-10-01 — Anna now saves projects and media locally first, with a durable background cloud backup queue, local project switching and separate save/backup status.**
 - **2026-10-01 — Anna Effects adds Beat shake in third position, with manual BPM, direction, strength, decay and beat offset shared by preview and export.**
 - **2026-10-01 — Anna Effects adds configurable Glitch animation first, followed by Rhythm click ripple and Disco beams. Preview and export share deterministic RGB splitting, horizontal tearing and signal noise.**

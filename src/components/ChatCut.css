@@ -112,3 +112,8 @@
 .chatcut .chatcut-composer textarea { min-height: 74px; height: 74px; font-size: 14px; }
 @media (max-height: 700px), (max-width: 760px) { .chatcut form.chatcut-composer { margin-bottom: 12px; } .chatcut-welcome { padding: 20px 0; } }
 .chatcut-history-error { margin: 0 16px 8px; color: #edbf82; font-size: 12px; line-height: 1.5; }
+
+/* Keep input focus on the rounded composer, not the global textarea ring. */
+.chatcut .chatcut-composer:focus-within { border-color: #42b9b1; box-shadow: 0 0 0 2px rgba(35, 213, 198, .08); }
+.chatcut .chatcut-composer textarea:focus,
+.chatcut .chatcut-composer textarea:focus-visible { outline: none !important; box-shadow: none !important; border: 0; background: transparent; }

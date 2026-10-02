@@ -62,6 +62,7 @@ export function ChatCut({ language, editor, captureFrame, hasMedia, assets = [],
   const visibleAssets = assets.filter(asset => !active?.excluded.includes(asset.id));
   const [stage, setStage] = useState("");
   const speech = useChatCutSpeech({ language, input, setInput });
+  const composing = useRef(false);
   const controller = useRef(null);
   const mounted = useRef(true);
   const end = useRef(null);
@@ -109,7 +110,11 @@ export function ChatCut({ language, editor, captureFrame, hasMedia, assets = [],
         <span>{asset.name}</span>{asset.preparing && <SpinnerGap className="chatcut-spinner" size={14} />}
         <button type="button" aria-label={`${copy.removeAttachment}: ${asset.name}`} disabled={Boolean(stage)} onClick={() => setSessions(items => items.map(item => item.id === activeId ? { ...item, excluded: [...item.excluded, asset.id] } : item))}><X size={14} /></button>
       </div>)}</div>}
-      <textarea aria-label={copy.title} placeholder={copy.placeholder} value={input} maxLength={4000} disabled={Boolean(stage) || speech.active || !activeId} onChange={event => setInput(event.target.value)} />
+      <textarea aria-label={copy.title} placeholder={copy.placeholder} value={input} maxLength={4000} disabled={Boolean(stage) || speech.active || !activeId} onChange={event => setInput(event.target.value)} onCompositionStart={() => { composing.current = true; }} onCompositionEnd={() => { composing.current = false; }} onKeyDown={event => {
+        if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing || composing.current || event.keyCode === 229) return;
+        event.preventDefault();
+        if (!event.repeat) void send(event);
+      }} />
       {speech.supported && speech.status && <p className={`chatcut-speech-status${["denied", "error", "empty"].includes(speech.status) ? " is-error" : ""}`} role="status" aria-live="polite">{speech.active && <Microphone size={14} />}{speech.interim || copy[`speech_${speech.status}`]}</p>}
       <div className="chatcut-composer-toolbar">
         <button type="button" className="chatcut-import" disabled={Boolean(stage)} onClick={onImport}><Paperclip size={19} />{copy.importMedia}</button>

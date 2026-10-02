@@ -1,3 +1,5 @@
+import { createCooperativeCheckpoint } from "./cooperativeTask.js";
+
 /** Browser recovery keeps Blob handles, avoiding ZIP compression on each edit. */
 export const ANNA_SESSION_FORMAT = "timeline-studio-browser-session";
 const arrays = (value) => Array.isArray(value) ? value : [];
@@ -50,9 +52,10 @@ function readMediaBlob(source, mediaCache) {
 // Record known Blob/URL pairs first. A restorable original remains usable even
 // if its earlier URL has already been revoked by a clip replacement.
 function rememberMediaReferences(value, cache, seen = new WeakSet()) {
-  if (!value || typeof value !== "object" || value instanceof Blob || seen.has(value)) return;
+  if (!value || typeof value !== "object" || value instanceof Blob || value instanceof Date || value instanceof ArrayBuffer || ArrayBuffer.isView(value) || seen.has(value)) return;
   seen.add(value);
   for (const [key, item] of Object.entries(value)) {
+    if (key === "trackFrames") continue;
     if (isUrlField(key) && isObjectUrl(item)) {
       const pairedKey = key.replace(/(?:url|src)$/i, "Blob");
       const pairedBlob = value[pairedKey] instanceof Blob ? value[pairedKey]
@@ -66,21 +69,22 @@ function rememberMediaReferences(value, cache, seen = new WeakSet()) {
   }
 }
 
-async function saveMediaReferences(value, cache, key = "", seen = new WeakMap()) {
+async function saveMediaReferences(value, cache, key = "", seen = new WeakMap(), checkpoint = createCooperativeCheckpoint()) {
   if (isUrlField(key) && isObjectUrl(value)) {
     return { [OBJECT_URL_KEY]: await readMediaBlob(value, cache) };
   }
   if (!value || typeof value !== "object" || value instanceof Blob || value instanceof Date || ArrayBuffer.isView(value) || value instanceof ArrayBuffer) return value;
+  await checkpoint();
   if (seen.has(value)) return seen.get(value);
   const result = Array.isArray(value) ? [] : value instanceof Map ? new Map() : value instanceof Set ? new Set() : {};
   seen.set(value, result);
   if (value instanceof Map) {
-    for (const [entryKey, item] of value) result.set(entryKey, await saveMediaReferences(item, cache, "", seen));
+    for (const [entryKey, item] of value) result.set(entryKey, await saveMediaReferences(item, cache, "", seen, checkpoint));
   } else if (value instanceof Set) {
-    for (const item of value) result.add(await saveMediaReferences(item, cache, "", seen));
+    for (const item of value) result.add(await saveMediaReferences(item, cache, "", seen, checkpoint));
   } else {
     for (const [entryKey, item] of Object.entries(value)) {
-      if (entryKey !== "trackFrames") result[entryKey] = await saveMediaReferences(item, cache, entryKey, seen);
+      if (entryKey !== "trackFrames") result[entryKey] = await saveMediaReferences(item, cache, entryKey, seen, checkpoint);
     }
   }
   return result;

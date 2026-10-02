@@ -1303,7 +1303,7 @@ export function App() {
   }), [currentTime, depthRecords, previewVisualOverlays]);
 
   const { projectImportProgress, isProjectImporting, handleExportProject, handleImportProject, handleNewProject, getProjectSnapshot, createCurrentArchive, getSessionInput, captureSession, restoreSession, getProjectIntent } = useProjectFiles({
-    resetProjectHistory, setSelectedLibraryAssetId, sourceAudioPeaks, musicPeaks,
+    resetProjectHistory, setSelectedLibraryAssetId, sourceAudioPeaks, musicPeaks, setSourceAudioPeaks, setMusicPeaks,
     userAssets, setUserAssets, historyItems, setHistoryItems, recordedVoices, setRecordedVoices, favoriteVoiceIds, setFavoriteVoiceIds, rippleEditing, setRippleEditing,
     sourceVoiceColorOriginalRef, visionRecords, setVisionRecords, visionObjectUrlsRef, depthRecords, setDepthRecords,
     language: activeLanguage, pauseTimelineMedia, setIsPlaying,
@@ -1469,6 +1469,7 @@ export function App() {
   });
   const agentAi = useTimelineAiProcessor({ imageUrlRefs });
   const webMcp = useWebMcpEditor({
+    deferReview: anna.enabled && activeTool === "smart" && smartMode === "chatcut",
     selectedTrack, selectedVisualSegmentId, selectedVisualOverlayId,
     language: activeLanguage, processAi: agentAi.process, discardAiAsset: agentAi.discard, prepareAi: agentAi.prepare, releaseAi: agentAi.release, aiSupport: agentAi.supports, visualSegments, visualOverlaySegments, audioSegments, musicSegments,
     sourceAudioBlob, musicBlob, audioBlob, rippleEditing, getProjectSnapshot,
@@ -1584,7 +1585,7 @@ export function App() {
           return canvas.toDataURL("image/jpeg", 0.8);
         } catch { return null; }
       }} />}
-      <WebMcpReview agent={webMcp} language={activeLanguage} />
+      <WebMcpReview agent={webMcp.reviewAgent} language={activeLanguage} />
       <ProjectImportOverlay progress={projectImportProgress} language={activeLanguage} />
       <section className={`editor-grid ${compactRail ? "is-compact-rail" : ""}`}>
         <EditorSidebar model={{
@@ -1725,7 +1726,7 @@ export function App() {
           })}
         />
 
-        {anna.enabled && activeTool === "smart" && smartMode === "remove-pauses" ? <aside className="voice-panel"><h1>{t("pauseTitle")}</h1><SilenceRemovalPanel t={t} tool={silenceRemoval} /></aside> : anna.enabled && activeTool === "smart" && smartMode === "browser-captions" ? <BrowserCaptions language={activeLanguage} assets={userAssets} timelineMedia={[
+        {anna.enabled && activeTool === "smart" && smartMode === "remove-pauses" ? <aside className="voice-panel silence-removal-inspector"><SilenceRemovalPanel t={t} tool={silenceRemoval} /></aside> : anna.enabled && activeTool === "smart" && smartMode === "browser-captions" ? <BrowserCaptions language={activeLanguage} assets={userAssets} timelineMedia={[
           ...visualSegments.map((clip, index) => ({ ...clip, blob: clip.blob || userAssets.find(item => item.id === (clip.assetId || clip.id))?.blob, timelineStart: visualSegments.slice(0, index).reduce((sum, item) => sum + item.duration, 0) })),
           ...audioSegments.map(clip => ({ ...clip, type: "audio", timelineStart: clip.start || 0, blob: clip.blob || userAssets.find(item => item.id === (clip.assetId || clip.id))?.blob })),
         ]} preferredClipId={selectedTrack === "audio" ? selectedAudioSegmentId : selectedVisualSegment?.id} projectId={anna.session?.state?.projectId} locked={trackLocks.caption} onCommit={segments => {

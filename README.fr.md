@@ -19,11 +19,11 @@ L’utilisateur assume seul toute responsabilité juridique découlant du non-re
 
 ## Actualités du projet
 
+- **2026-10-02 — Anna applique automatiquement les modifications terminées de ChatCut, avec annulation et consultation dans la conversation. Un badge HOT cyan signale la fonction ; la restauration affiche le projet avant de recalculer les formes d’onde manquantes en arrière-plan.**
 - **2026-10-02 — ChatCut d’Anna ajoute les transformations, roues chromatiques, glitch, secousses rythmiques et transitions aux coupes, sous-titres et réglages audio. Les modifications restent à valider et peuvent être annulées.** L’agent traite aussi les sous-titres automatiques et le retrait des filigranes vidéo, vérifie le résultat puis prépare l’ajout minuté ou le remplacement du clip. Smart ajoute la suppression des pauses ; ChatCut détecte localement les pauses du segment sélectionné et prépare des coupes synchronisées à vérifier et annuler.
 - **2026-10-02 — Anna passe au stockage cloud si le navigateur manque d’espace, avec restauration après rechargement et reprise protégeant les conflits.** La restauration locale réutilise les formes d’onde enregistrées et répartit les calculs manquants pour limiter le blocage de l’interface. Les longues formes d’onde ne dessinent que la zone visible pour éviter les limites du canevas.
 - **2026-10-02 — Anna ajoute les sous-titres automatiques selon l’environnement, avec édition, annulation et temps estimés par les pauses. Le mode bilingue nécessite un modèle de traduction disponible.**
 - **2026-10-02 — Anna regroupe médias, texte et voix dans le chat, avec historique local et changement de discussion.** L’agent consulte les images et photogrammes selon le besoin ; les modifications nécessitent une vérification et une application explicite.
-- **2026-10-01 — Anna enregistre d’abord les projets et médias localement, puis les sauvegarde dans le cloud en arrière-plan. Le changement de projet n’attend plus le transfert et les deux états sont distincts.**
 
 Consultez la [Roadmap](ROADMAP.md) pour les travaux prévus, les [Releases](https://github.com/MartinDelophy/ai-video-editor/releases) pour les changements publiés et les [Issues](https://github.com/MartinDelophy/ai-video-editor/issues) pour les tâches et anomalies.
 

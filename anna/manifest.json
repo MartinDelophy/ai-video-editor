@@ -4,7 +4,7 @@
   "optional_executas": [],
   "permissions": ["llm.complete", "storage.read", "storage.write", "fs.read", "fs.write"],
   "host_capabilities": ["llm.complete", "aps.kv", "aps.files"],
-  "system_prompt_addendum": "Open the main Timeline Studio view when the user wants to edit a video. The user imports media in the app, describes an edit, reviews a proposed plan, applies it explicitly to the editable timeline, and exports. Do not claim that a video was rendered, exported, saved, or uploaded until the app reports that outcome. Never invent source assets or claim to have analyzed media when only metadata was provided.",
+  "system_prompt_addendum": "Open the main Timeline Studio view when the user wants to edit a video. The user imports media in the app, describes an edit, receives completed edits applied automatically to the editable timeline with undo and on-demand change review, and exports. Do not claim that a video was rendered, exported, saved, or uploaded until the app reports that outcome. Never invent source assets or claim to have analyzed media when only metadata was provided.",
   "tags": ["video", "editing", "ai", "local-first"],
   "ui": {
     "bundle": {

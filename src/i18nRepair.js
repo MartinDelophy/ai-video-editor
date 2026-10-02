@@ -382,3 +382,22 @@ export const ANNA_VIDEO_REPAIR_COPY = Object.fromEntries(Object.entries({
   it: ["Rimozione filigrana video IA", "Seleziona prima un clip video nella traccia visiva."],
   id: ["Hapus tanda air video AI", "Pilih klip video di trek visual terlebih dahulu."],
 }).map(([language, [annaVideoWatermark, annaSelectWatermarkVideo]]) => [language, { annaVideoWatermark, annaSelectWatermarkVideo }]));
+
+const WATERMARK_SELECTION_COPY = {
+  zh: ["当前选中片段", "片段时长 {seconds} 秒", "仅处理当前选中片段"],
+  en: ["Selected clip", "Clip duration: {seconds} s", "Only the selected clip will be processed"],
+  ja: ["選択中のクリップ", "クリップの長さ {seconds} 秒", "選択中のクリップのみ処理します"],
+  ko: ["선택한 클립", "클립 길이 {seconds}초", "선택한 클립만 처리합니다"],
+  es: ["Clip seleccionado", "Duración: {seconds} s", "Solo se procesará el clip seleccionado"],
+  fr: ["Clip sélectionné", "Durée : {seconds} s", "Seul le clip sélectionné sera traité"],
+  de: ["Ausgewählter Clip", "Cliplänge: {seconds} s", "Nur der ausgewählte Clip wird verarbeitet"],
+  pt: ["Clipe selecionado", "Duração: {seconds} s", "Apenas o clipe selecionado será processado"],
+  th: ["คลิปที่เลือก", "ความยาวคลิป {seconds} วินาที", "ประมวลผลเฉพาะคลิปที่เลือก"],
+  vi: ["Đoạn đang chọn", "Thời lượng: {seconds} giây", "Chỉ xử lý đoạn đang chọn"],
+  ru: ["Выбранный клип", "Длительность: {seconds} с", "Обрабатывается только выбранный клип"],
+  it: ["Clip selezionato", "Durata: {seconds} s", "Verrà elaborato solo il clip selezionato"],
+  id: ["Klip terpilih", "Durasi: {seconds} dtk", "Hanya klip terpilih yang diproses"],
+};
+for (const [language, [watermarkSelectedClip, watermarkClipDuration, watermarkSelectedOnly]] of Object.entries(WATERMARK_SELECTION_COPY)) {
+  Object.assign(ANNA_VIDEO_REPAIR_COPY[language], { watermarkSelectedClip, watermarkClipDuration, watermarkSelectedOnly });
+}

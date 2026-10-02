@@ -24,11 +24,11 @@ Users are solely responsible for any legal liability arising from violations of 
 
 ## Project updates
 
+- **2026-10-02 — Anna ChatCut automatically applies completed edits, with inline Undo and View changes. A compact cyan HOT badge highlights ChatCut; recovery shows the project before rebuilding missing waveforms in the background.**
 - **2026-10-02 — Anna ChatCut now exposes editable transforms, color wheels, glitch, beat shake and transitions alongside existing cutting, captions and audio controls. Plans show their changes for review and remain undoable.** Agent tools also process automatic captions and video watermark removal, inspect repaired output, and prepare timed caption insertion or clip replacement for review. Smart now includes Remove pauses; ChatCut detects pauses locally in the selected trimmed video and prepares synchronized cuts for review and undo.
 - **2026-10-02 — Anna automatically switches to cloud saving when browser storage is full, with cloud recovery after reload and conflict-safe retries.** Local recovery reuses saved waveforms; missing waveform calculations yield to keep the UI responsive. Long timeline waveforms render only their visible region to avoid canvas size limits.
 - **2026-10-02 — Anna Smart adds environment-gated browser automatic captions, editable text, cancellation and pause-based timing. Bilingual output is available when the browser translation model is ready.**
 - **2026-10-02 — Anna ChatCut adds a unified media, text and voice composer with locally saved conversations and history switching.** The agent calls current-frame and sampled-video inspection when needed; proposed edits still require review and explicit application.
-- **2026-10-01 — Anna now saves projects and media locally first, with a durable background cloud backup queue, local project switching and separate save/backup status.**
 
 See the public [Roadmap](ROADMAP.md) for planned work, [Releases](https://github.com/MartinDelophy/ai-video-editor/releases) for shipped changes, and [Issues](https://github.com/MartinDelophy/ai-video-editor/issues) for focused tasks and bugs.
 

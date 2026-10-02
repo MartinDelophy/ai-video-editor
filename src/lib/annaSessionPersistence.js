@@ -7,7 +7,7 @@ import { resolveAnnaSessionScope } from './annaRuntime.js';
  * drained under a browser-wide lock; remote CAS conflicts never rebase edits. */
 export function createAnnaSessionPersistence() {
   let local, scope, opening, timer, running = false, stopped = true;
-  let backup = 'pending', cloud = false, cloudReady = false, transitionRevision = null;
+  let backup = 'pending', cloud = false, cloudReady = false, transitionRevision = null, restoring = false;
   const listeners = new Set();
   const backupRemote = createAnnaCloudSessionStore();
   const emit = (value) => { backup = value; for (const listener of listeners) listener(value); };
@@ -38,7 +38,7 @@ export function createAnnaSessionPersistence() {
     if (!stopped) timer = setTimeout(sync, delay);
   }
   async function sync() {
-    if (running || stopped || !local || cloud) return;
+    if (running || stopped || !local || cloud || restoring) return;
     if (!navigator.locks?.request) { emit('error'); return; }
     running = true;
     try {
@@ -112,6 +112,7 @@ export function createAnnaSessionPersistence() {
     });
   }
   return {
+    setRestoreBusy(value) { restoring = Boolean(value); if (restoring) clearTimeout(timer); else schedule(); },
     get mode() { return cloud ? 'cloud' : 'local'; },
     subscribe(listener) {
       listeners.add(listener); stopped = false; listener(backup); schedule();

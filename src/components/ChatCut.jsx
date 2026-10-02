@@ -1,6 +1,6 @@
 import { useChatCutSpeech } from "../hooks/useChatCutSpeech.js";
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, PaperPlaneTilt, SpinnerGap, Stop, Plus, CaretDown, Check, ChatCircleDots, Paperclip, Info, X, Waveform, Microphone } from "@phosphor-icons/react";
+import { ArrowLeft, PaperPlaneTilt, SpinnerGap, Stop, Plus, CaretDown, Check, ChatCircleDots, Paperclip, Info, X, Waveform, Microphone, ArrowCounterClockwise, GitDiff } from "@phosphor-icons/react";
 import { getChatCutCopy } from "../i18nChatCut.js";
 import { runAnnaChatCut } from "../lib/annaChatCut.js";
 import { resolveAnnaSessionScope } from "../lib/annaRuntime.js";
@@ -24,6 +24,7 @@ export function ChatCut({ language, editor, captureFrame, hasMedia, assets = [],
   const [infoOpen, setInfoOpen] = useState(false);
   const [historyError, setHistoryError] = useState(false);
   const menu = useRef(null);
+  const menuTrigger = useRef(null);
   const active = sessions.find(item => item.id === activeId);
   const messages = active?.messages || EMPTY_MESSAGES;
   const setMessages = update => setSessions(items => items.map(item => item.id === activeId ? { ...item, messages: update(item.messages), updatedAt: Date.now() } : item));
@@ -48,14 +49,27 @@ export function ChatCut({ language, editor, captureFrame, hasMedia, assets = [],
   }, [storageKey, sessions, activeId, input]);
   useEffect(() => {
     if (!historyOpen) return;
-    const close = event => { if (event.key === "Escape" || (event.type === "pointerdown" && !menu.current?.contains(event.target))) setHistoryOpen(false); };
-    document.addEventListener("pointerdown", close); document.addEventListener("keydown", close);
-    return () => { document.removeEventListener("pointerdown", close); document.removeEventListener("keydown", close); };
+    const close = event => { if (event.key === "Escape" || (event.type === "pointerdown" && !menu.current?.contains(event.target) && !menuTrigger.current?.contains(event.target))) setHistoryOpen(false); };
+    document.addEventListener("pointerdown", close, true); document.addEventListener("keydown", close);
+    return () => { document.removeEventListener("pointerdown", close, true); document.removeEventListener("keydown", close); };
   }, [historyOpen]);
+  useEffect(() => {
+    const view = editor.view;
+    if (!view?.preview?.previewId) return;
+    setSessions(items => items.map(item => item.id !== activeId ? item : { ...item, messages: item.messages.map(message =>
+      message.edit?.preview?.previewId === view.preview.previewId
+        ? { ...message, edit: { ...message.edit, status: view.status, transactionId: view.transactionId } } : message) }));
+  }, [editor.view, activeId]);
+  const undoEdit = async edit => {
+    const result = await editor.undo();
+    if (result?.ok) setSessions(items => items.map(item => item.id !== activeId ? item : { ...item, messages: item.messages.map(message =>
+      message.edit?.preview?.previewId === edit.preview.previewId ? { ...message, edit: { ...message.edit, status: "undone" } } : message) }));
+  };
   const switchSession = item => {
     if (controller.current || speech.active || editor.working) return;
     setSessions(items => items.map(session => session.id === activeId ? { ...session, draft: input } : session));
     if (editor.view?.status === "pending") editor.dismiss?.();
+    editor.hideReview?.();
     editor.resetAi?.();
     setActiveId(item.id); setInput(item.draft); setHistoryOpen(false);
   };
@@ -82,8 +96,8 @@ export function ChatCut({ language, editor, captureFrame, hasMedia, assets = [],
       setSessions(items => items.map(item => item.id === activeId && !item.title ? { ...item, title: instruction.slice(0, 36) } : item));
       setMessages(items => [...items, { role: "user", text: instruction }]);
       setInput("");
-      const result = await runAnnaChatCut({ instruction, history: messages, tools: editor.tools(), execute: editor.execute, captureFrame, inspectMedia: (args, options) => { if (!visibleAssets.some(asset => (asset.assetId || asset.id) === args.assetId)) throw new Error("Asset not in this conversation"); return inspectMedia(args, options); }, language, signal: abort.signal, onStage: value => { if (mounted.current) setStage(value); } });
-      if (mounted.current) setMessages(items => [...items, { role: "assistant", text: result.preview ? `${result.text}\n${copy.ready}` : result.text }]);
+      const result = await runAnnaChatCut({ instruction, autoApply: true, history: messages, tools: editor.tools(), execute: editor.execute, captureFrame, inspectMedia: (args, options) => { if (!visibleAssets.some(asset => (asset.assetId || asset.id) === args.assetId)) throw new Error("Asset not in this conversation"); return inspectMedia(args, options); }, language, signal: abort.signal, onStage: value => { if (mounted.current) setStage(value); } });
+      if (mounted.current) setMessages(items => [...items, { role: "assistant", text: result.text, ...(result.review ? { edit: result.review } : {}) }]);
     } catch {
       if (mounted.current) setMessages(items => [...items, { role: "assistant", text: abort.signal.aborted ? copy.stopped : copy.error }]);
     } finally {
@@ -93,20 +107,39 @@ export function ChatCut({ language, editor, captureFrame, hasMedia, assets = [],
     }
   };
   return <aside className="chatcut" inert={closing} aria-hidden={closing || undefined} aria-label={copy.title}>
-    <header className="chatcut-header" ref={menu}>
+    <header className="chatcut-header">
       <button type="button" className="chatcut-back" onClick={onClose} aria-label={copy.back} title={copy.back}><ArrowLeft size={20} /></button>
       <div className="chatcut-session-heading">
         <span>{copy.title}</span>
-      <button type="button" className="chatcut-session-trigger" disabled={Boolean(stage) || speech.active} onClick={() => setHistoryOpen(value => !value)} aria-expanded={historyOpen} aria-label={copy.history}>
+      <button ref={menuTrigger} type="button" className="chatcut-session-trigger" disabled={Boolean(stage) || speech.active} onClick={() => setHistoryOpen(value => !value)} aria-expanded={historyOpen} aria-label={copy.history}>
         <strong><span>{active?.title || copy.newSession}</span><CaretDown size={16} /></strong>
       </button>
       </div>
       <button type="button" className="chatcut-new" disabled={!activeId || Boolean(stage) || speech.active} onClick={newSession} aria-label={copy.newSession} title={copy.newSession}><Plus size={20} /></button>
-      {historyOpen && <div className="chatcut-history"><div className="chatcut-history-label">{copy.history}</div>{[...sessions].sort((a, b) => b.updatedAt - a.updatedAt).map(item => <button type="button" key={item.id} aria-current={item.id === activeId ? "true" : undefined} className={item.id === activeId ? "is-current" : ""} onClick={() => switchSession(item)}><ChatCircleDots size={18} /><span>{item.title || copy.newSession}</span><time>{sessionDate(item.updatedAt, language)}</time>{item.id === activeId && <Check size={17} />}</button>)}</div>}
+      {historyOpen && <div ref={menu} className="chatcut-history"><div className="chatcut-history-label">{copy.history}</div>{[...sessions].sort((a, b) => b.updatedAt - a.updatedAt).map(item => <button type="button" key={item.id} aria-current={item.id === activeId ? "true" : undefined} className={item.id === activeId ? "is-current" : ""} onClick={() => switchSession(item)}><ChatCircleDots size={18} /><span>{item.title || copy.newSession}</span><time>{sessionDate(item.updatedAt, language)}</time>{item.id === activeId && <Check size={17} />}</button>)}</div>}
     </header>
     <div className="chatcut-messages" role="log" aria-live="polite">
       {!messages.length && <div className="chatcut-welcome"><h2>{copy.hint}</h2><p>{hasMedia ? copy.welcome : copy.empty}</p></div>}
-      {messages.map((message, index) => <p key={index} className={`chatcut-message is-${message.role}`}>{message.text}</p>)}
+      {messages.map((message, index) => {
+        const edit = message.edit;
+        const current = edit && edit.preview?.previewId === editor.view?.preview?.previewId;
+        const status = current ? editor.view.status : edit?.status;
+        const diff = edit?.preview?.diff;
+        const counts = Object.values(diff?.tracks || {}).reduce((sum, track) => ({ added: sum.added + (track.added?.length || 0), removed: sum.removed + (track.removed?.length || 0), modified: sum.modified + (track.modified?.length || 0) }), { added: 0, removed: 0, modified: 0 });
+        return <div key={index} className="chatcut-turn">
+          {message.text && <p className={`chatcut-message is-${message.role}`}>{message.text}</p>}
+          {edit && <div className="chatcut-change-card">
+            <GitDiff size={21} aria-hidden="true" />
+            <div className="chatcut-change-summary"><strong>{copy[status === "applied" ? "changeApplied" : status === "undone" ? "changeUndone" : "changeReady"]}</strong><span><b className="is-added">+{counts.added}</b><b className="is-removed">−{counts.removed}</b><span>{copy.changeModified.replace("{count}", counts.modified)}</span></span></div>
+            <div className="chatcut-change-actions">
+              {current && status === "pending" && <button type="button" disabled={editor.working || editor.stale} onClick={editor.apply}>{editor.t("apply")}</button>}
+              {status === "applied" && <button type="button" disabled={!current || editor.working || !editor.canUndo} onClick={() => undoEdit(edit)}><ArrowCounterClockwise size={14} />{copy.changeUndo}</button>}
+              <button type="button" onClick={() => editor.showReview(edit)}>{copy.changeView}</button>
+            </div>
+          </div>}
+        </div>;
+      })}
+      {editor.error && <p className="chatcut-history-error" role="alert">{editor.error}</p>}
       {stage && <p className="chatcut-status" role="status"><SpinnerGap size={18} className="chatcut-spinner" />{copy[stage]}{stage === "processing" && editor.aiJob && ` ${Math.round(editor.aiJob.progress)}%`}</p>}
       <div ref={end} />
     </div>

@@ -36,6 +36,7 @@ export function useAnnaSession({ enabled, fingerprint, hasContent, capture, rest
     const c = control.current;
     if (!c.alive || !latest.current.enabled || c.loading || c.saving) return;
     c.loading = true;
+    c.store.setRestoreBusy?.(true);
     c.ready = false;
     c.paused = false;
     const epoch = c.epoch;
@@ -124,6 +125,7 @@ export function useAnnaSession({ enabled, fingerprint, hasContent, capture, rest
       c.paused = true;
       publish(epoch, { status: "error", errorCode: getAnnaSessionErrorCode(error, "read") });
     } finally {
+      c.store.setRestoreBusy?.(false);
       restoreCommit?.finish(null);
       if (c.restoreCommit === restoreCommit) c.restoreCommit = null;
       if (active(epoch)) { c.loading = false; publish(epoch, {}); }

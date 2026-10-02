@@ -14,7 +14,11 @@ import { PROJECT_IMPORT_COPY } from "../i18nProjectImport.js";
 const asArray = (value) => Array.isArray(value) ? value : [];
 const finiteOr = (value, fallback) => value !== null && value !== undefined && Number.isFinite(Number(value)) ? Number(value) : fallback;
 const waitForProjectPaint = () => new Promise((resolve) => {
-  requestAnimationFrame(() => requestAnimationFrame(resolve));
+  let frame;
+  const finish = () => { clearTimeout(timeout); cancelAnimationFrame(frame); resolve(); };
+  // Background tabs may suspend animation frames; recovery must still finish.
+  const timeout = setTimeout(finish, 150);
+  frame = requestAnimationFrame(() => { frame = requestAnimationFrame(finish); });
 });
 
 // Archive and in-memory command callers share one complete snapshot contract.
@@ -165,6 +169,7 @@ export function useProjectFiles(deps = {}) {
         // Paint progress before any decode or synchronous archive fallback.
         await waitForProjectPaint();
       }
+      if (options.session) await waitForProjectPaint();
       let archive;
       try { archive = options.session ? readAnnaProjectSession(options.session, mediaUrl) : await readProjectArchive(file, {
         onProgress: ({ loaded, total }) => reportProgress("archive", loaded, total),
@@ -226,6 +231,7 @@ export function useProjectFiles(deps = {}) {
       // progressively after the complete project commits, not during import.
       reportProgress("visuals", visualUrls.size, visualUrls.size);
       const decoded = new Map();
+      const deferredWaveforms = new Set();
       // Account-scoped snapshots commit these peaks alongside their media.
       // Portable imports still decode media to validate their audio contents.
       if (options.session) {
@@ -238,6 +244,17 @@ export function useProjectFiles(deps = {}) {
           remember(blob, { duration: saved?.sourceAudioDuration || saved?.sourceDuration || saved?.duration, peaks: saved?.peaks });
         }
         for (const key of ["sourceAudio", "music"]) remember({ audio, sourceAudio, music }[key], options.session.audioWaveforms?.[key]);
+        // Recovery already has validated timing. Missing visualization caches
+        // must not hold playback and the complete project commit behind PCM decode.
+        const defer = (blob, duration) => {
+          if (!blob || decoded.has(blob) || !(Number(duration) > 0)) return;
+          decoded.set(blob, { duration: Number(duration), peaks: [] });
+          deferredWaveforms.add(blob);
+        };
+        for (const { segment, blob } of pendingAudioSegments) defer(blob, segment.sourceAudioDuration || segment.sourceDuration || segment.duration);
+        defer(audio, data.audioDuration);
+        defer(sourceAudio, data.sourceAudioDuration);
+        defer(music, data.musicDuration);
       }
       const audioBlobs = [...new Set([...pendingAudioSegments.map((item) => item.blob), ...(!hasAudioSegments && audio ? [audio] : []), sourceAudio, music].filter(blob => blob && !decoded.has(blob)))];
       let audioCompleted = 0;
@@ -276,10 +293,8 @@ export function useProjectFiles(deps = {}) {
       const visualDuration = getVisualSegmentsTotal(visuals);
       const restoredMusicSegments = music && Array.isArray(data.musicSegments) && data.musicSegments.length
         ? data.musicSegments.map((segment) => ({ ...segment, peaks: decoded.get(music).peaks })) : null;
-      if (!options.session) {
-        reportProgress("ready");
-        await waitForProjectPaint();
-      }
+      if (!options.session) reportProgress("ready");
+      await waitForProjectPaint();
       // The guard is synchronous, immediately adjacent to the commit. A caller
       // can reject edits/unmounts that happened during archive reads or decoding.
       if (generation !== importGenerationRef.current || (options.beforeCommit && options.beforeCommit() !== true)) return false;
@@ -357,6 +372,27 @@ export function useProjectFiles(deps = {}) {
         sessionMetadata.visionObjectUrls.forEach((urls, key) => current.visionObjectUrlsRef?.current.set(key, urls));
       }
       committed = true;
+      if (deferredWaveforms.size) {
+        setTimeout(async () => {
+          for (const blob of deferredWaveforms) {
+            if (generation !== importGenerationRef.current) break;
+            try {
+              const waveform = await decodeWaveform(blob, 118);
+              if (generation !== importGenerationRef.current) break;
+              const live = latestDeps.current;
+              // Patch only visualization fields on still-matching media.
+              // Deleted/replaced clips and edits to timing or effects stay intact.
+              live.setAudioSegments(items => items.map(item => item.blob === blob ? { ...item, peaks: waveform.peaks } : item));
+              if (live.sourceAudioBlob === blob) live.setSourceAudioPeaks?.(waveform.peaks);
+              if (live.musicBlob === blob) {
+                live.setMusicPeaks?.(waveform.peaks);
+                live.setMusicSegments(items => items.map(item => ({ ...item, peaks: waveform.peaks })));
+              }
+              await waitForProjectPaint();
+            } catch { /* Optional waveform failure cannot discard recovered media. */ }
+          }
+        }, 250);
+      }
       if (options.session) preparedUrls.forEach((url) => current.imageUrlRefs.current.add(url));
       [...visuals, ...overlays].filter((segment) => preparedUrls.has(segment.src)).forEach((segment) => current.imageUrlRefs.current.add(segment.src));
       oldAudioUrls.forEach((url) => URL.revokeObjectURL(url));

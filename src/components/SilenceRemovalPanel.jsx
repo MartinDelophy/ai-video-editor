@@ -9,7 +9,8 @@ export function SilenceRemovalPanel({ t, tool }) {
   const savings = selected.reduce((sum, cut) => sum + cut.end - cut.start, 0);
   const setup = ["pauseDownloading", "pauseStarting"].includes(job.phase);
   return <section className="pause-panel" aria-label={t("pauseTitle")}>
-    <p className="pause-intro">{t("pauseIntro")}</p>
+    <header className="pause-header"><div className="panel-title-row"><h1><Scissors size={20} />{t("pauseTitle")}</h1></div><p className="pause-intro">{t("pauseIntro")}</p></header>
+    <div className="pause-body">
     {segment?.type === "video" ? <strong className="pause-clip" title={segment.name}>{segment.name || t("video")}</strong> : <p>{t("pauseSelect")}</p>}
     {segment?.preparing ? <p role="status">{t("timelineMediaPreparing")}</p>
       : segment?.type === "video" && !supported ? <p className="pause-notice">{t("pauseUnsupported")}</p> : null}
@@ -40,5 +41,6 @@ export function SilenceRemovalPanel({ t, tool }) {
       </> : <p role="status">{t("pauseEmpty")}</p>}
     </div> : null}
     <small className="pause-note">{t("pauseLocal")}</small>
+    </div>
   </section>;
 }

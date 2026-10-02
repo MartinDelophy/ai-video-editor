@@ -27,6 +27,7 @@ import {
   PersonSimpleRun,
   Scan,
   Scissors,
+  Sparkle,
   Trash,
   Waveform,
   X,
@@ -1428,7 +1429,7 @@ export function ToolPanel(props) {
   if (activeTool === "smart") {
     if (import.meta.env?.VITE_ANNA_EDITION === "true") return <div className="tool-panel smart-hub-panel">
       <div className="smart-hub-grid" role="tablist" aria-label={t("smartTools")}>
-        <button className={smartMode === "chatcut" ? "is-active" : ""} type="button" role="tab" aria-selected={smartMode === "chatcut"} onClick={() => setSmartMode("chatcut")}><Scissors size={24} weight="duotone" /><strong>{getChatCutCopy(uiLanguage).title}</strong><span>{getChatCutCopy(uiLanguage).hint}</span></button>
+        <button className={smartMode === "chatcut" ? "is-active" : ""} type="button" role="tab" aria-selected={smartMode === "chatcut"} onClick={() => setSmartMode("chatcut")}><span className="chatcut-hot-badge" aria-hidden="true"><Sparkle size={12} weight="fill" />HOT</span><Scissors size={24} weight="duotone" /><strong>{getChatCutCopy(uiLanguage).title}</strong><span>{getChatCutCopy(uiLanguage).hint}</span></button>
         <button className={smartMode === "watermark" ? "is-active" : ""} type="button" role="tab" aria-selected={smartMode === "watermark"} onClick={() => {
           setSmartMode("watermark");
           if (window.matchMedia?.(COMPACT_WORKSPACE_QUERY).matches) openMobileInspector?.();

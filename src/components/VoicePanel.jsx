@@ -1669,12 +1669,26 @@ export function VoicePanel({
     panelRef.current?.querySelector(".voice-tab-body")?.scrollTo({ top: 0 });
   }, [activeTool, smartMode]);
 
+  const watermarkClip = selectedVisualSegment?.type === "video" ? selectedVisualSegment : null;
+  const watermarkFrame = watermarkClip?.trackFrames?.[0];
+  const watermarkThumbnail = watermarkClip?.thumbnail || (typeof watermarkFrame === "string" ? watermarkFrame : watermarkFrame?.src);
+  const watermarkStart = Math.max(0, Number(watermarkClip?.sourceStart) || 0);
+  const watermarkDuration = Math.max(0, Number(watermarkClip?.duration) || 0);
+  const watermarkSourceDuration = Math.max(0, Number(watermarkClip?.sourceDuration) || watermarkDuration * (Number(watermarkClip?.playbackRate) || 1));
+
   if (import.meta.env?.VITE_ANNA_EDITION === "true" && isSmartContext) return <aside className={`voice-panel ${mobileInspectorSection ? "is-focused-mobile-section" : ""}`} ref={panelRef}>
     {mobileInspectorSection ? <header className="focused-mobile-sheet-header"><strong>{t("annaVideoWatermark")}</strong><button type="button" aria-label={t("close")} onClick={onCloseMobileInspector}><X size={20} /></button></header> : null}
     <div className="panel-title-row"><h1>{t("annaVideoWatermark")}</h1></div>
     <div className="voice-tab-body"><section className="visual-editor-card repair-card">
       <p>{t("repairVideoHint")}</p>
-      <p>{selectedVisualSegment?.type === "video" ? selectedVisualSegment.name : t("annaSelectWatermarkVideo")}</p>
+      {watermarkClip ? <section className="watermark-selection" aria-label={t("watermarkSelectedClip")}>
+        <h2>{t("watermarkSelectedClip")}</h2>
+        <div className="watermark-selection-media">
+          {watermarkThumbnail ? <img src={watermarkThumbnail} alt="" /> : <div className="watermark-selection-placeholder"><ImageSquare size={28} /></div>}
+          <div className="watermark-selection-details"><strong title={watermarkClip.name}>{watermarkClip.name || t("video")}</strong><time>{formatTime(watermarkStart)} — {formatTime(watermarkStart + watermarkSourceDuration)}</time><span>{t("watermarkClipDuration").replace("{seconds}", String(Number(watermarkDuration.toFixed(2))))}</span></div>
+        </div>
+        <p className="watermark-selection-note"><Info size={16} /><span>{t("watermarkSelectedOnly")}</span></p>
+      </section> : <p>{t("annaSelectWatermarkVideo")}</p>}
       <AnnaModelGate anna={anna}><button className="panel-primary" type="button" disabled={selectedVisualSegment?.type !== "video" || miganRepair?.job?.running} onClick={miganRepair?.openDialog}>{selectedVisualSegment?.repair ? t("repairEditAgain") : t("repairOpenEditor")}</button></AnnaModelGate>
       {selectedVisualSegment?.type === "video" && selectedVisualSegment.repair ? <label className="switch-row repair-result-toggle"><input type="checkbox" checked={selectedVisualSegment.repair.enabled !== false} onChange={(event) => updateSelectedVisualEffects?.({ repairEnabled: event.target.checked })} />{t("repairUseResult")}</label> : null}
     </section></div>

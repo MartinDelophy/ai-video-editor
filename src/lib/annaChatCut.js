@@ -8,7 +8,7 @@ export const CHATCUT_TOOLS = new Set([
   "timeline_project_inspect", "timeline_track_inspect", "timeline_clip_inspect",
   "timeline_transcript_inspect", "timeline_assets_inspect", "timeline_markers_inspect", "timeline_edit_preview",
 ]);
-export async function runAnnaChatCut({ instruction, history = [], tools, execute, image, captureFrame, inspectMedia, language, signal, onStage, complete = requestAnnaChatCompletion }) {
+export async function runAnnaChatCut({ instruction, history = [], tools, execute, image, captureFrame, inspectMedia, language, signal, onStage, autoApply = false, complete = requestAnnaChatCompletion }) {
   const check = () => { if (signal?.aborted) throw new DOMException("Cancelled", "AbortError"); };
   check();
   const initial = await execute("timeline_project_inspect", {}, { signal });
@@ -18,7 +18,7 @@ export async function runAnnaChatCut({ instruction, history = [], tools, execute
   const currentFrameTool = { name: "timeline_current_frame", description: "Read the current source-media frame at the playhead when visual evidence is needed. Excludes effects, captions and overlays.", inputSchema: { type: "object", properties: {}, additionalProperties: false } };
   if (captureFrame) catalog.push(currentFrameTool);
   let sampledFrames = 0;
-  const messages = [{ role: "user", content: [{ type: "text", text: JSON.stringify({ instruction, language, history: history.slice(-8), project: initial, image: image ? "One current source-media frame at the reported playhead; excludes editor effects, captions and overlays. Not the whole video." : "No images or audio supplied." }) }, ...(image ? [{ type: "image", data: image, mimeType: "image/jpeg" }] : [])] }];
+  const messages = [{ role: "user", content: [{ type: "text", text: JSON.stringify({ instruction, language, history: history.slice(-8).map(({ role, text }) => ({ role, text })), project: initial, image: image ? "One current source-media frame at the reported playhead; excludes editor effects, captions and overlays. Not the whole video." : "No images or audio supplied." }) }, ...(image ? [{ type: "image", data: image, mimeType: "image/jpeg" }] : [])] }];
   for (let step = 0; step < 16; step += 1) {
     check();
     onStage?.("thinking");
@@ -60,7 +60,17 @@ export async function runAnnaChatCut({ instruction, history = [], tools, execute
     }
     const result = await execute(reply.name, args, { signal });
     check();
-    if (["timeline_edit_preview", "timeline_ai_preview"].includes(reply.name) && result.ok) return { preview: true, text: args.summary || "" };
+    if (["timeline_edit_preview", "timeline_ai_preview"].includes(reply.name) && result.ok) {
+      const review = { status: "pending", preview: result, summary: args.summary || "" };
+      if (autoApply) {
+        check();
+        const applied = await execute("timeline_edit_apply", { previewId: result.previewId }, { signal });
+        if (!applied?.ok) throw new Error(applied?.error?.message || "Could not apply changes");
+        review.status = "applied";
+        review.transactionId = applied.transactionId;
+      }
+      return { preview: true, review, text: args.summary || "" };
+    }
     if (result.error?.code === "STALE_STATE") throw new Error(result.error.message);
     const content = reply.name === "timeline_ai_result_frames" && result.ok
       ? [{ type: "text", text: JSON.stringify({ resultId: args.resultId, sourceTimes: result.frames.map(frame => frame.sourceTime), note: "Processed video source frames; inspect repair quality before proposing replacement." }) }, ...result.frames.map(frame => ({ type: "image", data: frame.data, mimeType: "image/jpeg" }))]

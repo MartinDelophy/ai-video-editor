@@ -2,6 +2,7 @@ import {
   normalizeAnnaError, readAnnaCloudSessionPointer, writeAnnaCloudSessionPointer,
   readAnnaFile, storeAnnaFile, validateAnnaFileDescriptor,
 } from "./annaRuntime.js";
+import { createCooperativeCheckpoint } from "./cooperativeTask.js";
 
 const FORMAT = "timeline-studio-cloud-session";
 const MAX_MANIFEST = 16 * 1024 * 1024;
@@ -146,12 +147,16 @@ class Sha256 {
 }
 async function sha256(blob) {
   const hash = new Sha256();
+  const checkpoint = createCooperativeCheckpoint();
   const reader = blob.stream().getReader();
   try {
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
-      hash.update(value);
+      for (let offset = 0; offset < value.length; offset += 65536) {
+        hash.update(value.subarray(offset, offset + 65536));
+        await checkpoint();
+      }
     }
   } finally { reader.releaseLock(); }
   return hash.finish();

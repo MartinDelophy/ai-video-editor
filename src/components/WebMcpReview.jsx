@@ -1,4 +1,5 @@
 import { ArrowCounterClockwise, CheckCircle, CircleNotch, Robot, X } from "@phosphor-icons/react";
+import { getChatCutCopy } from "../i18nChatCut.js";
 import "./WebMcpReview.css";
 
 const TRACK_LABELS = { visuals: "trackVisuals", overlays: "trackOverlays", audio: "trackAudio", captions: "trackCaptions", stickers: "trackStickers", music: "trackMusic", markers: "trackMarkers" };
@@ -136,7 +137,7 @@ export function WebMcpReview({ agent, language }) {
           {view.processedMedia.map(media => <video key={media.src} className="webmcp-review-video" controls playsInline preload="metadata" src={media.src} aria-label={media.name} />)}
         </section>}
         <p className={applied ? "webmcp-review-success" : "webmcp-review-status"} role="status">
-          {applied ? <CheckCircle size={16} aria-hidden="true" /> : null}{t(applied ? "applied" : "pending")}
+          {applied ? <CheckCircle size={16} aria-hidden="true" /> : null}{view.status === "undone" ? getChatCutCopy(language).changeUndone : t(applied ? "applied" : "pending")}
         </p>
         {view.summary ? <p className="webmcp-review-summary">{view.summary}</p> : null}
         {Number.isFinite(preview.beforeDuration) && Number.isFinite(preview.afterDuration) ? <p className="webmcp-review-duration">{t("duration", { before: time(preview.beforeDuration), after: time(preview.afterDuration) })}</p> : null}
@@ -175,11 +176,11 @@ export function WebMcpReview({ agent, language }) {
         </section> : null}
         {projectFields.length ? <section className="webmcp-review-section"><h3>{t("projectSettings")}</h3><dl className="webmcp-review-fields">{projectFields.filter(({ before, after }) => !equal(before, after)).map((entry) => <FieldChange key={entry.field} {...entry} {...valueProps} />)}</dl></section> : null}
         {!preview.hasChanges ? <p className="webmcp-review-status">{t("noChanges")}</p> : null}
-        {error || stale ? <p className="webmcp-review-error" role="alert">{error || t("stale")}</p> : null}
+        {error || stale || agent.readOnly && view.status === "pending" ? <p className="webmcp-review-error" role="alert">{error || t("stale")}</p> : null}
       </div>
       <footer>
-        <button type="button" className="panel-secondary" onClick={agent.dismiss} disabled={working}>{t(applied ? "close" : "dismiss")}</button>
-        {applied ? (
+        <button type="button" className="panel-secondary" onClick={applied || agent.readOnly ? agent.dismiss : agent.cancel || agent.dismiss} disabled={working}>{t(applied || agent.readOnly ? "close" : "dismiss")}</button>
+        {agent.readOnly ? null : applied ? (
           <button type="button" className="panel-secondary" onClick={agent.undo} disabled={working || !agent.canUndo}><ArrowCounterClockwise size={15} />{t("undo")}</button>
         ) : (
           <button type="button" className="panel-primary" onClick={agent.apply} disabled={working || stale || !preview.hasChanges}>

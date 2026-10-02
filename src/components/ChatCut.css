@@ -117,3 +117,24 @@
 .chatcut .chatcut-composer:focus-within { border-color: #42b9b1; box-shadow: 0 0 0 2px rgba(35, 213, 198, .08); }
 .chatcut .chatcut-composer textarea:focus,
 .chatcut .chatcut-composer textarea:focus-visible { outline: none !important; box-shadow: none !important; border: 0; background: transparent; }
+/* Match the editor rail's restrained cyan interaction across chat controls. */
+.chatcut button { transition: color 160ms ease, background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease; }
+@media (hover: hover) {
+  .chatcut button:not(:disabled):hover {
+    color: #62eadf;
+    background-color: rgba(53, 234, 217, .075);
+    box-shadow: inset 0 0 0 1px rgba(76, 238, 222, .34), 0 3px 12px rgba(35, 213, 198, .06);
+    border-color: rgba(76, 238, 222, .34);
+  }
+  .chatcut .chatcut-session-trigger:hover:not(:disabled) { border-radius: 8px; }
+  .chatcut .chatcut-history > button:hover:not(:disabled) { background-color: #173a46; }
+  .chatcut .chatcut-send > button:last-child:hover:not(:disabled) {
+    background-color: #49e5d8;
+    color: #042a2d;
+    border-color: #73f2e6;
+    box-shadow: 0 0 0 2px rgba(35, 213, 198, .12), 0 4px 14px rgba(35, 213, 198, .14);
+  }
+}
+.chatcut button:not(:disabled):focus-visible { outline: 2px solid #59eadf; outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .chatcut button { transition: none; } }
+@media (hover: hover) { .chatcut button:not(:disabled):hover > svg { filter: drop-shadow(0 3px 9px rgba(53, 234, 217, .22)); } }

@@ -1471,9 +1471,18 @@ export function App() {
   });
 
   const chatCutActive = anna.enabled && activeTool === "smart" && smartMode === "chatcut";
+  const [chatCutRetained, setChatCutRetained] = useState(false);
+  useEffect(() => {
+    if (chatCutActive) { setChatCutRetained(true); return; }
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) { setChatCutRetained(false); return; }
+    const timer = window.setTimeout(() => setChatCutRetained(false), 180);
+    return () => window.clearTimeout(timer);
+  }, [chatCutActive]);
+  const chatCutVisible = chatCutActive || chatCutRetained;
+  const chatCutClosing = !chatCutActive && chatCutRetained;
 
   return (
-    <main className={`app-shell ${chatCutActive ? "is-chatcut" : ""} ${isCompactViewport ? "is-compact-workspace" : ""} ${mobilePanel ? `mobile-panel-${mobilePanel}` : ""} ${isCompactViewport && mobileInspectorSection ? `mobile-section-${mobileInspectorSection}` : ""} ${isCompactViewport && mobileInspectorSection === "mask" && (selectedVisualOverlay || selectedVisualSegment)?.mask?.type && (selectedVisualOverlay || selectedVisualSegment).mask.type !== "none" ? "mobile-mask-active" : ""} ${mobilePanelClosing ? "is-mobile-panel-closing" : ""}`} lang={activeLanguage} onDragOver={(event) => {
+    <main className={`app-shell ${chatCutVisible ? "is-chatcut" : ""} ${chatCutClosing ? "is-chatcut-closing" : ""} ${isCompactViewport ? "is-compact-workspace" : ""} ${mobilePanel ? `mobile-panel-${mobilePanel}` : ""} ${isCompactViewport && mobileInspectorSection ? `mobile-section-${mobileInspectorSection}` : ""} ${isCompactViewport && mobileInspectorSection === "mask" && (selectedVisualOverlay || selectedVisualSegment)?.mask?.type && (selectedVisualOverlay || selectedVisualSegment).mask.type !== "none" ? "mobile-mask-active" : ""} ${mobilePanelClosing ? "is-mobile-panel-closing" : ""}`} lang={activeLanguage} onDragOver={(event) => {
       if (event.dataTransfer?.types?.includes("Files")) event.preventDefault();
     }} onDrop={async (event) => {
       const files = Array.from(event.dataTransfer?.files ?? []);
@@ -1547,7 +1556,7 @@ export function App() {
         projectFileInputRef={projectFileInputRef}
       />
 
-      {chatCutActive && <ChatCut projectId={anna.session?.state?.projectId} key={anna.session?.state?.projectId || "startup"} language={activeLanguage} editor={webMcp} assets={userAssets} onImport={() => fileInputRef.current?.click()} inspectMedia={(input, options) => sampleChatCutMedia(userAssets, input, options)} hasMedia={exportContentDuration > 0} onClose={() => setSmartMode("watermark")} captureFrame={() => {
+      {chatCutVisible && <ChatCut closing={chatCutClosing} projectId={anna.session?.state?.projectId} key={anna.session?.state?.projectId || "startup"} language={activeLanguage} editor={webMcp} assets={userAssets} onImport={() => fileInputRef.current?.click()} inspectMedia={(input, options) => sampleChatCutMedia(userAssets, input, options)} hasMedia={exportContentDuration > 0} onClose={() => setSmartMode("watermark")} captureFrame={() => {
         try {
           const source = previewVisualType === "video" ? previewVideoRef.current : previewCanvasRef.current?.querySelector(".visual-media-layer > img:not(.smart-frame-fill-background)");
           const width = source?.videoWidth || source?.naturalWidth;

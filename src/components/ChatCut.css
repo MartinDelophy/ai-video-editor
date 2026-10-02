@@ -138,3 +138,8 @@
 .chatcut button:not(:disabled):focus-visible { outline: 2px solid #59eadf; outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) { .chatcut button { transition: none; } }
 @media (hover: hover) { .chatcut button:not(:disabled):hover > svg { filter: drop-shadow(0 3px 9px rgba(53, 234, 217, .22)); } }
+@keyframes chatcut-enter { from { opacity: 0; transform: translateX(-14px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes chatcut-exit { from { opacity: 1; transform: translateX(0); } to { opacity: 0; transform: translateX(-14px); } }
+.chatcut { animation: chatcut-enter 220ms cubic-bezier(.2,.7,.2,1) both; }
+.app-shell.is-chatcut-closing > .chatcut { animation: chatcut-exit 180ms ease-in both; pointer-events: none; }
+@media (prefers-reduced-motion: reduce) { .chatcut, .app-shell.is-chatcut-closing > .chatcut { animation: none; } }

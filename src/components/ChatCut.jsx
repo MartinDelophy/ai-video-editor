@@ -14,7 +14,7 @@ function sessionDate(value, language) {
   return days >= -1 && days <= 0 ? new Intl.RelativeTimeFormat(language, { numeric: "auto" }).format(days, "day") : new Date(value).toLocaleDateString(language);
 }
 
-export function ChatCut({ language, editor, captureFrame, hasMedia, assets = [], onImport, inspectMedia, projectId, onClose }) {
+export function ChatCut({ language, editor, captureFrame, hasMedia, assets = [], onImport, inspectMedia, projectId, closing = false, onClose }) {
   const copy = getChatCutCopy(language);
   const [input, setInput] = useState("");
   const [sessions, setSessions] = useState([]);
@@ -67,6 +67,7 @@ export function ChatCut({ language, editor, captureFrame, hasMedia, assets = [],
   const mounted = useRef(true);
   const end = useRef(null);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; controller.current?.abort(); }; }, []);
+  useEffect(() => { if (closing) controller.current?.abort(); }, [closing]);
   useEffect(() => { end.current?.scrollIntoView({ block: "nearest" }); }, [messages, stage]);
   const send = async (event) => {
     event.preventDefault();
@@ -88,7 +89,7 @@ export function ChatCut({ language, editor, captureFrame, hasMedia, assets = [],
       if (mounted.current) setStage("");
     }
   };
-  return <aside className="chatcut" aria-label={copy.title}>
+  return <aside className="chatcut" inert={closing} aria-hidden={closing || undefined} aria-label={copy.title}>
     <header className="chatcut-header" ref={menu}>
       <button type="button" className="chatcut-back" onClick={onClose} aria-label={copy.back} title={copy.back}><ArrowLeft size={20} /></button>
       <button type="button" className="chatcut-session-trigger" disabled={Boolean(stage) || speech.active} onClick={() => setHistoryOpen(value => !value)} aria-expanded={historyOpen} aria-label={copy.history}>

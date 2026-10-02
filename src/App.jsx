@@ -1715,7 +1715,7 @@ export function App() {
         {anna.enabled && activeTool === "smart" && smartMode === "browser-captions" ? <BrowserCaptions language={activeLanguage} assets={userAssets} timelineMedia={[
           ...visualSegments.map((clip, index) => ({ ...clip, blob: clip.blob || userAssets.find(item => item.id === (clip.assetId || clip.id))?.blob, timelineStart: visualSegments.slice(0, index).reduce((sum, item) => sum + item.duration, 0) })),
           ...audioSegments.map(clip => ({ ...clip, type: "audio", timelineStart: clip.start || 0, blob: clip.blob || userAssets.find(item => item.id === (clip.assetId || clip.id))?.blob })),
-        ]} preferredClipId={selectedTrack === "audio" ? selectedAudioSegmentId : selectedVisualSegment?.id} projectId={anna.session?.state?.projectId} locked={trackLocks.caption} captionSize={captionSize} setCaptionSize={setCaptionSize} captionStyle={captionStyle} setCaptionStyle={setCaptionStyle} onCommit={segments => {
+        ]} preferredClipId={selectedTrack === "audio" ? selectedAudioSegmentId : selectedVisualSegment?.id} projectId={anna.session?.state?.projectId} locked={trackLocks.caption} onCommit={segments => {
           if (trackLocks.caption) return;
           setCaptionSegments(items => [...items, ...segments].sort((a,b) => a.start - b.start));
           setCaptionsEnabled(true); setTrackVisibility(items => ({ ...items, caption: true }));

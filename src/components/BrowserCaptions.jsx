@@ -6,7 +6,7 @@ import { CHATCUT_SPEECH_LANGUAGES } from "../hooks/useChatCutSpeech.js";
 import { getBrowserCaptionCopy } from "../i18nBrowserCaptions.js";
 import "./BrowserCaptions.css";
 
-export function BrowserCaptions({ language, assets, timelineMedia = [], preferredClipId, projectId, locked, onCommit, captionSize, setCaptionSize, captionStyle, setCaptionStyle }) {
+export function BrowserCaptions({ language, assets, timelineMedia = [], preferredClipId, projectId, locked, onCommit }) {
   const copy = getBrowserCaptionCopy(language);
   const clips = timelineMedia.filter(item => ["video", "audio"].includes(item.type) && item.blob instanceof Blob)
     .map(item => ({ ...item, id: `caption-target-${item.id}`, clipId: item.id, name: `${item.name || ""} (${item.timelineStart.toFixed(2)}–${(item.timelineStart + item.duration).toFixed(2)}s)` }));
@@ -81,7 +81,6 @@ export function BrowserCaptions({ language, assets, timelineMedia = [], preferre
       {running && <div className="browser-caption-progress" role="status"><SpinnerGap className="chatcut-spinner" size={18} /><span>{copy.title}</span><span>{Math.floor(progress)}%</span><progress max="100" value={progress} /></div>}
       {message && <p role="status">{message}</p>}
       <button className={running ? "panel-secondary" : "panel-primary"} disabled={!running && (!asset || locked)} type="button" onClick={running ? () => controller.current?.abort() : generate}>{running ? copy.cancel : copy.generate}</button>
-      <section className="browser-caption-style"><h2>{copy.style}</h2><label>{copy.size}<input type="range" min="12" max="42" value={captionSize} onChange={event => setCaptionSize(Number(event.target.value))} /></label><label>{copy.color}<input type="color" value={captionStyle.textColor || "#ffffff"} onChange={event => { const textColor = event.target.value; setCaptionStyle(style => ({ ...style, textColor })); }} /></label></section>
     </div>
   </aside>;
 }

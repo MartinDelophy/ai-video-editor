@@ -84,10 +84,17 @@ export async function transcribeBrowserFile(blob, { language = "zh-CN", offset =
     const segments = [];
     for (let i = 0; i < ranges.length; i++) {
       check(signal); onProgress?.(i / ranges.length);
-      const text = await recognizeRange(ctx, buffer, ranges[i], language, signal);
-      segments.push({ id: `browser-caption-${crypto.randomUUID()}`, start: offset + ranges[i].start, end: offset + ranges[i].end, text, hidden: false });
+      try {
+        const text = await recognizeRange(ctx, buffer, ranges[i], language, signal);
+        segments.push({ id: `browser-caption-${crypto.randomUUID()}`, start: offset + ranges[i].start, end: offset + ranges[i].end, text, hidden: false });
+      } catch (error) {
+        // Music, silence and non-speech may occupy a detected energy range.
+        // Skip only empty recognition; network, permission and cancellation still fail atomically.
+        if (!["empty", "no-speech"].includes(error.code)) throw error;
+      }
       onProgress?.((i + 1) / ranges.length);
     }
+    if (!segments.length) throw fail("empty");
     return segments;
   } finally { await ctx.close().catch(() => {}); }
 }

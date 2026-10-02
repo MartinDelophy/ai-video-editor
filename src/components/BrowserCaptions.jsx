@@ -48,7 +48,7 @@ export function BrowserCaptions({ language, assets, projectId, locked, onCommit,
       if (latest.current.locked || !latest.current.assets.some(item => item.id === asset.id)) return;
       latest.current.onCommit(segments); setMessage(copy.done); setProgress(100);
     } catch (error) {
-      if (mounted.current && !abort.signal.aborted) setMessage(error.code === "too-long" ? copy.long : copy.error);
+      if (mounted.current && !abort.signal.aborted) setMessage(error.code === "too-long" ? copy.long : error.code === "empty" ? copy.noSpeech : copy.error);
     } finally {
       translator?.destroy(); await context.close().catch(() => {});
       if (mounted.current) setRunning(false); if (controller.current === abort) controller.current = null;

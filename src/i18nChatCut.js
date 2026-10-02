@@ -13,6 +13,21 @@ const rows = {
   it: ['Montaggio in chat','Racconta la tua idea e monta conversando.','Torna all’editor','Esempio: Taglia i primi 3 secondi e abbassa la musica.','Invia','Ferma','Sto pensando…','Controllo del progetto…','Verifica delle modifiche…','Allega il fotogramma attuale','Invia richiesta e dati dei clip ad Anna, più il fotogramma se selezionato. Video e audio completi non vengono caricati.','Modifiche pronte. Controllale e applicale.','Impossibile completare. Riprova; questa richiesta non ha modificato il progetto.','Fermato.','Fotogramma non disponibile. Deselezionalo o attendi il caricamento.','Importa contenuti e descrivi il montaggio desiderato.','Cancella chat'],
   id: ['Edit lewat chat','Ceritakan ide, edit lewat percakapan.','Kembali ke editor','Contoh: Potong 3 detik pertama dan kecilkan musik.','Kirim','Hentikan','Sedang berpikir…','Memeriksa proyek…','Memvalidasi edit…','Lampirkan bingkai saat ini','Mengirim permintaan dan informasi klip ke Anna, serta bingkai jika dipilih. Video dan audio lengkap tidak diunggah.','Perubahan siap. Tinjau lalu terapkan.','Belum selesai. Coba lagi; permintaan ini tidak mengubah proyek.','Dihentikan.','Bingkai tidak tersedia. Batalkan pilihan atau tunggu dimuat.','Impor media lalu jelaskan edit yang diinginkan.','Hapus chat'],
 };
+const mediaCopy = {
+  zh: ['导入素材', '允许 AI 抽帧查看素材', '素材保存在浏览器中；请求时允许把图片及视频采样帧发送给 Anna，不发送完整音视频。'],
+  en: ['Import media', 'Allow AI to inspect sampled frames', 'Media stays in this browser. Requests may send images and sampled video frames to Anna, not full video or audio.'],
+  ja: ['素材を読み込む', 'AI に抽出フレームの確認を許可', '素材はブラウザーに保存されます。依頼時に画像や抽出フレームを Anna に送信します。動画・音声全体は送信しません。'],
+  ko: ['미디어 가져오기', 'AI의 샘플 프레임 분석 허용', '미디어는 브라우저에 저장됩니다. 요청 시 이미지와 추출 프레임을 Anna에 전송하며 전체 영상이나 오디오는 보내지 않습니다.'],
+  es: ['Importar medios', 'Permitir analizar fotogramas', 'Los medios permanecen en el navegador. Se pueden enviar imágenes y fotogramas a Anna, no vídeos ni audios completos.'],
+  fr: ['Importer des médias', 'Autoriser l’analyse des images extraites', 'Les médias restent dans ce navigateur. Les requêtes peuvent envoyer des images extraites à Anna, sans la vidéo ni l’audio complets.'],
+  de: ['Medien importieren', 'KI darf Einzelbilder analysieren', 'Medien bleiben im Browser. Anfragen können Bilder und ausgewählte Videoframes an Anna senden, keine vollständigen Videos oder Audios.'],
+  pt: ['Importar mídia', 'Permitir análise de quadros', 'A mídia fica no navegador. As solicitações podem enviar imagens e quadros para Anna, sem o vídeo ou áudio completo.'],
+  th: ['นำเข้าสื่อ', 'อนุญาตให้ AI วิเคราะห์เฟรมตัวอย่าง', 'สื่ออยู่ในเบราว์เซอร์ คำขออาจส่งภาพและเฟรมตัวอย่างให้ Anna แต่ไม่ส่งวิดีโอหรือเสียงทั้งหมด'],
+  vi: ['Nhập nội dung', 'Cho phép AI xem khung hình mẫu', 'Nội dung được lưu trong trình duyệt. Yêu cầu có thể gửi ảnh và khung hình mẫu đến Anna, không gửi toàn bộ video hay âm thanh.'],
+  ru: ['Импорт медиа', 'Разрешить анализ отдельных кадров', 'Медиа остаются в браузере. В запросах можно отправлять Anna изображения и отдельные кадры, но не видео или аудио целиком.'],
+  it: ['Importa contenuti', 'Consenti analisi dei fotogrammi', 'I contenuti restano nel browser. Le richieste possono inviare immagini e fotogrammi ad Anna, non video o audio completi.'],
+  id: ['Impor media', 'Izinkan AI memeriksa sampel bingkai', 'Media tetap di browser. Permintaan dapat mengirim gambar dan sampel bingkai ke Anna, bukan video atau audio lengkap.'],
+};
 export function getChatCutCopy(language) {
-  return Object.fromEntries(['title','hint','back','placeholder','send','stop','thinking','inspecting','validating','attach','privacy','ready','error','stopped','frameError','empty','clear'].map((key, i) => [key, (rows[language] || rows.en)[i]]));
+  return { ...Object.fromEntries(['title','hint','back','placeholder','send','stop','thinking','inspecting','validating','attach','privacy','ready','error','stopped','frameError','empty','clear'].map((key, i) => [key, (rows[language] || rows.en)[i]])), ...Object.fromEntries(["importMedia", "allowVisual", "visualPrivacy"].map((key, i) => [key, (mediaCopy[language] || mediaCopy.en)[i]])) };
 }

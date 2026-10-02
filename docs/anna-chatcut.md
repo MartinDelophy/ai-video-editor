@@ -22,3 +22,11 @@ Requests contain current project metadata and bounded conversation context. The 
 - https://anna.partners/developers/tools/executa-intro
 
 Anna Skill instructions and an Executa adapter can be added later if the cloud Agent must call this command surface. WebMCP browser registration alone does not make the tools discoverable to Anna's cloud Agent.
+
+## Imported media and visual inspection
+
+The conversation composer imports images, video and audio through the same file picker and media pipeline as the editor. Imported assets remain browser-owned; the existing first-visual insertion behavior is preserved. The visible asset chips identify available files, and normal asset inspection supplies their IDs to the model.
+
+Visual analysis is opt-in per open panel. `timeline_media_frames` accepts an imported asset ID and absolute source times, never an arbitrary URL. It uses an independent decoder, bounded JPEG frames (768px), abort/timeout cleanup, and does not seek the visible preview. At most six frames per call and eighteen per conversation request are allowed. Images produce one frame. Audio can be imported and edited but is not transcribed by this tool. Sparse frames are not exhaustive scene analysis or precise cut detection.
+
+The frame schema and browser service form a transport-independent tool boundary. ChatCut currently exposes it only inside the permissioned conversation loop; it is not globally registered as an unrestricted WebMCP tool. A future MCP adapter must preserve the same media consent and asset boundary. Editorial strategy belongs in Skill guidance; parsing, decoding and edits remain in shared code. There is no need to depend on native Anna Skill/MCP hosting to run this browser-owned workflow.

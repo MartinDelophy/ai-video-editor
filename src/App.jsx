@@ -1,3 +1,4 @@
+import { sampleChatCutMedia } from "./lib/chatCutMedia.js";
 import { ChatCut } from "./components/ChatCut.jsx";
 import { normalizeBeatShake } from "./lib/beatShakeEffect.js";
 import { normalizeGlitch } from "./lib/glitchEffect.js";
@@ -1546,7 +1547,7 @@ export function App() {
         projectFileInputRef={projectFileInputRef}
       />
 
-      {chatCutActive && <ChatCut key={anna.session?.state?.projectId || "startup"} language={activeLanguage} editor={webMcp} hasMedia={exportContentDuration > 0} onClose={() => setSmartMode("watermark")} captureFrame={() => {
+      {chatCutActive && <ChatCut key={anna.session?.state?.projectId || "startup"} language={activeLanguage} editor={webMcp} assets={userAssets} onImport={() => fileInputRef.current?.click()} inspectMedia={(input, options) => sampleChatCutMedia(userAssets, input, options)} hasMedia={exportContentDuration > 0} onClose={() => setSmartMode("watermark")} captureFrame={() => {
         try {
           const source = previewVisualType === "video" ? previewVideoRef.current : previewCanvasRef.current?.querySelector(".visual-media-layer > img:not(.smart-frame-fill-background)");
           const width = source?.videoWidth || source?.naturalWidth;

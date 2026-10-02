@@ -1,14 +1,15 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, PaperPlaneTilt, SpinnerGap, Stop, Trash } from "@phosphor-icons/react";
+import { ArrowLeft, PaperPlaneTilt, SpinnerGap, Stop, Trash, UploadSimple } from "@phosphor-icons/react";
 import { getChatCutCopy } from "../i18nChatCut.js";
 import { runAnnaChatCut } from "../lib/annaChatCut.js";
 import "./ChatCut.css";
 
-export function ChatCut({ language, editor, captureFrame, hasMedia, onClose }) {
+export function ChatCut({ language, editor, captureFrame, hasMedia, assets = [], onImport, inspectMedia, onClose }) {
   const copy = getChatCutCopy(language);
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState([]);
   const [attach, setAttach] = useState(false);
+  const [allowVisual, setAllowVisual] = useState(false);
   const [stage, setStage] = useState("");
   const controller = useRef(null);
   const mounted = useRef(true);
@@ -30,7 +31,7 @@ export function ChatCut({ language, editor, captureFrame, hasMedia, onClose }) {
       }
       setMessages(items => [...items, { role: "user", text: instruction }]);
       setInput("");
-      const result = await runAnnaChatCut({ instruction, history: messages, tools: editor.tools(), execute: editor.execute, image, language, signal: abort.signal, onStage: value => { if (mounted.current) setStage(value); } });
+      const result = await runAnnaChatCut({ instruction, history: messages, tools: editor.tools(), execute: editor.execute, image, inspectMedia: allowVisual ? inspectMedia : undefined, language, signal: abort.signal, onStage: value => { if (mounted.current) setStage(value); } });
       if (mounted.current) setMessages(items => [...items, { role: "assistant", text: result.preview ? `${result.text}\n${copy.ready}` : result.text }]);
     } catch {
       if (mounted.current) setMessages(items => [...items, { role: "assistant", text: abort.signal.aborted ? copy.stopped : copy.error }]);
@@ -48,10 +49,13 @@ export function ChatCut({ language, editor, captureFrame, hasMedia, onClose }) {
       <div ref={end} />
     </div>
     <form onSubmit={send}>
+      <div className="chatcut-import"><button type="button" disabled={Boolean(stage)} onClick={onImport}><UploadSimple size={16} />{copy.importMedia}</button><span>{assets.length}</span></div>
+      {assets.length > 0 && <div className="chatcut-assets">{assets.map(asset => <span key={asset.id} title={asset.name}>{asset.preparing && <SpinnerGap className="chatcut-spinner" size={12} />}{asset.name}</span>)}</div>}
+      <label className="chatcut-attach"><input type="checkbox" checked={allowVisual} disabled={Boolean(stage)} onChange={event => setAllowVisual(event.target.checked)} />{copy.allowVisual}</label>
       <label className="chatcut-attach"><input type="checkbox" checked={attach} disabled={Boolean(stage)} onChange={event => setAttach(event.target.checked)} />{copy.attach}</label>
       <textarea aria-label={copy.title} placeholder={copy.placeholder} value={input} maxLength={4000} disabled={Boolean(stage)} onChange={event => setInput(event.target.value)} />
       <div className="chatcut-send">{stage ? <button type="button" onClick={() => controller.current?.abort()}><Stop size={16} />{copy.stop}</button> : <button type="button" onClick={send} disabled={!input.trim() || editor.view?.status === "pending"}><PaperPlaneTilt size={16} />{copy.send}</button>}</div>
-      <small>{editor.view?.status === "pending" ? copy.ready : copy.privacy}</small>
+      <small>{editor.view?.status === "pending" ? copy.ready : allowVisual ? copy.visualPrivacy : copy.privacy}</small>
     </form>
   </aside>;
 }

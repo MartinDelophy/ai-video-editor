@@ -19,7 +19,7 @@ L’utilisateur assume seul toute responsabilité juridique découlant du non-re
 
 ## Actualités du projet
 
-- **2026-10-02 — Anna ajoute le montage par chat : deux panneaux, vérification et aperçu des modifications, application explicite et annulation, avec image actuelle facultative.**
+- **2026-10-02 — Anna ajoute le montage par chat : deux panneaux, vérification et aperçu des modifications, application explicite et annulation, avec image actuelle facultative.** Import de médias dans le chat et analyse de photogrammes avec autorisation.
 - **2026-10-01 — Anna enregistre d’abord les projets et médias localement, puis les sauvegarde dans le cloud en arrière-plan. Le changement de projet n’attend plus le transfert et les deux états sont distincts.**
 - **2026-10-01 — Anna ajoute la Secousse rythmique en troisième position : BPM manuel, direction, intensité, atténuation et décalage communs à l’aperçu et à l’export.**
 - **2026-10-01 — Anna place Glitch configurable en premier, puis les ondulations rythmiques et les faisceaux Disco. Aperçu et export partagent le décalage RVB, les déchirures horizontales et le bruit déterministes.**

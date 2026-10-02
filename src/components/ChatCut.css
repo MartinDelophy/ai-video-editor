@@ -42,3 +42,17 @@
   .app-shell.is-chatcut .preview-empty { min-height: 0; height: auto; padding: 12px; }
   .app-shell.is-chatcut .preview-empty span { display: none; }
 }
+/* Let status/error rows determine the header height rather than overlap the editor. */
+.app-shell.is-chatcut { grid-template-rows: auto minmax(0, 1fr) var(--timeline-panel-height) !important; overflow: hidden; }
+.app-shell.is-chatcut > .topbar { min-height: 64px; padding-block: 8px; grid-template-columns: minmax(0, 1fr) auto auto; gap: 12px; }
+.app-shell.is-chatcut .project-cluster, .app-shell.is-chatcut .project-cluster > div { min-width: 0; }
+.app-shell.is-chatcut .anna-session-status { flex-wrap: wrap; max-width: 100%; }
+.app-shell.is-chatcut .anna-session-status__backup { margin-left: 0; }
+.app-shell.is-chatcut .timeline-toolbar { min-width: 0; }
+.chatcut-import { display: flex; align-items: center; gap: 10px; color: #8da3af; font-size: 12px; margin-bottom: 8px; }
+.chatcut-assets { display: flex; gap: 6px; flex-wrap: wrap; max-height: 62px; overflow-y: auto; margin-bottom: 10px; }
+.chatcut-assets > span { display: flex; align-items: center; gap: 4px; max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 11px; color: #b2c5cd; background: #1e2b33; padding: 4px 7px; border-radius: 5px; }
+@media (max-width: 1100px) { .app-shell.is-chatcut .topbar-center, .app-shell.is-chatcut .topbar-community-links { display: none; } }
+@media (max-width: 760px) { .app-shell.is-chatcut { grid-template-rows: auto 240px 520px 300px !important; overflow: auto; } }
+.app-shell.is-chatcut .anna-session-status__summary { flex: 0 1 auto; }
+.app-shell.is-chatcut .anna-session-status__backup { flex: 0 1 auto; }

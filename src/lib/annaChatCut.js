@@ -1,3 +1,4 @@
+import { CHATCUT_FRAME_TOOL } from "./chatCutMedia.js";
 import { requestAnnaChatCompletion } from "./annaRuntime.js";
 
 // Only inspections and a validated preview are callable by the model. Applying
@@ -6,12 +7,14 @@ export const CHATCUT_TOOLS = new Set([
   "timeline_project_inspect", "timeline_track_inspect", "timeline_clip_inspect",
   "timeline_transcript_inspect", "timeline_assets_inspect", "timeline_markers_inspect", "timeline_edit_preview",
 ]);
-export async function runAnnaChatCut({ instruction, history = [], tools, execute, image, language, signal, onStage, complete = requestAnnaChatCompletion }) {
+export async function runAnnaChatCut({ instruction, history = [], tools, execute, image, inspectMedia, language, signal, onStage, complete = requestAnnaChatCompletion }) {
   const check = () => { if (signal?.aborted) throw new DOMException("Cancelled", "AbortError"); };
   check();
   const initial = await execute("timeline_project_inspect", {}, { signal });
   if (!initial?.ok) throw new Error(initial?.error?.message || "Editor unavailable");
   const catalog = tools.filter(tool => CHATCUT_TOOLS.has(tool.name)).map(({ name, description, inputSchema }) => ({ name, description, inputSchema }));
+  if (inspectMedia) catalog.push(CHATCUT_FRAME_TOOL);
+  let sampledFrames = 0;
   const messages = [{ role: "user", content: [{ type: "text", text: JSON.stringify({ instruction, language, history: history.slice(-8), project: initial, image: image ? "One current source-media frame at the reported playhead; excludes editor effects, captions and overlays. Not the whole video." : "No images or audio supplied." }) }, ...(image ? [{ type: "image", data: image, mimeType: "image/jpeg" }] : [])] }];
   for (let step = 0; step < 8; step += 1) {
     check();
@@ -19,8 +22,24 @@ export async function runAnnaChatCut({ instruction, history = [], tools, execute
     const reply = await complete({ messages, catalog, language, signal });
     check();
     if (reply.type === "message" && typeof reply.text === "string" && reply.text.length <= 6000) return { text: reply.text };
-    if (reply.type !== "tool" || !CHATCUT_TOOLS.has(reply.name) || !reply.arguments || typeof reply.arguments !== "object" || Array.isArray(reply.arguments)) throw new Error("Invalid model response");
+    if (reply.type !== "tool" || !(CHATCUT_TOOLS.has(reply.name) || (inspectMedia && reply.name === CHATCUT_FRAME_TOOL.name)) || !reply.arguments || typeof reply.arguments !== "object" || Array.isArray(reply.arguments)) throw new Error("Invalid model response");
     onStage?.(reply.name === "timeline_edit_preview" ? "validating" : "inspecting");
+    if (reply.name === CHATCUT_FRAME_TOOL.name) {
+      let content;
+      try {
+        const requested = reply.arguments.times?.length || 0;
+        if (!requested || sampledFrames + requested > 18) throw new Error("Visual sample budget exceeded; ask the user to narrow the request");
+        sampledFrames += requested;
+        const result = await inspectMedia(reply.arguments, { signal });
+        check();
+        content = [{ type: "text", text: JSON.stringify({ assetId: result.assetId, sourceTimes: result.frames.map(frame => frame.sourceTime), note: "Sparse source frames in this order; no audio, effects or overlays." }) }, ...result.frames.map(frame => ({ type: "image", data: frame.data, mimeType: "image/jpeg" }))];
+      } catch (error) {
+        check();
+        content = [{ type: "text", text: JSON.stringify({ error: error.message }) }];
+      }
+      messages.push({ role: "assistant", content: { type: "text", text: JSON.stringify(reply) } }, { role: "user", content });
+      continue;
+    }
     // Reject edits computed from an older project, even if the model re-reads it.
     const args = reply.name === "timeline_edit_preview" ? { ...reply.arguments, stateToken: initial.stateToken } : reply.arguments;
     const result = await execute(reply.name, args, { signal });

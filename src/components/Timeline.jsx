@@ -1384,7 +1384,7 @@ export function Timeline({
   const rulerViewportSyncRef = useRef(null);
   const rulerViewportRef = useRef(null);
   const rulerCanvasRef = useRef(null);
-  const { playheadRef, rulerPlayheadRef } = useTimelinePlayhead({
+  const { playheadRef, rulerPlayheadRef, suspendPlayheadFollow, returnToPlayhead, showReturnToPlayhead } = useTimelinePlayhead({
     currentTime, currentTimeRef, isPlaying, timelineDuration, playbackDuration,
     visualPlaybackStartTimeRef, visualPlaybackStartedAtRef, trackScrollRef, rulerCanvasRef,
   });
@@ -2088,6 +2088,7 @@ export function Timeline({
       // frames ahead of the sticky ruler during a fast two-finger swipe.
       if (horizontalDelta) {
         event.preventDefault();
+        suspendPlayheadFollow();
         scrollElement.scrollLeft += horizontalDelta * deltaModeMultiplier;
         rulerViewportSyncRef.current?.();
       } else if (wheelMode === "vertical") {
@@ -2317,6 +2318,7 @@ export function Timeline({
         if (Math.abs(deltaX) < 3 || Math.abs(deltaX) < Math.abs(deltaY)) return;
         event.preventDefault();
         event.stopPropagation();
+        suspendPlayheadFollow();
         scrollElement.scrollLeft = singleTouchPan.startScrollLeft - deltaX;
         rulerViewportSyncRef.current?.();
         return;
@@ -2353,7 +2355,7 @@ export function Timeline({
       mobilePinchGestureRef.current = null;
       mobilePinchActiveRef.current = false;
     };
-  }, [mobileTrackBaseWidth, setTimelineZoom, timelineDuration, trackScrollRef]);
+  }, [mobileTrackBaseWidth, setTimelineZoom, timelineDuration, trackScrollRef, suspendPlayheadFollow]);
   useEffect(() => {
     const rulerViewport = rulerViewportRef.current;
     const scrollElement = trackScrollRef.current?.parentElement;
@@ -2381,6 +2383,7 @@ export function Timeline({
       }
       event.preventDefault();
       event.stopPropagation();
+      suspendPlayheadFollow();
       scrollElement.scrollLeft = gesture.startScrollLeft - deltaX;
       rulerViewportSyncRef.current?.();
     };
@@ -2403,7 +2406,7 @@ export function Timeline({
       window.removeEventListener("pointerup", handlePointerEnd, { capture: true });
       window.removeEventListener("pointercancel", handlePointerEnd, { capture: true });
     };
-  }, [trackScrollRef]);
+  }, [trackScrollRef, suspendPlayheadFollow]);
   const renderAssetDropSlot = (track, laneIndex = -1) => {
     if (track === "image") return null;
     if (track === "overlay") {
@@ -3022,6 +3025,7 @@ export function Timeline({
           </IconButton>
         </div>
         <div className="timeline-icon-group">
+          {showReturnToPlayhead ? <button type="button" className="timeline-return-playhead" onClick={returnToPlayhead}>{t("returnToPlayhead")}</button> : null}
           <IconButton label={t("zoomOut")} shortcut="−" tooltip releaseFocusOnPointer onClick={() => adjustTimelineZoom((zoom) => zoom / TIMELINE_BUTTON_ZOOM_RATIO)}>
             <MagnifyingGlassMinus size={17} />
           </IconButton>

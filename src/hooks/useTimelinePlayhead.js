@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef } from "react";
+import { useCallback, useLayoutEffect, useRef, useState } from "react";
 
 function playbackTime(state, now) {
   const duration = Math.max(0, Number(state.playbackDuration) || 0);
@@ -21,6 +21,17 @@ export function useTimelinePlayhead(state) {
   const rulerPlayheadRef = useRef(null);
   const stateRef = useRef(state);
   const syncRef = useRef(null);
+  const suspendedRef = useRef(false);
+  const wasPlayingRef = useRef(false);
+  const revealRef = useRef(false);
+  const offscreenRef = useRef(false);
+  const [showReturnToPlayhead, setShowReturnToPlayhead] = useState(false);
+  const suspendPlayheadFollow = useCallback(() => { suspendedRef.current = true; }, []);
+  const returnToPlayhead = useCallback(() => {
+    suspendedRef.current = false;
+    revealRef.current = true;
+    syncRef.current?.();
+  }, []);
   stateRef.current = state;
 
   useLayoutEffect(() => {
@@ -43,6 +54,8 @@ export function useTimelinePlayhead(state) {
     };
     const position = (now) => {
       const current = stateRef.current;
+      if (current.isPlaying && !wasPlayingRef.current) suspendedRef.current = false;
+      wasPlayingRef.current = current.isPlaying;
       const time = playbackTime(current, now);
       const duration = Math.max(0.001, Number(current.timelineDuration) || 0.001);
       const ratio = Math.max(0, Math.min(1, time / duration));
@@ -84,6 +97,22 @@ export function useTimelinePlayhead(state) {
         // still publishes the lower-frequency viewport/thumbnail state.
         ruler.style.transform = `translateX(${-scroll.scrollLeft}px)`;
       }
+      if (!mobile?.matches) {
+        const x = ratio * trackWidth;
+        const width = scroll.clientWidth;
+        const relative = x - scroll.scrollLeft;
+        if (revealRef.current || (current.isPlaying && !suspendedRef.current
+          && (relative < 0 || relative >= width * 0.85))) {
+          scroll.scrollLeft = Math.max(0, Math.min(scroll.scrollWidth - width, x - width * 0.2));
+          ruler.style.transform = `translateX(${-scroll.scrollLeft}px)`;
+        }
+        revealRef.current = false;
+        const outside = suspendedRef.current && (x < scroll.scrollLeft || x > scroll.scrollLeft + width);
+        if (outside !== offscreenRef.current) {
+          offscreenRef.current = outside;
+          setShowReturnToPlayhead(outside);
+        }
+      }
       const ariaTime = Math.round(time);
       if (ariaTime !== lastAriaTime) {
         line.setAttribute("aria-valuenow", String(ariaTime));
@@ -114,10 +143,12 @@ export function useTimelinePlayhead(state) {
     window.addEventListener("resize", measure);
     mobile?.addEventListener?.("change", measure);
     syncRef.current = sync;
+    scroll.addEventListener("scroll", sync, { passive: true });
     measure();
     return () => {
       if (frameId) window.cancelAnimationFrame(frameId);
       stopAnimations();
+      scroll.removeEventListener("scroll", sync);
       observer?.disconnect();
       window.removeEventListener("resize", measure);
       mobile?.removeEventListener?.("change", measure);
@@ -129,5 +160,5 @@ export function useTimelinePlayhead(state) {
     syncRef.current?.();
   }, [state.currentTime, state.isPlaying, state.playbackDuration, state.timelineDuration]);
 
-  return { playheadRef, rulerPlayheadRef };
+  return { playheadRef, rulerPlayheadRef, suspendPlayheadFollow, returnToPlayhead, showReturnToPlayhead };
 }

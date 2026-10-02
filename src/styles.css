@@ -12688,3 +12688,5 @@ button:disabled {
 .smart-hub-grid > button.is-active:focus-visible {
   border-color: rgba(53, 234, 217, .32);
 }
+
+.timeline-tools .timeline-return-playhead { color: #67e8d5; border: 1px solid #38766e; white-space: nowrap; font-size: 12px; }

@@ -56,3 +56,9 @@
 @media (max-width: 760px) { .app-shell.is-chatcut { grid-template-rows: auto 240px 520px 300px !important; overflow: auto; } }
 .app-shell.is-chatcut .anna-session-status__summary { flex: 0 1 auto; }
 .app-shell.is-chatcut .anna-session-status__backup { flex: 0 1 auto; }
+.chatcut-send { gap: 8px; }
+.chatcut-send .chatcut-microphone { background: #1e2b33; color: #b2c5cd; width: 38px; padding: 9px; flex-shrink: 0; }
+.chatcut-send .chatcut-microphone.is-listening { background: #173c3e; border-color: #23d5c6; color: #62eee0; }
+.chatcut-speech-status { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #75d7cd; overflow-wrap: anywhere; margin: 8px 0 0; }
+.chatcut-speech-status.is-error { color: #edbf82; }
+.chatcut-speech-hint { margin-bottom: 6px; }

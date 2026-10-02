@@ -19,7 +19,7 @@ O usuário é o único responsável por quaisquer consequências legais decorren
 
 ## Novidades do projeto
 
-- **2026-10-02 — Anna adiciona edição por conversa: área de dois painéis, validação e revisão de alterações, aplicação explícita e desfazer, com quadro atual opcional.** Importação de mídia no chat e análise autorizada de quadros.
+- **2026-10-02 — Anna adiciona edição por conversa: área de dois painéis, validação e revisão de alterações, aplicação explícita e desfazer, com quadro atual opcional.** Importação de mídia no chat e análise autorizada de quadros. Ditado disponível em navegadores compatíveis.
 - **2026-10-01 — Anna salva projetos e mídia primeiro localmente, com backup na nuvem em segundo plano. A troca de projetos não aguarda uploads e os estados de salvamento e backup são separados.**
 - **2026-10-01 — Anna adiciona Tremor rítmico em terceiro lugar, com BPM manual, direção, intensidade, decaimento e deslocamento iguais na prévia e exportação.**
 - **2026-10-01 — Anna adiciona Glitch configurável primeiro, seguido por ondulações rítmicas e feixes Disco. Prévia e exportação compartilham separação RGB, distorção horizontal e ruído determinísticos.**

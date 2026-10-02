@@ -1,5 +1,6 @@
+import { useChatCutSpeech } from "../hooks/useChatCutSpeech.js";
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, PaperPlaneTilt, SpinnerGap, Stop, Trash, UploadSimple } from "@phosphor-icons/react";
+import { ArrowLeft, PaperPlaneTilt, SpinnerGap, Stop, Trash, UploadSimple, Microphone } from "@phosphor-icons/react";
 import { getChatCutCopy } from "../i18nChatCut.js";
 import { runAnnaChatCut } from "../lib/annaChatCut.js";
 import "./ChatCut.css";
@@ -11,6 +12,7 @@ export function ChatCut({ language, editor, captureFrame, hasMedia, assets = [],
   const [attach, setAttach] = useState(false);
   const [allowVisual, setAllowVisual] = useState(false);
   const [stage, setStage] = useState("");
+  const speech = useChatCutSpeech({ language, input, setInput });
   const controller = useRef(null);
   const mounted = useRef(true);
   const end = useRef(null);
@@ -18,7 +20,7 @@ export function ChatCut({ language, editor, captureFrame, hasMedia, assets = [],
   useEffect(() => { end.current?.scrollIntoView({ block: "nearest" }); }, [messages, stage]);
   const send = async (event) => {
     event.preventDefault();
-    if (controller.current || !input.trim() || editor.view?.status === "pending") return;
+    if (controller.current || speech.active || !input.trim() || editor.view?.status === "pending") return;
     const instruction = input.trim();
     const abort = new AbortController();
     controller.current = abort;
@@ -53,8 +55,10 @@ export function ChatCut({ language, editor, captureFrame, hasMedia, assets = [],
       {assets.length > 0 && <div className="chatcut-assets">{assets.map(asset => <span key={asset.id} title={asset.name}>{asset.preparing && <SpinnerGap className="chatcut-spinner" size={12} />}{asset.name}</span>)}</div>}
       <label className="chatcut-attach"><input type="checkbox" checked={allowVisual} disabled={Boolean(stage)} onChange={event => setAllowVisual(event.target.checked)} />{copy.allowVisual}</label>
       <label className="chatcut-attach"><input type="checkbox" checked={attach} disabled={Boolean(stage)} onChange={event => setAttach(event.target.checked)} />{copy.attach}</label>
-      <textarea aria-label={copy.title} placeholder={copy.placeholder} value={input} maxLength={4000} disabled={Boolean(stage)} onChange={event => setInput(event.target.value)} />
-      <div className="chatcut-send">{stage ? <button type="button" onClick={() => controller.current?.abort()}><Stop size={16} />{copy.stop}</button> : <button type="button" onClick={send} disabled={!input.trim() || editor.view?.status === "pending"}><PaperPlaneTilt size={16} />{copy.send}</button>}</div>
+      <textarea aria-label={copy.title} placeholder={copy.placeholder} value={input} maxLength={4000} disabled={Boolean(stage) || speech.active} onChange={event => setInput(event.target.value)} />
+      {speech.supported && speech.status && <p className={`chatcut-speech-status${["denied", "error", "empty"].includes(speech.status) ? " is-error" : ""}`} role="status" aria-live="polite">{speech.active && <Microphone size={14} />}{speech.interim || copy[`speech_${speech.status}`]}</p>}
+      <div className="chatcut-send">{speech.supported && <button type="button" className={`chatcut-microphone${speech.active ? " is-listening" : ""}`} disabled={Boolean(stage) || speech.status === "stopping"} onClick={speech.active ? speech.stop : speech.start} aria-label={speech.active ? copy.voiceStop : copy.voiceInput} title={speech.active ? copy.voiceStop : copy.voiceInput} aria-pressed={speech.active}>{speech.active ? <Stop size={17} /> : <Microphone size={17} />}</button>}{stage ? <button type="button" onClick={() => controller.current?.abort()}><Stop size={16} />{copy.stop}</button> : <button type="button" onClick={send} disabled={speech.active || !input.trim() || editor.view?.status === "pending"}><PaperPlaneTilt size={16} />{copy.send}</button>}</div>
+      {speech.supported && <small className="chatcut-speech-hint">{copy.voiceHint}</small>}
       <small>{editor.view?.status === "pending" ? copy.ready : allowVisual ? copy.visualPrivacy : copy.privacy}</small>
     </form>
   </aside>;

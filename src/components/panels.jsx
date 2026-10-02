@@ -1,3 +1,5 @@
+import { supportsFileSpeech } from "../lib/browserFileSpeech.js";
+import { getBrowserCaptionCopy } from "../i18nBrowserCaptions.js";
 import { getChatCutCopy } from "../i18nChatCut.js";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal, flushSync } from "react-dom";
@@ -1431,6 +1433,7 @@ export function ToolPanel(props) {
           setSmartMode("watermark");
           if (window.matchMedia?.(COMPACT_WORKSPACE_QUERY).matches) openMobileInspector?.();
         }}><MagicWand size={24} weight="duotone" /><strong>{t("annaVideoWatermark")}</strong><span>{t("repairWatermarkCapabilityHint")}</span></button>
+        {supportsFileSpeech() && <button className={smartMode === "browser-captions" ? "is-active" : ""} type="button" role="tab" aria-selected={smartMode === "browser-captions"} onClick={() => { setSmartMode("browser-captions"); if (window.matchMedia?.(COMPACT_WORKSPACE_QUERY).matches) openMobileInspector?.(); }}><ClosedCaptioning size={24} weight="duotone" /><strong>{getBrowserCaptionCopy(uiLanguage).title}</strong><span>{getBrowserCaptionCopy(uiLanguage).hint}</span></button>}
       </div>
     </div>;
     const aiCopy = AI_MUSIC_COPY[uiLanguage] || AI_MUSIC_COPY.en;

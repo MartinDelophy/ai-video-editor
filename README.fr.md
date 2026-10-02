@@ -19,12 +19,11 @@ L’utilisateur assume seul toute responsabilité juridique découlant du non-re
 
 ## Actualités du projet
 
+- **2026-10-02 — Anna ajoute les sous-titres automatiques selon l’environnement, avec édition, annulation et temps estimés par les pauses. Le mode bilingue nécessite un modèle de traduction disponible.**
 - **2026-10-02 — Anna regroupe médias, texte et voix dans le chat, avec historique local et changement de discussion.** L’agent consulte les images et photogrammes selon le besoin ; les modifications nécessitent une vérification et une application explicite.
 - **2026-10-01 — Anna enregistre d’abord les projets et médias localement, puis les sauvegarde dans le cloud en arrière-plan. Le changement de projet n’attend plus le transfert et les deux états sont distincts.**
 - **2026-10-01 — Anna ajoute la Secousse rythmique en troisième position : BPM manuel, direction, intensité, atténuation et décalage communs à l’aperçu et à l’export.**
 - **2026-10-01 — Anna place Glitch configurable en premier, puis les ondulations rythmiques et les faisceaux Disco. Aperçu et export partagent le décalage RVB, les déchirures horizontales et le bruit déterministes.**
-- **2026-10-01 — Smart dans Anna propose uniquement la suppression de filigranes vidéo, avec zones multiples, plages temporelles, images clés de déplacement, comparaison et application réversible reprises de main.**
-- **15 septembre 2026 — Sauvegarde cloud Anna par défaut :** le projet actuel et ses médias sont automatiquement sauvegardés dans votre compte et restaurables avec le même compte, sans activation manuelle. Les médias ne sont pas envoyés en double et le statut sauvegardé attend la confirmation du cloud. Les erreurs de stockage, dont les quotas, et les avertissements de restauration locale couvrent les 13 langues. Le lien X est supprimé ; Discord et GitHub restent disponibles. Le brouillon r19 est installé ; alpha.6 remplace le candidat à la validation et attend son examen, sans publication publique. Anna conserve les dimensions de fenêtre choisies manuellement.
 
 Consultez la [Roadmap](ROADMAP.md) pour les travaux prévus, les [Releases](https://github.com/MartinDelophy/ai-video-editor/releases) pour les changements publiés et les [Issues](https://github.com/MartinDelophy/ai-video-editor/issues) pour les tâches et anomalies.
 

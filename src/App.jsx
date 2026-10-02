@@ -1,3 +1,4 @@
+import { BrowserCaptions } from "./components/BrowserCaptions.jsx";
 import { sampleChatCutMedia } from "./lib/chatCutMedia.js";
 import { ChatCut } from "./components/ChatCut.jsx";
 import { normalizeBeatShake } from "./lib/beatShakeEffect.js";
@@ -1711,7 +1712,12 @@ export function App() {
           })}
         />
 
-        <VoicePanel
+        {anna.enabled && activeTool === "smart" && smartMode === "browser-captions" ? <BrowserCaptions language={activeLanguage} assets={userAssets} projectId={anna.session?.state?.projectId} locked={trackLocks.caption} captionSize={captionSize} setCaptionSize={setCaptionSize} captionStyle={captionStyle} setCaptionStyle={setCaptionStyle} onCommit={segments => {
+          if (trackLocks.caption) return;
+          setCaptionSegments(items => [...items, ...segments].sort((a,b) => a.start - b.start));
+          setCaptionsEnabled(true); setTrackVisibility(items => ({ ...items, caption: true }));
+          setSelectedTrack("caption"); setSelectedSegmentId(segments[0]?.id || "");
+        }} /> : <VoicePanel
           t={t}
           activeTool={activeTool}
           captionVoiceFocusRequest={captionVoiceFocusRequest}
@@ -1856,7 +1862,7 @@ export function App() {
           removeSelectedSubjectEffect={removeSelectedSubjectEffect}
           onOpticalFlowAssetReady={handleOpticalFlowAssetReady}
           generationPlugins={generationPlugins}
-        />
+        />}
       </section>
 
       <Timeline

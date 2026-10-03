@@ -971,10 +971,10 @@ function AudioClipContextPanel({ t, anna, segment, updateAudioSegment, toggleAud
   const [activeTab, setActiveTab] = useState("audio");
   const tabBodyRef = useRef(null);
   const isVoiceClip = segment.track === "audio";
-  const canVoiceColor = segment.track !== "music" && Boolean(segment.blob);
+  const canVoiceColor = !segment.embeddedVideo && segment.track !== "music" && Boolean(segment.blob);
   const canSpatial = true;
   const shownTab = requestedSection === "spatial" ? "spatial" : requestedSection === "voice-color" ? "voice-color" : requestedSection === "fade" ? "fade" : requestedSection === "audio" ? "audio" : activeTab;
-  const canFade = segment.track !== "source";
+  const canFade = !segment.embeddedVideo && segment.track !== "source";
   useEffect(() => {
     if (["audio", "fade", "spatial", "voice-color"].includes(requestedSection)) setActiveTab(requestedSection);
   }, [requestedSection, segment.id]);
@@ -1044,7 +1044,7 @@ function AudioClipContextPanel({ t, anna, segment, updateAudioSegment, toggleAud
       </div> : null}
       {shownTab === "voice-color" && canVoiceColor ? <AnnaModelGate anna={anna}><AudioVoiceColorSection t={t} segment={segment} voiceProfiles={voiceProfiles} onAssetReady={onVoiceColorAssetReady} onApply={onApplyVoiceColor} onRestore={onRestoreVoiceColor} /></AnnaModelGate> : null}
       {shownTab === "voice-color" && anna?.enabled && anna.localComputeReason && segment.voiceColorOriginalBlob ? <button className="voice-color-restore" type="button" onClick={() => onRestoreVoiceColor?.(segment)}>{t("voiceColorRestoreOriginal", "恢复原始声音")}</button> : null}
-      {shownTab === "audio" ? <div className="audio-context-actions">
+      {shownTab === "audio" && !segment.embeddedVideo ? <div className="audio-context-actions">
         {isVoiceClip ? <button className={`panel-secondary ${segment.reversed ? "is-active" : ""}`} type="button" disabled={segment.reversing} onClick={() => toggleAudioSegmentReverse(segment.id)}>
           {segment.reversing ? t("audioReversing") : segment.reversed ? t("audioReverseRestore") : t("audioReverse")}
         </button> : null}
@@ -1526,7 +1526,7 @@ export function VoicePanel({
   const effectsPanelMode = import.meta.env?.VITE_ANNA_EDITION === "true" ? (["drifting-halo", "click-ripple", "glitch", "beat-shake"].includes(requestedEffectsPanelMode) ? requestedEffectsPanelMode : "glitch") : requestedEffectsPanelMode;
   const [captionPanelTab, setCaptionPanelTab] = useState("caption");
   const panelRef = useRef(null);
-  const panelContext = resolveInspectorPanelContext({
+  const panelContext = selectedTrackAudioSegment?.embeddedVideo && ((activeTool === "audio" && !mobileInspectorOrigin) || ["audio", "spatial"].includes(mobileInspectorSection)) ? "audio" : resolveInspectorPanelContext({
     origin: mobileInspectorOrigin,
     activeTool,
     selectedTrack,
@@ -1551,7 +1551,7 @@ export function VoicePanel({
   const audioPropertySegment = selectedTrack === "audio" ? selectedAudioSegment : selectedTrackAudioSegment;
   const isAudioClipContext = panelContext === "audio" && (
     Boolean(selectedTrack === "audio" && selectedAudioSegment)
-    || Boolean(["source", "music"].includes(selectedTrack) && audioPropertySegment)
+    || Boolean(["source", "music", "image", "overlay"].includes(selectedTrack) && audioPropertySegment)
   );
   const isVisualContext = panelContext === "visual" && !isEffectsContext;
   const isStickerContext = panelContext === "sticker" && Boolean(selectedStickerSegment);
@@ -1795,6 +1795,7 @@ export function VoicePanel({
           <VisualEffectsPanel
             anna={anna}
             contextMode
+            audioEditor={selectedTrackAudioSegment?.embeddedVideo ? <AudioClipContextPanel t={t} segment={{ ...selectedTrackAudioSegment, id: selectedTrackAudioSegment.segmentId }} updateAudioSegment={updateSelectedTrackAudioSegment} /> : null}
             mode="overlay"
             t={t}
             segment={selectedVisualOverlay}
@@ -1816,6 +1817,7 @@ export function VoicePanel({
           <VisualEffectsPanel
             anna={anna}
             contextMode
+            audioEditor={selectedTrackAudioSegment?.embeddedVideo ? <AudioClipContextPanel t={t} segment={{ ...selectedTrackAudioSegment, id: selectedTrackAudioSegment.segmentId }} updateAudioSegment={updateSelectedTrackAudioSegment} /> : null}
             t={t}
             segment={selectedVisualSegment}
             localTime={visualLocalTime}

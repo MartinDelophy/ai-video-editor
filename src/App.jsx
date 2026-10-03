@@ -407,6 +407,7 @@ export function App() {
       hasVectorEditor: isVector,
       isMobile: true,
     });
+    if (segment.type === "video") supportedSections.push("audio", "spatial");
     if (mobileInspectorSection !== "effects" && !supportedSections.includes(mobileInspectorSection)) setMobileInspectorSection(supportedSections[0] || "transform");
   }, [
     isCompactViewport,
@@ -854,7 +855,11 @@ export function App() {
       ? { ...(selectedMusicSegment ?? musicSegments[0] ?? { id: "music-audio", start: musicStart, duration: musicDuration, sourceStart: 0, sourceDuration: musicDuration, playbackRate: 1 }), blob: musicBlob, name: musicName || t("musicTrack"), segmentId: selectedMusicSegment?.id || musicSegments[0]?.id || "music-audio", track: "music", volume: selectedMusicSegment?.volume ?? musicSegments[0]?.volume ?? musicVolume, canChangeSpeed: true }
       : selectedTrack === "source" && sourceAudioBlob
         ? { ...(selectedSourceAudioPiece ?? {}), blob: sourceAudioBlob, name: sourceAudioName, start: selectedSourceAudioPiece?.start ?? sourceAudioStart, sourceStart: selectedSourceAudioPiece?.sourceStart ?? 0, duration: selectedSourceAudioPiece?.duration ?? sourceAudioDuration, sourceDuration: selectedSourceAudioPiece?.sourceDuration ?? sourceAudioDuration, playbackRate: selectedSourceAudioPiece?.playbackRate ?? 1, segmentId: selectedSourceAudioSegmentId || "source-audio", track: "source", volume: selectedSourceAudioPiece?.volume ?? sourceAudioVolume, spatialEffect: sourceAudioSpatialEffect, spatialAmount: sourceAudioSpatialAmount, canChangeStart: !sourceAudioLinked, canChangeSpeed: Boolean(sourceAudioLinked && selectedSourceAudioPiece), voiceColorOriginalBlob: sourceVoiceColorOriginalRef.current?.blob || null }
-        : null;
+        : selectedTrack === "image" && selectedVisualSegment?.type === "video"
+          ? { ...selectedVisualSegment, segmentId: selectedVisualSegment.id, track: "image", start: selectedVisualRange?.start ?? 0, canChangeStart: false, canChangeSpeed: false, embeddedVideo: true }
+          : selectedTrack === "overlay" && selectedVisualOverlay?.type === "video"
+            ? { ...selectedVisualOverlay, segmentId: selectedVisualOverlay.id, track: "overlay", canChangeStart: false, canChangeSpeed: false, embeddedVideo: true }
+            : null;
   const separateSelectedAudioVocals = () => selectedAudioToolTarget?.track === "source"
     ? separateSourceVocals()
     : selectedAudioToolTarget && separateAudioClipVocals(selectedAudioToolTarget);
@@ -863,7 +868,7 @@ export function App() {
     chooseInterfaceLanguage, clearAllVisionState, selectTool, toggleTrackLock,
     toggleTrackVisibility, useHistoryItem,
   } = createEditorCommandActions({
-    notify, replaceAudio, script, selectedTrack, setActiveTool, setAvatarPanelOpen, setCaptionSegments,
+    notify, replaceAudio, script, selectedTrack, selectedVisualSegment, selectedVisualOverlay, setActiveTool, setAvatarPanelOpen, setCaptionSegments,
     setIntroClosing, setScript, setSelectedSegmentId, setSelectedTrack,
     setSelectedVoiceId, setTrackLocks, setTrackVisibility, setUiLanguage,
     setVisionJob, setVisionRecords, setVoiceTab, visionAbortControllerRef,
@@ -1012,6 +1017,17 @@ export function App() {
     return true;
   };
   const updateSelectedTrackAudioSegment = (id, patch) => {
+    if (["image", "overlay"].includes(selectedTrack)) {
+      const lock = selectedTrack === "image" ? trackLocks.image : trackLocks.overlay;
+      if (lock) return;
+      const audioPatch = {};
+      if (Number.isFinite(patch.volume)) audioPatch.volume = Math.max(0, Math.min(4, patch.volume));
+      if (typeof patch.spatialEffect === "string") audioPatch.spatialEffect = patch.spatialEffect;
+      if (Number.isFinite(patch.spatialAmount)) audioPatch.spatialAmount = Math.max(0, Math.min(1, patch.spatialAmount));
+      const update = selectedTrack === "image" ? setVisualSegments : setVisualOverlaySegments;
+      update(items => items.map(item => item.id === id && item.type === "video" ? { ...item, ...audioPatch } : item));
+      return;
+    }
     if (selectedTrack === "audio") return updateAudioSegment(id, patch);
     if (selectedTrack === "music") {
       setMusicSegments((segments) => {

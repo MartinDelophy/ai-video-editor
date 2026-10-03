@@ -2074,6 +2074,7 @@ export function VisualEffectsPanel({
   trOption,
   onSelectFilter,
   contextMode = false,
+  audioEditor = null,
   sourceAudioLinked = false,
   miganRepair = null,
   hdRestoration = null,
@@ -2120,6 +2121,7 @@ export function VisualEffectsPanel({
     vector: t("vectorProperties"),
     timing: t("overlayTiming", "Timing & layer"),
     repair: t("repairTab"),
+    audio: t("mobileClipAudio"),
   };
   const tabs = getVisualPropertyTabIds({
     isVector,
@@ -2127,7 +2129,7 @@ export function VisualEffectsPanel({
     isOverlay,
     hasVectorEditor: Boolean(vectorEditor),
     isMobile: isMobileFocusedSection,
-  }).map((id) => [id, tabLabels[id]]);
+  }).concat(isVideo && audioEditor ? ["audio"] : []).map((id) => [id, tabLabels[id]]);
   const updateTabEdges = useCallback(() => {
     const node = tabsRef.current;
     if (!node) return;
@@ -2276,6 +2278,7 @@ export function VisualEffectsPanel({
             <p className="visual-speed-hint">{sourceAudioLinked ? t("sourceAudioSynced") : t("visualSpeedVisualOnlyHint")}</p>
           </> : <div className="empty-state visual-speed-empty">{t("visualSpeedImageHint")}</div>}
         </section> : null}
+        {activeTab === "audio" ? audioEditor : null}
         {activeTab === "speedCurve" ? <VisualSpeedCurvePanel t={t} segment={segment} localTime={localTime} onChange={onChange} /> : null}
         {activeTab === "filters" ? <VisualChoicePanel title={t("visualEffects")} hideTitle={Boolean(singleSection)} previewImage={getSegmentFilterPreview(segment)} allowFallbackPreview={false} kind="filter" options={FILTER_OPTIONS} selectedId={selectedFilterId} trOption={trOption} onSelect={onSelectFilter} /> : null}
         {activeTab === "animation" ? <section className="visual-editor-card visual-animation-card">

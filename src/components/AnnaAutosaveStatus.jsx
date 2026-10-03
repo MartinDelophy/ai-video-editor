@@ -11,6 +11,7 @@ import {
 } from "@phosphor-icons/react";
 import { getAnnaSessionCopy } from "../i18nAnnaSession.js";
 import "./AnnaAutosaveStatus.css";
+import { getAnnaRecoveryCopy } from "../i18nAnnaRecovery.js";
 
 const STATUS_ICONS = {
   waiting: Clock,
@@ -33,6 +34,7 @@ function savedTime(savedAt) {
 export function AnnaAutosaveStatus({ session, language }) {
   if (!session?.state) return null;
   const { state } = session;
+  if (state.recovery) return <div className="anna-session-status" role="status"><span className="anna-session-status__summary"><Clock size={14} aria-hidden="true" /><span className="anna-session-status__label">{getAnnaRecoveryCopy(language).restore}</span></span></div>;
   const status = Object.hasOwn(STATUS_ICONS, state.status) ? state.status : "waiting";
   const copy = getAnnaSessionCopy(language);
   const backupCopy = getAnnaBackupCopy(language);

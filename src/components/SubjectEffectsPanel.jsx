@@ -154,7 +154,7 @@ function ClickRippleControls({ t, effect, onChange, showRemove = false }) {
     <section className="click-ripple-controls">
       <header>
         <div><CursorClick size={18} weight="duotone" /><span><strong>{t("clickRippleTitle")}</strong><small>{t("clickRippleControlsHint")}</small></span></div>
-        <label className="mini-switch"><input type="checkbox" checked={effect.enabled} onChange={(event) => patch({ enabled: event.target.checked })} /><i /></label>
+        <label className="mini-switch"><input aria-label={t("clickRippleTitle")} type="checkbox" role="switch" checked={effect.enabled} onChange={(event) => patch({ enabled: event.target.checked })} /><i /></label>
       </header>
       <label className="click-ripple-meter-row"><span>{t("clickRippleMeter")}</span><select value={effect.meter} onChange={(event) => patch({ meter: event.target.value })}>{["2/4", "3/4", "4/4", "5/4", "6/8", "7/8", "9/8", "12/8"].map((meter) => <option value={meter} key={meter}>{meter}</option>)}</select></label>
       <EffectRange label={t("clickRippleTempo")} value={effect.bpm} min={30} max={180} step={1} suffix=" BPM" onChange={(bpm) => patch({ bpm })} />

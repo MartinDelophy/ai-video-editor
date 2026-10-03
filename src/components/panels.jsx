@@ -1,3 +1,5 @@
+import { getAnnaImageCopy } from "../plugins/generation/providers/anna/copy.js";
+import { AnnaImagePanel } from "../plugins/generation/providers/anna/Inspector.jsx";
 import { supportsFileSpeech } from "../lib/browserFileSpeech.js";
 import { getBrowserCaptionCopy } from "../i18nBrowserCaptions.js";
 import { getChatCutCopy } from "../i18nChatCut.js";
@@ -152,6 +154,7 @@ export function MediaPanel({
   language = "en",
   onGeneratedVector,
   onOpenAiMusic,
+  generationPlugins,
 }) {
   const assets = mediaTab === "library" ? builtInAssets : userAssets;
   const catalogCopy = getCatalogCopy(language, libraryProvider);
@@ -163,6 +166,7 @@ export function MediaPanel({
   const assetIntentTimerRef = useRef(null);
   const [previewAsset, setPreviewAsset] = useState(null);
   const [aiVectorOpen, setAiVectorOpen] = useState(false);
+  const [annaImageOpen, setAnnaImageOpen] = useState(false);
 
   useEffect(() => {
     if (!previewAsset) return undefined;
@@ -304,7 +308,9 @@ export function MediaPanel({
           ) : null}
           <div className="library-provider">{t("libraryProvidedBy")} <strong>{libraryProvider}</strong></div>
           {renderAssetList(visibleAssets, {
-            prepend: libraryType === "audio" && import.meta.env?.VITE_ANNA_EDITION !== "true" ? (
+            prepend: import.meta.env?.VITE_ANNA_EDITION === "true" && libraryType === "image" && generationPlugins ? (
+              <AnnaImageLibraryCard language={language} onClick={() => setAnnaImageOpen(true)} />
+            ) : libraryType === "audio" && import.meta.env?.VITE_ANNA_EDITION !== "true" ? (
               <AiMusicLibraryCard
                 language={language}
                 onClick={onOpenAiMusic}
@@ -339,6 +345,11 @@ export function MediaPanel({
           )}
         </div>
       ), document.body) : null}
+
+      {annaImageOpen && generationPlugins ? createPortal(
+        <AnnaImageLibraryDialog assets={userAssets} language={language} plugins={generationPlugins} t={t} onClose={() => setAnnaImageOpen(false)} />,
+        document.body,
+      ) : null}
 
       {previewAsset ? createPortal(
         <AssetPreviewDialog asset={previewAsset} t={t} onClose={() => setPreviewAsset(null)} />,
@@ -496,6 +507,29 @@ const AI_VECTOR_COPY = {
     generate: "Buat vektor", downloadGenerate: "Unduh model dan buat", cancel: "Batal", close: "Tutup", failed: "SVG yang valid tidak berhasil dibuat. Ubah deskripsi lalu coba lagi.",
   },
 };
+
+function AnnaImageLibraryCard({ language, onClick }) {
+  const copy = getAnnaImageCopy(language);
+  return <button className="ai-vector-card anna-image-library-card" type="button" onClick={onClick}>
+    <span className="ai-vector-card-art" aria-hidden="true"><MagicWand size={34} weight="duotone" /><i>AI</i></span>
+    <span><strong>{copy.cardTitle}</strong><small>Anna · {copy.prompt}</small></span>
+  </button>;
+}
+
+function AnnaImageLibraryDialog({ assets, language, plugins, t, onClose }) {
+  const copy = getAnnaImageCopy(language);
+  useEffect(() => {
+    const close = event => { if (event.key === "Escape") onClose(); };
+    document.addEventListener("keydown", close);
+    return () => document.removeEventListener("keydown", close);
+  }, [onClose]);
+  return <div className="asset-preview-backdrop" onPointerDown={event => { if (event.target === event.currentTarget) onClose(); }}>
+    <section className="asset-preview-dialog anna-image-library-dialog" role="dialog" aria-modal="true" aria-labelledby="anna-image-library-title">
+      <header><div><strong id="anna-image-library-title">{copy.cardTitle}</strong><span>Anna · {copy.prompt}</span></div><button type="button" onClick={onClose} aria-label={t("close")} autoFocus><X size={20} /></button></header>
+      <AnnaImagePanel language={language} plugins={plugins} assets={assets} />
+    </section>
+  </div>;
+}
 
 function AiVectorDesignCard({ language, onClick }) {
   const copy = AI_VECTOR_COPY[language] || AI_VECTOR_COPY.en;

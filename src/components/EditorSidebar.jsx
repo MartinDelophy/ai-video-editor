@@ -116,6 +116,7 @@ export function EditorSidebar({ model: d }) {
             closeMobilePanel={() => d.setMobilePanel?.("")}
             mobilePanelOpen={d.mobilePanel === "tools"}
             language={d.activeLanguage}
+            generationPlugins={d.generationPlugins}
             onGeneratedVector={d.handleGeneratedVector}
             onOpenAiMusic={() => {
               d.setSmartMode("ai-music");

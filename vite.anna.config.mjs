@@ -59,6 +59,13 @@ const annaReact = (command) =>
 export default defineConfig(({ command }) => ({
   ...editorConfig,
   base: "./",
+  resolve: {
+    ...editorConfig.resolve,
+    alias: [
+      { find: /^\.\/providers\/puter\/adapter\.js$/, replacement: fileURLToPath(new URL("./src/plugins/generation/providers/anna/unavailablePuterAdapter.js", import.meta.url)) },
+      ...(Array.isArray(editorConfig.resolve?.alias) ? editorConfig.resolve.alias : Object.entries(editorConfig.resolve?.alias || {}).map(([find, replacement]) => ({ find, replacement }))),
+    ],
+  },
   define: { "import.meta.env.VITE_ANNA_EDITION": JSON.stringify("true") },
   // Anna app iframes do not provide COOP/COEP or SharedArrayBuffer. Exercise
   // that single-threaded environment locally instead of inheriting the

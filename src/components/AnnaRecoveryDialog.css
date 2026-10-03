@@ -1,0 +1,47 @@
+.anna-recovery { width: min(820px, calc(100vw - 40px)); max-height: calc(100dvh - 40px); box-sizing: border-box; margin: auto; padding: 56px 32px 40px; overflow: auto; border: 1px solid #35464d; border-radius: 18px; background: #10181d; color: #e9f1f4; box-shadow: 0 24px 90px #0009; font-family: inherit; }
+.anna-recovery::backdrop { background: #03080bad; }
+.anna-recovery-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 32px; align-items: center; }
+.anna-recovery-close { position: absolute; top: 12px; right: 12px; display: grid; place-items: center; width: 36px; height: 36px; padding: 0; border: 1px solid transparent; border-radius: 9px; background: transparent; color: #a9bcc6; }
+.anna-recovery button { font-family: inherit; cursor: pointer; }
+.anna-recovery button:disabled { opacity: .4; cursor: not-allowed; }
+.anna-recovery button:focus-visible { outline: 2px solid #29d5c7; outline-offset: 4px; }
+.anna-recovery-close:hover:not(:disabled) { color: #e9f1f4; border-color: #35464d; background: #1c2a30; }
+.anna-recovery-cover { display: grid; place-items: center; width: 100%; aspect-ratio: 16 / 9; overflow: hidden; border-radius: 9px; border: 1px solid #293d44; background: #0b1217; color: #708f9b; }
+.anna-recovery-cover img { width: 100%; height: 100%; object-fit: contain; }
+.anna-recovery-project { min-width: 0; }
+.anna-recovery-project h3 { margin: 18px 0 8px; font-size: 18px; font-weight: 650; line-height: 1.4; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.anna-recovery-project p { margin: 0; font-size: 12px; line-height: 1.65; color: #9bafb9; overflow-wrap: anywhere; }
+.anna-recovery-decision { min-width: 0; padding-left: 32px; border-left: 1px solid #26373d; }
+.anna-recovery-decision h2 { margin: 0 0 14px; font-size: 26px; font-weight: 700; line-height: 1.3; letter-spacing: -.02em; text-wrap: balance; }
+.anna-recovery-decision > p { margin: 0; color: #acbec8; font-size: 14px; line-height: 1.7; }
+.anna-recovery-actions { display: grid; gap: 12px; margin-top: 26px; }
+.anna-recovery-actions button { width: 100%; min-height: 48px; padding: 12px 16px; border-radius: 10px; font-size: 14px; font-weight: 650; line-height: 1.5; }
+.anna-recovery-primary { background: #29d5c7; color: #052726; border: 1px solid #29d5c7; }
+.anna-recovery-primary:hover { background: #46e0d3; border-color: #46e0d3; }
+.anna-recovery-secondary { background: transparent; color: #e9f1f4; border: 1px solid #6e8895; }
+.anna-recovery-secondary:hover { background: #1a2b32; border-color: #a0bac5; }
+.anna-recovery-decision p.anna-recovery-kept { display: flex; gap: 7px; align-items: flex-start; margin-top: 20px; color: #90a5b0; font-size: 12px; line-height: 1.65; }
+.anna-recovery-kept svg { flex: 0 0 auto; margin-top: 2px; }
+.anna-recovery-progress { margin-top: 26px; }
+.anna-recovery-progress-heading { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; gap: 9px; align-items: center; color: #c6eee9; font-size: 13px; line-height: 1.5; }
+.anna-recovery-progress-heading strong { font-size: 12px; font-variant-numeric: tabular-nums; }
+.anna-recovery-rail { height: 5px; margin-top: 12px; border-radius: 5px; background: #273b41; overflow: hidden; }
+.anna-recovery-rail > span { display: block; height: 100%; border-radius: inherit; background: #29d5c7; transition: width .15s linear; }
+.anna-recovery-rail.is-indeterminate > span { width: 35%; animation: anna-recovery-progress 1.5s ease-in-out infinite; }
+.anna-recovery-progress small { display: block; margin-top: 9px; color: #90a5b0; font-size: 11px; font-variant-numeric: tabular-nums; }
+.anna-recovery-cancel { margin-top: 18px; border: 1px solid #3d5660; border-radius: 8px; padding: 7px 12px; font-size: 12px; color: #b4c7ce; background: transparent; }
+.anna-recovery-cancel:hover { background: #1a2b32; }
+.anna-recovery-spinner { animation: anna-recovery-spin 1s linear infinite; }
+.anna-recovery-decision p.anna-recovery-error { color: #ffc7a3; margin-top: 18px; font-size: 12px; }
+@keyframes anna-recovery-spin { to { transform: rotate(360deg); } }
+@keyframes anna-recovery-progress { from { transform: translateX(-100%); } to { transform: translateX(390%); } }
+@media (max-width: 620px) {
+  .anna-recovery { width: min(430px, calc(100vw - 24px)); padding: 48px 24px 28px; border-radius: 16px; }
+  .anna-recovery-layout { grid-template-columns: minmax(0, 1fr); gap: 24px; }
+  .anna-recovery-decision { padding: 22px 0 0; border-left: 0; border-top: 1px solid #26373d; }
+  .anna-recovery-decision h2 { font-size: 23px; }
+  .anna-recovery-cover { max-height: 190px; }
+  .anna-recovery-project h3 { margin-top: 12px; }
+  .anna-recovery-actions { margin-top: 20px; }
+}
+@media (prefers-reduced-motion: reduce) { .anna-recovery-spinner, .anna-recovery-rail.is-indeterminate > span { animation: none; } .anna-recovery-rail > span { transition: none; } .anna-recovery-rail.is-indeterminate > span { width: 100%; opacity: .5; } }

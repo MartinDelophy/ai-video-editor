@@ -27,7 +27,7 @@ export function DriftingHaloInspector({ t, segment, onChange }) {
   const effect = normalizeDriftingHalo(segment.driftingHalo);
   const patch = (next) => onChange(normalizeDriftingHalo({ ...effect, ...next }));
   return <div className="subject-effects-inspector"><section className="click-ripple-controls">
-    <header><div><span><strong>{t('haloTitle')}</strong><small>{t('haloHint')}</small></span></div><label className="mini-switch"><input aria-label={t('haloTitle')} type="checkbox" checked={effect.enabled} onChange={event => patch({ enabled: event.target.checked })} /><i /></label></header>
+    <header><div><span><strong>{t('haloTitle')}</strong><small>{t('haloHint')}</small></span></div><label className="mini-switch"><input aria-label={t('haloTitle')} type="checkbox" role="switch" checked={effect.enabled} onChange={event => patch({ enabled: event.target.checked })} /><i /></label></header>
     {[
       ['size', 50, 180, 1, '%'], ['duration', 1, 20, 0.1, 's'], ['speed', -180, 180, 5, '°/s'],
       ['x', 0, 100, 1, '%'], ['height', 0, 100, 1, '%'], ['beams', 3, 12, 1, ''], ['softness', 0.1, 1, 0.01, '%'], ['glow', 0, 1, 0.01, '%'],

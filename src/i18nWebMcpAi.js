@@ -1,3 +1,5 @@
+import { getAnnaImageCopy } from "./plugins/generation/providers/anna/copy.js";
+import { ANIMATION_COPY } from "./i18nAnimation.js";
 import { SILENCE_REMOVAL_COPY } from "./i18nSilenceRemoval.js";
 const rows = {
   zh: ['处理字幕或去水印','处理已读取片段的自动字幕或视频去水印，返回结果而不修改时间线。','查看处理结果','抽帧检查去水印视频结果。','审阅处理结果','把处理结果生成字幕插入或视频替换方案，不立即应用。','当前环境暂不支持这项处理。','未得到有效结果，请检查素材或识别语言。','处理结果已失效，请重新处理。','请先抽帧检查去水印结果。','本次会话的处理结果已满，请新开会话。','正在处理素材…','自动字幕可能由浏览器识别服务联网处理所选音频；去水印在本机处理。'],
@@ -16,6 +18,7 @@ const rows = {
 };
 const keys = ['toolAiProcessTitle','toolAiProcessDescription','toolAiFramesTitle','toolAiFramesDescription','toolAiPreviewTitle','toolAiPreviewDescription','aiUnavailable','aiEmpty','aiExpired','aiInspectRequired','aiLimit','processing','aiPrivacy'];
 export const WEB_MCP_AI_COPY = Object.fromEntries(Object.entries(rows).map(([locale, values]) => [locale, Object.fromEntries(keys.map((key, index) => [key, values[index]]))]));
+for (const [locale, copy] of Object.entries(WEB_MCP_AI_COPY)) Object.assign(copy, ANIMATION_COPY[locale]);
 
 for (const [locale, copy] of Object.entries(WEB_MCP_AI_COPY)) {
   const pause = SILENCE_REMOVAL_COPY[locale];
@@ -24,3 +27,8 @@ for (const [locale, copy] of Object.entries(WEB_MCP_AI_COPY)) {
   copy.toolAiProcessDescription += ` ${pause.pauseIntro}`;
   copy.toolAiPreviewDescription += ` ${pause.pauseApply}`;
 }
+
+const NARRATION_LENGTH_COPY = {"zh": "解说超出指定时段，请精简文案后重试。", "en": "Narration exceeds its time slot. Shorten the text and retry.", "ja": "ナレーションが指定時間を超えています。文章を短くして再試行してください。", "ko": "해설이 지정 시간을 초과했습니다. 문장을 줄여 다시 시도하세요.", "es": "La narración supera el intervalo. Acorta el texto y reintenta.", "fr": "La narration dépasse le créneau. Raccourcissez le texte et réessayez.", "de": "Die Erzählung überschreitet das Zeitfenster. Text kürzen und erneut versuchen.", "pt": "A narração excede o intervalo. Encurte o texto e tente novamente.", "th": "เสียงบรรยายยาวเกินช่วงเวลา กรุณาย่อข้อความแล้วลองอีกครั้ง", "vi": "Lời thuyết minh vượt thời lượng. Rút ngắn văn bản rồi thử lại.", "ru": "Озвучка превышает интервал. Сократите текст и повторите.", "it": "La narrazione supera il tempo previsto. Accorcia il testo e riprova.", "id": "Narasi melebihi waktu yang ditentukan. Persingkat teks dan coba lagi."};
+for (const [language, text] of Object.entries(NARRATION_LENGTH_COPY)) WEB_MCP_AI_COPY[language].aiNarrationTooLong = text;
+
+for (const [locale, copy] of Object.entries(WEB_MCP_AI_COPY)) { const image = getAnnaImageCopy(locale); copy.toolImageGenerateTitle = image.title; copy.toolImageGenerateDescription = `${image.prompt}. ${image.quota}`; }

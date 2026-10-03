@@ -1,7 +1,11 @@
 import { supportsFileSpeech } from "./browserFileSpeech.js";
 import { CHATCUT_SPEECH_LANGUAGES } from "../hooks/useChatCutSpeech.js";
 
-export async function processTimelineAi({ kind, clip, timelineStart, language, targetLanguage, regions, minimum, keep, signal, onProgress, audioContext, retainUrl }) {
+export async function processTimelineAi({ kind, clip, timelineStart, language, targetLanguage, regions, minimum, keep, segments, voiceId, signal, onProgress, audioContext, retainUrl }) {
+    if (kind === "narration") {
+      const { generateAgentNarration } = await import("./agentNarration.js");
+      return generateAgentNarration({ segments, voiceId, clip, timelineStart, signal, onProgress, retainUrl });
+    }
     if (kind === "pauses") {
       const [{ analyzeVideoPauses }, { findPauseCandidates }] = await Promise.all([import("./sileroVad.js"), import("./silenceRemoval.js")]);
       const probabilities = await analyzeVideoPauses(clip, { language, signal, onProgress: (progress, phase) => onProgress({ progress: progress * 100, phase }) });

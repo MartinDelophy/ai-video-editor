@@ -97,6 +97,7 @@ export async function commitGenerationOutputs(outputs, {
   notify,
   setSelectedLibraryAssetId,
   setUserAssets,
+  shouldCommit = () => true,
 }) {
   if (!Array.isArray(outputs) || outputs.length === 0) throw new Error("The provider returned no media outputs.");
   const assets = [];
@@ -147,6 +148,10 @@ export async function commitGenerationOutputs(outputs, {
         generation: output.provenance,
       });
     }
+  }
+  if (!shouldCommit()) {
+    for (const asset of assets) { URL.revokeObjectURL(asset.src); imageUrlRefs.current.delete(asset.src); }
+    throw new DOMException("Cancelled", "AbortError");
   }
   setUserAssets((items) => [...assets.slice().reverse(), ...items]);
   const selectedId = assets.at(-1)?.id || "";

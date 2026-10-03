@@ -40,10 +40,13 @@ export function useAnnaSession({ enabled, fingerprint, hasContent, capture, rest
     c.ready = false;
     c.paused = false;
     const epoch = c.epoch;
+    const controller = new AbortController();
+    c.startupReadController = controller;
     // Retry retains the failed read/restore's original edit boundary and target.
     // Only an explicit Restore action may replace work created since that read.
     if (manual || !c.loadRequest) c.loadRequest = {
-      fingerprint: latest.current.fingerprint, intent: latest.current.getIntent(),
+      fingerprint: !manual && c.startupBoundary ? c.startupBoundary.fingerprint : latest.current.fingerprint,
+      intent: !manual && c.startupBoundary ? c.startupBoundary.intent : latest.current.getIntent(),
       explicit: manual, hasRead: false, target: null, protected: false,
     };
     const request = c.loadRequest;
@@ -51,10 +54,14 @@ export function useAnnaSession({ enabled, fingerprint, hasContent, capture, rest
     const intent = request.intent;
     const unchanged = () => active(epoch) && before === latest.current.fingerprint && intent === latest.current.getIntent() && !latest.current.isExternallyBusy();
     let restoreCommit = null;
-    publish(epoch, { status: "checking", errorCode: "" });
+    publish(epoch, { status: "checking", errorCode: "", recoveryPhase: c.recovery ? "download" : "", recoveryTransfer: null, recoveryImport: null, canCancelRecovery: Boolean(c.recovery) });
     try {
-      const currentRecord = await c.store.read();
+      const currentRecord = await c.store.read(undefined, {
+        signal: controller.signal,
+        onProgress: recoveryTransfer => publish(epoch, { recoveryTransfer }),
+      });
       if (!active(epoch)) return;
+      if (controller.signal.aborted) { publish(epoch, { status: "idle", recoveryPhase: "choice" }); return; }
       if (request.hasRead && (currentRecord?.revision || 0) !== c.revision) {
         c.paused = true;
         publish(epoch, { status: "conflict" });
@@ -81,7 +88,7 @@ export function useAnnaSession({ enabled, fingerprint, hasContent, capture, rest
           request.protected = true;
         }
         if (!unchanged()) { c.paused = true; publish(epoch, { status: "conflict" }); return; }
-        publish(epoch, { status: "restoring" });
+        publish(epoch, { status: "restoring", recoveryPhase: c.recovery ? "prepare" : "", canCancelRecovery: false });
         let finish;
         const rendered = new Promise((resolve) => { finish = resolve; });
         restoreCommit = { epoch, afterRender: 0, armed: false, finished: false, rendered,
@@ -90,7 +97,7 @@ export function useAnnaSession({ enabled, fingerprint, hasContent, capture, rest
             restoreCommit.finished = true;
             finish(value);
           } };
-        const restored = await latest.current.restoreProject(record.data, { beforeCommit: () => {
+        const restored = await latest.current.restoreProject(record.data, { onProgress: recoveryImport => publish(epoch, { recoveryImport }), beforeCommit: () => {
           if (!unchanged()) return false;
           restoreCommit.afterRender = c.renderSequence;
           restoreCommit.armed = true;
@@ -116,21 +123,93 @@ export function useAnnaSession({ enabled, fingerprint, hasContent, capture, rest
         c.savedFingerprint = null;
       }
       c.ready = true;
+      c.recovery = null;
+      c.startupBoundary = null;
       c.pending = null;
       c.loadRequest = null;
       c.baseline = record ? null : before;
-      publish(epoch, { status: record ? c.savedFingerprint === latest.current.fingerprint ? "saved" : "saving" : "idle", savedAt: record?.savedAt || "", projectId: record?.projectId || "legacy", projectName: record?.projectName || "", errorCode: "" });
+      publish(epoch, { status: record ? c.savedFingerprint === latest.current.fingerprint ? "saved" : "saving" : "idle", savedAt: record?.savedAt || "", projectId: record?.projectId || "legacy", projectName: record?.projectName || "", errorCode: "", recovery: null, recoveryPhase: "" });
       setTick((value) => value + 1);
     } catch (error) {
+      if (controller.signal.aborted) {
+        c.paused = false;
+        c.loadRequest = null;
+        publish(epoch, { status: "idle", recoveryPhase: "choice", errorCode: "" });
+        return;
+      }
       c.paused = true;
       publish(epoch, { status: "error", errorCode: getAnnaSessionErrorCode(error, "read") });
     } finally {
-      c.store.setRestoreBusy?.(false);
+      if (c.startupReadController === controller) c.startupReadController = null;
+      c.store.setRestoreBusy?.(Boolean(c.recovery));
+      publish(epoch, { canCancelRecovery: false });
       restoreCommit?.finish(null);
       if (c.restoreCommit === restoreCommit) c.restoreCommit = null;
       if (active(epoch)) { c.loading = false; publish(epoch, {}); }
     }
   }, [active, publish]);
+
+  const inspectStartup = useCallback(async () => {
+    const c = control.current;
+    if (!c.alive || !latest.current.enabled || c.loading || c.saving) return;
+    const epoch = c.epoch;
+    c.loading = true; c.ready = false; c.paused = false;
+    c.store.setRestoreBusy(true);
+    c.startupBoundary = { fingerprint: latest.current.fingerprint, intent: latest.current.getIntent() };
+    publish(epoch, { status: "checking", errorCode: "" });
+    try {
+      const { revision, project } = await c.store.inspect();
+      if (!active(epoch)) return;
+      c.revision = revision;
+      c.startupChecked = true;
+      c.recovery = project;
+      if (project) {
+        publish(epoch, { status: "idle", recovery: project, recoveryPhase: "choice", savedAt: project.savedAt });
+      } else {
+        c.ready = true; c.savedFingerprint = null; c.baseline = c.startupBoundary.fingerprint;
+        c.startupBoundary = null;
+        c.store.setRestoreBusy(false);
+        publish(epoch, { status: "idle", recovery: null, recoveryPhase: "" });
+        setTick(value => value + 1);
+      }
+    } catch (error) {
+      c.paused = true;
+      publish(epoch, { status: "error", errorCode: getAnnaSessionErrorCode(error, "read") });
+    } finally { if (active(epoch)) { c.loading = false; publish(epoch, {}); } }
+  }, [active, publish]);
+
+  const startNew = async () => {
+    const c = control.current;
+    if (!c.alive || !c.recovery || c.loading || c.saving || latest.current.isExternallyBusy()) return;
+    const epoch = c.epoch;
+    const boundary = c.startupBoundary;
+    if (boundary && boundary.fingerprint === latest.current.fingerprint && boundary.intent === latest.current.getIntent()) {
+      c.loading = true;
+      let finish;
+      const rendered = new Promise(resolve => { finish = resolve; });
+      const commit = { epoch, afterRender: c.renderSequence, finished: false,
+        finish(value) { if (!this.finished) { this.finished = true; finish(value); } } };
+      c.restoreCommit = commit;
+      try {
+        if (!latest.current.newProject({ confirmed: true, clearProjectAssets: true })) return;
+        setTick(value => value + 1);
+        await rendered;
+        if (!active(epoch)) return;
+      } finally {
+        commit.finish(null);
+        if (c.restoreCommit === commit) c.restoreCommit = null;
+        c.loading = false;
+      }
+    }
+    // A fresh identity preserves the saved project's latest and previous
+    // snapshots. Edits made during the lightweight check become this new work.
+    c.nextProject = { id: crypto.randomUUID(), name: "" };
+    c.recovery = null; c.startupBoundary = null; c.pending = null; c.loadRequest = null;
+    c.ready = true; c.paused = false; c.savedFingerprint = null; c.baseline = null;
+    c.store.setRestoreBusy(false);
+    publish(epoch, { status: "idle", recovery: null, recoveryPhase: "", savedAt: "", projectId: c.nextProject.id, projectName: "", errorCode: "" });
+    setTick(value => value + 1);
+  };
 
   const flush = useCallback(async () => {
     const c = control.current;
@@ -183,14 +262,16 @@ export function useAnnaSession({ enabled, fingerprint, hasContent, capture, rest
     c.saving = false;
     c.action = "";
     c.ready = false;
-    if (enabled) load();
+    c.startupChecked = false;
+    if (enabled) inspectStartup();
     return () => {
       c.projectReadController?.abort();
+      c.startupReadController?.abort();
       c.alive = false; c.epoch += 1; clearTimeout(c.timer);
       c.restoreCommit?.finish(null);
       c.restoreCommit = null;
     };
-  }, [enabled, load]);
+  }, [enabled, inspectStartup]);
 
   useEffect(() => {
     const c = control.current;
@@ -370,6 +451,9 @@ export function useAnnaSession({ enabled, fingerprint, hasContent, capture, rest
   const visibleState = dirty && (state.status === "saved" || state.status === "idle")
     ? { ...state, status: "saving", backup: state.backup === "saved" ? "pending" : state.backup } : state;
   return { state: visibleState,
+    startNew,
+    recoverStartup: () => runAction("recover", () => load()),
+    cancelRecovery: () => control.current.startupReadController?.abort(),
     manageProject,
     retryBackup: () => control.current.store.retryBackup(),
     cancelProject: () => control.current.projectReadController?.abort(),
@@ -377,7 +461,7 @@ export function useAnnaSession({ enabled, fingerprint, hasContent, capture, rest
     canManage: enabled && control.current.ready && !control.current.paused && !control.current.saving && !control.current.loading && !externalBusy,
     blockedReason: externalBusy ? "busy" : "",
     actionBlocked: Boolean(externalBusy || control.current.loading || control.current.saving || control.current.action),
-    retry: () => runAction("retry", () => { const c = control.current; if (!c.ready) return load(); c.paused = false; return flush(); }),
+    retry: () => runAction("retry", () => { const c = control.current; if (!c.startupChecked) return inspectStartup(); if (!c.ready) return load(); c.paused = false; return flush(); }),
     restore: () => runAction("restore", () => load(true)),
     keepCurrent: () => runAction("keep", keepCurrent),
     busy: state.status === "restoring",

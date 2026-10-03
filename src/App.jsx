@@ -46,6 +46,7 @@ import { useVoiceProfiles } from "./hooks/useVoiceProfiles.js";
 import { useAutoCaptions } from "./hooks/useAutoCaptions.js";
 import { useAutoEdit } from "./hooks/useAutoEdit.js";
 import { useAnnaEditor } from "./hooks/useAnnaEditor.js";
+import { AnnaRecoveryDialog } from "./components/AnnaRecoveryDialog.jsx";
 import { restoreAnnaVisualMedia } from "./lib/annaEditPlan.js";
 import { useWebMcpEditor } from "./hooks/useWebMcpEditor.js";
 import { browserProjectFingerprint, restoreBrowserProjectMedia } from "./lib/browserEditPlan.js";
@@ -1419,7 +1420,7 @@ export function App() {
       throw Object.assign(new Error(), { code: "BROWSER_EDIT_STALE_PLAN" });
     }
     const firstChanged = review.rows?.find((row) => row.changed);
-    const next = restoreBrowserProjectMedia(review.project, runtime, review.mediaOrigins, [...userAssets, ...webMcp.aiAssets()]);
+    const next = restoreBrowserProjectMedia(review.project, runtime, review.mediaOrigins, [...userAssets, ...webMcp.aiAssets().filter(asset => !userAssets.some(existing => (existing.assetId || existing.id) === (asset.assetId || asset.id)))]);
     const generated = webMcp.aiAssets().filter(asset => Object.values(review.mediaOrigins || {}).some(origin => origin.kind === "replacement" && origin.id === asset.id));
     if (generated.length) setUserAssets(items => [...generated.filter(asset => !items.some(item => item.id === asset.id)), ...items]);
     const nextVisuals = next.visualSegments;
@@ -1467,11 +1468,11 @@ export function App() {
     getSnapshot: getProjectSnapshot, getRuntime: getBrowserRuntimeProject,
     applyReview: applyBrowserReview, rippleEditing, setRippleEditing, seekTo, t,
   });
-  const agentAi = useTimelineAiProcessor({ imageUrlRefs });
+  const agentAi = useTimelineAiProcessor({ imageUrlRefs, voiceBusy: status === "generating" });
   const webMcp = useWebMcpEditor({
     deferReview: anna.enabled && activeTool === "smart" && smartMode === "chatcut",
     selectedTrack, selectedVisualSegmentId, selectedVisualOverlayId,
-    language: activeLanguage, processAi: agentAi.process, discardAiAsset: agentAi.discard, prepareAi: agentAi.prepare, releaseAi: agentAi.release, aiSupport: agentAi.supports, visualSegments, visualOverlaySegments, audioSegments, musicSegments,
+    language: activeLanguage, generateAnimation: agentAi.generateAnimation, generateImage: agentAi.generateImage, commitAiAssets: ids => setUserAssets(items => [...webMcp.aiAssets().filter(asset => ids.includes(asset.id) && !items.some(item => item.id === asset.id)), ...items]), processAi: agentAi.process, discardAiAsset: agentAi.discard, prepareAi: agentAi.prepare, releaseAi: agentAi.release, aiSupport: agentAi.supports, visualSegments, visualOverlaySegments, audioSegments, musicSegments,
     sourceAudioBlob, musicBlob, audioBlob, rippleEditing, getProjectSnapshot,
     assets: userAssets, getRuntimeProject: getBrowserRuntimeProject,
     currentTime, duration: exportContentDuration, historySignature,
@@ -1571,7 +1572,7 @@ export function App() {
         projectFileInputRef={projectFileInputRef}
       />
 
-      {chatCutVisible && <ChatCut closing={chatCutClosing} projectId={anna.session?.state?.projectId} key={anna.session?.state?.projectId || "startup"} language={activeLanguage} editor={webMcp} assets={userAssets} onAssetPointerDown={handleAssetPointerDown} onImport={() => fileInputRef.current?.click()} inspectMedia={(input, options) => sampleChatCutMedia(userAssets, input, options)} hasMedia={exportContentDuration > 0} onClose={() => setSmartMode("watermark")} captureFrame={() => {
+      {chatCutVisible && <ChatCut generationPlugins={generationPlugins} closing={chatCutClosing} projectId={anna.session?.state?.projectId} key={anna.session?.state?.projectId || "startup"} language={activeLanguage} editor={webMcp} assets={userAssets} onPasteFiles={files => handleFiles(files, { autoAdd: false })} onAssetPointerDown={handleAssetPointerDown} onImport={() => fileInputRef.current?.click()} inspectMedia={(input, options) => sampleChatCutMedia(userAssets, input, options)} hasMedia={exportContentDuration > 0} onClose={() => setSmartMode("watermark")} captureFrame={() => {
         try {
           const source = previewVisualType === "video" ? previewVideoRef.current : previewCanvasRef.current?.querySelector(".visual-media-layer > img:not(.smart-frame-fill-background)");
           const width = source?.videoWidth || source?.naturalWidth;
@@ -1587,6 +1588,7 @@ export function App() {
       }} />}
       <WebMcpReview agent={webMcp.reviewAgent} language={activeLanguage} />
       <ProjectImportOverlay progress={projectImportProgress} language={activeLanguage} />
+      {anna.enabled && anna.session.state.recovery && !shouldShowLanguageIntro ? <AnnaRecoveryDialog session={anna.session} language={activeLanguage} /> : null}
       <section className={`editor-grid ${compactRail ? "is-compact-rail" : ""}`}>
         <EditorSidebar model={{
           activeLanguage, activeTool, anna, analyzeCurrentVisual, analyzeEffectVisual, audioBlob, audioDuration,
@@ -1905,7 +1907,10 @@ export function App() {
         setTimelineZoom={setTimelineZoom}
         selectedTrack={selectedTrack}
         setSelectedTrack={setSelectedTrack}
-        setActiveTool={setActiveTool}
+        setActiveTool={tool => {
+          // Timeline focus must not replace an open ChatCut conversation panel.
+          if (!chatCutActive) setActiveTool(tool);
+        }}
         openMobileInspector={(track, section = "") => {
           setMobilePanelOrigin(getMobileClipPanelOrigin(track));
           setMobileInspectorSection(section);
@@ -2115,6 +2120,31 @@ export function App() {
         <LanguageIntro t={t} closing={introClosing} onChoose={chooseInterfaceLanguage} />
       ) : null}
       {toast ? <div className="toast">{toast}</div> : null}
+      {audioSegments.map((segment) => (
+        <audio
+          key={`${segment.id}:${segment.url}`}
+          ref={(node) => {
+            if (node) audioSegmentRefs.current.set(segment.id, node);
+            else audioSegmentRefs.current.delete(segment.id);
+            if (segment.id === audioSegments.at(-1)?.id) audioRef.current = node;
+          }}
+          src={segment.url}
+        />
+      ))}
+      {sourceAudioUrl ? (
+        <audio
+          key={sourceAudioUrl}
+          data-track="source-audio"
+          ref={sourceAudioRef}
+          src={sourceAudioUrl}
+        />
+      ) : null}
+      {musicUrl ? (
+        <audio
+          ref={musicRef}
+          src={musicUrl}
+        />
+      ) : null}
     </main>
   );
 }

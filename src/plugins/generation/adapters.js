@@ -1,8 +1,10 @@
+import { createAnnaAdapter } from "./providers/anna/adapter.js";
 import { createComfyUIAdapter } from "./providers/comfyui/adapter.js";
 import { createPuterAdapter } from "./providers/puter/adapter.js";
 import { createWebUIAdapter } from "./providers/webui/adapter.js";
 
 const ADAPTERS = new Map([
+  ["anna", createAnnaAdapter()],
   ["puter", createPuterAdapter()],
   ["comfyui", createComfyUIAdapter()],
   ["webui", createWebUIAdapter()],

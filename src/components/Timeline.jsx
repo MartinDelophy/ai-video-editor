@@ -1384,7 +1384,7 @@ export function Timeline({
   const rulerViewportSyncRef = useRef(null);
   const rulerViewportRef = useRef(null);
   const rulerCanvasRef = useRef(null);
-  const { playheadRef, rulerPlayheadRef, suspendPlayheadFollow, returnToPlayhead, showReturnToPlayhead } = useTimelinePlayhead({
+  const { playheadRef, rulerPlayheadRef, suspendPlayheadFollow } = useTimelinePlayhead({
     currentTime, currentTimeRef, isPlaying, timelineDuration, playbackDuration,
     visualPlaybackStartTimeRef, visualPlaybackStartedAtRef, trackScrollRef, rulerCanvasRef,
   });
@@ -2817,6 +2817,7 @@ export function Timeline({
 
   return (
     <section
+      tabIndex={-1}
       className={`timeline ${markerController.railExpanded ? "has-marker-rail" : "has-compact-markers"} is-selection-mode-${timelineSelectionMode} ${timelineRangeDrag?.dragging ? "is-range-dragging" : ""}`}
       style={{ "--range-drag-x": `${timelineRangeDrag?.dragging ? timelineRangeDrag.delta / Math.max(0.001, timelineDuration) * Math.max(1, rulerViewport.contentWidth) : 0}px` }}
       onClickCapture={(event) => {
@@ -2827,6 +2828,12 @@ export function Timeline({
       }}
       onPointerDownCapture={(event) => {
       if (!(event.target instanceof Element)) return;
+      // Clip drag handlers prevent the browser's default focus transfer. Move
+      // keyboard focus out of the composer before they consume this gesture.
+      if (event.button === 0 && event.target.closest("[data-timeline-segment-track]")
+        && !event.target.closest("input, textarea, select, [contenteditable]")) {
+        event.currentTarget.focus({ preventScroll: true });
+      }
       // A real follow-up pointer gesture is intentional user input, so it
       // ends the one-shot guard reserved for the synthetic click after drag.
       if (timelineRangeDragClickGuardRef.current && !timelineRangeDrag) {
@@ -3025,7 +3032,6 @@ export function Timeline({
           </IconButton>
         </div>
         <div className="timeline-icon-group">
-          {showReturnToPlayhead ? <button type="button" className="timeline-return-playhead" onClick={returnToPlayhead}>{t("returnToPlayhead")}</button> : null}
           <IconButton label={t("zoomOut")} shortcut="−" tooltip releaseFocusOnPointer onClick={() => adjustTimelineZoom((zoom) => zoom / TIMELINE_BUTTON_ZOOM_RATIO)}>
             <MagnifyingGlassMinus size={17} />
           </IconButton>

@@ -4,9 +4,11 @@ export async function captureProjectPreview(visuals = []) {
   if (!visual) return null;
   const frame = visual.trackFrames?.find(item => typeof item === 'string' || item?.src);
   const still = visual.thumbnail || (typeof frame === 'string' ? frame : frame?.src);
-  const video = !still && visual.type === 'video';
-  const ownedUrl = !still && visual.blob instanceof Blob ? URL.createObjectURL(visual.blob) : '';
-  const source = still || ownedUrl || visual.src;
+  // Capture the source rather than enlarging a small filmstrip thumbnail.
+  const original = visual.blob instanceof Blob || visual.src;
+  const video = visual.type === 'video' && Boolean(original);
+  const ownedUrl = original && visual.blob instanceof Blob ? URL.createObjectURL(visual.blob) : '';
+  const source = ownedUrl || visual.src || still;
   if (!source || typeof source !== 'string') return null;
   return new Promise(resolve => {
     const media = video ? document.createElement('video') : new Image();
@@ -25,12 +27,17 @@ export async function captureProjectPreview(visuals = []) {
         const width = video ? media.videoWidth : media.naturalWidth;
         const height = video ? media.videoHeight : media.naturalHeight;
         if (!width || !height) return finish(null);
-        const canvas = document.createElement('canvas'); canvas.width = 240; canvas.height = 135;
-        const ctx = canvas.getContext('2d'); ctx.fillStyle = '#10171d'; ctx.fillRect(0, 0, 240, 135);
-        const scale = Math.min(240 / width, 135 / height);
+        const canvas = document.createElement('canvas'); canvas.width = 960; canvas.height = 540;
+        const ctx = canvas.getContext('2d'); ctx.fillStyle = '#10171d'; ctx.fillRect(0, 0, 960, 540);
+        const scale = Math.min(960 / width, 540 / height);
         const w = width * scale, h = height * scale;
-        ctx.drawImage(media, (240-w)/2, (135-h)/2, w, h);
-        canvas.toBlob(blob => finish(blob?.size <= 32768 ? blob : null), 'image/jpeg', 0.65);
+        ctx.drawImage(media, (960-w)/2, (540-h)/2, w, h);
+        const encode = quality => canvas.toBlob(blob => {
+          if (blob && blob.size <= 131072) finish(blob);
+          else if (quality > 0.5) encode(quality - 0.12);
+          else finish(null);
+        }, 'image/jpeg', quality);
+        encode(0.86);
       } catch { finish(null); }
     };
     media.crossOrigin = 'anonymous';

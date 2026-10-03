@@ -18,13 +18,21 @@ export function createAnnaSessionPersistence() {
       scope = explicitScope || await resolveAnnaSessionScope();
       const candidate = createAnnaLocalProjectStore(scope);
       if (!await candidate.metadata()) {
-        // Only the first migration downloads the current remote project. A
-        // failed read cannot masquerade as an empty account or erase its work.
-        const remote = createAnnaCloudSessionStore();
-        const record = await remote.read();
+        // Bootstrap from the small catalog only. Media is read after an
+        // explicit recovery choice; a failed catalog read is never empty.
+        const remote = backupRemote;
+        const head = await remote.initialize();
         let legacy = null;
-        if (!record) legacy = await readAnnaSession(scope);
-        await candidate.initialize(record || (legacy ? { ...legacy, projectId: 'legacy', projectName: '', source: 'local' } : null), remote.head());
+        if (!head.current) legacy = await readAnnaSession(scope);
+        try {
+          await candidate.initialize(legacy ? { ...legacy, projectId: 'legacy', projectName: '', source: 'local' } : null, head);
+        } catch (error) {
+          if (getAnnaSessionErrorCode(error) !== 'quota' || legacy) throw error;
+          // Even the small account metadata can fail when browser storage is
+          // full. The already-read remote catalog is still a safe CAS baseline.
+          local = candidate; cloud = true; cloudReady = true;
+          return local;
+        }
       }
       local = candidate;
       cloud = Boolean((await local.metadata()).cloudFallback);
@@ -121,7 +129,37 @@ export function createAnnaSessionPersistence() {
       return () => { listeners.delete(listener); window.removeEventListener('online', online); if (!listeners.size) { stopped = true; clearTimeout(timer); } };
     },
     retryBackup: () => schedule(0),
-    async read(explicitScope) { const store = await open(explicitScope); return cloud ? (await cloudStore()).read() : store.read(); },
+    async inspect(explicitScope) {
+      const store = await open(explicitScope);
+      if (cloud) {
+        const head = (await cloudStore()).head();
+        return { revision: head.revision, project: head.projects.find(item => item.id === head.current) || null };
+      }
+      const account = await store.metadata();
+      return { revision: account.revision, project: account.projects.find(item => item.id === account.current) || null };
+    },
+    async read(explicitScope, options = {}) {
+      const started = performance.now();
+      const store = await open(explicitScope);
+      performance.measure('anna-session-open', { start: started, end: performance.now() });
+      const reading = performance.now();
+      let record;
+      if (cloud) record = await (await cloudStore()).read(options);
+      else {
+        record = await store.read();
+        if (!record) {
+          const account = await store.metadata();
+          if (account.current) {
+            const remote = createAnnaCloudSessionStore();
+            record = await remote.readProject(account.current, false, options);
+            await store.cache(record);
+            record = { ...record, revision: account.revision, source: 'browser' };
+          }
+        }
+      }
+      performance.measure('anna-session-read', { start: reading, end: performance.now() });
+      return record;
+    },
     async listProjects() { const store = await open(); return cloud ? (await cloudStore()).listProjects() : (await store.metadata()).projects; },
     async deleteProject(id, options) {
       await open();
@@ -137,7 +175,7 @@ export function createAnnaSessionPersistence() {
       const remote = createAnnaCloudSessionStore();
       const record = await remote.readProject(id, previous, options);
       await store.cache(record, previous);
-      return record;
+      return { ...record, revision: (await store.metadata()).revision, source: 'browser' };
     },
     async save(data, options) {
       const store = await open();

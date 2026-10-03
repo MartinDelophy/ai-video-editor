@@ -1,4 +1,5 @@
-import { createWebMcpAiJobs, AI_PROCESS_SCHEMA, AI_FRAMES_SCHEMA, AI_PREVIEW_SCHEMA } from "./webMcpAiJobs.js";
+import { createWebMcpAiJobs, AI_PROCESS_SCHEMA, AI_FRAMES_SCHEMA, AI_PREVIEW_SCHEMA, IMAGE_GENERATE_SCHEMA } from "./webMcpAiJobs.js";
+import { ANIMATION_GENERATE_SCHEMA } from "./animationScene.js";
 import { inspectColorScopes } from "./webMcpColorScope.js";
 import { inspectClip, inspectMarkers, inspectProject, inspectTrack, inspectTranscript } from "./projectCommandEngine.js";
 import { browserProjectFingerprint, buildBrowserOperationReview, buildBrowserTimelineReview, getBrowserPlanningClips } from "./browserEditPlan.js";
@@ -10,9 +11,10 @@ const TRACKS = ["visuals", "overlays", "audio", "captions", "stickers", "music"]
 const MAX_PAGE = 100;
 const MAX_CLIPS = 500;
 const ERROR_KEYS = {
+  ANIMATION_UNAVAILABLE: "animationUnavailable", ANIMATION_FAILED: "animationFailed",
   pauseUnsupported: "complexTiming", pauseLocked: "trackLocked", pauseStale: "stale", pauseComplexOverlap: "complexTiming", pauseLegacyOverlap: "complexTiming", pauseTooShort: "invalidPlan", pauseFailed: "failed", pauseModelFailed: "failed", pauseDecodeFailed: "failed", pauseNoAudio: "aiEmpty",
   AI_NO_PAUSES: "aiNoPauses",
-  AI_UNAVAILABLE: "aiUnavailable", AI_EMPTY_RESULT: "aiEmpty", AI_RESULT_NOT_FOUND: "aiExpired", AI_INSPECTION_REQUIRED: "aiInspectRequired", AI_RESULT_LIMIT: "aiLimit",
+  AI_NARRATION_TOO_LONG: "aiNarrationTooLong", AI_UNAVAILABLE: "aiUnavailable", AI_EMPTY_RESULT: "aiEmpty", AI_RESULT_NOT_FOUND: "aiExpired", AI_INSPECTION_REQUIRED: "aiInspectRequired", AI_RESULT_LIMIT: "aiLimit",
   INVALID_ARGUMENT: "invalidInput", CLIP_NOT_FOUND: "notFound", TRACK_NOT_FOUND: "notFound",
   BROWSER_EDIT_INVALID_PLAN: "invalidPlan", BROWSER_EDIT_COMPLEX_TIMING: "complexTiming",
   BROWSER_EDIT_TRACK_LOCKED: "trackLocked", BROWSER_EDIT_STALE_PLAN: "stale",
@@ -151,6 +153,12 @@ export function createWebMcpEditorSession(getEditor, { publish = () => {}, publi
       const state = capture();
       let result;
       switch (name) {
+        case "timeline_animation_generate":
+          result = await aiJobs.generateAnimation(input, signal);
+          break;
+        case "timeline_image_generate":
+          result = await aiJobs.generateImage(input, signal);
+          break;
         case "timeline_ai_process":
           result = await aiJobs.process(input, signal);
           break;
@@ -240,7 +248,7 @@ export function createWebMcpEditorSession(getEditor, { publish = () => {}, publi
           const options = {
             visualSegments: state.editor.visualSegments, rippleEditing: state.editor.rippleEditing,
             hasMusic: Boolean(state.editor.musicBlob), hasSourceAudio: Boolean(state.editor.sourceAudioBlob),
-            runtimeProject: runtimeProject(state.editor, state.project), assets: [...(state.editor.assets || []), ...aiJobs.assets()],
+            runtimeProject: runtimeProject(state.editor, state.project), assets: [...(state.editor.assets || []), ...aiJobs.assets().filter(asset => !(state.editor.assets || []).some(existing => (existing.assetId || existing.id) === (asset.assetId || asset.id)))],
             resolveAiResult: resultId => aiJobs.preview(resultId, state.fingerprint),
           };
           const review = input.operations ? buildBrowserOperationReview(state.project, input, options) : buildBrowserTimelineReview(state.project, input, options);
@@ -296,7 +304,13 @@ export function createWebMcpEditorSession(getEditor, { publish = () => {}, publi
           if (!pending.review.hasChanges) fail("NO_CHANGES");
           const draft = pending;
           guard(signal, true);
-          commit(() => state.editor.applyReview(draft.review, state.editor.t("applied")));
+          commit(() => {
+            state.editor.applyReview(draft.review, state.editor.t("applied"));
+            // Commit generated assets in the same editor transaction before
+            // capturing the undo receipt. A later ChatCut asset save must not
+            // immediately make that receipt stale.
+            state.editor.commitAiAssets?.(aiJobs.assets().map(asset => asset.id));
+          });
           const after = capture();
           if (after.fingerprint === state.fingerprint) fail("NO_CHANGES");
           undoReceipt = { id: makeId(), fingerprint: after.fingerprint };
@@ -348,7 +362,7 @@ export function createWebMcpEditorSession(getEditor, { publish = () => {}, publi
     } catch (error) {
       const code = error?.name === "AbortError" ? "CANCELLED" : error?.code || "FAILED";
       const message = getEditor().t(ERROR_KEYS[code] || "failed");
-      return { ok: false, error: { code, message } };
+      return { ok: false, error: { code, message, ...(error.reason ? { reason: error.reason } : {}) } };
     } finally { busy = false; }
   };
   return {
@@ -381,6 +395,8 @@ export function createWebMcpTools(session, t) {
     ["timeline_transcript_inspect", "Transcript", schema({ audioClipId: stringSchema, ...pagination }), true],
     ["timeline_assets_inspect", "Assets", schema({ query: { type: "string", maxLength: 256 }, type: { type: "string", enum: ["image", "video", "audio"] }, readyOnly: { type: "boolean" }, ...pagination }), true],
     ["timeline_markers_inspect", "Markers", schema({ markerId: { ...stringSchema, maxLength: 160 }, ...pagination }), true],
+    ["timeline_image_generate", "ImageGenerate", IMAGE_GENERATE_SCHEMA, false],
+    ["timeline_animation_generate", "AnimationGenerate", ANIMATION_GENERATE_SCHEMA, false],
     ["timeline_ai_process", "AiProcess", AI_PROCESS_SCHEMA, false],
     ["timeline_ai_result_frames", "AiFrames", AI_FRAMES_SCHEMA, true],
     ["timeline_ai_preview", "AiPreview", AI_PREVIEW_SCHEMA, false],

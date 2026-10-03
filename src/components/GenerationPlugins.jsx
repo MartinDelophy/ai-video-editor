@@ -1,3 +1,5 @@
+import { AnnaImagePanel } from "../plugins/generation/providers/anna/Inspector.jsx";
+import { getAnnaImageCopy } from "../plugins/generation/providers/anna/copy.js";
 import {
   ArrowSquareOut,
   Check,
@@ -144,7 +146,7 @@ export function PluginCatalogPanel({ language, plugins, onOpenInspector }) {
           return (
             <button key={plugin.id} type="button" className={`plugin-card is-${plugin.tone} ${selected ? "is-selected" : ""}`} onClick={() => { plugins.setSelectedPluginId(plugin.id); onOpenInspector?.(); }}>
               <span className={`plugin-brand-mark is-${plugin.tone}`}><plugin.Icon size={21} weight="duotone" /></span>
-              <span className="plugin-card-copy"><strong>{plugin.displayName}</strong><em>{plugin.descriptionKey ? copy[plugin.descriptionKey] : copy.capability}</em><small>{plugin.badges.map((item) => <i key={item}>{item}</i>)}</small></span>
+              <span className="plugin-card-copy"><strong>{plugin.displayName}</strong><em>{plugin.id === "anna" ? getAnnaImageCopy(language).prompt : plugin.descriptionKey ? copy[plugin.descriptionKey] : copy.capability}</em><small>{plugin.badges.map((item) => <i key={item}>{item}</i>)}</small></span>
               <span className={`plugin-state ${connected ? "is-connected" : "is-available"}`}>{connected ? <CheckCircle size={13} weight="fill" /> : null}{connected ? copy.connected : copy.available}</span>
             </button>
           );
@@ -300,6 +302,7 @@ function WebUIInspector({ copy, plugins }) {
 }
 
 export function PluginInspector({ language, plugins }) {
+  if (plugins.selectedPluginId === "anna") return <AnnaImagePanel language={language} plugins={plugins} />;
   const copy = getCopy(language);
   const Inspector = {
     puter: PuterInspector,

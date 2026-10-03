@@ -84,6 +84,7 @@ export function useWebMcpEditor(editor) {
       cancel: () => { sessionRef.current?.dismiss(); setError(""); setReviewOpen(false); setReviewSnapshot(null); },
     },
     t, view, error, working, aiJob,
+    commitAiAssets: editor.commitAiAssets,
     prepareAi: editor.prepareAi,
     releaseAi: editor.releaseAi,
     resetAi: () => sessionRef.current?.resetAi(),

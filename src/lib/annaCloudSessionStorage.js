@@ -50,7 +50,7 @@ function fileDescriptor(value) {
 }
 function previewFile(value) {
   if (!value) return null;
-  try { const file = fileDescriptor(value); return file.size <= 32768 ? file : null; } catch { return null; }
+  try { const file = fileDescriptor(value); return file.size <= 131072 ? file : null; } catch { return null; }
 }
 function projectEntry(value) {
   assert(plain(value) && /^[a-zA-Z0-9_-]{1,100}$/.test(value.id) && typeof value.name === "string" && value.name.length <= 120);
@@ -375,23 +375,36 @@ export function createAnnaCloudSessionStore() {
     let parsed;
     try { parsed = JSON.parse(await blob.text()); } catch { throw failure("invalid"); }
     const saved = manifest(parsed, entry);
-    const blobs = [], downloaded = new Map();
+    const blobs = new Array(saved.binaries.length), downloaded = new Map();
     const totalBytes = saved.binaries.reduce((sum, item) => sum + item.size, 0);
-    let completedBytes = 0;
-    onProgress?.({ loaded: 0, total: totalBytes });
-    for (const item of saved.binaries) {
-      let media = downloaded.get(item.sha256);
-      if (media) assert(media.size === item.size && sameFile(media.file, item.file));
-      else {
-        const bytes = item.file ? await readAnnaFile({ path: item.file.path, expectedFile: item.file, signal, onProgress: (loaded) => onProgress?.({ loaded: completedBytes + loaded, total: totalBytes }) }) : new Blob([]);
-        assert(bytes.size === item.size && await hashBlob(bytes) === item.sha256);
-        media = { blob: bytes, file: item.file, size: item.size };
-        downloaded.set(item.sha256, media);
+    const progress = new Array(saved.binaries.length).fill(0);
+    const report = () => onProgress?.({ loaded: progress.reduce((sum, value) => sum + value, 0), total: totalBytes });
+    report();
+    let cursor = 0;
+    const worker = async () => {
+      while (cursor < saved.binaries.length) {
+        const index = cursor++;
+        const item = saved.binaries[index];
+        let pending = downloaded.get(item.sha256);
+        if (pending) assert(pending.size === item.size && sameFile(pending.file, item.file));
+        else {
+          pending = { size: item.size, file: item.file, promise: (async () => {
+            const bytes = item.file ? await readAnnaFile({ path: item.file.path, expectedFile: item.file, signal, onProgress: loaded => { progress[index] = Math.max(progress[index], Math.min(item.size, loaded)); report(); } }) : new Blob([]);
+            assert(bytes.size === item.size && await hashBlob(bytes) === item.sha256);
+            return bytes;
+          })() };
+          downloaded.set(item.sha256, pending);
+        }
+        blobs[index] = await pending.promise;
+        progress[index] = item.size;
+        report();
       }
-      blobs.push(media.blob);
-      completedBytes += item.size;
-      onProgress?.({ loaded: completedBytes, total: totalBytes });
-    }
+    };
+    // Bound network and hashing pressure while avoiding one round trip per
+    // sequential asset. Settle every worker before releasing the store lock.
+    const results = await Promise.allSettled(Array.from({ length: Math.min(4, saved.binaries.length) }, worker));
+    const failed = results.find(result => result.status === "rejected");
+    if (failed) throw failed.reason;
     const data = await hydrate(saved.graph, blobs, (value, id) => remember(value, saved.binaries[id].sha256));
     // Restore dedup references only after all files and the graph passed.
     for (const item of saved.binaries) if (item.file) contentFiles.set(item.sha256, item.file);
@@ -408,11 +421,11 @@ export function createAnnaCloudSessionStore() {
         return head();
       }, "read");
     },
-    read() {
+    read(options = {}) {
       return exclusively(async () => {
-        const next = await readPointer();
+        const next = await readPointer(options.signal);
         if (!next) { base = null; loaded = true; pending = null; return null; }
-        const record = await readEntry(currentProject(next.value));
+        const record = await readEntry(currentProject(next.value), options);
         base = next; loaded = true; pending = null;
         return record;
       }, "read");
@@ -485,7 +498,7 @@ export function createAnnaCloudSessionStore() {
           assert(projects.length <= 200);
           const oldProject = projectList(base?.value).find((p) => p.id === projectId);
           let preview = null;
-          if (projectPreview instanceof Blob && projectPreview.size <= 32768 && projectPreview.type === "image/jpeg") {
+          if (projectPreview instanceof Blob && projectPreview.size <= 131072 && projectPreview.type === "image/jpeg") {
             try {
               const hash = await hashBlob(projectPreview);
               preview = contentFiles.get(hash) || fileDescriptor(await storeAnnaFile({ blob: projectPreview, name: `${hash}.jpg`, kind: "sessions" }));

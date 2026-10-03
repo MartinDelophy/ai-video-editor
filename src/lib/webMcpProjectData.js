@@ -1,4 +1,5 @@
 import { VISUAL_SETTINGS_SCHEMA } from "./webMcpOperationSchema.js";
+import { validateAnimationScene } from "./animationScene.js";
 const COLLECTIONS = {
   visuals: "visualSegments", overlays: "visualOverlaySegments", audio: "audioSegments",
   captions: "captionSegments", stickers: "stickerSegments", music: "musicSegments",
@@ -33,11 +34,16 @@ export function browserAssetSummary(asset) {
   const hasMedia = asset?.blob instanceof Blob && asset.blob.size > 0;
   const validType = ["image", "video", "audio"].includes(asset?.type);
   const ready = hasMedia && validType && !asset.preparing && (asset.type === "image" || Number(asset.duration) > 0);
+  let animationScene;
+  if (asset.generation?.providerId === "remotion") {
+    try { animationScene = validateAnimationScene(asset.generation.scene); } catch { /* Old/untrusted metadata cannot become an executable scene. */ }
+  }
   return {
     assetId: String(asset.assetId || asset.id || ""), type: asset.type,
     name: String(asset.name || ""), duration: Math.max(0, Number(asset.duration) || (asset.type === "image" ? 4 : 0)),
     width: Math.max(0, Number(asset.width) || 0), height: Math.max(0, Number(asset.height) || 0),
     kind: asset.kind || "", bytes: hasMedia ? asset.blob.size : 0,
+    ...(animationScene ? { animationScene } : {}),
     status: asset.preparing || (hasMedia && asset.type !== "image" && !Number(asset.duration)) ? "preparing" : ready ? "ready" : "unavailable",
     insertableTracks: !ready ? [] : asset.type !== "audio" ? ["visuals", "overlays"] : asset.kind === "music" ? ["music"] : ["audio", "music"],
   };

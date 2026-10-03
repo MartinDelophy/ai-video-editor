@@ -150,6 +150,7 @@ export function useProjectFiles(deps = {}) {
     let committed = false;
     let importAudioContext = null;
     const reportProgress = (phase, completed = 0, total = 0) => {
+      options.onProgress?.({ phase, completed, total });
       if (!options.session && generation === importGenerationRef.current) {
         setProjectImportProgress({ phase, fileName: file.name, completed, total });
       }

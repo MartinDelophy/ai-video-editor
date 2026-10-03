@@ -48,7 +48,7 @@ export function createAnnaLocalProjectStore(scope) {
       return transaction('readwrite', (existing, snapshots, done, put) => {
         if (existing) return done(existing);
         const projects = head.projects || [];
-        const current = record?.projectId || null;
+        const current = record?.projectId || head.current || null;
         const account = { revision: record ? 1 : 0, current, projects, anchor: head.anchor,
           cloudFallback: false, cloudRevision: head.revision, cloudFiles: head.files || [], outbox: {}, deleted: {} };
         if (record) {
@@ -63,7 +63,7 @@ export function createAnnaLocalProjectStore(scope) {
     cache(record, previous = false) {
       return transaction('readwrite', (account, snapshots) => {
         if (!account || !account.projects.some(p => p.id === record.projectId) || account.outbox[record.projectId]) return;
-        snapshots.put({ ...record, source: 'browser' }, key(record.projectId, previous));
+        snapshots.put({ ...record, revision: account.revision, source: 'browser' }, key(record.projectId, previous));
       });
     },
     save(data, { expectedRevision = 0, project } = {}) {

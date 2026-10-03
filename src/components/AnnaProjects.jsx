@@ -1,26 +1,11 @@
 import { getAnnaBackupCopy } from "../i18nAnnaBackup.js";
-import { readAnnaFile } from "../lib/annaRuntime.js";
+import { AnnaProjectCover } from "./AnnaProjectCover.jsx";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { CircleNotch, File, Trash, X } from "@phosphor-icons/react";
+import { CircleNotch, Trash, X } from "@phosphor-icons/react";
 import { getAnnaProjectsCopy } from "../i18nAnnaProjects.js";
 import "./AnnaProjects.css";
 import { getAnnaSessionCopy } from "../i18nAnnaSession.js";
-
-function ProjectCover({ preview }) {
-  const [url, setUrl] = useState("");
-  useEffect(() => {
-    let alive = true, objectUrl = "";
-    setUrl("");
-    if (preview) (preview instanceof Blob ? Promise.resolve(preview) : readAnnaFile({ path: preview.path, expectedFile: preview })).then(blob => {
-      if (!alive || blob.size > 32768) return;
-      objectUrl = URL.createObjectURL(new Blob([blob], { type: "image/jpeg" }));
-      setUrl(objectUrl);
-    }).catch(() => {});
-    return () => { alive = false; if (objectUrl) URL.revokeObjectURL(objectUrl); };
-  }, [preview]);
-  return <span className="anna-project-cover">{url ? <img src={url} alt="" onError={() => setUrl("")} /> : <File size={28} aria-hidden="true" />}</span>;
-}
 
 export function AnnaProjects({ session, language, initialMode = "list", onClose }) {
   const copy = getAnnaProjectsCopy(language);
@@ -89,7 +74,7 @@ export function AnnaProjects({ session, language, initialMode = "list", onClose 
       </form> : recovery ? <section><strong>{recovery.name || copy.untitled}</strong><footer><button disabled={busy} onClick={() => setRecovery(null)}>{copy.cancel}</button><button className="primary" disabled={disabled} onClick={() => run({ id: recovery.id, previous: true })} aria-busy={Boolean(operation)}>{operation ? spinner : null}{operation ? statusCopy.restoring : copy.previous}</button></footer></section> : <>
         <div className="anna-projects-actions"><button className="primary" disabled={busy} onClick={() => { setMode("new"); setName(""); }}>{copy.new}</button><button disabled={busy} onClick={refresh}>{copy.refresh}</button></div>
         <div className="anna-projects-list" role="region" aria-label={copy.title} tabIndex={0}>{projects.map((project) => <article key={project.id}>
-          <ProjectCover preview={project.preview} /><div className="anna-projects-copy"><strong>{project.name || copy.untitled}</strong><time dateTime={project.savedAt}>{new Date(project.savedAt).toLocaleString(language)}</time>{project.id === session.state.projectId ? <small>{copy.current}</small> : null}</div>
+          <AnnaProjectCover preview={project.preview} /><div className="anna-projects-copy"><strong>{project.name || copy.untitled}</strong><time dateTime={project.savedAt}>{new Date(project.savedAt).toLocaleString(language)}</time>{project.id === session.state.projectId ? <small>{copy.current}</small> : null}</div>
           <div className="anna-projects-item-actions"><div className="anna-projects-primary-actions">{project.id === session.state.projectId ? <button disabled={disabled} onClick={() => { setMode("rename"); setName(project.name); }}>{copy.rename}</button> : <button disabled={disabled} onClick={() => run({ id: project.id })}>{operation?.id === project.id ? spinner : null}{operation?.id === project.id ? copy.loading : copy.open}</button>}<button className="anna-project-delete" disabled={disabled || project.id === session.state.projectId} title={project.id === session.state.projectId ? copy.deleteCurrent : copy.delete} aria-label={`${copy.delete}: ${project.name || copy.untitled}${project.id === session.state.projectId ? ` — ${copy.deleteCurrent}` : ""}`} onClick={() => setDeleting(project)}><Trash size={16} /></button></div>{project.previous ? <button className="anna-project-restore" disabled={disabled} onClick={() => setRecovery(project)}>{copy.previous}</button> : null}</div>
         </article>)}{!projects.length && !busy && !error ? <p>{copy.empty}</p> : null}</div>
       </>}

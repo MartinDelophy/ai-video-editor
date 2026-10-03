@@ -11,7 +11,7 @@ export function shouldAutoAddImportedVisual(assets, visualSegments) {
 }
 
 export function useFileUpload(deps) {
-  return useCallback((files) => {
+  return useCallback((files, { autoAdd = true } = {}) => {
     const mediaFiles = Array.from(files ?? []).filter((file) =>
       SUPPORTED_MEDIA_TYPES.some((type) => file.type.startsWith(type)) || isSupportedMediaFile(file));
     if (!mediaFiles.length) return void deps.notify("请选择图片、视频或音频素材");
@@ -24,7 +24,7 @@ export function useFileUpload(deps) {
     });
     const primary = assets[0]; deps.setSelectedLibraryAssetId(primary.id); deps.setUserAssets((current) => [...assets, ...current]);
     const primaryVisual = assets.find((asset) => asset.type === "image" || asset.type === "video");
-    const shouldAutoAddFirstVisual = shouldAutoAddImportedVisual(assets, deps.visualSegments);
+    const shouldAutoAddFirstVisual = autoAdd && shouldAutoAddImportedVisual(assets, deps.visualSegments);
     if (shouldAutoAddFirstVisual) {
       deps.appendVisualAssetToTimeline(primaryVisual);
       deps.setSelectedTrack("image");
@@ -139,5 +139,6 @@ export function useFileUpload(deps) {
         ? `${primary.type === "video" ? "视频" : "图片"}已加入画布和时间线`
         : `${primary.type === "video" ? "视频" : "图片"}已加入素材库，请拖到 Visuals 或画中画轨道`
       : "音频已上传到素材库，可拖到音乐或配音轨");
+    return assets;
   }, [deps]);
 }

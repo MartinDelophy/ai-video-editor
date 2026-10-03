@@ -2,10 +2,25 @@
   "schema": 2,
   "required_executas": [],
   "optional_executas": [],
-  "permissions": ["llm.complete", "storage.read", "storage.write", "fs.read", "fs.write"],
-  "host_capabilities": ["llm.complete", "aps.kv", "aps.files"],
+  "permissions": [
+    "llm.complete",
+    "storage.read",
+    "storage.write",
+    "fs.read",
+    "fs.write"
+  ],
+  "host_capabilities": [
+    "llm.complete",
+    "aps.kv",
+    "aps.files"
+  ],
   "system_prompt_addendum": "Open the main Timeline Studio view when the user wants to edit a video. The user imports media in the app, describes an edit, receives completed edits applied automatically to the editable timeline with undo and on-demand change review, and exports. Do not claim that a video was rendered, exported, saved, or uploaded until the app reports that outcome. Never invent source assets or claim to have analyzed media when only metadata was provided.",
-  "tags": ["video", "editing", "ai", "local-first"],
+  "tags": [
+    "video",
+    "editing",
+    "ai",
+    "local-first"
+  ],
   "ui": {
     "bundle": {
       "format": "static-spa",
@@ -26,27 +41,68 @@
         "name": "main",
         "title": "Timeline Studio",
         "default": true,
-        "min_size": { "w": 360, "h": 480 },
-        "default_size": { "w": 1440, "h": 900 },
-        "max_size": { "w": 4096, "h": 2160 },
+        "min_size": {
+          "w": 360,
+          "h": 480
+        },
+        "default_size": {
+          "w": 1440,
+          "h": 900
+        },
+        "max_size": {
+          "w": 4096,
+          "h": 2160
+        },
         "single_instance": true,
         "resizable": true,
         "movable": true,
         "icon": "icons/timeline-studio-icon.svg"
       }
     ],
-    "form_factors": ["desktop"],
+    "form_factors": [
+      "desktop"
+    ],
     "host_api": {
-      "llm": ["complete"],
-      "storage": ["get", "set", "delete", "list"],
-      "files": ["upload_init", "upload_finalize", "download_url", "list", "delete", "download"],
-      "window": ["ready", "set_title"]
+      "llm": [
+        "complete"
+      ],
+      "storage": [
+        "get",
+        "set",
+        "delete",
+        "list"
+      ],
+      "files": [
+        "upload_init",
+        "upload_finalize",
+        "download_url",
+        "list",
+        "delete",
+        "download"
+      ],
+      "window": [
+        "ready",
+        "set_title"
+      ],
+      "image": [
+        "generate",
+        "edit"
+      ]
     },
     "csp_overrides": {
-      "script-src": ["'wasm-unsafe-eval'"],
-      "connect-src": ["blob:"],
-      "media-src": ["https://upload.wikimedia.org"],
-      "font-src": ["blob:"]
+      "script-src": [
+        "'wasm-unsafe-eval'"
+      ],
+      "connect-src": [
+        "blob:",
+        "https://*.r2.cloudflarestorage.com"
+      ],
+      "media-src": [
+        "https://upload.wikimedia.org"
+      ],
+      "font-src": [
+        "blob:"
+      ]
     },
     "state_merge": "last_writer_wins"
   }

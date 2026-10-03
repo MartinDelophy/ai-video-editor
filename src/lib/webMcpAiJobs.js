@@ -1,5 +1,6 @@
 import { buildSilenceRemovalReview, canRemovePauses } from "./silenceRemoval.js";
 import { MAX_TIMELINE_DURATION_SECONDS } from "../config/editor.js";
+import { validateAnimationScene } from "./animationScene.js";
 
 const fail = code => { throw Object.assign(new Error(code), { code }); };
 const check = signal => { if (signal?.aborted) throw new DOMException("Cancelled", "AbortError"); };
@@ -30,16 +31,17 @@ export function validateAiRegions(regions, duration) {
 export function createWebMcpAiJobs({ getEditor, capture, guard, publish = () => {}, makeId }) {
   const results = new Map();
   const controllers = new Set();
-  const assets = () => [...results.values()].flatMap(result => result.asset ? [result.asset] : []);
+  const assets = () => [...results.values()].flatMap(result => result.assets || (result.asset ? [result.asset] : []));
   const get = resultId => { const result = results.get(resultId); if (!result) fail("AI_RESULT_NOT_FOUND"); return result; };
   const process = async (input, signal) => {
-    if (Object.keys(input).some(key => !["stateToken", "kind", "clipId", "language", "targetLanguage", "regions", "minimum", "keep"].includes(key)) || !["captions", "watermark", "pauses"].includes(input.kind) || typeof input.clipId !== "string") fail("INVALID_ARGUMENT");
+    if (Object.keys(input).some(key => !["stateToken", "kind", "clipId", "language", "targetLanguage", "regions", "minimum", "keep", "segments", "voiceId"].includes(key)) || !["captions", "watermark", "pauses", "narration"].includes(input.kind) || typeof input.clipId !== "string") fail("INVALID_ARGUMENT");
     guard(signal, true);
     const state = capture();
     if (state.stateToken !== input.stateToken) fail("STALE_STATE");
     if (results.size >= 8) fail("AI_RESULT_LIMIT");
     const editor = getEditor();
     if (!editor.processAi || !editor.aiSupport?.()[input.kind]) fail("AI_UNAVAILABLE");
+    if (input.kind === "narration" && (state.project.trackLocks?.audio || state.project.trackLocks?.caption)) fail("BROWSER_EDIT_TRACK_LOCKED");
     const collections = [["visualSegments", "image"], ["visualOverlaySegments", "overlay"], ["audioSegments", "audio"]];
     const matches = collections.flatMap(([key, lock]) => (state.project[key] || []).filter(clip => clip.id === input.clipId).map(clip => ({ key, lock, clip })));
     if (matches.length !== 1) fail("CLIP_NOT_FOUND");
@@ -50,6 +52,18 @@ export function createWebMcpAiJobs({ getEditor, capture, guard, publish = () => 
     if (!(clip?.blob instanceof Blob) || clip.preparing || clip.reversed || clip.reverse) fail("AI_UNAVAILABLE");
     const language = input.language || editor.language || "zh";
     if (!languages.includes(language) || input.targetLanguage !== undefined && (!languages.includes(input.targetLanguage) || input.targetLanguage === language)) fail("INVALID_ARGUMENT");
+    if (input.kind === "narration") {
+      if (!["zh", "en"].includes(language) || input.targetLanguage !== undefined || clip.type !== "video"
+        || input.voiceId !== undefined && !["zh_f_qinglan", "zh_f_ruoxi"].includes(input.voiceId)
+        || !Array.isArray(input.segments) || !input.segments.length || input.segments.length > 12) fail("INVALID_ARGUMENT");
+      let previousEnd = 0;
+      for (const segment of input.segments) {
+        if (!segment || Object.keys(segment).some(key => !["start", "end", "text"].includes(key))
+          || !number(segment.start, previousEnd, clip.duration) || !number(segment.end, segment.start + 0.2, clip.duration)
+          || typeof segment.text !== "string" || !segment.text.trim() || segment.text.length > 500) fail("INVALID_ARGUMENT");
+        previousEnd = segment.end;
+      }
+    } else if (input.segments !== undefined || input.voiceId !== undefined) fail("INVALID_ARGUMENT");
     if (input.kind === "pauses") {
       const index = state.project.visualSegments.findIndex(item => item.id === clip.id);
       if (key !== "visualSegments" || !canRemovePauses(clip, runtime.visualSegments[index - 1])) fail("AI_UNAVAILABLE");
@@ -73,7 +87,17 @@ export function createWebMcpAiJobs({ getEditor, capture, guard, publish = () => 
       check(controller.signal); guard(signal);
       if (capture().fingerprint !== state.fingerprint) fail("STALE_STATE");
       let operations;
-      if (input.kind === "captions") {
+      if (input.kind === "narration") {
+        if (!Array.isArray(output.assets) || output.assets.length !== input.segments.length || output.segments?.length !== output.assets.length) fail("AI_EMPTY_RESULT");
+        operations = output.assets.flatMap((asset, index) => {
+          const segment = output.segments[index];
+          if (!(asset.blob instanceof Blob) || !asset.blob.size || asset.type !== "audio" || !number(asset.duration, 0.001, clip.duration)
+            || !number(segment.start, timelineStart, timelineStart + clip.duration) || !number(segment.end, segment.start + 0.001, timelineStart + clip.duration)) fail("AI_EMPTY_RESULT");
+          const audioId = `agent-voice-${resultId}-${index}`;
+          return [{ type: "asset.insert", clipId: audioId, assetId: asset.id, track: "audio", start: segment.start, duration: asset.duration },
+            { type: "caption.add", clipId: `agent-caption-${resultId}-${index}`, text: segment.text, start: segment.start, end: segment.end }];
+        });
+      } else if (input.kind === "captions") {
         if (!Array.isArray(output.segments) || !output.segments.length || output.segments.length > 500) fail("AI_EMPTY_RESULT");
         operations = output.segments.map((segment, index) => {
           if (!number(segment.start, timelineStart, timelineStart + metadata.duration) || !number(segment.end, segment.start + 0.2, Math.min(MAX_TIMELINE_DURATION_SECONDS, timelineStart + metadata.duration)) || typeof segment.text !== "string" || !segment.text.trim() || segment.text.length > 20000) fail("AI_EMPTY_RESULT");
@@ -89,9 +113,68 @@ export function createWebMcpAiJobs({ getEditor, capture, guard, publish = () => 
         if (!(asset?.blob instanceof Blob) || !asset.blob.size || asset.type !== "video" || !number(asset.sourceDuration, 0.001, MAX_TIMELINE_DURATION_SECONDS) || Math.abs(asset.sourceDuration - (clip.sourceDuration || clip.duration * (clip.playbackRate || 1))) > 0.05) fail("AI_EMPTY_RESULT");
         operations = [{ type: "visual.replace_media", clipId: clip.id, resultId }];
       }
-      results.set(resultId, { kind: input.kind, fingerprint: state.fingerprint, clipId: clip.id, operations, asset: output.asset, review: output.review, candidates: output.candidates, inspected: input.kind !== "watermark" });
-      return { resultId, kind: input.kind, clipId: clip.id, operations, ...(output.candidates ? { cuts: output.candidates.map(cut => ({ start: timelineStart + cut.start, end: timelineStart + cut.end })), removedSeconds: output.candidates.reduce((sum, cut) => sum + cut.end - cut.start, 0), rippleEditing: Boolean(editor.rippleEditing) } : {}), needsVisualInspection: input.kind === "watermark", timing: input.kind === "pauses" ? "Remove only detected pauses in this inspected main clip; source audio follows, other tracks follow the current ripple mode." : input.kind === "captions" ? "Pause-estimated timeline seconds; review alignment. Singing may not be recognized." : "Original clip timing preserved; processed media source starts at zero.", ...(output.asset ? { asset: { name: output.asset.name, duration: output.asset.duration, width: output.asset.width, height: output.asset.height } } : {}) };
-    } catch (error) { if (output?.asset) editor.discardAiAsset?.(output.asset); throw error; } finally { signal?.removeEventListener("abort", abort); controllers.delete(controller); publish(null); }
+      results.set(resultId, { kind: input.kind, fingerprint: state.fingerprint, clipId: clip.id, operations, asset: output.asset, assets: output.assets, review: output.review, candidates: output.candidates, inspected: input.kind !== "watermark" });
+      return { resultId, kind: input.kind, clipId: clip.id, operations, ...(output.candidates ? { cuts: output.candidates.map(cut => ({ start: timelineStart + cut.start, end: timelineStart + cut.end })), removedSeconds: output.candidates.reduce((sum, cut) => sum + cut.end - cut.start, 0), rippleEditing: Boolean(editor.rippleEditing) } : {}), assets: (output.asset ? [output.asset] : []).map(asset => ({ assetId: asset.id, name: asset.name, type: asset.type })), needsVisualInspection: input.kind === "watermark", timing: input.kind === "narration" ? "Clip-relative slots; generated audio and captions use measured speech duration. Video duration unchanged." : input.kind === "pauses" ? "Remove only detected pauses in this inspected main clip; source audio follows, other tracks follow the current ripple mode." : input.kind === "captions" ? "Pause-estimated timeline seconds; review alignment. Singing may not be recognized." : "Original clip timing preserved; processed media source starts at zero.", ...(output.asset ? { asset: { name: output.asset.name, duration: output.asset.duration, width: output.asset.width, height: output.asset.height } } : {}) };
+    } catch (error) { for (const asset of output?.assets || (output?.asset ? [output.asset] : [])) editor.discardAiAsset?.(asset); throw error; } finally { signal?.removeEventListener("abort", abort); controllers.delete(controller); publish(null); }
+  };
+  const generateImage = async (input, signal) => {
+    if (Object.keys(input).some(key => !["stateToken", "prompt", "aspectRatio", "sourceAssetId"].includes(key)) || typeof input.prompt !== "string" || !input.prompt.trim() || input.prompt.length > 4000 || !["1:1", "16:9", "9:16"].includes(input.aspectRatio || "16:9")) fail("INVALID_ARGUMENT");
+    guard(signal, true); const state = capture();
+    if (state.stateToken !== input.stateToken) fail("STALE_STATE");
+    if (results.size >= 8) fail("AI_RESULT_LIMIT");
+    const editor = getEditor();
+    if (!editor.generateImage || !editor.aiSupport?.().image) fail("AI_UNAVAILABLE");
+    const sourceAsset = input.sourceAssetId === undefined ? null : [...(editor.assets || []), ...assets()].find(asset => asset.id === input.sourceAssetId);
+    if (input.sourceAssetId !== undefined && (typeof input.sourceAssetId !== "string" || sourceAsset?.type !== "image" || !(sourceAsset.blob instanceof Blob))) fail("ASSET_NOT_FOUND");
+    const controller = new AbortController(); const abort = () => controller.abort();
+    signal?.addEventListener("abort", abort, { once: true }); controllers.add(controller);
+    const resultId = makeId(); let output;
+    publish({ running: true, kind: "image", progress: null });
+    try {
+      output = await editor.generateImage({ ...input, sourceAsset, signal: controller.signal });
+      check(controller.signal); guard(signal);
+      if (capture().fingerprint !== state.fingerprint) fail("STALE_STATE");
+      if (!Array.isArray(output.assets) || !output.assets.length) fail("AI_EMPTY_RESULT");
+      results.set(resultId, { kind: "image", fingerprint: state.fingerprint, assets: output.assets, asset: output.assets[0], inspected: true });
+      return { resultId, assets: output.assets.map(asset => ({ assetId: asset.id, type: asset.type, name: asset.name, width: asset.width, height: asset.height })), note: "Generated media only; no timeline changes. Inspect using timeline_ai_result_frames, then use asset.insert in timeline_edit_preview only if the user asked for placement." };
+    } catch (error) { for (const asset of output?.assets || []) editor.discardAiAsset?.(asset); throw error; }
+    finally { signal?.removeEventListener("abort", abort); controllers.delete(controller); publish(null); }
+  };
+  const generateAnimation = async (input, signal) => {
+    if (!input || Object.keys(input).some(key => !["stateToken", "scene", "targetClipId"].includes(key))) fail("INVALID_ARGUMENT");
+    const scene = validateAnimationScene(input.scene);
+    guard(signal, true); const state = capture();
+    if (state.stateToken !== input.stateToken) fail("STALE_STATE");
+    if (results.size >= 8) fail("AI_RESULT_LIMIT");
+    const editor = getEditor();
+    if (!editor.generateAnimation || !editor.aiSupport?.().animation) fail("ANIMATION_UNAVAILABLE");
+    let target;
+    if (input.targetClipId !== undefined) {
+      if (typeof input.targetClipId !== "string") fail("INVALID_ARGUMENT");
+      const runtime = editor.getRuntimeProject?.() || editor;
+      const matches = ["visualSegments", "visualOverlaySegments"].flatMap(key => (runtime[key] || []).filter(clip => clip.id === input.targetClipId).map(clip => ({ key, clip })));
+      if (matches.length !== 1) fail("CLIP_NOT_FOUND");
+      target = matches[0];
+      const source = [...(editor.assets || []), ...assets()].find(asset => asset.id === target.clip.assetId);
+      if (source?.kind !== "generated-animation" || target.clip.type !== "video" || target.clip.speedCurve?.enabled || target.clip.reversed || target.clip.reverse || (target.clip.sourceStart || 0) > 0
+        || Math.abs(scene.duration - source.duration) > 1 / 30 || Math.abs((target.clip.sourceDuration || target.clip.duration) - source.duration) > 1 / 30) fail("INVALID_ARGUMENT");
+      if (state.project.trackLocks?.[target.key === "visualSegments" ? "image" : "overlay"]) fail("BROWSER_EDIT_TRACK_LOCKED");
+    }
+    const controller = new AbortController(), abort = () => controller.abort();
+    signal?.addEventListener("abort", abort, { once: true }); controllers.add(controller);
+    const resultId = makeId(); let output;
+    publish({ running: true, kind: "animation", progress: null });
+    try {
+      output = await editor.generateAnimation({ scene, signal: controller.signal, onProgress: value => publish({ running: true, kind: "animation", progress: Math.min(100, Math.max(0, Number(value.progress) || 0)) }) });
+      check(controller.signal); guard(signal);
+      if (capture().fingerprint !== state.fingerprint) fail("STALE_STATE");
+      const asset = output?.assets?.[0];
+      if (output?.assets?.length !== 1 || !(asset?.blob instanceof Blob) || !asset.blob.size || asset.type !== "video" || !number(asset.duration, 1, 20) || Math.abs(asset.duration - Math.round(scene.duration * 30) / 30) > 0.04) fail("AI_EMPTY_RESULT");
+      const operations = target ? [{ type: "visual.replace_media", clipId: target.clip.id, resultId }] : undefined;
+      results.set(resultId, { kind: "animation", fingerprint: state.fingerprint, clipId: target?.clip.id, operations, assets: output.assets, asset, inspected: false });
+      return { resultId, assets: [{ assetId: asset.id, type: asset.type, name: asset.name, width: asset.width, height: asset.height, duration: asset.duration, animationScene: scene }], ...(operations ? { operations } : {}), needsVisualInspection: true, note: "Rendered animation video, no timeline changes. Inspect timeline_ai_result_frames at visible content times. Save to My assets; only insert or replace when explicitly requested. For requested replacement use timeline_ai_preview with this resultId." };
+    } catch (error) { for (const asset of output?.assets || []) editor.discardAiAsset?.(asset); throw error; }
+    finally { signal?.removeEventListener("abort", abort); controllers.delete(controller); publish(null); }
   };
   const inspectFrames = async (input, signal) => {
     if (Object.keys(input).some(key => !["resultId", "times"].includes(key))) fail("INVALID_ARGUMENT");
@@ -111,16 +194,18 @@ export function createWebMcpAiJobs({ getEditor, capture, guard, publish = () => 
   const reset = () => {
     controllers.forEach(controller => controller.abort());
     const editor = getEditor();
-    for (const result of results.values()) if (result.asset && !editor.assets?.some(asset => asset.id === result.asset.id)) editor.discardAiAsset?.(result.asset);
+    for (const result of results.values()) for (const asset of result.assets || (result.asset ? [result.asset] : [])) if (!editor.assets?.some(item => item.id === asset.id)) editor.discardAiAsset?.(asset);
     results.clear();
   };
-  return { process, inspectFrames, preview, assets, reset, close: reset };
+  return { generateAnimation, generateImage, process, inspectFrames, preview, assets, reset, close: reset };
 }
 
 const id = { type: "string", minLength: 1, maxLength: 256 };
 const rect = { type: "object", additionalProperties: false, properties: Object.fromEntries(["x", "y", "width", "height"].map(key => [key, { type: "number", minimum: key === "width" || key === "height" ? 0.015 : 0, maximum: 1 }])), required: ["x", "y", "width", "height"] };
 const time = { type: "number", minimum: 0, maximum: MAX_TIMELINE_DURATION_SECONDS };
 const object = (properties, required) => ({ type: "object", additionalProperties: false, properties, required });
-export const AI_PROCESS_SCHEMA = object({ stateToken: id, clipId: id, kind: { type: "string", enum: ["captions", "watermark", "pauses"] }, minimum: { type: "number", minimum: 0.5, maximum: 5 }, keep: { type: "number", minimum: 0.3, maximum: 1 }, language: { type: "string", enum: languages }, targetLanguage: { type: "string", enum: languages }, regions: { type: "array", minItems: 1, maxItems: 20, items: object({ start: time, end: time, selection: rect, keyframes: { type: "array", maxItems: 100, items: object({ time, selection: rect }, ["time", "selection"]) } }, ["start", "end", "selection"]) } }, ["stateToken", "clipId", "kind"]);
+export const AI_PROCESS_SCHEMA = object({ stateToken: id, clipId: id, kind: { type: "string", enum: ["captions", "watermark", "pauses", "narration"] }, voiceId: { type: "string", enum: ["zh_f_qinglan", "zh_f_ruoxi"] }, segments: { type: "array", minItems: 1, maxItems: 12, items: object({ start: time, end: time, text: { type: "string", minLength: 1, maxLength: 500 } }, ["start", "end", "text"]) }, minimum: { type: "number", minimum: 0.5, maximum: 5 }, keep: { type: "number", minimum: 0.3, maximum: 1 }, language: { type: "string", enum: languages }, targetLanguage: { type: "string", enum: languages }, regions: { type: "array", minItems: 1, maxItems: 20, items: object({ start: time, end: time, selection: rect, keyframes: { type: "array", maxItems: 100, items: object({ time, selection: rect }, ["time", "selection"]) } }, ["start", "end", "selection"]) } }, ["stateToken", "clipId", "kind"]);
 export const AI_FRAMES_SCHEMA = object({ resultId: id, times: { type: "array", minItems: 1, maxItems: 6, items: time } }, ["resultId", "times"]);
 export const AI_PREVIEW_SCHEMA = object({ stateToken: id, resultId: id, summary: { type: "string", maxLength: 2000 } }, ["stateToken", "resultId"]);
+
+export const IMAGE_GENERATE_SCHEMA = object({ stateToken: id, prompt: { type: "string", minLength: 1, maxLength: 4000 }, sourceAssetId: id, aspectRatio: { type: "string", enum: ["1:1", "16:9", "9:16"] } }, ["stateToken", "prompt"]);

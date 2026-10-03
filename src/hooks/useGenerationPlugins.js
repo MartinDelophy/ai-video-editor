@@ -108,8 +108,8 @@ export function useGenerationPlugins({ imageUrlRefs, notify, setActiveTool, setM
     setJob(createIdleGenerationJob());
   }, [cancelProviderConnect, connections]);
 
-  const generateProvider = useCallback(async (providerId, request) => {
-    if (connections[providerId]?.state !== "connected" || activeJobRef.current) return;
+  const generateProvider = useCallback(async (providerId, request, readyConnection) => {
+    if ((readyConnection || connections[providerId])?.state !== "connected" || activeJobRef.current) return;
     const adapter = getGenerationAdapter(providerId);
     const controller = new AbortController();
     activeJobRef.current = { providerId, controller };
@@ -117,7 +117,7 @@ export function useGenerationPlugins({ imageUrlRefs, notify, setActiveTool, setM
     try {
       const result = await adapter.generate({
         request,
-        connection: connections[providerId],
+        connection: readyConnection || connections[providerId],
         signal: controller.signal,
         onState: (state) => {
           if (mountedRef.current && activeJobRef.current?.controller === controller) {
@@ -136,9 +136,11 @@ export function useGenerationPlugins({ imageUrlRefs, notify, setActiveTool, setM
         notify,
         setSelectedLibraryAssetId,
         setUserAssets,
+        shouldCommit: () => mountedRef.current && activeJobRef.current?.controller === controller && !controller.signal.aborted,
       });
       if (!mountedRef.current || activeJobRef.current?.controller !== controller) return;
       setJob({ state: "complete", providerId, progress: 100, message: "saved", assetId: committed.selectedAssetId });
+      return committed;
     } catch (error) {
       if (error?.name !== "AbortError" && mountedRef.current && activeJobRef.current?.controller === controller) {
         setJob({ state: "error", providerId, progress: null, message: error?.msg || error?.message || String(error), assetId: "" });

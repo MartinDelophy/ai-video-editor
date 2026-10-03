@@ -606,7 +606,26 @@ export async function writeAnnaCloudSessionPointer({ value, ifMatch, projectCata
  * Web Locks serialize first creation across windows in this browser. APS currently
  * has no atomic create-if-absent, so always read back the host's chosen value.
  */
+const sessionScopes = new WeakMap();
 export async function resolveAnnaSessionScope() {
+  const started = performance.now();
+  const runtime = await connectAnna();
+  performance.measure('anna-session-handshake', { start: started, end: performance.now() });
+  let pending = sessionScopes.get(runtime);
+  if (!pending) {
+    const reading = performance.now();
+    pending = readAnnaSessionScope().then(value => {
+      performance.measure('anna-session-namespace', { start: reading, end: performance.now() });
+      return value;
+    }).catch(error => {
+      sessionScopes.delete(runtime);
+      throw error;
+    });
+    sessionScopes.set(runtime, pending);
+  }
+  return pending;
+}
+async function readAnnaSessionScope() {
   const key = "timeline-studio/browser-session-namespace-v1";
   const read = async () => {
     try { return await hostCall("storage", "get", { key, scope: "app" }); }
@@ -787,7 +806,7 @@ export async function probeAnnaCompatibility({ signal, onResult } = {}) {
 /** ChatCut uses the existing host grant, with a browser-owned command loop. */
 export async function requestAnnaChatCompletion({ messages, catalog, language, signal }) {
   requireEdition();
-  const response = await hostCall("llm", "complete", {
+  const request = {
     systemPrompt: "You are Timeline Studio ChatCut. Reply only with one JSON object: "
       + '{"type":"message","text":"..."} OR {"type":"tool","name":"one catalog name","arguments":{...}}. '
       + "Use the tool catalog schemas exactly. Inspect relevant tracks/clips before proposing operations. "
@@ -798,14 +817,50 @@ export async function requestAnnaChatCompletion({ messages, catalog, language, s
       + "For edits, use the operations form of timeline_edit_preview. Common editing includes visual trim/split/reorder/insert, captions and audio volume/fades. Visual enhancement uses visual.configure patches (baseTransform coordinates are percentages, scale is a multiplier; colorGrade and glitch/beatShake use the documented ranges), and transition.set on a main clip with a following sibling. Inspect existing settings and preserve unrequested nested fields. Enabling an effect requires enabled:true; disabling uses enabled:false. Never mistake visual.configure for audio processing or AI analysis. For an edit use timeline_edit_preview with an accurate summary; the user applies it separately. Never claim a preview was applied. "
       + "Use source seconds versus timeline seconds according to the schemas. Preserve unrequested content and locked tracks. "
       + "Color grading must be shot-scoped. Read project.colorScopes and inspect target clips and their current colorGrade before editing. An explicit user clip/marker/range takes priority; otherwise use the selected visual clip. If no unambiguous target exists, ask which shots to grade; never default to the entire project. A range marker targets only its intersections, not every whole clip it touches; a point marker identifies the containing shot, not a guessed range. For partial main clips, use visual.split at clip-local boundaries and grade only the resulting in-range pieces; preserve duration, source mapping, audio, transitions and all outside portions. If splitAllowed/supported is false or a boundary violates minimum clip length, explain the limitation rather than widening the range. Overlays support whole-clip grade only. Sample multiple source frames within each target and a user-designated reference shot before choosing restrained temperature/tint/saturation and individual shadows/midtones/highlights/offset corrections. Reference shots are read-only unless explicitly targeted. Do not apply one identical grade to shots with different color casts; compare neutral surfaces, skin and exposure shot by shot. Use only colorGrade patches for grading, preserve every unrequested field and effect, and summarize exact target clip IDs/time intervals and reference. Never claim automatic histogram/color matching or temporal grade keyframes; those tools are not exposed. "
+      + "For requested video narration, inspect the selected clip and sample its source frames first. When aiProcessing.narration is true, use timeline_ai_process kind:narration with clipId, language zh or en, optional voiceId zh_f_qinglan or zh_f_ruoxi, and segments [{start,end,text}] in clip-relative timeline seconds. Use concise grounded narration fitting each slot. It generates real local Hojo speech plus captions; then use timeline_ai_preview. If AI_NARRATION_TOO_LONG, shorten the text and retry. Do not extend video or truncate speech. Do not substitute transcription for narration. "
+      + "The request may include generationCommand: image explicitly selects Anna image generation/editing, remotion explicitly selects structured Remotion animation. Follow that route and do not substitute another generator. referencedAssets maps the user-selected @「name」 references to exact asset IDs; inspect those real assets and use their identities rather than guessing from filenames. A media reference alone never authorizes a generation or timeline mutation. "
+      + "When the user requests a generated picture and aiProcessing.image is true, call timeline_image_generate with prompt and aspectRatio. For explicitly requested editing of an existing image, inspect it first and pass its sourceAssetId; the original is preserved and a new image is returned. This uses the Anna account image quota. Never generate repeatedly without an explicit user request. Inspect output using timeline_ai_result_frames. Generated assets appear in the conversation and My assets. If the user only requested generation, return a message without editing the timeline. For requested placement, inspect the visual track to count its clips, then call timeline_edit_preview with operations containing a single asset.insert with assetId=the returned assetId, clipId=a fresh unique ID for the NEW clip, track=visuals, atIndex=the clip count, duration=requested seconds and summary. Existing clip IDs must be real; insertion requires a new unique clipId rather than reusing an existing clip. For a main image insertion omit start, layer, transform, muted and sourceClipId entirely; do not fill unused fields with null. Do not claim photorealistic/platform video generation; no platform video API is exposed. Structured local animation is available separately through timeline_animation_generate when that capability is true. "
+      + "When aiProcessing.animation is true, use timeline_animation_generate for requested tables, bar charts, animated text and information cards, including requests to make these with HTML instead of AI images. This is local Remotion video rendering, not image-model or platform video generation. Never send executable HTML/JS/React/CSS: send a structured scene {kind,title,duration,aspectRatio,motion,accent,background,...}. table requires columns (1-4 short strings) and rows (1-8 rows, each matching the column count), optional rowColors (one #RRGGBB or null per row) for highlighted rows; chart requires items [{label,value,color?}] with nonnegative numeric values; text/cards require items [{label,detail?,color?}], cards at most 4 and others at most 8. Optional subtitle is short; colors are #RRGGBB; motion is reveal, fade or none. Duration is 1-20 seconds. Use the project aspect ratio unless requested otherwise. Ask for factual data when missing rather than inventing it. Read the returned duration and inspect result frames at roughly mid/end content times, not only time 0 when entry animation can be blank. Then, if placement was requested, use asset.insert with the returned video assetId and measured duration, visuals atIndex=the requested boundary (append uses actual clip count), or overlays with requested start/layer. Never insert when only generation was requested. For later edits inspect the asset's animationScene, modify that full scene and render a new asset. Explicit replacement of an untrimmed, fixed-speed generated animation can pass targetClipId with the same source duration; inspect frames then timeline_ai_preview applies that exact replacement. Otherwise keep the new asset and explain the replacement limitation without deleting existing clips. No arbitrary webpage capture or unrestricted custom animation code is supported. "
       + "Summaries describe the concrete edit only. Do not tell the user to apply edits or claim timeline application; the host reports application status separately. If a tool rejects an operation, correct it or explain the limitation honestly. No URLs, scripts or shell commands. "
-      + "Use plain text without Markdown in text and summary fields. Answer and summarize in " + String(language).slice(0, 20) + ". Tools: " + JSON.stringify(catalog),
+      + "Use concise Markdown in the text field when headings, lists, emphasis or fenced code improve readability; keep summary plain text. The outer response must remain valid JSON, with Markdown only inside the text string. Answer and summarize in " + String(language).slice(0, 20) + ". Tools: " + JSON.stringify(catalog),
     messages, maxTokens: 4096, temperature: 0.1,
-  }, { signal, timeoutMs: 90000 });
+  };
+  let response = await hostCall("llm", "complete", request, { signal, timeoutMs: 90000 });
   checkSignal(signal, { remoteMayContinue: true });
   if (response?.stopReason === "maxTokens") throw new AnnaRuntimeError("incomplete_plan");
-  const text = response?.content?.text;
-  if (typeof text !== "string" || text.length > 64000) throw new AnnaRuntimeError("invalid_plan");
-  try { return JSON.parse(text.trim().replace(/^```(?:json)?\s*([\s\S]*?)\s*```$/i, "$1")); }
-  catch { throw new AnnaRuntimeError("invalid_plan"); }
+  const parse = value => {
+    const text = value?.content?.text;
+    if (typeof text !== "string" || text.length > 64000) throw new AnnaRuntimeError("invalid_plan");
+    try { return JSON.parse(text.trim().replace(/^```(?:json)?\s*([\s\S]*?)\s*```$/i, "$1")); }
+    catch { throw new AnnaRuntimeError("invalid_plan"); }
+  };
+  try { return parse(response); }
+  catch (error) {
+    if (error.code !== "invalid_plan") throw error;
+    // Repair only the model envelope. No tool is executed until it parses and
+    // the caller validates its catalog entry and arguments.
+    response = await hostCall("llm", "complete", {
+      ...request,
+      messages: [...messages, { role: "user", content: [{ type: "text", text: 'Your previous response was not valid JSON. Return exactly one JSON object, no prose or Markdown: {"type":"tool","name":"one catalog name","arguments":{...}} to perform the request, or {"type":"message","text":"..."} if no tool is needed. Use the supplied catalog and project data. Do not claim any tool was executed by that invalid response.' }] }],
+    }, { signal, timeoutMs: 90000 });
+    checkSignal(signal, { remoteMayContinue: true });
+    if (response?.stopReason === "maxTokens") throw new AnnaRuntimeError("incomplete_plan");
+    return parse(response);
+  }
+}
+
+/** Host-managed credentials/quota; cancellation stops waiting, not provider billing. */
+export async function generateAnnaImage({ prompt, size, signal }) {
+  return hostCall("image", "generate", { prompt, size, n: 1 }, { signal, timeoutMs: 180000 });
+}
+
+export async function editAnnaImage({ prompt, blob, name, maskBlob, signal }) {
+  const file = await uploadAnnaFile({ blob, name, path: `${FILE_PREFIX}image-inputs/${crypto.randomUUID()}/${safeFilename(name, "image.png")}`, signal });
+  const download = await hostCall("files", "download_url", { path: file.path }, { signal });
+  let maskUrl;
+  if (maskBlob) {
+    const mask = await uploadAnnaFile({ blob: maskBlob, name: "mask.png", path: `${FILE_PREFIX}image-inputs/${crypto.randomUUID()}/mask.png`, signal });
+    maskUrl = (await hostCall("files", "download_url", { path: mask.path }, { signal })).get_url;
+  }
+  return hostCall("image", "edit", { prompt, image_url: download.get_url, ...(maskUrl ? { mask_url: maskUrl } : {}), n: 1 }, { signal, timeoutMs: 180000 });
 }

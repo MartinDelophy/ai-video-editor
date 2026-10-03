@@ -19,8 +19,8 @@ export const BROWSER_EDIT_TRIM_RULES = Object.freeze({
   description: "Reorder existing main-visual clips, or shorten plain 1× videos within their current source range. Curves, reverse, keyframes, transitions, subject effects and processed media cannot be trimmed by this service.",
 });
 
-function reject(code) {
-  throw Object.assign(new Error(code), { code });
+function reject(code, reason) {
+  throw Object.assign(new Error(code), { code, ...(reason ? { reason } : {}) });
 }
 
 // The fingerprint includes UI edits and undo, which do not increment the CLI revision.
@@ -388,7 +388,7 @@ function assetMap(assets = []) {
   for (const asset of assets) {
     const id = asset?.assetId || asset?.id;
     assertId(id);
-    if (entries.has(id)) reject("BROWSER_EDIT_INVALID_PLAN");
+    if (entries.has(id)) reject("BROWSER_EDIT_INVALID_PLAN", "duplicate_asset_identity");
     entries.set(id, asset);
   }
   return entries;
@@ -407,7 +407,9 @@ function assertClipUnlocked(project, clipId, originalLocks, originalAudioLanes) 
 function validateBrowserOperation(operation) {
   if (!operation || typeof operation !== "object" || Array.isArray(operation)) reject("BROWSER_EDIT_INVALID_PLAN");
   const fields = Object.hasOwn(BROWSER_OPERATION_FIELDS, operation.type) ? BROWSER_OPERATION_FIELDS[operation.type] : null;
-  if (!fields || Object.keys(operation).some((field) => field !== "type" && !fields.includes(field))) reject("BROWSER_EDIT_INVALID_PLAN");
+  if (!fields) reject("BROWSER_EDIT_INVALID_PLAN", "unsupported_operation_type");
+  const unsupported = Object.keys(operation).filter(field => field !== "type" && !fields.includes(field));
+  if (unsupported.length) reject("BROWSER_EDIT_INVALID_PLAN", `unsupported_fields:${unsupported.join(",")}`);
   for (const field of ["clipId", "sourceClipId", "newClipId", "rightClipId", "assetId", "audioClipId", "markerId"]) {
     if (Object.hasOwn(operation, field)) assertId(operation[field]);
   }
@@ -474,7 +476,7 @@ function prepareAssetOperation(operation, asset, project) {
   if (asset.type === "image" && Object.hasOwn(operation, "muted")) reject("BROWSER_EDIT_INVALID_PLAN");
   const irrelevantFields = track === "visuals" ? ["start", "layer", "transform"]
     : track === "overlays" ? ["atIndex"] : track === "audio" ? ["atIndex", "transform"] : ["atIndex", "transform", "layer"];
-  if (irrelevantFields.some((field) => Object.hasOwn(operation, field))) reject("BROWSER_EDIT_INVALID_PLAN");
+  if (irrelevantFields.some((field) => Object.hasOwn(operation, field))) reject("BROWSER_EDIT_INVALID_PLAN", `irrelevant_fields:${irrelevantFields.filter(field => Object.hasOwn(operation, field)).join(",")}`);
   const sourceStart = validSourceTime(Number(asset.sourceStart) || 0);
   const sourceDuration = asset.type === "image" ? 0 : validSourceTime(Number(asset.sourceDuration ?? asset.duration), MIN_VISUAL_SEGMENT_SECONDS);
   const duration = operation.duration ?? (asset.type === "image" ? Number(asset.duration) > 0 ? Number(asset.duration) : 4 : sourceDuration);
@@ -512,7 +514,7 @@ export function buildBrowserOperationReview(inputProject, response, options = {}
   const usedIds = new Set([...projectClipMap(original).keys(), ...(original.timelineMarkers || []).map((marker) => marker.id)]);
   const locks = original.trackLocks || {};
   const originalAudioLanes = audioLaneMap(original);
-  const reserve = (id) => { assertId(id); if (usedIds.has(id)) reject("BROWSER_EDIT_INVALID_PLAN"); usedIds.add(id); };
+  const reserve = (id) => { assertId(id); if (usedIds.has(id)) reject("BROWSER_EDIT_INVALID_PLAN", "clip_identity_already_exists"); usedIds.add(id); };
   const inherit = (id, sourceId) => { origins[id] = origins[sourceId] || { kind: "clip", id: sourceId }; };
   const commands = [];
   let next = structuredClone(original);
@@ -629,7 +631,7 @@ export function buildBrowserOperationReview(inputProject, response, options = {}
     }
     operation.id = `browser-${crypto.randomUUID()}-${index}`;
     const result = applyCommandPlan(next, { schemaVersion: 1, baseRevision: next.commandState?.revision || 0, operations: [operation] });
-    if (!result.ok) reject(result.code === "REVISION_CONFLICT" ? "BROWSER_EDIT_STALE_PLAN" : "BROWSER_EDIT_INVALID_PLAN");
+    if (!result.ok) reject(result.code === "REVISION_CONFLICT" ? "BROWSER_EDIT_STALE_PLAN" : "BROWSER_EDIT_INVALID_PLAN", `command:${result.code}`);
     next = completeBrowserProject(result.project);
     if (operation.type === "asset.insert" && operation.track === "audio") {
       const actualLane = getTimedSegmentLaneStateKey(next.audioSegments, operation.clipId);
@@ -717,7 +719,8 @@ export function restoreBrowserSegmentMedia(segments = [], originals = [], origin
     if (origin?.kind === "replacement") {
       restored.assetId = original.id;
       restored.archiveMediaId = clip.id;
-      restored.repair = { mode: "agent-video-repair", enabled: true, original: existing.repair?.original || { src: existing.src, blob: existing.blob, width: existing.width, height: existing.height, sourceStart: existing.sourceStart, sourceDuration: existing.sourceDuration, trackFrames: existing.trackFrames || [] }, processed: { src: original.src, blob: original.blob, width: original.width, height: original.height, sourceStart: 0, sourceDuration: original.sourceDuration, trackFrames: [] } };
+      if (original.kind === "generated-animation") delete restored.repair;
+      else restored.repair = { mode: "agent-video-repair", enabled: true, original: existing.repair?.original || { src: existing.src, blob: existing.blob, width: existing.width, height: existing.height, sourceStart: existing.sourceStart, sourceDuration: existing.sourceDuration, trackFrames: existing.trackFrames || [] }, processed: { src: original.src, blob: original.blob, width: original.width, height: original.height, sourceStart: 0, sourceDuration: original.sourceDuration, trackFrames: [] } };
     }
     if (!existing) {
       restored.assetId = original.assetId || (origin.kind === "asset" ? origin.id : "");

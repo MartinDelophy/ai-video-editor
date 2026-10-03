@@ -18,7 +18,8 @@ export function createEditorCommandActions(d) {
     d.setActiveTool(toolId);
     if (toolId !== "smart") d.setAvatarPanelOpen(false);
     if (toolId === "audio") {
-      d.setSelectedTrack("audio");
+      const video = d.selectedTrack === "overlay" ? d.selectedVisualOverlay : d.selectedTrack === "image" ? d.selectedVisualSegment : null;
+      if (video?.type !== "video") d.setSelectedTrack("audio");
       d.setVoiceTab("synthesis");
     }
     if (toolId === "media") d.setSelectedTrack("image");

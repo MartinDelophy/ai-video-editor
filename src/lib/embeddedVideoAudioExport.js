@@ -26,6 +26,8 @@ export function createEmbeddedVideoAudioSegments(visualSegments = [], audioAsset
       playbackRate,
       speedCurve: segment.speedCurve,
       volume: Math.max(0, Math.min(4, segment.volume ?? 1)),
+      spatialEffect: segment.spatialEffect,
+      spatialAmount: segment.spatialAmount,
     }];
   });
 }

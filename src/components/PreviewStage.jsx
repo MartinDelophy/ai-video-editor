@@ -86,7 +86,7 @@ function VisualOverlayMedia({ overlay, src, style, isPlaying, localTime }) {
       if (Number.isFinite(video.duration) && Math.abs(video.currentTime - sourceTime) > (isPlaying ? 0.12 : 0.001)) {
         video.currentTime = Math.min(sourceTime, Math.max(0, video.duration - 0.01));
       }
-      setTimelineAudioGain(video, overlay.volume ?? 1);
+      setTimelineAudioGain(video, overlay.volume ?? 1, overlay.spatialEffect, overlay.spatialAmount);
       if (isPlaying) requestTimelineMediaPlay(video);
       else video.pause();
     };

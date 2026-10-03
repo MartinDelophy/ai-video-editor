@@ -1724,8 +1724,8 @@ export async function exportBrowserVideo({
           sourceDuration: Math.max(0, segment.sourceDuration || 0),
           playbackRate: normalizeVisualPlaybackRate(segment.playbackRate),
           outputDuration: Math.max(0, segment.duration || 0),
-          spatialEffect: sourceAudioSpatialEffect,
-          spatialAmount: sourceAudioSpatialAmount,
+          spatialEffect: segment.spatialEffect ?? sourceAudioSpatialEffect,
+          spatialAmount: segment.spatialAmount ?? sourceAudioSpatialAmount,
         }))
       : sourceAudioBlob
         ? [{ blob: sourceAudioBlob, volume: sourceAudioVolume, role: "source", start: Math.max(0, sourceAudioStart || 0), spatialEffect: sourceAudioSpatialEffect, spatialAmount: sourceAudioSpatialAmount }]

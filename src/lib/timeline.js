@@ -75,6 +75,8 @@ export function getVisualAssetPayload(asset) {
     blob: asset.blob ?? null,
     compatibilityAudioBlob: asset.compatibilityAudioBlob ?? null,
     volume: Math.max(0, Math.min(4, Number(asset.volume ?? 1))),
+    spatialEffect: asset.spatialEffect ?? "original",
+    spatialAmount: asset.spatialAmount ?? 1,
     audioSeparated: asset.audioSeparated === true,
     width: asset.width ?? asset.naturalWidth ?? 0,
     height: asset.height ?? asset.naturalHeight ?? 0,

@@ -1,5 +1,6 @@
 import {
   Aperture,
+  Sun,
   CaretRight,
   Check,
   CircleNotch,
@@ -406,10 +407,7 @@ function CinematicDepthEffectCard({ t, active, analysis, running, progress, onCl
           src={depthMap && analysis?.samples?.length ? analysis.samples[0].depthUrl : previewing ? CINEMATIC_DEPTH_PREVIEW_HOVER : CINEMATIC_DEPTH_PREVIEW_STILL}
           alt=""
         />}
-        <span className="subject-outline-entry-preview-state">
-          <Aperture size={13} weight="fill" />
-          {depthMap ? t("depthMapTitle") : previewing ? t("depthPreviewApplied") : t("effectPreviewHover")}
-        </span>
+
         {running ? <span className="subject-outline-entry-progress"><i style={{ width: `${Math.round(progress || 0)}%` }} /></span> : null}
       </span>
       <span className="subject-outline-entry-footer">
@@ -740,6 +738,7 @@ export function SubjectEffectsWorkspace({
   faceSwapActive = false,
   opticalFlowActive = false,
   cinematicDepthActive = false,
+  relightActive = false,
   cinematicDepthAnalysis = null,
   cinematicDepthRunning = false,
   cinematicDepthProgress = 0,
@@ -810,13 +809,17 @@ export function SubjectEffectsWorkspace({
         />
         <FaceSwapEffectCard t={t} active={faceSwapActive} onClick={onOpenFaceSwap} />
         <OpticalFlowEffectCard t={t} active={opticalFlowActive} onClick={onOpenOpticalFlow} />
+        <button type="button" className={`subject-outline-entry relight-entry ${relightActive ? "is-active" : ""}`} onClick={() => onOpenCinematicDepth?.("relight")}>
+          <div className="subject-outline-entry-preview relight-entry-art"><img src="/assets/effects/relight-position.png" alt="" /><Sun size={25} weight="duotone" /></div>
+          <span className="subject-outline-entry-footer"><span className="subject-outline-entry-copy"><strong>{t("relightTitle")}</strong><small>{t("relightDescription")}</small></span><span className="subject-outline-entry-state"><CaretRight size={18} /></span></span>
+        </button>
         <CinematicDepthEffectCard
           t={t}
           active={cinematicDepthActive}
           analysis={cinematicDepthAnalysis}
           running={cinematicDepthRunning}
           progress={cinematicDepthProgress}
-          onClick={onOpenCinematicDepth}
+          onClick={() => onOpenCinematicDepth?.("cinematic-depth")}
         />
         <CinematicDepthEffectCard t={t} depthMap
           analysis={cinematicDepthAnalysis} running={cinematicDepthRunning} progress={cinematicDepthProgress}

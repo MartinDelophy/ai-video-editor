@@ -1,3 +1,4 @@
+import { RelightingPanel } from "./RelightingPanel.jsx";
 import { Aperture, CheckCircle, CircleNotch, Eye, EyeSlash, X } from "@phosphor-icons/react";
 
 import { normalizeCinematicDepth } from "../lib/depthOfField.js";
@@ -12,13 +13,22 @@ function DepthRange({ label, value, min, max, step, display, low, high, onChange
   );
 }
 
-export function CinematicDepthPanel({ t, segment, analysis, job, onAnalyze, onCancel, onChange, depthMap = false }) {
+export function CinematicDepthPanel({ t, segment, analysis, job, onAnalyze, onCancel, onChange, depthMap = false, relight = false }) {
   const effect = normalizeCinematicDepth(segment?.cinematicDepth);
   const preview = analysis?.samples?.[Math.max(0, analysis.samples.length - 1)] || null;
   const running = Boolean(job?.running);
   const analyzed = analysis?.complete === true;
   const output = depthMap ? "depth-map" : "cinematic";
-  const update = (patch) => onChange?.({ ...effect, output, ...patch });
+  const update = (patch) => {
+    const adjustsPreview = ["focus", "focusRange", "blur", "highlightBoost", "inverted"]
+      .some((key) => Object.hasOwn(patch, key));
+    // Editing an analyzed effect should immediately audition that edit, even
+    // when its previous mode was disabled. An explicit toggle remains final.
+    const enabled = adjustsPreview && analyzed && !running ? true : effect.enabled;
+    onChange?.({ ...effect, output, enabled, ...patch });
+  };
+
+  if (relight) return <RelightingPanel {...{ t, segment, analysis, job, onAnalyze, onCancel, onChange }} />;
 
   return (
     <div className="cinematic-depth-panel">

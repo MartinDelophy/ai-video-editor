@@ -1544,7 +1544,7 @@ export function VoicePanel({
   const isSilenceRemovalContext = isSmartContext && smartMode === "remove-pauses";
   const isFaceSwapContext = isEffectsContext && effectsPanelMode === "face-swap";
   const isOpticalFlowContext = isEffectsContext && effectsPanelMode === "vector-tracking";
-  const isCinematicDepthContext = isEffectsContext && ["cinematic-depth", "depth-map"].includes(effectsPanelMode);
+  const isCinematicDepthContext = isEffectsContext && ["cinematic-depth", "depth-map", "relight"].includes(effectsPanelMode);
   const isPhotoParallaxContext = isEffectsContext && effectsPanelMode === "photo-parallax";
   const isClickRippleContext = isEffectsContext && effectsPanelMode === "click-ripple";
   const audioPropertySegment = selectedTrack === "audio" ? selectedAudioSegment : selectedTrackAudioSegment;
@@ -1594,7 +1594,7 @@ export function VoicePanel({
     background: t("effectBackground"),
     edge: t("effectEdgeCleanup"),
   }[mobileInspectorSection];
-  const title = focusedSectionTitle || (isSilenceRemovalContext ? t("pauseTitle") : isPluginsContext ? getPluginCopy(uiLanguage).title : isFaceSwapContext ? t("faceSwapTitle") : isOpticalFlowContext ? t("effectVectorTracking") : isCinematicDepthContext ? t(effectsPanelMode === "depth-map" ? "depthMapTitle" : "depthTitle") : isPhotoParallaxContext ? t("parallaxTitle") : isEffectsContext ? t("effectProperties") : isAiMusicContext ? (AI_MUSIC_COPY[uiLanguage] || AI_MUSIC_COPY.en).title : isSmartAutoContext ? t("smartAutoEdit") : isSmartFrameContext ? t("smartFrame") : isAvatarContext ? t("avatarTitle") : isVectorOverlay || isVectorVisual ? t("vectorProperties", "矢量图形") : isOverlayContext ? t("pictureInPicture", "画中画") : isStickerContext ? t("stickerProperties") : isVisualContext ? t("visualPanelTitle") : isCaptionContext ? t("caption") : isAudioClipContext ? t("audioClipProperties") : t("aiVoice"));
+  const title = focusedSectionTitle || (isSilenceRemovalContext ? t("pauseTitle") : isPluginsContext ? getPluginCopy(uiLanguage).title : isFaceSwapContext ? t("faceSwapTitle") : isOpticalFlowContext ? t("effectVectorTracking") : isCinematicDepthContext ? t(effectsPanelMode === "relight" ? "relightTitle" : effectsPanelMode === "depth-map" ? "depthMapTitle" : "depthTitle") : isPhotoParallaxContext ? t("parallaxTitle") : isEffectsContext ? t("effectProperties") : isAiMusicContext ? (AI_MUSIC_COPY[uiLanguage] || AI_MUSIC_COPY.en).title : isSmartAutoContext ? t("smartAutoEdit") : isSmartFrameContext ? t("smartFrame") : isAvatarContext ? t("avatarTitle") : isVectorOverlay || isVectorVisual ? t("vectorProperties", "矢量图形") : isOverlayContext ? t("pictureInPicture", "画中画") : isStickerContext ? t("stickerProperties") : isVisualContext ? t("visualPanelTitle") : isCaptionContext ? t("caption") : isAudioClipContext ? t("audioClipProperties") : t("aiVoice"));
   const panelStatusText = isSilenceRemovalContext ? t("pauseHint") : isFaceSwapContext
     ? faceSwap?.job?.running ? `${faceSwap.job.progress}%` : hasVisual ? t("smartVisualReady") : t("smartWaitingVisual")
     : isOpticalFlowContext ? t("effectFlowExperimental")
@@ -1653,7 +1653,7 @@ export function VoicePanel({
   }, [activeTool, smartMode]);
 
   return (
-    <aside ref={panelRef} className={`voice-panel ${isCaptionContext ? "is-caption-context" : ""} ${isAvatarContext ? "is-avatar-context" : ""} ${isAudioClipContext ? "is-audio-clip-context" : ""} ${isStickerContext ? "is-sticker-context" : ""} ${isVisualContext ? "is-visual-context" : ""} ${isEffectsContext ? "is-effects-context" : ""} ${isPluginsContext ? "is-plugins-context" : ""} ${isVectorOverlay ? "is-vector-overlay-context" : ""} ${mobileInspectorSection ? "is-focused-mobile-section" : ""}`}>
+    <aside ref={panelRef} className={`voice-panel ${isCaptionContext ? "is-caption-context" : ""} ${isAvatarContext ? "is-avatar-context" : ""} ${isAudioClipContext ? "is-audio-clip-context" : ""} ${isStickerContext ? "is-sticker-context" : ""} ${isVisualContext ? "is-visual-context" : ""} ${isEffectsContext ? "is-effects-context" : ""} ${isCinematicDepthContext && effectsPanelMode === "relight" ? "is-relight-context" : ""} ${isPluginsContext ? "is-plugins-context" : ""} ${isVectorOverlay ? "is-vector-overlay-context" : ""} ${mobileInspectorSection ? "is-focused-mobile-section" : ""}`}>
       {mobileInspectorSection ? <header className="focused-mobile-sheet-header"><strong>{title}</strong><button type="button" aria-label={t("close", "关闭")} onClick={onCloseMobileInspector}><X size={20} /></button></header> : null}
       <div className="panel-title-row">
         <h1>{title}</h1>
@@ -1730,6 +1730,7 @@ export function VoicePanel({
           onAssetReady={onOpticalFlowAssetReady}
         /> : null}
         {isCinematicDepthContext ? <CinematicDepthPanel
+          relight={effectsPanelMode === "relight"}
           depthMap={effectsPanelMode === "depth-map"}
           t={t}
           segment={effectSegment}

@@ -1,3 +1,4 @@
+import { useRelightCompare } from "../lib/videoRelighting.js";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
@@ -71,12 +72,14 @@ function VisualOverlayMedia({ overlay, src, style, isPlaying, localTime }) {
   const videoRef = useRef(null);
   const imageRef = useRef(null);
   const canvasRef = useRef(null);
-  const depthEffect = useMemo(() => normalizeCinematicDepth(overlay.cinematicDepth), [overlay.cinematicDepth]);
+  const comparing = useRelightCompare(overlay.id);
+  const depthEffect = useMemo(() => normalizeCinematicDepth({ ...overlay.cinematicDepth, enabled: comparing && overlay.cinematicDepth?.output === "relight" ? false : overlay.cinematicDepth?.enabled }), [overlay.cinematicDepth, comparing]);
   const parallaxEffect = useMemo(() => normalizePhotoParallax(overlay.photoParallax), [overlay.photoParallax]);
   const depthUrl = overlay.depthAnalysis?.depthUrl || "";
   const depthActive = depthEffect.enabled && Boolean(depthUrl);
   const parallaxActive = overlay.type === "image" && parallaxEffect.enabled && Boolean(depthUrl);
   const depthRenderActive = parallaxActive || depthActive;
+  const [decodedFrameRevision, setDecodedFrameRevision] = useState(0);
   useEffect(() => {
     const video = videoRef.current;
     if (!video || overlay.type !== "video") return;
@@ -102,21 +105,21 @@ function VisualOverlayMedia({ overlay, src, style, isPlaying, localTime }) {
       if (canceled) return;
       const canvas = canvasRef.current;
       const source = overlay.type === "video" ? videoRef.current : imageRef.current;
-      if (!canvas || !source) return;
+      if (!canvas || !source || source.seeking) return;
       const rect = canvas.getBoundingClientRect();
       const width = Math.max(2, Math.round(rect.width * Math.max(1, window.devicePixelRatio || 1)));
       const height = Math.max(2, Math.round(rect.height * Math.max(1, window.devicePixelRatio || 1)));
       if (canvas.width !== width) canvas.width = width;
       if (canvas.height !== height) canvas.height = height;
       const context = canvas.getContext("2d", { alpha: true });
-      if (parallaxActive && !(depthEffect.enabled && depthEffect.output === "depth-map")) drawPhotoParallaxFrame(context, source, canvas, { effect: parallaxEffect, depthVisual: depthImage, fitMode: "contain", filter: style?.filter, time: localTime });
+      if (parallaxActive && !(depthEffect.enabled && depthEffect.output !== "cinematic")) drawPhotoParallaxFrame(context, source, canvas, { effect: parallaxEffect, depthVisual: depthImage, fitMode: "contain", filter: style?.filter, time: localTime });
       else drawCinematicDepthFrame(context, source, canvas, { effect: depthEffect, ...depthFrame, depthVisual: depthImage, fitMode: "contain", filter: style?.filter });
     }).catch(() => {});
     return () => { canceled = true; };
-  }, [depthEffect, depthRenderActive, depthUrl, overlay.depthAnalysis?.nextDepthUrl, overlay.depthAnalysis?.depthMix, localTime, overlay.type, parallaxActive, parallaxEffect, style?.filter]);
+  }, [depthEffect, depthRenderActive, depthUrl, overlay.depthAnalysis?.nextDepthUrl, overlay.depthAnalysis?.depthMix, localTime, overlay.type, parallaxActive, parallaxEffect, style?.filter, decodedFrameRevision]);
   return <>
     {overlay.type === "video"
-      ? <video ref={videoRef} src={src} crossOrigin="anonymous" muted={overlay.muted === true} playsInline preload="metadata" style={{ ...style, opacity: depthRenderActive ? 0 : style?.opacity }} />
+      ? <video ref={videoRef} onSeeked={() => setDecodedFrameRevision((revision) => revision + 1)} onLoadedData={() => setDecodedFrameRevision((revision) => revision + 1)} src={src} crossOrigin="anonymous" muted={overlay.muted === true} playsInline preload="metadata" style={{ ...style, opacity: depthRenderActive ? 0 : style?.opacity }} />
       : <img ref={imageRef} src={src} alt="" crossOrigin="anonymous" draggable={false} style={{ ...style, opacity: depthRenderActive ? 0 : style?.opacity }} />}
     {depthRenderActive ? <canvas ref={canvasRef} className="cinematic-depth-preview-canvas photo-parallax-preview-canvas" /> : null}
   </>;
@@ -203,6 +206,7 @@ export function PreviewStage({
   const smartBackgroundVideoRef = useRef(null);
   const depthCanvasRef = useRef(null);
   const lastReportedVideoTimeRef = useRef(-Infinity);
+  const [decodedFrameRevision, setDecodedFrameRevision] = useState(0);
   const [isFocusPreviewOpen, setIsFocusPreviewOpen] = useState(false);
   const [focusPreviewFrameSize, setFocusPreviewFrameSize] = useState({ width: 0, height: 0 });
   const [previewRatioWidth, previewRatioHeight] = String(previewRatio).split("/").map((value) => Number(value.trim()));
@@ -237,7 +241,8 @@ export function PreviewStage({
     [resolvedColorGrade, selectedFilter.css],
   );
   const normalizedSubjectEffect = normalizeSubjectEffect(subjectEffect);
-  const normalizedCinematicDepth = useMemo(() => normalizeCinematicDepth(cinematicDepth), [cinematicDepth]);
+  const comparing = useRelightCompare(visualEffects?.id);
+  const normalizedCinematicDepth = useMemo(() => normalizeCinematicDepth({ ...cinematicDepth, enabled: comparing && cinematicDepth?.output === "relight" ? false : cinematicDepth?.enabled }), [cinematicDepth, comparing]);
   const cinematicDepthActive = normalizedCinematicDepth.enabled && Boolean(depthAnalysis?.depthUrl);
   const normalizedPhotoParallax = useMemo(() => normalizePhotoParallax(photoParallax), [photoParallax]);
   const photoParallaxActive = previewVisualType === "image" && normalizedPhotoParallax.enabled && Boolean(depthAnalysis?.depthUrl);
@@ -324,13 +329,13 @@ export function PreviewStage({
       if (canceled) return;
       const canvas = depthCanvasRef.current;
       const source = previewVisualType === "video" ? previewVideoRef.current : previewImageRef.current;
-      if (!canvas || !source) return;
+      if (!canvas || !source || source.seeking) return;
       const width = Math.max(2, Math.round(frameWidth * previewPixelRatio));
       const height = Math.max(2, Math.round(frameHeight * previewPixelRatio));
       if (canvas.width !== width) canvas.width = width;
       if (canvas.height !== height) canvas.height = height;
       const context = canvas.getContext("2d", { alpha: true });
-      if (photoParallaxActive && !(normalizedCinematicDepth.enabled && normalizedCinematicDepth.output === "depth-map")) drawPhotoParallaxFrame(context, source, canvas, {
+      if (photoParallaxActive && !(normalizedCinematicDepth.enabled && normalizedCinematicDepth.output !== "cinematic")) drawPhotoParallaxFrame(context, source, canvas, {
         effect: normalizedPhotoParallax,
         depthVisual: depthImage,
         fitMode: activeObjectFit,
@@ -346,7 +351,7 @@ export function PreviewStage({
       });
     }).catch(() => {});
     return () => { canceled = true; };
-  }, [activeObjectFit, depthAnalysis?.depthUrl, depthAnalysis?.nextDepthUrl, depthAnalysis?.depthMix, depthRenderActive, frameHeight, frameWidth, normalizedCinematicDepth, normalizedPhotoParallax, photoParallaxActive, previewPixelRatio, previewVideoRef, previewVisualType, selectedFilterCss, visualLocalTime]);
+  }, [activeObjectFit, depthAnalysis?.depthUrl, depthAnalysis?.nextDepthUrl, depthAnalysis?.depthMix, depthRenderActive, frameHeight, frameWidth, normalizedCinematicDepth, normalizedPhotoParallax, photoParallaxActive, previewPixelRatio, previewVideoRef, previewVisualType, selectedFilterCss, visualLocalTime, decodedFrameRevision]);
   const startMaskEdit = (event, mode) => {
     const frame = previewCanvasRef.current;
     if (!frame || !onUpdateVisualMask) return;
@@ -545,6 +550,7 @@ export function PreviewStage({
     const handleVideoFrame = (_now, metadata) => {
       const mediaTime = Number.isFinite(metadata?.mediaTime) ? metadata.mediaTime : video.currentTime;
       if (Math.abs(mediaTime - lastReportedVideoTimeRef.current) >= 1 / 12) {
+        setDecodedFrameRevision((revision) => revision + 1);
         lastReportedVideoTimeRef.current = mediaTime;
         onPreviewVideoTimeUpdate?.(mediaTime);
       }
@@ -742,6 +748,7 @@ export function PreviewStage({
                     onPreviewVideoTimeUpdate?.(event.currentTarget.currentTime);
                   }}
                   onSeeked={(event) => {
+                    setDecodedFrameRevision((revision) => revision + 1);
                     syncSmartBackgroundVideo(event.currentTarget);
                     lastReportedVideoTimeRef.current = event.currentTarget.currentTime;
                     onPreviewVideoTimeUpdate?.(event.currentTarget.currentTime);

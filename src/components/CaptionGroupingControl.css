@@ -6,9 +6,46 @@
   font-size: 12px;
   margin: 8px 0;
 }
-.caption-grouping-control select {
+.caption-grouping-select {
+  position: relative;
+  min-width: 0;
+}
+.caption-grouping-select > svg {
+  position: absolute;
+  top: 50%;
+  right: 10px;
+  transform: translateY(-50%);
+  color: #91a5ad;
+  pointer-events: none;
+}
+.caption-grouping-control .caption-grouping-select select {
   width: 100%;
   min-width: 0;
-  min-height: 36px;
+  height: 36px;
+  box-sizing: border-box;
+  appearance: none;
+  -webkit-appearance: none;
+  border: 1px solid rgba(255, 255, 255, .1);
+  border-radius: 7px;
+  padding: 0 34px 0 10px;
+  color: #e8f2f3;
+  background: #10171d;
   font: inherit;
+  cursor: pointer;
+  outline: none;
+}
+.caption-grouping-select select:hover:not(:disabled) {
+  border-color: rgba(53, 234, 217, .35);
+}
+.caption-grouping-select select:focus-visible {
+  border-color: #35ead9;
+  box-shadow: 0 0 0 2px rgba(53, 234, 217, .15);
+}
+.caption-grouping-select select:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+}
+.caption-grouping-select option {
+  color: #e8f2f3;
+  background: #10171d;
 }

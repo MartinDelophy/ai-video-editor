@@ -2058,7 +2058,7 @@ export function VisualEffectsPanel({
     isOverlay,
     hasVectorEditor: Boolean(vectorEditor),
     isMobile: isMobileFocusedSection,
-  }).concat(isVideo && audioEditor ? ["audio"] : []).map((id) => [id, tabLabels[id]]);
+  }).concat(isMobileFocusedSection && isVideo && audioEditor ? ["audio"] : []).map((id) => [id, tabLabels[id]]);
   const updateTabEdges = useCallback(() => {
     const node = tabsRef.current;
     if (!node) return;

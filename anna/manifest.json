@@ -1,6 +1,13 @@
 {
   "schema": 2,
-  "required_executas": [],
+  "required_executas": [
+    {
+      "tool_id": "bundled:timeline-project-tools"
+    },
+    {
+      "tool_id": "bundled:timeline-editing-skill"
+    }
+  ],
   "optional_executas": [],
   "permissions": [
     "llm.complete",
@@ -14,7 +21,7 @@
     "aps.kv",
     "aps.files"
   ],
-  "system_prompt_addendum": "Open the main Timeline Studio view when the user wants to edit a video. The user imports media in the app, describes an edit, receives completed edits applied automatically to the editable timeline with undo and on-demand change review, and exports. Do not claim that a video was rendered, exported, saved, or uploaded until the app reports that outcome. Never invent source assets or claim to have analyzed media when only metadata was provided.",
+  "system_prompt_addendum": "Open the main Timeline Studio view when the user wants to edit a video. The user imports media in the app, describes an edit, receives completed edits applied automatically to the editable timeline with undo and on-demand change review, and exports. Do not claim that a video was rendered, exported, saved, or uploaded until the app reports that outcome. Never invent source assets or claim to have analyzed media when only metadata was provided. For a read-only summary of the currently open editor, call open_app_view with the installed app numeric app_id (Timeline Studio is 254 on anna.partners), view main, and payload.timelineStudioRequest = {schemaVersion:1, requestId: a fresh 8-80 character alphanumeric/hyphen/underscore ID, method:\"project.inspect\", issuedAt: current Unix time in milliseconds}. Await the correlated app_event chat artifact; opening a window is not inspection success. The bridge returns summary counts and duration only, never private media or caption text, and cannot apply edits. Never reuse expired requests.",
   "tags": [
     "video",
     "editing",
@@ -87,6 +94,9 @@
       "image": [
         "generate",
         "edit"
+      ],
+      "chat": [
+        "append_artifact"
       ]
     },
     "csp_overrides": {

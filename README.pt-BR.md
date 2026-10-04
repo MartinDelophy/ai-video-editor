@@ -19,11 +19,11 @@ O usuário é o único responsável por quaisquer consequências legais decorren
 
 ## Novidades do projeto
 
+- **2026-10-04** — Anna adiciona ferramentas e um Skill para inspecionar, pré-visualizar e criar cópias .timeline editadas. O primeiro pacote nativo suporta macOS Apple Silicon; a edição ao vivo permanece separada.
 - **2026-10-03** — Vídeos principais e em picture-in-picture permitem ajustar o volume e os efeitos espaciais por clipe sem separar o áudio. As configurações são salvas no projeto e aplicadas à prévia e à exportação.
 - **2026-10-02 — Anna aplica automaticamente as edições concluídas do ChatCut, com Desfazer e Ver alterações na conversa. Um selo HOT ciano destaca o recurso; a recuperação exibe o projeto antes de reconstruir as ondas ausentes em segundo plano.**
 - **2026-10-02 — O ChatCut da Anna adiciona transformações, rodas de cor, glitch, tremor rítmico e transições aos cortes, legendas e áudio. As alterações passam por revisão e podem ser desfeitas.** O agente também processa legendas automáticas e remove marcas de vídeo, inspeciona o resultado e prepara legendas sincronizadas ou substituição de clipes para revisão. Smart inclui Remover pausas; ChatCut detecta pausas localmente no trecho selecionado e prepara cortes sincronizados para revisão e desfazer.
 - **2026-10-02 — Anna muda para armazenamento na nuvem quando falta espaço local, com restauração ao recarregar e tentativas protegidas contra conflitos.** A restauração local reutiliza formas de onda salvas e divide os cálculos ausentes para reduzir bloqueios da interface. Formas de onda longas desenham apenas a área visível para evitar limites do canvas.
-- **2026-10-02 — Anna adiciona legendas automáticas conforme o ambiente, com edição, cancelamento e tempos estimados pelas pausas. Saída bilíngue quando o modelo de tradução está pronto.**
 
 Consulte o [Roadmap](ROADMAP.md) para o trabalho planejado, [Releases](https://github.com/MartinDelophy/ai-video-editor/releases) para mudanças publicadas e [Issues](https://github.com/MartinDelophy/ai-video-editor/issues) para tarefas e erros.
 

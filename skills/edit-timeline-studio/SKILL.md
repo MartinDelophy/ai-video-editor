@@ -7,6 +7,10 @@ description: Analyze images, video, speech, motion, products, and websites; rout
 
 Turn the user's exact editorial request and media into reversible Timeline Studio edits. Keep the editable timeline as the source of truth; never replace it with an opaque one-shot render.
 
+## Anna bundled project tools
+
+For Anna project-file calls, follow [anna/SKILL.md](anna/SKILL.md). The Executa wraps the same command runner and requires inspection plus an exact diff receipt before creating a new archive. Its initial native distribution is macOS Apple Silicon; it does not expose the current private browser project or browser AI. Keep this distinct from the native browser WebMCP route.
+
 ## Choose the execution path
 
 When the user is working in an already open Timeline Studio project, prefer its native browser WebMCP tools if the host exposes them. Read [references/webmcp-integration.md](references/webmcp-integration.md): inspect the live state, preview the complete supported edit, review its semantic diff, then apply the returned `previewId`. This route shares the visible editor and differs from the local project-file workflow below. It does not add a remote MCP server or grant permission to upload media.

@@ -19,11 +19,11 @@ Người dùng tự chịu mọi trách nhiệm pháp lý phát sinh từ việc
 
 ## Cập nhật dự án
 
+- **2026-10-04** — Anna bổ sung công cụ và Skill để kiểm tra, xem trước và tạo bản sao .timeline đã chỉnh sửa. Gói native đầu tiên hỗ trợ macOS Apple Silicon; chỉnh sửa trực tiếp vẫn là luồng riêng.
 - **2026-10-03** — Video chính và video hình trong hình hỗ trợ âm lượng và hiệu ứng không gian cho từng đoạn mà không cần tách âm thanh. Cài đặt được lưu cùng dự án và áp dụng khi xem trước và xuất.
 - **2026-10-02 — Anna tự áp dụng chỉnh sửa ChatCut đã hoàn tất, hỗ trợ hoàn tác và xem thay đổi trong hội thoại. Nhãn HOT xanh ngọc làm nổi bật tính năng; khi khôi phục, dự án hiển thị trước rồi bổ sung dạng sóng còn thiếu ở nền.**
 - **2026-10-02 — ChatCut của Anna bổ sung biến đổi hình ảnh, bánh xe màu, glitch, rung theo nhịp và chuyển cảnh bên cạnh cắt, phụ đề và âm thanh. Có thể xem xét thay đổi trước khi áp dụng và hoàn tác.** Agent cũng xử lý phụ đề tự động và xóa hình mờ video, kiểm tra kết quả rồi chuẩn bị thêm phụ đề đúng thời gian hoặc thay clip để xem xét. Smart bổ sung xóa khoảng ngừng; ChatCut phát hiện cục bộ trong đoạn video đã chọn và tạo bản cắt hình tiếng đồng bộ để xem xét và hoàn tác.
 - **2026-10-02 — Anna chuyển sang lưu đám mây khi trình duyệt hết dung lượng, khôi phục sau tải lại và bảo vệ xung đột khi thử lại.** Khôi phục cục bộ tái sử dụng dạng sóng đã lưu và chia nhỏ phép tính còn thiếu để giảm tình trạng giao diện bị đứng. Dạng sóng dài chỉ vẽ vùng đang hiển thị để tránh giới hạn kích thước canvas.
-- **2026-10-02 — Anna thêm phụ đề tự động theo môi trường, hỗ trợ chỉnh sửa, hủy và ước lượng thời gian theo khoảng nghỉ. Có phụ đề song ngữ khi mô hình dịch sẵn sàng.**
 
 Xem [Roadmap](ROADMAP.md) cho công việc dự kiến, [Releases](https://github.com/MartinDelophy/ai-video-editor/releases) cho thay đổi đã phát hành và [Issues](https://github.com/MartinDelophy/ai-video-editor/issues) cho nhiệm vụ và lỗi.
 

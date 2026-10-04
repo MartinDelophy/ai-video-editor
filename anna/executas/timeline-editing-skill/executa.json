@@ -1,0 +1,9 @@
+{
+  "slug": "timeline-studio-project-editing",
+  "name": "Timeline Studio Project Editing",
+  "version": "0.1.2",
+  "executa_type": "skill",
+  "description": "Use bundled Timeline Studio project tools to inspect, preview, apply and verify edits to supplied portable projects.",
+  "execution_mode": "prompt",
+  "content_file": "../../../skills/edit-timeline-studio/anna/SKILL.md"
+}

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { attachAnnaLiveProjectBridge } from "../lib/annaLiveProjectBridge.js";
 import {
   connectAnna,
   getAnnaConnectionState,
@@ -70,6 +71,23 @@ export function useAnnaEditor(deps) {
     externalBusy: Boolean(job || deps.exporting || draft.busy || deps.projectImportProgress),
     isExternallyBusy: () => Boolean(busyRef.current || latest.current.exporting || latest.current.isProjectImporting?.() || draft.isBusy()),
   });
+  const liveSession = useRef(session);
+  liveSession.current = session;
+  useEffect(() => {
+    if (!isAnnaEdition) return undefined;
+    let stopped = false;
+    let detach;
+    connectAnna().then(runtime => {
+      if (stopped) return;
+      detach = attachAnnaLiveProjectBridge(runtime, () => {
+        if (["waiting", "checking", "restoring"].includes(liveSession.current.state.status) || liveSession.current.state.recoveryPhase === "choice" || latest.current.isProjectImporting?.()) {
+          throw Object.assign(new Error("Project startup/recovery is pending; retry after the editor is ready."), { code: "EDITOR_NOT_READY" });
+        }
+        return latest.current.getProjectSnapshot();
+      });
+    }).catch(() => {});
+    return () => { stopped = true; detach?.(); };
+  }, []);
   const checkLocalCompute = async () => {
     const generation = ++computeGeneration.current;
     setLocalCompute({ status: "checking" });

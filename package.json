@@ -30,7 +30,9 @@
     "dev:anna": "vite --config vite.anna.config.mjs --host 127.0.0.1 --port 5181",
     "anna:validate": "npx --yes @anna-ai/cli@0.1.57 validate --manifest anna/manifest.json --bundle anna/bundle",
     "anna:dev": "npx --yes @anna-ai/cli@0.1.57 dev --cwd anna --manifest manifest.json --bundle bundle --slug timeline-studio --port 5180 --no-llm",
-    "anna:validate:strict": "npx --yes @anna-ai/cli@0.1.57 validate --manifest anna/manifest.json --bundle anna/bundle --strict"
+    "anna:validate:strict": "npx --yes @anna-ai/cli@0.1.57 validate --manifest anna/manifest.json --bundle anna/bundle --strict",
+    "anna:executa": "node skills/edit-timeline-studio/anna/plugin.mjs",
+    "build:anna:executa": "node scripts/build-anna-executa.mjs"
   },
   "dependencies": {
     "@anna-ai/app-runtime": "0.16.1",

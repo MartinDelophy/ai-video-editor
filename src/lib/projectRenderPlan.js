@@ -40,6 +40,9 @@ function assertSupportedProject(project) {
   if (project.trackVisibility?.source !== false && (project.sourceAudioSegments || []).length) unsupported.push("source audio");
   if ((project.visualSegments || []).some((item) => item.transition?.id && item.transition.id !== "none")) unsupported.push("transitions");
   if ((project.visualSegments || []).some((item) => item.keyframes?.length || item.mask?.type || item.filter || item.effects?.length || item.vision || item.speedCurve?.enabled || item.glitch?.enabled || item.beatShake?.enabled || !isColorGradeNeutral(item.colorGrade) || JSON.stringify(normalizeVisualTransform(item.baseTransform)) !== JSON.stringify(normalizeVisualTransform()))) unsupported.push("visual effects");
+  if ((project.visualSegments || []).some(item => item.type === "video" && item.muted !== true && item.sourceAudioDisabled !== true)) unsupported.push("embedded video audio");
+  const audibleClips = [...(project.visualSegments || []), ...(project.audioSegments || []), ...(project.musicSegments || [])];
+  if (audibleClips.some(item => item.spatialEffect && item.spatialEffect !== "original" && (item.spatialAmount ?? 1) > 0)) unsupported.push("spatial audio");
   if (unsupported.length) {
     throw renderError("UNSUPPORTED_RENDER_FEATURE", `Headless render does not yet support: ${[...new Set(unsupported)].join(", ")}`);
   }

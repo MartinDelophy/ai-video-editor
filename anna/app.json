@@ -11,5 +11,13 @@
   "screenshots": [
     "listing/editor-library.jpg",
     "listing/export-settings.jpg"
-  ]
+  ],
+  "bundled_executas": {
+    "timeline-project-tools": {
+      "path": "executas/timeline-project-tools"
+    },
+    "timeline-editing-skill": {
+      "path": "executas/timeline-editing-skill"
+    }
+  }
 }

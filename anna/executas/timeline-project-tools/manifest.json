@@ -1,0 +1,193 @@
+{
+  "name": "timeline-project-tools",
+  "display_name": "Timeline Studio Project Tools",
+  "version": "0.1.3",
+  "description": "Inspect, preview, edit and render supplied portable Timeline Studio projects. Runs on the user's Anna Agent host; no live browser bridge, cloud project access or AI generation.",
+  "license": "MIT",
+  "category": "productivity",
+  "host_capabilities": [],
+  "tools": [
+    {
+      "name": "timeline_project_inspect",
+      "description": "Inspect a user-provided local .timeline archive before editing; returns revision, tracks, duration and media inventory. Does not access the open Anna window or its private cloud storage.",
+      "timeout": 60,
+      "parameters": [
+        {
+          "name": "project",
+          "type": "string",
+          "required": true,
+          "description": "Absolute path to a user-provided .timeline archive on this Agent host"
+        }
+      ]
+    },
+    {
+      "name": "timeline_track_inspect",
+      "description": "Inspect clips on one track in the supplied .timeline archive.",
+      "timeout": 60,
+      "parameters": [
+        {
+          "name": "project",
+          "type": "string",
+          "required": true,
+          "description": "Absolute path to a user-provided .timeline archive on this Agent host"
+        },
+        {
+          "name": "track",
+          "type": "string",
+          "required": true,
+          "description": "Track ID returned by project inspection; inspect before choosing a track"
+        }
+      ]
+    },
+    {
+      "name": "timeline_clip_inspect",
+      "description": "Inspect one clip by stable ID in the supplied archive.",
+      "timeout": 60,
+      "parameters": [
+        {
+          "name": "project",
+          "type": "string",
+          "required": true,
+          "description": "Absolute path to a user-provided .timeline archive on this Agent host"
+        },
+        {
+          "name": "clipId",
+          "type": "string",
+          "required": true,
+          "description": "Stable clip ID returned by track/project inspection, never a display name"
+        }
+      ]
+    },
+    {
+      "name": "timeline_marker_inspect",
+      "description": "Inspect annotations without changing rendered duration.",
+      "timeout": 60,
+      "parameters": [
+        {
+          "name": "project",
+          "type": "string",
+          "required": true,
+          "description": "Absolute path to a user-provided .timeline archive on this Agent host"
+        },
+        {
+          "name": "markerId",
+          "type": "string",
+          "required": false,
+          "description": "Optional stable marker ID; omit to inspect all annotations"
+        }
+      ]
+    },
+    {
+      "name": "timeline_transcript_inspect",
+      "description": "Read existing transcript/caption associations; does not transcribe audio.",
+      "timeout": 60,
+      "parameters": [
+        {
+          "name": "project",
+          "type": "string",
+          "required": true,
+          "description": "Absolute path to a user-provided .timeline archive on this Agent host"
+        },
+        {
+          "name": "audioClipId",
+          "type": "string",
+          "required": false,
+          "description": "Optional audio clip ID; omit to inspect all existing transcripts"
+        }
+      ]
+    },
+    {
+      "name": "timeline_project_diff",
+      "description": "After project inspection, validate operations and return semantic changes plus a short-lived previewId. No files written. Use stable operation IDs and review the returned changes before apply.",
+      "timeout": 60,
+      "parameters": [
+        {
+          "name": "project",
+          "type": "string",
+          "required": true,
+          "description": "Absolute path to a user-provided .timeline archive on this Agent host"
+        },
+        {
+          "name": "baseRevision",
+          "type": "integer",
+          "required": true,
+          "description": "Exact nonnegative revision returned by the latest project inspection"
+        },
+        {
+          "name": "operations",
+          "type": "array",
+          "required": true,
+          "description": "Ordered shared-registry operations, each with a unique stable id and supported type; preview before applying",
+          "items": {
+            "type": "object"
+          }
+        }
+      ]
+    },
+    {
+      "name": "timeline_project_apply",
+      "description": "Apply the exact inspected and previewed operations to a NEW archive. Requires previewId from this running session and matching source bytes and revision; never overwrites inputs or existing outputs.",
+      "timeout": 60,
+      "parameters": [
+        {
+          "name": "project",
+          "type": "string",
+          "required": true,
+          "description": "Absolute path to a user-provided .timeline archive on this Agent host"
+        },
+        {
+          "name": "baseRevision",
+          "type": "integer",
+          "required": true,
+          "description": "Exact nonnegative revision returned by the latest project inspection"
+        },
+        {
+          "name": "operations",
+          "type": "array",
+          "required": true,
+          "description": "Ordered shared-registry operations, each with a unique stable id and supported type; preview before applying",
+          "items": {
+            "type": "object"
+          }
+        },
+        {
+          "name": "outputProject",
+          "type": "string",
+          "required": true,
+          "description": "Absolute path for a NEW .timeline archive; existing files are rejected"
+        },
+        {
+          "name": "previewId",
+          "type": "string",
+          "required": true,
+          "description": "Single-use receipt from project_diff in this process, valid for 15 minutes"
+        }
+      ]
+    },
+    {
+      "name": "timeline_project_render",
+      "description": "After inspection, render only the documented headless subset to a NEW MP4 using installed FFmpeg/ffprobe. Unsupported composition fails explicitly. No browser AI or live-window rendering.",
+      "timeout": 180,
+      "parameters": [
+        {
+          "name": "project",
+          "type": "string",
+          "required": true,
+          "description": "Absolute path to a user-provided .timeline archive on this Agent host"
+        },
+        {
+          "name": "outputVideo",
+          "type": "string",
+          "required": true,
+          "description": "Absolute path for a NEW .mp4 artifact; existing files are rejected"
+        },
+        {
+          "name": "render",
+          "type": "object",
+          "required": false,
+          "description": "Optional headless render settings; rich browser composition is unsupported"
+        }
+      ]
+    }
+  ]
+}

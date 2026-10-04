@@ -2,7 +2,7 @@
 
 import { createHash } from "node:crypto";
 import { execFile } from "node:child_process";
-import { mkdir, mkdtemp, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, link, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, dirname, extname, isAbsolute, join, resolve, sep } from "node:path";
 import { promisify } from "node:util";
@@ -110,7 +110,13 @@ async function renderProject(renderPath) {
     const renderPlan = buildFfmpegRenderPlan({ project: payload.project, media: payload.media, extractedFiles, settings: request.render });
     await mkdir(dirname(outputPath), { recursive: true });
     await executeFile("ffmpeg", [...renderPlan.args, temporaryOutput], { signal: abortController.signal, maxBuffer: 10 * 1024 * 1024 });
-    await rename(temporaryOutput, outputPath);
+    try {
+      await link(temporaryOutput, outputPath);
+    } catch (error) {
+      if (error?.code === "EEXIST") throw Object.assign(new Error(`output.video already exists: ${outputPath}`), { code: "OUTPUT_EXISTS" });
+      throw error;
+    }
+    await rm(temporaryOutput, { force: true });
     const { stdout } = await executeFile("ffprobe", ["-v", "error", "-show_entries", "format=duration:stream=codec_type,width,height", "-of", "json", outputPath]);
     const verification = JSON.parse(stdout);
     const video = verification.streams?.find((stream) => stream.codec_type === "video");

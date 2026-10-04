@@ -19,11 +19,11 @@ El usuario será el único responsable de cualquier consecuencia legal derivada 
 
 ## Novedades del proyecto
 
+- **2026-10-04** — Anna añade herramientas y un Skill para inspeccionar, previsualizar y crear copias .timeline editadas. El primer paquete nativo admite macOS Apple Silicon; la edición en vivo sigue separada.
 - **2026-10-03** — Los vídeos principales y de imagen en imagen permiten ajustar el volumen y los efectos espaciales por clip sin separar el audio. Los ajustes se guardan con el proyecto y se aplican a la vista previa y la exportación.
 - **2026-10-02 — Anna aplica automáticamente las ediciones terminadas de ChatCut, con Deshacer y Ver cambios en la conversación. Una insignia HOT cian destaca la función; la recuperación muestra primero el proyecto y reconstruye las ondas faltantes en segundo plano.**
 - **2026-10-02 — ChatCut de Anna incorpora transformaciones, ruedas de color, glitch, sacudida rítmica y transiciones junto al corte, subtítulos y audio. Los cambios se revisan antes de aplicarse y pueden deshacerse.** El agente también procesa subtítulos automáticos y elimina marcas de vídeo, inspecciona el resultado y prepara subtítulos temporizados o sustitución de clips para revisión. Smart incorpora Eliminar pausas; ChatCut detecta pausas localmente en el tramo seleccionado y prepara cortes sincronizados para revisar y deshacer.
 - **2026-10-02 — Anna cambia al guardado en la nube cuando falta espacio local, con recuperación al recargar y reintentos que protegen frente a conflictos.** La recuperación local reutiliza las formas de onda guardadas y divide los cálculos pendientes para reducir bloqueos de la interfaz. Las formas de onda largas dibujan solo el área visible para evitar los límites del lienzo.
-- **2026-10-02 — Anna añade subtítulos automáticos según la compatibilidad del navegador, con edición, cancelación y tiempos estimados por pausas. Hay salida bilingüe cuando el modelo de traducción está listo.**
 
 Consulta el [Roadmap](ROADMAP.md) para el trabajo planificado, [Releases](https://github.com/MartinDelophy/ai-video-editor/releases) para los cambios publicados e [Issues](https://github.com/MartinDelophy/ai-video-editor/issues) para tareas y errores.
 

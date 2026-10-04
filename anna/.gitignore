@@ -1,2 +1,6 @@
 /bundle/
 /.anna/
+
+/executas/*/bundle/
+/executas/*/.anna/
+/executas/*/dist/

@@ -19,7 +19,7 @@ Für sämtliche rechtlichen Folgen eines Verstoßes gegen diese Anforderungen is
 
 ## Projektneuigkeiten
 
-- **2026-10-04** — Anna erhält Projektwerkzeuge und einen Skill für geprüfte Änderungen mit Vorschau und neuen .timeline-Kopien. Das erste native Paket unterstützt macOS Apple Silicon; Live-Bearbeitung bleibt getrennt.
+- **2026-10-04** — Anna erhält Projektwerkzeuge und einen Skill für geprüfte Änderungen mit Vorschau und neuen .timeline-Kopien. Das erste native Paket unterstützt macOS Apple Silicon; Live-Bearbeitung bleibt getrennt. In Anna entfallen die Tabs KI-Reparatur und Audio in den Bildeigenschaften.
 - **2026-10-03** — Hauptvideos und Bild-in-Bild-Videos unterstützen Lautstärke und Raumeffekte direkt pro Clip, ohne Audio zu trennen. Einstellungen werden im Projekt gespeichert und in Vorschau und Export angewendet.
 - **2026-10-02 — Anna übernimmt abgeschlossene ChatCut-Bearbeitungen automatisch, mit Rückgängig und Änderungsansicht im Gespräch. Ein cyanfarbenes HOT-Abzeichen hebt die Funktion hervor; beim Wiederherstellen erscheint das Projekt vor der Berechnung fehlender Wellenformen im Hintergrund.**
 - **2026-10-02 — Anna ChatCut unterstützt nun Bildtransformationen, Farbräder, Glitch, Beat-Beben und Übergänge zusätzlich zu Schnitt, Untertiteln und Audio. Änderungen werden vor der Anwendung geprüft und können rückgängig gemacht werden.** Agent-Werkzeuge erstellen außerdem automatische Untertitel und entfernen Video-Wasserzeichen, prüfen das Ergebnis und bereiten zeitgenaue Untertitel oder Clipersatz zur Kontrolle vor. Smart bietet Pausen entfernen; ChatCut erkennt Pausen lokal im ausgewählten zugeschnittenen Video und erstellt synchronisierte Schnitte zur Prüfung und zum Rückgängigmachen.

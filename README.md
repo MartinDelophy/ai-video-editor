@@ -24,7 +24,7 @@ Users are solely responsible for any legal liability arising from violations of 
 
 ## Project updates
 
-- **2026-10-04** — Anna bundles project Tools and a Skill for inspected, previewed edits to new .timeline copies. The first native package supports macOS Apple Silicon; live browser editing remains separate.
+- **2026-10-04** — Anna bundles project Tools and a Skill for inspected, previewed edits to new .timeline copies. The first native package supports macOS Apple Silicon; live browser editing remains separate. Anna visual properties omit the AI Repair and Audio tabs.
 - **2026-10-03** — Main and picture-in-picture videos now support clip-level volume and spatial audio directly, without separating audio. Settings are saved with the project and applied in preview and export.
 - **2026-10-02 — Anna ChatCut automatically applies completed edits, with inline Undo and View changes. A compact cyan HOT badge highlights ChatCut; recovery shows the project before rebuilding missing waveforms in the background.**
 - **2026-10-02 — Anna ChatCut now exposes editable transforms, color wheels, glitch, beat shake and transitions alongside existing cutting, captions and audio controls. Plans show their changes for review and remain undoable.** Agent tools also process automatic captions and video watermark removal, inspect repaired output, and prepare timed caption insertion or clip replacement for review. Smart now includes Remove pauses; ChatCut detects pauses locally in the selected trimmed video and prepares synchronized cuts for review and undo.

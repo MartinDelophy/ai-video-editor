@@ -4,6 +4,7 @@ export function getVisualPropertyTabIds({
   isOverlay = false,
   hasVectorEditor = false,
   isMobile = false,
+  includeRepair = import.meta.env?.VITE_ANNA_EDITION !== "true",
 } = {}) {
   if (isVector) {
     return [
@@ -21,6 +22,6 @@ export function getVisualPropertyTabIds({
     ...(isMobile && isVideo ? ["speed"] : []),
     ...(!isMobile && !isOverlay && isVideo ? ["speedCurve"] : []),
     ...(!isMobile && !isOverlay ? ["colorWheels"] : []),
-    ...(isOverlay ? ["timing"] : ["repair"]),
+    ...(isOverlay ? ["timing"] : includeRepair ? ["repair"] : []),
   ];
 }

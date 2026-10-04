@@ -19,7 +19,7 @@ L’utilisateur assume seul toute responsabilité juridique découlant du non-re
 
 ## Actualités du projet
 
-- **2026-10-04** — Anna ajoute des outils et un Skill pour inspecter, prévisualiser et créer des copies .timeline modifiées. Le premier paquet natif prend en charge macOS Apple Silicon ; l’édition en direct reste distincte.
+- **2026-10-04** — Anna ajoute des outils et un Skill pour inspecter, prévisualiser et créer des copies .timeline modifiées. Le premier paquet natif prend en charge macOS Apple Silicon ; l’édition en direct reste distincte. Anna retire les onglets Réparation IA et Audio des propriétés visuelles.
 - **2026-10-03** — Les vidéos principales et en incrustation permettent de régler le volume et les effets spatiaux par clip sans séparer le son. Les réglages sont enregistrés avec le projet et appliqués à l’aperçu et à l’exportation.
 - **2026-10-02 — Anna applique automatiquement les modifications terminées de ChatCut, avec annulation et consultation dans la conversation. Un badge HOT cyan signale la fonction ; la restauration affiche le projet avant de recalculer les formes d’onde manquantes en arrière-plan.**
 - **2026-10-02 — ChatCut d’Anna ajoute les transformations, roues chromatiques, glitch, secousses rythmiques et transitions aux coupes, sous-titres et réglages audio. Les modifications restent à valider et peuvent être annulées.** L’agent traite aussi les sous-titres automatiques et le retrait des filigranes vidéo, vérifie le résultat puis prépare l’ajout minuté ou le remplacement du clip. Smart ajoute la suppression des pauses ; ChatCut détecte localement les pauses du segment sélectionné et prépare des coupes synchronisées à vérifier et annuler.

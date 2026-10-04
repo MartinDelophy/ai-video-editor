@@ -40,7 +40,7 @@ import { emitMediaBackendDiagnostic, getMediaFileExtension, isLibavCompatibility
 import { getVectorDesignAppearance, getVectorRenderSource } from "./vectorDesign.js";
 import { hasSubjectEffect, normalizeSubjectEffect } from "./subjectEffects.js";
 import { resolveSubjectMaterialShadow } from "./subjectMaterialRendering.js";
-import { drawCinematicDepthFrame, normalizeCinematicDepth, resolveDepthAnalysisAtTime } from "./depthOfField.js";
+import { prepareDepthFrame, getDepthFrame, drawCinematicDepthFrame, normalizeCinematicDepth, resolveDepthAnalysisAtTime } from "./depthOfField.js";
 import { drawPhotoParallaxFrame, normalizePhotoParallax } from "./photoParallax.js";
 import { createVideoTrackFrame } from "./videoTrackFrames.js";
 import { composeColorGradeFilter, resolveColorGrade } from "./colorGrade.js";
@@ -1218,11 +1218,11 @@ export function drawPreviewFrame(context, visual, canvas, options) {
   const primaryFilter = composeColorGradeFilter(filter, resolveColorGrade(visualEffects?.keyframes, visualTime, visualEffects?.colorGrade));
   const drawPrimaryVisual = (targetContext, targetCanvas) => {
     if ((photoParallax.enabled || cinematicDepth.enabled) && depth?.depthVisual) {
-      if (photoParallax.enabled) drawPhotoParallaxFrame(targetContext, visual, targetCanvas, {
+      if (photoParallax.enabled && !(cinematicDepth.enabled && cinematicDepth.output === "depth-map")) drawPhotoParallaxFrame(targetContext, visual, targetCanvas, {
         effect: photoParallax, depthVisual: depth.depthVisual, fitMode, filter: primaryFilter, time: visualTime, clear: false,
       });
       else drawCinematicDepthFrame(targetContext, visual, targetCanvas, {
-        effect: cinematicDepth, depthVisual: depth.depthVisual, fitMode, filter: primaryFilter, clear: false,
+        effect: cinematicDepth, ...depth, depthVisual: depth.depthVisual, fitMode, filter: primaryFilter, clear: false,
       });
       const sourceSize = getVisualDimensions(visual);
       const fitRect = getVisualFitRect(sourceSize, targetCanvas, fitMode);
@@ -1341,11 +1341,11 @@ export function drawPreviewFrame(context, visual, canvas, options) {
       const overlayDepth = normalizeCinematicDepth(overlay.cinematicDepth);
       const overlayParallax = normalizePhotoParallax(overlay.photoParallax);
       if ((overlayParallax.enabled || overlayDepth.enabled) && overlay.depth?.depthVisual) {
-        if (overlayParallax.enabled) drawPhotoParallaxFrame(targetContext, overlayVisual, canvas, {
+        if (overlayParallax.enabled && !(overlayDepth.enabled && overlayDepth.output === "depth-map")) drawPhotoParallaxFrame(targetContext, overlayVisual, canvas, {
           effect: overlayParallax, depthVisual: overlay.depth.depthVisual, fitMode: "contain", filter: overlayFilter, time: overlayTime, clear: false,
         });
         else drawCinematicDepthFrame(targetContext, overlayVisual, canvas, {
-          effect: overlayDepth, depthVisual: overlay.depth.depthVisual, fitMode: "contain", filter: overlayFilter, clear: false,
+          effect: overlayDepth, ...overlay.depth, depthVisual: overlay.depth.depthVisual, fitMode: "contain", filter: overlayFilter, clear: false,
         });
       } else {
         drawFittedVisual(
@@ -1957,7 +1957,7 @@ export async function exportBrowserVideo({
         : Math.max(0, timelineTime - item.segment.start);
       const vision = resolveVisionAnalysisAtTime(item.segment.vision || null, sourceTime);
       const depthSample = resolveDepthAnalysisAtTime(item.segment.depth || null, sourceTime);
-      if (depthSample?.depthUrl) void item.depthCache?.prepare(depthSample.depthUrl);
+      if (depthSample?.depthUrl) void prepareDepthFrame(item.depthCache, depthSample);
       return {
         ...item,
         renderSegment: {
@@ -1967,7 +1967,7 @@ export async function exportBrowserVideo({
             options: item.segment.vision?.options || vision.options,
             maskVisual: item.temporalMaskCache?.get(vision.cutoutUrl) || null,
           } } : {}),
-          ...(depthSample ? { depth: { ...depthSample, depthVisual: item.depthCache?.get(depthSample.depthUrl) || null } } : {}),
+          ...(depthSample ? { depth: getDepthFrame(item.depthCache, depthSample) } : {}),
         },
       };
     });
@@ -1998,9 +1998,9 @@ export async function exportBrowserVideo({
         }
       : null;
     const resolvedDepth = resolveDepthAnalysisAtTime(visualItem.segment.depth ?? null, visualSourceTime);
-    if (resolvedDepth?.depthUrl) void visualItem.depthCache?.prepare(resolvedDepth.depthUrl);
+    if (resolvedDepth?.depthUrl) void prepareDepthFrame(visualItem.depthCache, resolvedDepth);
     const frameDepth = resolvedDepth
-      ? { ...resolvedDepth, depthVisual: visualItem.depthCache?.get(resolvedDepth.depthUrl) || null }
+      ? getDepthFrame(visualItem.depthCache, resolvedDepth)
       : null;
     drawPreviewFrame(context, exportVisual, canvas, {
       subtitle: exportCaption,
@@ -2082,9 +2082,9 @@ export async function exportBrowserVideo({
         }
       : null;
     const finalResolvedDepth = resolveDepthAnalysisAtTime(finalVisualItem.segment.depth ?? null, finalVisualSourceTime);
-    if (finalResolvedDepth?.depthUrl) await finalVisualItem.depthCache?.prepare(finalResolvedDepth.depthUrl);
+    if (finalResolvedDepth?.depthUrl) await prepareDepthFrame(finalVisualItem.depthCache, finalResolvedDepth);
     const finalFrameDepth = finalResolvedDepth
-      ? { ...finalResolvedDepth, depthVisual: finalVisualItem.depthCache?.get(finalResolvedDepth.depthUrl) || null }
+      ? getDepthFrame(finalVisualItem.depthCache, finalResolvedDepth)
       : null;
     drawPreviewFrame(context, finalVisualItem.cutoutVisual || finalVisualItem.visual, canvas, {
       subtitle:

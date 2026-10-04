@@ -33,7 +33,7 @@ import { getVectorDesignAppearance, getVectorRenderSource } from "../lib/vectorD
 import { hasSubjectEffect, normalizeSubjectEffect } from "../lib/subjectEffects.js";
 import { normalizeClickRippleEffect, resolveClickRippleState } from "../lib/clickRippleEffect.js";
 import { SubjectMaterialFilterDefs } from "./SubjectMaterialFilter.jsx";
-import { drawCinematicDepthFrame, normalizeCinematicDepth } from "../lib/depthOfField.js";
+import { loadPreviewDepthFrame, drawCinematicDepthFrame, normalizeCinematicDepth } from "../lib/depthOfField.js";
 import { drawPhotoParallaxFrame, normalizePhotoParallax } from "../lib/photoParallax.js";
 import { composeColorGradeFilter, resolveColorGrade } from "../lib/colorGrade.js";
 
@@ -97,22 +97,23 @@ function VisualOverlayMedia({ overlay, src, style, isPlaying, localTime }) {
   useEffect(() => {
     if (!depthRenderActive || !canvasRef.current) return undefined;
     let canceled = false;
-    const depthImage = new Image();
-    depthImage.onload = () => {
+    loadPreviewDepthFrame({ depthUrl, nextDepthUrl: overlay.depthAnalysis?.nextDepthUrl, depthMix: overlay.depthAnalysis?.depthMix }).then((depthFrame) => {
+      const depthImage = depthFrame.depthVisual;
       if (canceled) return;
       const canvas = canvasRef.current;
       const source = overlay.type === "video" ? videoRef.current : imageRef.current;
       if (!canvas || !source) return;
       const rect = canvas.getBoundingClientRect();
-      canvas.width = Math.max(2, Math.round(rect.width * Math.max(1, window.devicePixelRatio || 1)));
-      canvas.height = Math.max(2, Math.round(rect.height * Math.max(1, window.devicePixelRatio || 1)));
+      const width = Math.max(2, Math.round(rect.width * Math.max(1, window.devicePixelRatio || 1)));
+      const height = Math.max(2, Math.round(rect.height * Math.max(1, window.devicePixelRatio || 1)));
+      if (canvas.width !== width) canvas.width = width;
+      if (canvas.height !== height) canvas.height = height;
       const context = canvas.getContext("2d", { alpha: true });
-      if (parallaxActive) drawPhotoParallaxFrame(context, source, canvas, { effect: parallaxEffect, depthVisual: depthImage, fitMode: "contain", filter: style?.filter, time: localTime });
-      else drawCinematicDepthFrame(context, source, canvas, { effect: depthEffect, depthVisual: depthImage, fitMode: "contain", filter: style?.filter });
-    };
-    depthImage.src = depthUrl;
+      if (parallaxActive && !(depthEffect.enabled && depthEffect.output === "depth-map")) drawPhotoParallaxFrame(context, source, canvas, { effect: parallaxEffect, depthVisual: depthImage, fitMode: "contain", filter: style?.filter, time: localTime });
+      else drawCinematicDepthFrame(context, source, canvas, { effect: depthEffect, ...depthFrame, depthVisual: depthImage, fitMode: "contain", filter: style?.filter });
+    }).catch(() => {});
     return () => { canceled = true; };
-  }, [depthEffect, depthRenderActive, depthUrl, localTime, overlay.type, parallaxActive, parallaxEffect, style?.filter]);
+  }, [depthEffect, depthRenderActive, depthUrl, overlay.depthAnalysis?.nextDepthUrl, overlay.depthAnalysis?.depthMix, localTime, overlay.type, parallaxActive, parallaxEffect, style?.filter]);
   return <>
     {overlay.type === "video"
       ? <video ref={videoRef} src={src} crossOrigin="anonymous" muted={overlay.muted === true} playsInline preload="metadata" style={{ ...style, opacity: depthRenderActive ? 0 : style?.opacity }} />
@@ -318,16 +319,18 @@ export function PreviewStage({
   useEffect(() => {
     if (!depthRenderActive || !depthCanvasRef.current) return undefined;
     let canceled = false;
-    const depthImage = new Image();
-    depthImage.onload = () => {
+    loadPreviewDepthFrame({ depthUrl: depthAnalysis?.depthUrl, nextDepthUrl: depthAnalysis?.nextDepthUrl, depthMix: depthAnalysis?.depthMix }).then((depthFrame) => {
+      const depthImage = depthFrame.depthVisual;
       if (canceled) return;
       const canvas = depthCanvasRef.current;
       const source = previewVisualType === "video" ? previewVideoRef.current : previewImageRef.current;
       if (!canvas || !source) return;
-      canvas.width = Math.max(2, Math.round(frameWidth * previewPixelRatio));
-      canvas.height = Math.max(2, Math.round(frameHeight * previewPixelRatio));
+      const width = Math.max(2, Math.round(frameWidth * previewPixelRatio));
+      const height = Math.max(2, Math.round(frameHeight * previewPixelRatio));
+      if (canvas.width !== width) canvas.width = width;
+      if (canvas.height !== height) canvas.height = height;
       const context = canvas.getContext("2d", { alpha: true });
-      if (photoParallaxActive) drawPhotoParallaxFrame(context, source, canvas, {
+      if (photoParallaxActive && !(normalizedCinematicDepth.enabled && normalizedCinematicDepth.output === "depth-map")) drawPhotoParallaxFrame(context, source, canvas, {
         effect: normalizedPhotoParallax,
         depthVisual: depthImage,
         fitMode: activeObjectFit,
@@ -336,14 +339,14 @@ export function PreviewStage({
       });
       else drawCinematicDepthFrame(context, source, canvas, {
         effect: normalizedCinematicDepth,
+        ...depthFrame,
         depthVisual: depthImage,
         fitMode: activeObjectFit,
         filter: selectedFilterCss,
       });
-    };
-    depthImage.src = depthAnalysis.depthUrl;
+    }).catch(() => {});
     return () => { canceled = true; };
-  }, [activeObjectFit, depthAnalysis?.depthUrl, depthRenderActive, frameHeight, frameWidth, normalizedCinematicDepth, normalizedPhotoParallax, photoParallaxActive, previewPixelRatio, previewVideoRef, previewVisualType, selectedFilterCss, visualLocalTime]);
+  }, [activeObjectFit, depthAnalysis?.depthUrl, depthAnalysis?.nextDepthUrl, depthAnalysis?.depthMix, depthRenderActive, frameHeight, frameWidth, normalizedCinematicDepth, normalizedPhotoParallax, photoParallaxActive, previewPixelRatio, previewVideoRef, previewVisualType, selectedFilterCss, visualLocalTime]);
   const startMaskEdit = (event, mode) => {
     const frame = previewCanvasRef.current;
     if (!frame || !onUpdateVisualMask) return;

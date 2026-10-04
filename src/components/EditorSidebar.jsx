@@ -233,8 +233,8 @@ export function EditorSidebar({ model: d }) {
               d.setEffectsPanelMode?.("vector-tracking");
               d.setMobilePanel?.("inspector");
             }}
-            openCinematicDepthInspector={() => {
-              d.setEffectsPanelMode?.("cinematic-depth");
+            openCinematicDepthInspector={(mode = "cinematic-depth") => {
+              d.setEffectsPanelMode?.(mode);
               d.setMobilePanel?.("inspector");
             }}
             openPhotoParallaxInspector={() => {

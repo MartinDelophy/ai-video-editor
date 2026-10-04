@@ -35,7 +35,7 @@ import { getVisualSourceTime } from "./visualEffects.js";
 import { getVectorRenderSource } from "./vectorDesign.js";
 import { hasSubjectEffect } from "./subjectEffects.js";
 import { getGeneratedMediaTags } from "./generatedMediaMetadata.js";
-import { resolveDepthAnalysisAtTime } from "./depthOfField.js";
+import { prepareDepthFrame, getDepthFrame, resolveDepthAnalysisAtTime } from "./depthOfField.js";
 import { mixOfflineAudio } from "./audioExport.js";
 
 export { mixOfflineAudio } from "./audioExport.js";
@@ -189,11 +189,8 @@ async function renderCompositionAt(context, canvas, prepared, options, time) {
     maskVisual: vision.cutoutUrl ? item.temporalMaskCache?.get(vision.cutoutUrl) : null,
   } : null;
   const depthSample = resolveDepthAnalysisAtTime(item.segment.depth || null, sourceTime);
-  if (depthSample?.depthUrl) await item.depthCache?.prepare(depthSample.depthUrl);
-  const frameDepth = depthSample ? {
-    ...depthSample,
-    depthVisual: item.depthCache?.get(depthSample.depthUrl) || null,
-  } : null;
+  if (depthSample?.depthUrl) await prepareDepthFrame(item.depthCache, depthSample);
+  const frameDepth = getDepthFrame(item.depthCache, depthSample);
   const junction = item.segment.transition;
   const transitionDuration = junction?.id && junction.id !== "none"
     ? Math.min(Math.max(0.1, Number(junction.duration) || 0.5), Math.max(0, (range?.end || 0) - (range?.start || 0))) : 0;
@@ -223,7 +220,7 @@ async function renderCompositionAt(context, canvas, prepared, options, time) {
     const vision = resolveVisionAnalysisAtTime(overlay.segment.vision || null, sourceTime);
     const depthSample = resolveDepthAnalysisAtTime(overlay.segment.depth || null, sourceTime);
     if (vision?.cutoutUrl) await overlay.temporalMaskCache?.prepare(vision.cutoutUrl);
-    if (depthSample?.depthUrl) await overlay.depthCache?.prepare(depthSample.depthUrl);
+    if (depthSample?.depthUrl) await prepareDepthFrame(overlay.depthCache, depthSample);
     return {
       ...overlay,
       renderSegment: {
@@ -233,7 +230,7 @@ async function renderCompositionAt(context, canvas, prepared, options, time) {
           options: overlay.segment.vision?.options || vision.options,
           maskVisual: overlay.temporalMaskCache?.get(vision.cutoutUrl) || null,
         } } : {}),
-        ...(depthSample ? { depth: { ...depthSample, depthVisual: overlay.depthCache?.get(depthSample.depthUrl) || null } } : {}),
+        ...(depthSample ? { depth: getDepthFrame(overlay.depthCache, depthSample) } : {}),
       },
     };
   }));

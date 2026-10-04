@@ -81,7 +81,7 @@ import { useMiganRepair } from "./hooks/useMiganRepair.js";
 import { useNanoVsrRestoration } from "./hooks/useNanoVsrRestoration.js";
 import { useSmartDenoise } from "./hooks/useSmartDenoise.js";
 import { useGenerationPlugins } from "./hooks/useGenerationPlugins.js";
-import { getImageThumbnailCount, getVisualSegmentsTotal, normalizeTimedSegmentIds } from "./lib/timeline.js";
+import { getVisualAssetPayload, getImageThumbnailCount, getVisualSegmentsTotal, normalizeTimedSegmentIds } from "./lib/timeline.js";
 import { getVisualSourceTime, normalizeVisualTransform, removeVisualPropertyKeyframe, updateVisualSegmentPlaybackRate, upsertVisualKeyframe, upsertVisualPropertyKeyframe } from "./lib/visualEffects.js";
 import { getVisualSpeedCurveTimelineProgress, updateVisualSegmentSpeedCurve } from "./lib/visualSpeedCurve.js";
 import { getLinkedSourceAudioEnd, getLinkedSourceAudioSegments, shouldMuteEmbeddedVideoAudio, sliceSourceAudioPeaks } from "./lib/sourceAudioSync.js";
@@ -595,6 +595,45 @@ export function App() {
     setUserAssets((current) => [asset, ...current]);
     setSelectedLibraryAssetId(asset.id);
     setMediaTab("mine");
+  };
+  const depthReplacementLocksRef = useRef(trackLocks);
+  useEffect(() => { depthReplacementLocksRef.current = trackLocks; }, [trackLocks]);
+  const handleDepthMapAssetReady = (assetDraft, { sourceSegment } = {}) => {
+    const id = crypto.randomUUID();
+    const src = URL.createObjectURL(assetDraft.blob);
+    imageUrlRefs.current.add(src);
+    const asset = { ...assetDraft, id, src };
+    setUserAssets((current) => [asset, ...current]);
+    setSelectedLibraryAssetId(id);
+    setActiveTool("media");
+    setMediaTab("mine");
+    if (sourceSegment) {
+      const replace = (items) => items.map((item) => {
+        // Never resurrect a deleted clip or overwrite a changed source range.
+        if (item.id !== sourceSegment.id || item.src !== sourceSegment.src ||
+            item.duration !== sourceSegment.duration || item.sourceStart !== sourceSegment.sourceStart ||
+            item.sourceDuration !== sourceSegment.sourceDuration ||
+            item.playbackRate !== sourceSegment.playbackRate ||
+            JSON.stringify(item.speedCurve) !== JSON.stringify(sourceSegment.speedCurve)) return item;
+        return {
+          ...item, ...getVisualAssetPayload(asset), duration: item.duration,
+          speedCurve: undefined, cinematicDepth: undefined, photoParallax: undefined,
+          subjectEffect: undefined, repair: undefined, enhancement: undefined,
+          volume: item.volume ?? 1, spatialEffect: item.spatialEffect, spatialAmount: item.spatialAmount,
+          sourceAudioDisabled: item.sourceAudioDisabled === true, audioSeparated: item.audioSeparated === true,
+          sourceAudioOriginAssetId: item.sourceAudioOriginAssetId || item.assetId,
+          sourceAudioTiming: item.sourceAudioTiming || (Number.isFinite(item.sourceAudioOffset) || item.audioSeparated
+            ? { sourceStart: item.sourceStart, sourceDuration: item.sourceDuration,
+              playbackRate: item.playbackRate, speedCurve: item.speedCurve } : undefined),
+          depthMapSourceAssetId: sourceSegment.assetId || "",
+        };
+      });
+      if (!depthReplacementLocksRef.current.image) setVisualSegments(replace);
+      // A picture-in-picture analysis replaces its own lane, never the main sequence.
+      if (!depthReplacementLocksRef.current.overlay) setVisualOverlaySegments(replace);
+      setIsPlaying(false);
+    }
+    return asset;
   };
   const handleOpticalFlowAssetReady = (assetDraft) => {
     const id = crypto.randomUUID();
@@ -1245,6 +1284,7 @@ export function App() {
     depthRecords,
     setDepthRecords,
     updateEffect: updateSelectedCinematicDepth,
+    onAssetReady: handleDepthMapAssetReady,
     notify,
     setCurrentTime,
     timelineStart: depthTimelineStart,

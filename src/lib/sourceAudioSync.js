@@ -42,12 +42,13 @@ export function getLinkedSourceAudioSegments(visualSegments = [], sourceAudioAss
   const maximumSourceTime = Math.max(0, Number(sourceAudioDuration) || 0);
   return visualSegments.flatMap((segment, index) => {
     const hasSegmentMapping = Number.isFinite(segment.sourceAudioOffset);
-    const matchesLegacyAssetMapping = !hasMappedOffsets && segment.assetId === linkedAssetId;
+    const matchesLegacyAssetMapping = !hasMappedOffsets && (segment.sourceAudioOriginAssetId || segment.assetId) === linkedAssetId;
     if (segment.type !== "video" || segment.sourceAudioDisabled || segment.sourceAudioUnmapped || (!hasSegmentMapping && !matchesLegacyAssetMapping)) return [];
     const range = timeline[index];
-    const playbackRate = normalizeVisualPlaybackRate(segment.playbackRate);
-    const sourceStart = Math.max(0, Number(segment.sourceAudioOffset) || 0) + Math.max(0, Number(segment.sourceStart) || 0);
-    const requestedSourceDuration = Math.max(0, Number(segment.sourceDuration) || segment.duration * playbackRate);
+    const timing = segment.sourceAudioTiming || segment;
+    const playbackRate = normalizeVisualPlaybackRate(timing.playbackRate);
+    const sourceStart = Math.max(0, Number(segment.sourceAudioOffset) || 0) + Math.max(0, Number(timing.sourceStart) || 0);
+    const requestedSourceDuration = Math.max(0, Number(timing.sourceDuration) || segment.duration * playbackRate);
     const sourceDuration = maximumSourceTime
       ? Math.max(0, Math.min(requestedSourceDuration, maximumSourceTime - sourceStart))
       : requestedSourceDuration;
@@ -59,11 +60,11 @@ export function getLinkedSourceAudioSegments(visualSegments = [], sourceAudioAss
       id: segment.id,
       assetId: segment.assetId || linkedAssetId,
       start: Math.max(0, range.start + timelineOffset),
-      duration: segment.speedCurve?.enabled ? range.duration : Math.min(range.duration, sourceDuration / playbackRate),
+      duration: timing.speedCurve?.enabled ? range.duration : Math.min(range.duration, sourceDuration / playbackRate),
       sourceStart,
       sourceDuration,
       playbackRate,
-      speedCurve: segment.speedCurve,
+      speedCurve: timing.speedCurve,
       volume: segment.sourceAudioVolume,
     }];
   });
@@ -102,7 +103,7 @@ export function shouldMuteEmbeddedVideoAudio(segment, { sourceAudioBlob = null, 
   if (segment.sourceAudioUnmapped) return false;
   if (!sourceAudioBlob) return false;
   return Number.isFinite(segment.sourceAudioOffset) ||
-    Boolean(!sourceAudioLinked && sourceAudioAssetId && segment.assetId === sourceAudioAssetId) ||
+    Boolean(!sourceAudioLinked && sourceAudioAssetId && (segment.sourceAudioOriginAssetId || segment.assetId) === sourceAudioAssetId) ||
     linkedSegments.some((item) => item.id === segment.id);
 }
 

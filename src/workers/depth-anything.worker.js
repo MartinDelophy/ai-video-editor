@@ -1,4 +1,4 @@
-import { RawImage, env, pipeline } from "@huggingface/transformers";
+import { RawImage, env, interpolate_4d, pipeline } from "@huggingface/transformers";
 import {
   DEPTH_MODEL_HUGGING_FACE_REVISION,
   DEPTH_MODEL_MODELSCOPE_REVISION,
@@ -6,10 +6,31 @@ import {
   DEPTH_MODEL_REPOSITORY,
 } from "../lib/depthOfField.js";
 import { loadFromMirroredRepository } from "../lib/modelSources.js";
+import { writeDepthPixels } from "../lib/depthPixels.js";
 import { configureAnnaTransformers } from "../lib/annaWasmRuntime.js";
 
 env.allowLocalModels = false;
-env.useBrowserCache = true;
+// Persistent caching is optional inside Anna's storage-partitioned iframe.
+// Reuse existing models, but stop writes after a quota/storage failure without
+// discarding the downloaded response or touching saved project/media data.
+env.useBrowserCache = false;
+env.useCustomCache = true;
+let cachePromise;
+let cacheWritesEnabled = true;
+const getModelCache = () => cachePromise ??= Promise.resolve()
+  .then(() => globalThis.caches?.open("transformers-cache"))
+  .catch(() => null);
+env.customCache = {
+  async match(request) {
+    try { return await (await getModelCache())?.match(request); }
+    catch { return undefined; }
+  },
+  async put(request, response) {
+    if (!cacheWritesEnabled) return;
+    try { await (await getModelCache())?.put(request, response); }
+    catch { cacheWritesEnabled = false; }
+  },
+};
 
 let estimatorPromise = null;
 let inputCanvas = null;
@@ -60,20 +81,22 @@ self.onmessage = async (event) => {
     context.drawImage(message.bitmap, 0, 0, message.width, message.height);
     message.bitmap.close?.();
     const input = RawImage.fromCanvas(canvas);
-    const output = await estimator(input);
-    const depth = output.depth;
+    // Keep model inference unchanged; refine only the final depth pixels.
+    const inputs = await estimator.processor(input);
+    const { predicted_depth: prediction } = await estimator.model(inputs);
+    const batch = prediction[0];
+    const [height, width] = batch.dims.slice(-2);
+    const resized = await interpolate_4d(batch.view(1, 1, height, width), {
+      size: [message.height, message.width], mode: "bilinear",
+    });
+    const depth = { width: message.width, height: message.height, data: resized.data };
     depthCanvas ??= new OffscreenCanvas(depth.width, depth.height);
     if (depthCanvas.width !== depth.width) depthCanvas.width = depth.width;
     if (depthCanvas.height !== depth.height) depthCanvas.height = depth.height;
     const depthContext = depthCanvas.getContext("2d");
     const image = depthContext.createImageData(depth.width, depth.height);
-    for (let index = 0; index < depth.data.length; index += 1) {
-      const offset = index * 4;
-      image.data[offset] = depth.data[index];
-      image.data[offset + 1] = depth.data[index];
-      image.data[offset + 2] = depth.data[index];
-      image.data[offset + 3] = 255;
-    }
+    writeDepthPixels(depth.data, image.data, depth.width, depth.height,
+      context.getImageData(0, 0, depth.width, depth.height).data);
     depthContext.putImageData(image, 0, 0);
     const blob = await depthCanvas.convertToBlob({ type: "image/png" });
     self.postMessage({

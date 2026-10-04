@@ -1699,6 +1699,7 @@ export function ToolPanel(props) {
         onOpenClickRipple={openClickRippleInspector}
         faceSwapActive={effectsPanelMode === "face-swap"}
         opticalFlowActive={effectsPanelMode === "vector-tracking"}
+        relightActive={effectsPanelMode === "relight"}
         cinematicDepthActive={effectsPanelMode === "cinematic-depth"}
         cinematicDepthAnalysis={cinematicDepth?.record}
         cinematicDepthRunning={cinematicDepth?.job?.running}

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { getDepthAnalysisSignature } from "../lib/depthOfField.js";
 import { getVisionKey } from "../lib/vision.js";
 import { getVisualSourceTime } from "../lib/visualEffects.js";
 
@@ -25,28 +26,49 @@ function createWorkerClient(onSetupProgress) {
   const worker = new Worker(new URL("../workers/depth-anything.worker.js", import.meta.url), { type: "module" });
   let requestId = 0;
   const pending = new Map();
+  let fatalError = null;
+  const fail = (error) => {
+    fatalError = error;
+    pending.forEach(({ reject, timer }) => { clearTimeout(timer); reject(error); });
+    pending.clear();
+    worker.terminate();
+  };
+  worker.onerror = (event) => {
+    event.preventDefault();
+    fail(new Error("Depth model worker failed to load. Refresh the app and retry."));
+  };
+  worker.onmessageerror = () => fail(new Error("Depth model worker communication failed."));
   worker.onmessage = (event) => {
     const message = event.data || {};
     if (message.type === "setup-progress") {
+      pending.forEach((request) => {
+        if (request.type === "setup") {
+          clearTimeout(request.timer);
+          request.timer = setTimeout(() => fail(new Error("Depth model setup stalled; retry the download.")), 120_000);
+        }
+      });
       onSetupProgress?.(message);
       return;
     }
     const request = pending.get(message.requestId);
     if (!request) return;
+    clearTimeout(request.timer);
     pending.delete(message.requestId);
     if (message.type === "error") request.reject(new Error(message.message || "Depth inference failed"));
     else request.resolve(message);
   };
   const call = (type, payload = {}, transfer = []) => new Promise((resolve, reject) => {
+    if (fatalError) return reject(fatalError);
     requestId += 1;
-    pending.set(requestId, { resolve, reject });
+    const timer = setTimeout(() => fail(new Error("Depth model setup stalled; retry the download.")), type === "setup" ? 120_000 : 60_000);
+    pending.set(requestId, { resolve, reject, timer, type });
     worker.postMessage({ type, requestId, ...payload }, transfer);
   });
   return {
     setup: () => call("setup"),
     infer: (bitmap, width, height) => call("infer", { bitmap, width, height }, [bitmap]),
     dispose: () => {
-      pending.forEach(({ reject }) => reject(new DOMException("Worker closed", "AbortError")));
+      pending.forEach(({ reject, timer }) => { clearTimeout(timer); reject(new DOMException("Worker closed", "AbortError")); });
       pending.clear();
       worker.terminate();
     },
@@ -92,7 +114,7 @@ async function seekVideo(video, time, signal) {
 function userError(error, t) {
   const message = error instanceof Error ? error.message : String(error || "");
   if (/webgpu|adapter|device/i.test(message)) return t("depthWebGpuRequired");
-  if (/failed to fetch|fetch failed|network/i.test(message)) return t("depthModelUnavailable");
+  if (/failed to fetch|fetch failed|network|worker|stalled/i.test(message)) return t("depthModelUnavailable");
   return message || t("depthAnalysisFailed");
 }
 
@@ -105,8 +127,6 @@ export function useDepthOfFieldAnalysis({
   effectField = "cinematicDepth",
   readyToastKey = "depthReadyToast",
   notify,
-  setCurrentTime,
-  timelineStart = 0,
   t,
 }) {
   const key = getVisionKey(segment);
@@ -136,7 +156,8 @@ export function useDepthOfFieldAnalysis({
 
   const cancel = useCallback(() => {
     abortRef.current?.abort();
-    // Keep the job occupied until its in-flight inference releases shared buffers.
+    workerRef.current?.dispose();
+    workerRef.current = null;
     setJob((current) => ({ ...current, phase: t("depthCanceled") }));
   }, [t]);
 
@@ -148,85 +169,95 @@ export function useDepthOfFieldAnalysis({
     }
     const controller = new AbortController();
     abortRef.current = controller;
-    const effect = { ...segment?.[effectField], ...overrides };
-    const quality = QUALITY[effect.quality] || QUALITY.balanced;
+    const { reanalyze = false, ...effectOverrides } = overrides;
+    const effect = { ...segment?.[effectField], ...effectOverrides };
+    const qualityId = QUALITY[effect.quality] ? effect.quality : "balanced";
+    const quality = QUALITY[qualityId];
+    const signature = getDepthAnalysisSignature(segment, qualityId);
+    const reuseAnalysis = !reanalyze && ["depth-map", "relight"].includes(effect.output) && record?.complete
+      && record.signature === signature && record.samples?.length > 0;
     setJob({ running: true, key, stage: "setup", progress: 1, phase: t("depthModelPreparing"), error: "" });
     const previousRecord = record;
     let source;
     const createdUrls = [];
     try {
-      const worker = ensureWorker();
-      await worker.setup();
-      if (controller.signal.aborted) throw new DOMException("Canceled", "AbortError");
-      setJob({ running: true, key, stage: "analysis", progress: 0, phase: t("depthAnalyzingFrames"), error: "" });
-      source = await prepareSource(segment, controller.signal);
-      const scale = Math.min(1, quality.maxDimension / Math.max(source.width, source.height));
-      const width = Math.max(14, Math.round(source.width * scale / 14) * 14);
-      const height = Math.max(14, Math.round(source.height * scale / 14) * 14);
-      const canvas = document.createElement("canvas");
-      canvas.width = width;
-      canvas.height = height;
-      const context = canvas.getContext("2d", { alpha: false, desynchronized: true });
-      const duration = segment.type === "video" ? Math.max(0.05, Number(segment.duration) || 0.05) : 0;
-      const count = segment.type === "video" ? Math.max(1, Math.min(360, Math.ceil(duration * quality.fps))) : 1;
-      const samples = [];
-      const capture = async (index) => {
+      let analysis = reuseAnalysis ? record : null;
+      if (!reuseAnalysis) {
+        const worker = ensureWorker();
+        await worker.setup();
         if (controller.signal.aborted) throw new DOMException("Canceled", "AbortError");
-        const localTime = segment.type === "video" ? index * duration / count : 0;
-        const sourceTime = segment.type === "video" ? getVisualSourceTime(segment, localTime) : 0;
-        if (segment.type === "video") await seekVideo(source.media, sourceTime, controller.signal);
-        if (controller.signal.aborted) throw new DOMException("Canceled", "AbortError");
-        context.drawImage(source.media, 0, 0, width, height);
-        return { bitmap: await createImageBitmap(canvas), localTime, sourceTime };
-      };
-      let frame = await capture(0);
-      let lastPublished = -Infinity;
-      for (let index = 0; index < count; index += 1) {
-        if (controller.signal.aborted) {
-          frame.bitmap.close();
-          throw new DOMException("Canceled", "AbortError");
-        }
-        const { bitmap, localTime, sourceTime } = frame;
-        // Transfer the current bitmap before decoding the next frame. Only one
-        // inference and one prefetched frame are in flight, keeping memory bounded.
-        const inference = worker.infer(bitmap, width, height);
-        const nextFrame = index + 1 < count ? capture(index + 1) : Promise.resolve(null);
-        const [inferred, captured] = await Promise.allSettled([inference, nextFrame]);
-        frame = captured.status === "fulfilled" ? captured.value : null;
-        if (inferred.status === "rejected" || captured.status === "rejected" || controller.signal.aborted) {
-          frame?.bitmap.close();
+        setJob({ running: true, key, stage: "analysis", progress: 0, phase: t("depthAnalyzingFrames"), error: "" });
+        source = await prepareSource(segment, controller.signal);
+        const scale = Math.min(1, quality.maxDimension / Math.max(source.width, source.height));
+        const width = Math.max(14, Math.round(source.width * scale / 14) * 14);
+        const height = Math.max(14, Math.round(source.height * scale / 14) * 14);
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const context = canvas.getContext("2d", { alpha: false, desynchronized: true });
+        const duration = segment.type === "video" ? Math.max(0.05, Number(segment.duration) || 0.05) : 0;
+        const count = segment.type === "video" ? Math.max(1, Math.min(360, Math.ceil(duration * quality.fps))) : 1;
+        const samples = [];
+        const capture = async (index) => {
           if (controller.signal.aborted) throw new DOMException("Canceled", "AbortError");
-          throw inferred.status === "rejected" ? inferred.reason : captured.reason;
+          const localTime = segment.type === "video" ? index * duration / count : 0;
+          const sourceTime = segment.type === "video" ? getVisualSourceTime(segment, localTime) : 0;
+          if (segment.type === "video") await seekVideo(source.media, sourceTime, controller.signal);
+          if (controller.signal.aborted) throw new DOMException("Canceled", "AbortError");
+          context.drawImage(source.media, 0, 0, width, height);
+          return { bitmap: await createImageBitmap(canvas), localTime, sourceTime };
+        };
+        let frame = await capture(0);
+        let lastPublished = -Infinity;
+        for (let index = 0; index < count; index += 1) {
+          if (controller.signal.aborted) {
+            frame.bitmap.close();
+            throw new DOMException("Canceled", "AbortError");
+          }
+          const { bitmap, localTime, sourceTime } = frame;
+          // Transfer the current bitmap before decoding the next frame. Only one
+          // inference and one prefetched frame are in flight, keeping memory bounded.
+          const inference = worker.infer(bitmap, width, height);
+          const nextFrame = index + 1 < count ? capture(index + 1) : Promise.resolve(null);
+          const [inferred, captured] = await Promise.allSettled([inference, nextFrame]);
+          frame = captured.status === "fulfilled" ? captured.value : null;
+          if (inferred.status === "rejected" || captured.status === "rejected" || controller.signal.aborted) {
+            frame?.bitmap.close();
+            if (controller.signal.aborted) throw new DOMException("Canceled", "AbortError");
+            throw inferred.status === "rejected" ? inferred.reason : captured.reason;
+          }
+          const result = inferred.value;
+          const depthUrl = URL.createObjectURL(result.blob);
+          createdUrls.push(depthUrl);
+          samples.push({ time: localTime, sourceTime, depthUrl, width: result.width, height: result.height });
+          if (index + 1 < count && performance.now() - lastPublished < 250) continue;
+          lastPublished = performance.now();
+          const progress = Math.round(((index + 1) / count) * 100);
+          setJob({ running: true, key, stage: "analysis", progress, phase: t("depthFrameProgress").replace("{current}", index + 1).replace("{total}", count), error: "" });
+          setDepthRecords((records) => ({
+            ...records,
+            [key]: {
+              complete: false,
+              samples: [...samples],
+              sourceSize: { width: source.width, height: source.height },
+              fps: duration ? count / duration : 1,
+              model: "Depth Anything V2 Small · Q4F16 · WebGPU",
+            },
+          }));
+          // The depth thumbnail already shows progress. Avoid seeking/repainting
+          // the full editor preview on every sample while inference owns the GPU.
         }
-        const result = inferred.value;
-        const depthUrl = URL.createObjectURL(result.blob);
-        createdUrls.push(depthUrl);
-        samples.push({ time: localTime, sourceTime, depthUrl, width: result.width, height: result.height });
-        if (index + 1 < count && performance.now() - lastPublished < 250) continue;
-        lastPublished = performance.now();
-        const progress = Math.round(((index + 1) / count) * 100);
-        setJob({ running: true, key, stage: "analysis", progress, phase: t("depthFrameProgress").replace("{current}", index + 1).replace("{total}", count), error: "" });
-        setDepthRecords((records) => ({
-          ...records,
-          [key]: {
-            complete: false,
-            samples: [...samples],
-            sourceSize: { width: source.width, height: source.height },
-            fps: duration ? count / duration : 1,
-            model: "Depth Anything V2 Small · Q4F16 · WebGPU",
-          },
-        }));
-        setCurrentTime?.(timelineStart + Math.min(duration, localTime));
+        analysis = {
+          complete: true,
+          signature,
+          samples,
+          sourceSize: { width: source.width, height: source.height },
+          duration,
+          fps: duration ? count / duration : 1,
+          model: "Depth Anything V2 Small · Q4F16 · WebGPU",
+          analyzedAt: Date.now(),
+        };
       }
-      const analysis = {
-        complete: true,
-        samples,
-        sourceSize: { width: source.width, height: source.height },
-        duration,
-        fps: duration ? count / duration : 1,
-        model: "Depth Anything V2 Small · Q4F16 · WebGPU",
-        analyzedAt: Date.now(),
-      };
       if (effect.output === "depth-map" && onAssetReady) {
         setJob({ running: true, key, stage: "encoding", progress: 0, phase: t("depthMapEncoding"), error: "" });
         const { renderDepthMapAsset } = await import("../lib/depthMapAsset.js");
@@ -240,9 +271,11 @@ export function useDepthOfFieldAnalysis({
           meta: `${rendered.width} × ${rendered.height} · 30 fps`,
         }, { sourceSegment: segment });
       }
-      const oldUrls = urlsRef.current.get(key) || [];
-      oldUrls.forEach((url) => URL.revokeObjectURL(url));
-      urlsRef.current.set(key, createdUrls);
+      if (!reuseAnalysis) {
+        const oldUrls = urlsRef.current.get(key) || [];
+        oldUrls.forEach((url) => URL.revokeObjectURL(url));
+        urlsRef.current.set(key, createdUrls);
+      }
       setDepthRecords((records) => ({ ...records, [key]: analysis }));
       if (effect.output !== "depth-map" || !onAssetReady) updateEffect?.({ ...effect, enabled: true });
 
@@ -260,6 +293,8 @@ export function useDepthOfFieldAnalysis({
         setJob({ running: false, key, stage: "idle", progress: 0, phase: t("depthCanceled"), error: "" });
         return;
       }
+      workerRef.current?.dispose();
+      workerRef.current = null;
       console.error("[Cinematic Depth]", error);
       createdUrls.forEach((url) => URL.revokeObjectURL(url));
       const detail = userError(error, t);
@@ -269,7 +304,7 @@ export function useDepthOfFieldAnalysis({
       source?.cleanup?.();
       if (abortRef.current === controller) abortRef.current = null;
     }
-  }, [cancel, onAssetReady, effectField, ensureWorker, job.running, key, notify, readyToastKey, record, segment, setCurrentTime, setDepthRecords, t, timelineStart, updateEffect]);
+  }, [cancel, onAssetReady, effectField, ensureWorker, job.running, key, notify, readyToastKey, record, segment, setDepthRecords, t, updateEffect]);
 
   return useMemo(() => ({ key, record, job, analyze, cancel }), [analyze, cancel, job, key, record]);
 }

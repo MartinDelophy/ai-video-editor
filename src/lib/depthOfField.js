@@ -1,3 +1,4 @@
+import { normalizeRelight, renderRelighting } from "./videoRelighting.js";
 export const DEPTH_MODEL_REPOSITORY = "timeline-studio-onnx-models";
 export const DEPTH_MODEL_PATH = "depth-anything-v2-small";
 export const DEPTH_MODEL_HUGGING_FACE_REVISION = "a0806c6fb9484894dcb78df523156d244461515d";
@@ -19,13 +20,25 @@ const clamp = (value, minimum, maximum, fallback) => {
   return Number.isFinite(number) ? Math.max(minimum, Math.min(maximum, number)) : fallback;
 };
 
+// Output styling does not affect inference. Include all source-time mapping and
+// quality inputs so cached depth never survives a changed trim or speed curve.
+export function getDepthAnalysisSignature(segment, quality = "balanced") {
+  return JSON.stringify({
+    src: segment?.src, type: segment?.type, duration: segment?.duration,
+    sourceStart: segment?.sourceStart, sourceDuration: segment?.sourceDuration,
+    playbackRate: segment?.playbackRate, speedCurve: segment?.speedCurve,
+    quality, refinement: 2, model: DEPTH_MODEL_HUGGING_FACE_REVISION,
+  });
+}
+
 export function normalizeCinematicDepth(value) {
   const source = value && typeof value === "object" ? value : {};
   return {
     ...DEFAULT_CINEMATIC_DEPTH,
     ...source,
     enabled: source.enabled === true,
-    output: source.output === "depth-map" ? "depth-map" : "cinematic",
+    output: ["depth-map", "relight"].includes(source.output) ? source.output : "cinematic",
+    relight: normalizeRelight(source.relight),
     inverted: source.inverted === true,
     focus: clamp(source.focus, 0, 1, DEFAULT_CINEMATIC_DEPTH.focus),
     focusRange: clamp(source.focusRange, 0.04, 0.48, DEFAULT_CINEMATIC_DEPTH.focusRange),
@@ -167,6 +180,22 @@ export function drawCinematicDepthFrame(context, source, canvas, options = {}) {
       layerContext.restore();
     }
     context.drawImage(layer, 0, 0);
+    return;
+  }
+  if (effect.enabled && depthVisual && effect.output === "relight") {
+    const layers = getLayers(canvas);
+    const sharp = layers.sharp.getContext("2d");
+    sharp.clearRect(0, 0, canvas.width, canvas.height);
+    paintFitted(sharp, source, layers.sharp, fitMode, filter);
+    const mask = layers.mask.getContext("2d");
+    mask.clearRect(0, 0, canvas.width, canvas.height);
+    paintFitted(mask, depthVisual, layers.mask, fitMode);
+    const next = layers.blurred.getContext("2d");
+    next.clearRect(0, 0, canvas.width, canvas.height);
+    paintFitted(next, options.nextDepthVisual || depthVisual, layers.blurred, fitMode);
+    const lit = renderRelighting(canvas, layers.sharp, layers.mask, layers.blurred, options.depthMix, effect.relight);
+    if (shouldClear) context.clearRect(0, 0, canvas.width, canvas.height);
+    context.drawImage(lit, 0, 0);
     return;
   }
   if (!effect.enabled || !depthVisual || effect.blur <= 0) {

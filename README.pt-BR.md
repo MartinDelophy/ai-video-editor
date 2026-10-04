@@ -19,11 +19,11 @@ O usuário é o único responsável por quaisquer consequências legais decorren
 
 ## Novidades do projeto
 
+- **2026-10-04** — Iluminação de vídeo baseada em profundidade com esfera 3D interativa, distância, intensidade, cor, alcance e suavidade. Segure para comparar o original sem alterar os ajustes salvos; prévia e exportação usam o mesmo renderizador.
 - **2026-10-04** — Mapa de profundidade — Vídeo em profundidade cinza: perto claro, longe escuro. A análise de profundidade sobrepõe decodificação e inferência, codifica PNGs no worker e limita atualizações da interface. A prévia e a exportação interpolam mapas de profundidade, respeitam tempos de origem após cortes e mudanças de velocidade e reutilizam imagens decodificadas. Vídeo de profundidade salvo em Meus recursos. Vídeos de profundidade substituem seus clipes de origem e preservam os recursos. A sequência visual determina a duração e corrige o zero após limpar e reinserir vídeo. Vídeos de profundidade incluem áudio ajustado aos cortes e à velocidade; o vídeo original conserva seu som.
 - **2026-10-04** — Anna adiciona ferramentas e um Skill para inspecionar, pré-visualizar e criar cópias .timeline editadas. O primeiro pacote nativo suporta macOS Apple Silicon; a edição ao vivo permanece separada. Anna remove as abas Reparo por IA e Áudio das propriedades visuais.
 - **2026-10-03** — Vídeos principais e em picture-in-picture permitem ajustar o volume e os efeitos espaciais por clipe sem separar o áudio. As configurações são salvas no projeto e aplicadas à prévia e à exportação.
 - **2026-10-02 — Anna aplica automaticamente as edições concluídas do ChatCut, com Desfazer e Ver alterações na conversa. Um selo HOT ciano destaca o recurso; a recuperação exibe o projeto antes de reconstruir as ondas ausentes em segundo plano.**
-- **2026-10-02 — O ChatCut da Anna adiciona transformações, rodas de cor, glitch, tremor rítmico e transições aos cortes, legendas e áudio. As alterações passam por revisão e podem ser desfeitas.** O agente também processa legendas automáticas e remove marcas de vídeo, inspeciona o resultado e prepara legendas sincronizadas ou substituição de clipes para revisão. Smart inclui Remover pausas; ChatCut detecta pausas localmente no trecho selecionado e prepara cortes sincronizados para revisão e desfazer.
 
 Consulte o [Roadmap](ROADMAP.md) para o trabalho planejado, [Releases](https://github.com/MartinDelophy/ai-video-editor/releases) para mudanças publicadas e [Issues](https://github.com/MartinDelophy/ai-video-editor/issues) para tarefas e erros.
 

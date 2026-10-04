@@ -12749,3 +12749,67 @@ button:disabled {
 .timeline-tools .timeline-return-playhead { color: #67e8d5; border: 1px solid #38766e; white-space: nowrap; font-size: 12px; }
 
 .depth-map-card-placeholder { display: grid; place-items: center; width: 100%; height: 100%; min-height: 140px; color: #dce7e8; background: radial-gradient(ellipse at 45% 65%, #818b91 0%, #3a4249 36%, #11171c 80%); }
+
+/* Depth-assisted relighting: one compact inspector and a transient comparison. */
+.relight-panel { display:flex; flex-direction:column; gap:0; min-width:0; min-height:0; height:100%; overflow:hidden; }
+.relight-scroll { display:grid; align-content:start; gap:14px; min-height:0; flex:1 1 auto; overflow-y:auto; overflow-x:hidden; padding-right:6px; scrollbar-width:thin; scrollbar-color:#56616b transparent; }
+.relight-scroll::-webkit-scrollbar { width:5px; }
+.relight-scroll::-webkit-scrollbar-thumb { background:#56616b; border-radius:99px; }
+.voice-panel.is-relight-context > .voice-tab-body { overflow:hidden; padding:4px 0 0; scrollbar-gutter:auto; display:flex; flex-direction:column; }
+.voice-panel.is-relight-context > .voice-tab-body > .relight-panel { flex:1 1 auto; }
+.relight-enable { display:flex; align-items:center; gap:9px; color:#e7f1f3; font-size:13px; }
+.relight-enable > svg { color:#39ded0; }
+.relight-enable input { margin-left:auto; appearance:none; width:36px; height:21px; border-radius:20px; background:#35444c; position:relative; cursor:pointer; flex:none; }
+.relight-enable input::after { content:""; position:absolute; width:15px; height:15px; top:3px; left:3px; border-radius:50%; background:#b9c9ce; transition:transform .15s; }
+.relight-enable input:checked { background:#25cdbf; }
+.relight-enable input:checked::after { transform:translateX(15px); background:white; }
+.relight-status { display:flex; justify-content:space-between; align-items:center; gap:8px; font-size:11px; color:#9bb0b8; }
+.relight-status > span { display:flex; gap:6px; align-items:center; }
+.relight-status svg { color:#4ce2d7; flex:none; }
+.relight-status button,.relight-reset { background:none; border:0; color:#96b1b9; font-size:11px; padding:4px; cursor:pointer; }
+.relight-setup { display:grid; gap:10px; }
+.relight-setup p { margin:0; font-size:12px; color:#98acb5; line-height:1.5; }
+.relight-surface { margin:0; padding:16px; min-width:0; border:1px solid #2b363e; border-radius:15px; background:#171d23; display:grid; gap:16px; }
+.relight-surface:disabled { opacity:.55; }
+.relight-surface:disabled .relight-position { pointer-events:none; }
+.relight-position-heading { display:flex; align-items:baseline; justify-content:space-between; gap:8px; }
+.relight-position-heading strong { font-size:12px; }
+.relight-position-heading small { font-size:10px; color:#8da2ac; }
+.relight-position { position:relative; aspect-ratio:5/3; border:1px solid #34464f; border-radius:10px; overflow:hidden; touch-action:none; cursor:crosshair; }
+.relight-coordinates { display:flex; gap:12px; }
+.relight-coordinates label { display:flex; align-items:center; gap:5px; font-size:10px; color:#91a8b3; min-width:0; flex:1; }
+.relight-coordinates input { min-width:0; width:48px; padding:5px; border:1px solid #33434c; border-radius:6px; background:#0c151b; color:#dce9ec; font-size:11px; }
+.relight-range { display:grid; gap:7px; }
+.relight-range > span { display:flex; justify-content:space-between; gap:8px; font-size:12px; }
+.relight-range strong { font-weight:500; color:#c4d3d9; }
+.relight-range output { color:#53ddd1; font-variant-numeric:tabular-nums; }
+.relight-range input { margin:0; width:100%; accent-color:#2bdecd; cursor:pointer; }
+.relight-color { display:flex; align-items:center; gap:9px; min-width:0; }
+.relight-color strong { font-size:12px; font-weight:500; color:#c4d3d9; flex:none; }
+.relight-color input { appearance:none; width:29px; height:28px; padding:0; border:1px solid #52616a; background:none; border-radius:6px; overflow:hidden; cursor:pointer; flex:none; }
+.relight-color input::-webkit-color-swatch-wrapper { padding:0; }
+.relight-color input::-webkit-color-swatch { border:0; }
+.relight-color > div,.relight-quality { display:flex; flex:1; border:1px solid #34434c; border-radius:8px; padding:2px; min-width:0; }
+.relight-color button,.relight-quality button { flex:1; min-width:0; padding:5px 3px; border:1px solid transparent; border-radius:6px; background:none; color:#a2b5bf; font-size:11px; cursor:pointer; }
+.relight-color button.is-active,.relight-quality button.is-active { color:#6bf2e3; background:#153435; border-color:#267777; }
+.relight-advanced { border-top:1px solid #2c3940; padding-top:12px; color:#9fb2bb; font-size:11px; }
+.relight-advanced summary { cursor:pointer; }
+.relight-advanced p { line-height:1.5; }
+.relight-footer { display:flex; align-items:center; gap:10px; }
+.relight-compare { flex:1; display:flex; justify-content:center; align-items:center; gap:8px; min-height:42px; border:1px solid #24b7b2; border-radius:10px; color:#67e8dd; background:#122b32; font-size:12px; font-weight:600; cursor:pointer; touch-action:none; user-select:none; }
+.relight-compare.is-held { color:#0c1b22; background:#46dfd0; }
+.relight-reset { display:flex; align-items:center; gap:5px; white-space:nowrap; }
+.relight-panel button:disabled,.relight-enable input:disabled { cursor:not-allowed; }
+.relight-panel button:focus-visible,.relight-panel input:focus-visible { outline:2px solid #56e3d3; outline-offset:3px; }
+.relight-entry-art { position:relative; aspect-ratio:4/3; overflow:hidden; border-radius:12px 12px 0 0; }
+.relight-entry-art img { width:100%; height:100%; object-fit:cover; }
+.relight-entry-art svg { position:absolute; left:23%; top:23%; color:#ffe5bf; }
+.relight-entry .subject-outline-entry-copy { padding:0; }
+.relight-entry .subject-outline-entry-copy span { color:#859da8; font-size:11px; line-height:1.5; }
+
+@media (prefers-reduced-motion:reduce) { .relight-enable input::after { transition:none; } }
+canvas.relight-position { width:100%; height:auto; display:block; }
+.relight-position:focus-visible { outline:2px solid #56e3d3; outline-offset:3px; }
+.relight-color button,.relight-quality button { white-space:normal; overflow-wrap:normal; }
+.relight-entry { position:relative; }
+.relight-footer { flex:0 0 auto; margin-top:10px; padding:0; background:#10171d; }

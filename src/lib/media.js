@@ -1227,7 +1227,7 @@ export function drawPreviewFrame(context, visual, canvas, options) {
   const primaryFilter = composeColorGradeFilter(filter, resolveColorGrade(visualEffects?.keyframes, visualTime, visualEffects?.colorGrade));
   const drawPrimaryVisual = (targetContext, targetCanvas) => {
     if ((photoParallax.enabled || cinematicDepth.enabled) && depth?.depthVisual) {
-      if (photoParallax.enabled && !(cinematicDepth.enabled && cinematicDepth.output === "depth-map")) drawPhotoParallaxFrame(targetContext, visual, targetCanvas, {
+      if (photoParallax.enabled && !(cinematicDepth.enabled && cinematicDepth.output !== "cinematic")) drawPhotoParallaxFrame(targetContext, visual, targetCanvas, {
         effect: photoParallax, depthVisual: depth.depthVisual, fitMode, filter: primaryFilter, time: visualTime, clear: false,
       });
       else drawCinematicDepthFrame(targetContext, visual, targetCanvas, {
@@ -1352,7 +1352,7 @@ export function drawPreviewFrame(context, visual, canvas, options) {
       const overlayDepth = normalizeCinematicDepth(overlay.cinematicDepth);
       const overlayParallax = normalizePhotoParallax(overlay.photoParallax);
       if ((overlayParallax.enabled || overlayDepth.enabled) && overlay.depth?.depthVisual) {
-        if (overlayParallax.enabled && !(overlayDepth.enabled && overlayDepth.output === "depth-map")) drawPhotoParallaxFrame(targetContext, overlayVisual, canvas, {
+        if (overlayParallax.enabled && !(overlayDepth.enabled && overlayDepth.output !== "cinematic")) drawPhotoParallaxFrame(targetContext, overlayVisual, canvas, {
           effect: overlayParallax, depthVisual: overlay.depth.depthVisual, fitMode: "contain", filter: overlayFilter, time: overlayTime, clear: false,
         });
         else drawCinematicDepthFrame(targetContext, overlayVisual, canvas, {

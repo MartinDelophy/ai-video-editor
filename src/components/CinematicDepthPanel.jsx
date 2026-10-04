@@ -12,12 +12,13 @@ function DepthRange({ label, value, min, max, step, display, low, high, onChange
   );
 }
 
-export function CinematicDepthPanel({ t, segment, analysis, job, onAnalyze, onCancel, onChange }) {
+export function CinematicDepthPanel({ t, segment, analysis, job, onAnalyze, onCancel, onChange, depthMap = false }) {
   const effect = normalizeCinematicDepth(segment?.cinematicDepth);
   const preview = analysis?.samples?.[Math.max(0, analysis.samples.length - 1)] || null;
   const running = Boolean(job?.running);
   const analyzed = analysis?.complete === true;
-  const update = (patch) => onChange?.({ ...effect, ...patch });
+  const output = depthMap ? "depth-map" : "cinematic";
+  const update = (patch) => onChange?.({ ...effect, output, ...patch });
 
   return (
     <div className="cinematic-depth-panel">
@@ -25,22 +26,22 @@ export function CinematicDepthPanel({ t, segment, analysis, job, onAnalyze, onCa
         <span><Aperture size={22} weight="duotone" /></span>
         <div>
           <small>{t("depthKicker")}</small>
-          <strong>{t("depthTitle")}</strong>
-          <em>{t("depthDescription")}</em>
+          <strong>{t(depthMap ? "depthMapTitle" : "depthTitle")}</strong>
+          <em>{t(depthMap ? "depthMapDescription" : "depthDescription")}</em>
         </div>
       </div>
 
       <section className={`cinematic-depth-analysis ${analyzed ? "is-ready" : ""}`}>
         <div className="cinematic-depth-map">
-          {preview?.depthUrl ? <img src={preview.depthUrl} alt={t("depthMapAlt")} /> : <Aperture size={30} weight="duotone" />}
-          {preview?.depthUrl ? <i style={{ left: `${effect.focus * 100}%` }} /> : null}
+          {!depthMap && preview?.depthUrl ? <img src={preview.depthUrl} alt={t("depthMapAlt")} /> : <Aperture size={30} weight="duotone" />}
+          {!depthMap && preview?.depthUrl ? <i style={{ left: `${effect.focus * 100}%` }} /> : null}
         </div>
         <div className="cinematic-depth-analysis-copy">
           <span>{analyzed ? <CheckCircle size={17} weight="fill" /> : <CircleNotch size={17} className={running ? "is-spinning" : ""} />}</span>
           <div>
             <strong>{analyzed ? t("depthAnalysisComplete") : running ? job.phase : t("depthAnalysisNeeded")}</strong>
             <em>{analyzed
-              ? `${analysis.samples?.length || 1} ${t("depthFramesUnit")} · ${analysis.fps || 1} fps`
+              ? `${analysis.samples?.length || 1} ${t("depthFramesUnit")} · ${Number((analysis.fps || 1).toFixed(2))} fps`
               : t("depthAnalysisHint")}</em>
           </div>
         </div>
@@ -48,7 +49,7 @@ export function CinematicDepthPanel({ t, segment, analysis, job, onAnalyze, onCa
 
       {job?.stage !== "idle" && (running || job?.error) ? (
         <div className={`cinematic-depth-progress ${job.error ? "is-error" : ""}`} aria-live="polite">
-          <div><span>{job.stage === "setup" ? t("depthModelSetup") : t("depthAnalyzing")}</span><strong>{Math.round(job.progress || 0)}%</strong></div>
+          <div><span>{job.stage === "encoding" ? t("depthMapEncoding") : job.stage === "setup" ? t("depthModelSetup") : t("depthAnalyzing")}</span><strong>{Math.round(job.progress || 0)}%</strong></div>
           <i><b style={{ width: `${Math.round(job.progress || 0)}%` }} /></i>
           <small>{job.error || job.phase}</small>
         </div>
@@ -56,7 +57,7 @@ export function CinematicDepthPanel({ t, segment, analysis, job, onAnalyze, onCa
 
       <div className="cinematic-depth-actions">
         {running ? <button className="panel-secondary" type="button" onClick={onCancel}><X size={15} />{t("cancel")}</button> : null}
-        <button className="panel-primary" type="button" disabled={!segment || running} onClick={onAnalyze}>
+        <button className="panel-primary" type="button" disabled={!segment || running} onClick={() => onAnalyze?.({ output })}>
           <Aperture size={16} weight="duotone" />
           {analyzed ? t("depthReanalyze") : t("depthAnalyze")}
         </button>
@@ -65,10 +66,14 @@ export function CinematicDepthPanel({ t, segment, analysis, job, onAnalyze, onCa
       <section className="cinematic-depth-controls">
         <label className="cinematic-depth-toggle">
           <span>{effect.enabled ? <Eye size={17} /> : <EyeSlash size={17} />}</span>
-          <span><strong>{t("depthEnable")}</strong><em>{t("depthEnableHint")}</em></span>
-          <input type="checkbox" checked={effect.enabled} disabled={!analyzed} onChange={(event) => update({ enabled: event.target.checked })} />
+          <span><strong>{t(depthMap ? "depthMapEnable" : "depthEnable")}</strong><em>{t(depthMap ? "depthMapDescription" : "depthEnableHint")}</em></span>
+          <input type="checkbox" checked={effect.enabled && effect.output === output} disabled={!analyzed} onChange={(event) => update({ enabled: event.target.checked })} />
         </label>
 
+        {depthMap ? <label className="cinematic-depth-toggle">
+          <span><Eye size={17} /></span><span><strong>{t("depthMapInvert")}</strong></span>
+          <input type="checkbox" checked={effect.inverted} onChange={(event) => update({ inverted: event.target.checked })} />
+        </label> : <>
         <DepthRange
           label={t("depthFocusDistance")}
           value={effect.focus}
@@ -114,6 +119,7 @@ export function CinematicDepthPanel({ t, segment, analysis, job, onAnalyze, onCa
           onChange={(highlightBoost) => update({ highlightBoost })}
         />
 
+        </>}
         <div className="cinematic-depth-quality">
           <span><strong>{t("depthAnalysisQuality")}</strong><em>{t("depthQualityHint")}</em></span>
           <div>

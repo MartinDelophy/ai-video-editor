@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { getVisualSegmentsTotal } from "../lib/timeline.js";
 
 export function useVisualTrackState() {
   const [imageSrc, setImageSrc] = useState("");
@@ -19,7 +20,12 @@ export function useVisualTrackState() {
   const [selectedStickerSegmentId, setSelectedStickerSegmentId] = useState("");
 
   return {
-    fitMode, imageClipCount, imageDuration, imageMeta, imageName, imageSrc,
+    fitMode, imageClipCount,
+    // The segment sequence is authoritative after insertion, deletion and
+    // asynchronous preparation; legacy mirrors must not disable valid footage.
+    imageDuration: visualSegments.length ? getVisualSegmentsTotal(visualSegments) : imageDuration,
+    imageMeta, imageName,
+    imageSrc: imageSrc || visualSegments.find((segment) => segment.src)?.src || "",
     selectedFilterId, selectedStickerId, selectedStickerSegmentId,
     selectedTransitionId, selectedVisualSegmentId, setFitMode, setImageClipCount,
     setImageDuration, setImageMeta, setImageName, setImageSrc, setSelectedFilterId,

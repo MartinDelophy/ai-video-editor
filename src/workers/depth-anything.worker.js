@@ -12,6 +12,8 @@ env.allowLocalModels = false;
 env.useBrowserCache = true;
 
 let estimatorPromise = null;
+let inputCanvas = null;
+let depthCanvas = null;
 
 function progressValue(event) {
   if (event?.status === "progress" && Number.isFinite(event.progress)) return event.progress;
@@ -33,7 +35,10 @@ async function getEstimator() {
       const progress = progressValue(event);
       self.postMessage({ type: "setup-progress", progress, status: event?.status || "" });
     },
-  }));
+  })).catch((error) => {
+    estimatorPromise = null;
+    throw error;
+  });
   return estimatorPromise;
 }
 
@@ -47,22 +52,39 @@ self.onmessage = async (event) => {
     }
     if (message.type !== "infer" || !message.bitmap) return;
     const estimator = await getEstimator();
-    const canvas = new OffscreenCanvas(message.width, message.height);
+    inputCanvas ??= new OffscreenCanvas(message.width, message.height);
+    const canvas = inputCanvas;
+    if (canvas.width !== message.width) canvas.width = message.width;
+    if (canvas.height !== message.height) canvas.height = message.height;
     const context = canvas.getContext("2d", { willReadFrequently: true });
     context.drawImage(message.bitmap, 0, 0, message.width, message.height);
     message.bitmap.close?.();
     const input = RawImage.fromCanvas(canvas);
     const output = await estimator(input);
     const depth = output.depth;
-    const pixels = new Uint8Array(depth.data);
+    depthCanvas ??= new OffscreenCanvas(depth.width, depth.height);
+    if (depthCanvas.width !== depth.width) depthCanvas.width = depth.width;
+    if (depthCanvas.height !== depth.height) depthCanvas.height = depth.height;
+    const depthContext = depthCanvas.getContext("2d");
+    const image = depthContext.createImageData(depth.width, depth.height);
+    for (let index = 0; index < depth.data.length; index += 1) {
+      const offset = index * 4;
+      image.data[offset] = depth.data[index];
+      image.data[offset + 1] = depth.data[index];
+      image.data[offset + 2] = depth.data[index];
+      image.data[offset + 3] = 255;
+    }
+    depthContext.putImageData(image, 0, 0);
+    const blob = await depthCanvas.convertToBlob({ type: "image/png" });
     self.postMessage({
       type: "result",
       requestId: message.requestId,
       width: depth.width,
       height: depth.height,
-      pixels: pixels.buffer,
-    }, [pixels.buffer]);
+      blob,
+    });
   } catch (error) {
+    message.bitmap?.close?.();
     self.postMessage({
       type: "error",
       requestId: message.requestId,

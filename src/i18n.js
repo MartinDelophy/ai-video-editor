@@ -1,3 +1,110 @@
+const DEPTH_MAP_COPY = {
+  "zh": {
+    "depthMapTitle": "深度图",
+    "depthMapDescription": "将视频转为灰度深度图：近处亮、远处暗。",
+    "depthMapEnable": "启用深度图",
+    "depthMapInvert": "反转远近明暗",
+    "depthMapEncoding": "正在生成深度图视频",
+    "depthMapAssetReady": "深度图视频已保存到我的素材"
+  },
+  "en": {
+    "depthMapTitle": "Depth map",
+    "depthMapDescription": "Turn video into grayscale depth: near is bright, far is dark.",
+    "depthMapEnable": "Enable depth map",
+    "depthMapInvert": "Invert near/far brightness",
+    "depthMapEncoding": "Generating depth-map video",
+    "depthMapAssetReady": "Depth-map video saved to My assets"
+  },
+  "ja": {
+    "depthMapTitle": "深度マップ",
+    "depthMapDescription": "動画をグレースケール深度に変換。近くは明るく、遠くは暗く。",
+    "depthMapEnable": "深度マップを有効化",
+    "depthMapInvert": "遠近の明暗を反転",
+    "depthMapEncoding": "深度マップ動画を生成中",
+    "depthMapAssetReady": "深度マップ動画をマイ素材に保存しました"
+  },
+  "ko": {
+    "depthMapTitle": "깊이 맵",
+    "depthMapDescription": "영상을 회색조 깊이로 변환합니다. 가까우면 밝고 멀면 어둡습니다.",
+    "depthMapEnable": "깊이 맵 활성화",
+    "depthMapInvert": "원근 밝기 반전",
+    "depthMapEncoding": "깊이 맵 영상 생성 중",
+    "depthMapAssetReady": "깊이 맵 영상을 내 에셋에 저장했습니다"
+  },
+  "es": {
+    "depthMapTitle": "Mapa de profundidad",
+    "depthMapDescription": "Convierte vídeo a profundidad en gris: cerca claro, lejos oscuro.",
+    "depthMapEnable": "Activar mapa de profundidad",
+    "depthMapInvert": "Invertir brillo de cerca y lejos",
+    "depthMapEncoding": "Generando vídeo de profundidad",
+    "depthMapAssetReady": "Vídeo de profundidad guardado en Mis recursos"
+  },
+  "fr": {
+    "depthMapTitle": "Carte de profondeur",
+    "depthMapDescription": "Vidéo en profondeur en gris : proche clair, lointain sombre.",
+    "depthMapEnable": "Activer la carte de profondeur",
+    "depthMapInvert": "Inverser la luminosité proche/lointain",
+    "depthMapEncoding": "Création de la vidéo de profondeur",
+    "depthMapAssetReady": "Vidéo de profondeur enregistrée dans Mes ressources"
+  },
+  "de": {
+    "depthMapTitle": "Tiefenkarte",
+    "depthMapDescription": "Video als Graustufen-Tiefe: nah hell, fern dunkel.",
+    "depthMapEnable": "Tiefenkarte aktivieren",
+    "depthMapInvert": "Helligkeit für nah/fern umkehren",
+    "depthMapEncoding": "Tiefenkartenvideo wird erstellt",
+    "depthMapAssetReady": "Tiefenkartenvideo in Meine Medien gespeichert"
+  },
+  "pt": {
+    "depthMapTitle": "Mapa de profundidade",
+    "depthMapDescription": "Vídeo em profundidade cinza: perto claro, longe escuro.",
+    "depthMapEnable": "Ativar mapa de profundidade",
+    "depthMapInvert": "Inverter brilho perto/longe",
+    "depthMapEncoding": "Gerando vídeo de profundidade",
+    "depthMapAssetReady": "Vídeo de profundidade salvo em Meus recursos"
+  },
+  "th": {
+    "depthMapTitle": "แผนที่ความลึก",
+    "depthMapDescription": "แปลงวิดีโอเป็นความลึกสีเทา: ใกล้สว่าง ไกลมืด",
+    "depthMapEnable": "เปิดแผนที่ความลึก",
+    "depthMapInvert": "กลับความสว่างใกล้/ไกล",
+    "depthMapEncoding": "กำลังสร้างวิดีโอแผนที่ความลึก",
+    "depthMapAssetReady": "บันทึกวิดีโอแผนที่ความลึกในสื่อของฉันแล้ว"
+  },
+  "vi": {
+    "depthMapTitle": "Bản đồ độ sâu",
+    "depthMapDescription": "Chuyển video thành độ sâu xám: gần sáng, xa tối.",
+    "depthMapEnable": "Bật bản đồ độ sâu",
+    "depthMapInvert": "Đảo độ sáng gần/xa",
+    "depthMapEncoding": "Đang tạo video bản đồ độ sâu",
+    "depthMapAssetReady": "Đã lưu video độ sâu vào Tài nguyên của tôi"
+  },
+  "ru": {
+    "depthMapTitle": "Карта глубины",
+    "depthMapDescription": "Видео в оттенках серого: близкое светлее, далёкое темнее.",
+    "depthMapEnable": "Включить карту глубины",
+    "depthMapInvert": "Инвертировать яркость ближнего/дальнего",
+    "depthMapEncoding": "Создание видео карты глубины",
+    "depthMapAssetReady": "Видео карты глубины сохранено в Моих материалах"
+  },
+  "it": {
+    "depthMapTitle": "Mappa di profondità",
+    "depthMapDescription": "Video in profondità grigia: vicino chiaro, lontano scuro.",
+    "depthMapEnable": "Attiva mappa di profondità",
+    "depthMapInvert": "Inverti luminosità vicino/lontano",
+    "depthMapEncoding": "Generazione del video di profondità",
+    "depthMapAssetReady": "Video di profondità salvato in Le mie risorse"
+  },
+  "id": {
+    "depthMapTitle": "Peta kedalaman",
+    "depthMapDescription": "Ubah video menjadi kedalaman abu-abu: dekat terang, jauh gelap.",
+    "depthMapEnable": "Aktifkan peta kedalaman",
+    "depthMapInvert": "Balik kecerahan dekat/jauh",
+    "depthMapEncoding": "Membuat video peta kedalaman",
+    "depthMapAssetReady": "Video peta kedalaman disimpan di Aset saya"
+  }
+};
+
 import { SILENCE_REMOVAL_COPY } from "./i18nSilenceRemoval.js";
 import { BEAT_SHAKE_COPY } from "./i18nBeatShake.js";
 import { GLITCH_COPY } from "./i18nGlitch.js";
@@ -3635,7 +3742,7 @@ export function createTranslator(languageId) {
     AUTO_EDIT_RESULT_COPY, IMAGE_AI_CAPTION_COPY, PICTURE_IN_PICTURE_COPY, EFFECTS_WORKSPACE_COPY, VECTOR_STATE_COPY, VECTOR_DOCUMENT_COPY, VECTOR_ADVANCED_COPY,
     SRT_IMPORT_COPY, CLICK_RIPPLE_COPY, BEST_AI_TOOL_COPY,
   ].map((source) => ({ ...(source.en ?? {}), ...(source[languageId] ?? {}) })));
-  return (key, fallbackText) => (SILENCE_REMOVAL_COPY[languageId] ?? SILENCE_REMOVAL_COPY.en)[key] ?? (BEAT_SHAKE_COPY[languageId] ?? BEAT_SHAKE_COPY.en)[key] ?? (GLITCH_COPY[languageId] ?? GLITCH_COPY.en)[key] ?? (ANNA_VIDEO_REPAIR_COPY[languageId] ?? ANNA_VIDEO_REPAIR_COPY.en)[key] ?? (REPAIR_ITERATION_COPY[languageId] ?? REPAIR_ITERATION_COPY.en)[key] ?? (TIMELINE_GAIN_COPY[languageId] ?? TIMELINE_GAIN_COPY.en)[key] ?? (HALO_COPY[languageId] ?? HALO_COPY.en)[key] ?? audioExportCopy[key] ?? markerCopy[key] ?? reviewedCopy[key] ?? completionCopy[key] ?? coreLabelCopy[key] ?? repairCopy[key] ?? specializedCopy[key] ?? exportOptionsCopy[key] ?? EXPORT_OPTIONS_COPY.en[key] ?? exportExtraStatusCopy[key] ?? EXPORT_EXTRA_STATUS_COPY.en[key] ?? projectChromeCopy[key] ?? PROJECT_CHROME_COPY.en[key] ?? captionAudioLinkCopy[key] ?? CAPTION_AUDIO_LINK_COPY.en[key] ?? ttsBackendCopy[key] ?? TTS_BACKEND_COPY.en[key] ?? mobileStickerCopy[key] ?? MOBILE_STICKER_COPY.en[key] ?? mobileClipActionCopy[key] ?? MOBILE_CLIP_ACTION_COPY.en[key] ?? mobileDrawerCopy[key] ?? MOBILE_DRAWER_COPY.en[key] ?? srtImportCopy[key] ?? exportCopy[key] ?? EXPORT_RENDER_COPY.en[key] ?? assetPreviewCopy[key] ?? ASSET_PREVIEW_COPY.en[key] ?? assetDropCopy[key] ?? ASSET_DROP_COPY.en[key] ?? autoCaptionStatusCopy[key] ?? AUTO_CAPTION_STATUS_COPY.en[key] ?? copy[key] ?? fallback[key] ?? UI_COPY.zh[key] ?? fallbackText ?? key;
+  return (key, fallbackText) => (DEPTH_MAP_COPY[languageId] ?? DEPTH_MAP_COPY.en)[key] ?? (SILENCE_REMOVAL_COPY[languageId] ?? SILENCE_REMOVAL_COPY.en)[key] ?? (BEAT_SHAKE_COPY[languageId] ?? BEAT_SHAKE_COPY.en)[key] ?? (GLITCH_COPY[languageId] ?? GLITCH_COPY.en)[key] ?? (ANNA_VIDEO_REPAIR_COPY[languageId] ?? ANNA_VIDEO_REPAIR_COPY.en)[key] ?? (REPAIR_ITERATION_COPY[languageId] ?? REPAIR_ITERATION_COPY.en)[key] ?? (TIMELINE_GAIN_COPY[languageId] ?? TIMELINE_GAIN_COPY.en)[key] ?? (HALO_COPY[languageId] ?? HALO_COPY.en)[key] ?? audioExportCopy[key] ?? markerCopy[key] ?? reviewedCopy[key] ?? completionCopy[key] ?? coreLabelCopy[key] ?? repairCopy[key] ?? specializedCopy[key] ?? exportOptionsCopy[key] ?? EXPORT_OPTIONS_COPY.en[key] ?? exportExtraStatusCopy[key] ?? EXPORT_EXTRA_STATUS_COPY.en[key] ?? projectChromeCopy[key] ?? PROJECT_CHROME_COPY.en[key] ?? captionAudioLinkCopy[key] ?? CAPTION_AUDIO_LINK_COPY.en[key] ?? ttsBackendCopy[key] ?? TTS_BACKEND_COPY.en[key] ?? mobileStickerCopy[key] ?? MOBILE_STICKER_COPY.en[key] ?? mobileClipActionCopy[key] ?? MOBILE_CLIP_ACTION_COPY.en[key] ?? mobileDrawerCopy[key] ?? MOBILE_DRAWER_COPY.en[key] ?? srtImportCopy[key] ?? exportCopy[key] ?? EXPORT_RENDER_COPY.en[key] ?? assetPreviewCopy[key] ?? ASSET_PREVIEW_COPY.en[key] ?? assetDropCopy[key] ?? ASSET_DROP_COPY.en[key] ?? autoCaptionStatusCopy[key] ?? AUTO_CAPTION_STATUS_COPY.en[key] ?? copy[key] ?? fallback[key] ?? UI_COPY.zh[key] ?? fallbackText ?? key;
 }
 
 export function translateOptionName(languageId, name) {

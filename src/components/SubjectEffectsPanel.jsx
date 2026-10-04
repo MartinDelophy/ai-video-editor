@@ -373,7 +373,7 @@ function FaceSwapEffectCard({ t, active, onClick }) {
   );
 }
 
-function CinematicDepthEffectCard({ t, active, analysis, running, progress, onClick }) {
+function CinematicDepthEffectCard({ t, active, analysis, running, progress, onClick, depthMap = false }) {
   const [hovered, setHovered] = useState(false);
   const [hoverless, setHoverless] = useState(false);
   const previewing = hovered || hoverless;
@@ -400,21 +400,21 @@ function CinematicDepthEffectCard({ t, active, analysis, running, progress, onCl
       onBlur={() => setHovered(false)}
     >
       <span className="subject-outline-entry-preview">
-        <img
+        {depthMap && !analysis?.samples?.length ? <span className="depth-map-card-placeholder"><Aperture size={44} weight="duotone" /></span> : <img
           key={previewing ? "depth" : "source"}
-          src={previewing ? CINEMATIC_DEPTH_PREVIEW_HOVER : CINEMATIC_DEPTH_PREVIEW_STILL}
+          src={depthMap && analysis?.samples?.length ? analysis.samples[0].depthUrl : previewing ? CINEMATIC_DEPTH_PREVIEW_HOVER : CINEMATIC_DEPTH_PREVIEW_STILL}
           alt=""
-        />
+        />}
         <span className="subject-outline-entry-preview-state">
           <Aperture size={13} weight="fill" />
-          {previewing ? t("depthPreviewApplied") : t("effectPreviewHover")}
+          {depthMap ? t("depthMapTitle") : previewing ? t("depthPreviewApplied") : t("effectPreviewHover")}
         </span>
         {running ? <span className="subject-outline-entry-progress"><i style={{ width: `${Math.round(progress || 0)}%` }} /></span> : null}
       </span>
       <span className="subject-outline-entry-footer">
         <span className="subject-outline-entry-copy">
-          <strong>{t("depthTitle")}</strong>
-          <small>{t("depthDescription")}</small>
+          <strong>{t(depthMap ? "depthMapTitle" : "depthTitle")}</strong>
+          <small>{t(depthMap ? "depthMapDescription" : "depthDescription")}</small>
         </span>
         <span className="subject-outline-entry-state">
           {running ? `${Math.round(progress || 0)}%` : analysis?.complete ? <Check size={16} weight="bold" /> : <CaretRight size={17} />}
@@ -818,14 +818,6 @@ export function SubjectEffectsWorkspace({
         />
         <FaceSwapEffectCard t={t} active={faceSwapActive} onClick={onOpenFaceSwap} />
         <OpticalFlowEffectCard t={t} active={opticalFlowActive} onClick={onOpenOpticalFlow} />
-        <CinematicDepthEffectCard
-          t={t}
-          active={cinematicDepthActive}
-          analysis={cinematicDepthAnalysis}
-          running={cinematicDepthRunning}
-          progress={cinematicDepthProgress}
-          onClick={onOpenCinematicDepth}
-        />
         <PhotoParallaxEffectCard
           t={t}
           active={photoParallaxActive}
@@ -835,6 +827,18 @@ export function SubjectEffectsWorkspace({
           onClick={onOpenPhotoParallax}
         />
         </> : null}
+
+        <CinematicDepthEffectCard
+          t={t}
+          active={cinematicDepthActive}
+          analysis={cinematicDepthAnalysis}
+          running={cinematicDepthRunning}
+          progress={cinematicDepthProgress}
+          onClick={onOpenCinematicDepth}
+        />
+        <CinematicDepthEffectCard t={t} depthMap
+          analysis={cinematicDepthAnalysis} running={cinematicDepthRunning} progress={cinematicDepthProgress}
+          onClick={() => onOpenCinematicDepth?.("depth-map")} />
 
         <ClickRippleEffectCard
           t={t}

@@ -1,6 +1,8 @@
 import { RELIGHTING_COPY } from "./lib/relightingCopy.js";
 const DEPTH_MAP_COPY = {
   "zh": {
+    "depthMapPipeline": "正在分析深度并进行 RIFE 插帧",
+    "depthMapInterpolating": "正在使用 RIFE 插帧至 24 fps",
     "depthMapExportFailed": "深度视频生成失败，已保留分析结果，请重试。",
     "depthMapTitle": "深度图",
     "depthMapDescription": "将视频转为灰度深度图：近处亮、远处暗。",
@@ -10,6 +12,8 @@ const DEPTH_MAP_COPY = {
     "depthMapAssetReady": "深度图视频已保存到我的素材"
   },
   "en": {
+    "depthMapPipeline": "Analyzing depth and interpolating with RIFE",
+    "depthMapInterpolating": "Interpolating to 24 fps with RIFE",
     "depthMapExportFailed": "Depth video generation failed. Analysis is retained; please retry.",
     "depthMapTitle": "Depth map",
     "depthMapDescription": "Turn video into grayscale depth: near is bright, far is dark.",
@@ -19,6 +23,8 @@ const DEPTH_MAP_COPY = {
     "depthMapAssetReady": "Depth-map video saved to My assets"
   },
   "ja": {
+    "depthMapPipeline": "深度解析と RIFE 補間を実行中",
+    "depthMapInterpolating": "RIFE で 24 fps に補間中",
     "depthMapExportFailed": "深度動画の生成に失敗しました。解析結果を保持しました。再試行してください。",
     "depthMapTitle": "深度マップ",
     "depthMapDescription": "動画をグレースケール深度に変換。近くは明るく、遠くは暗く。",
@@ -28,6 +34,8 @@ const DEPTH_MAP_COPY = {
     "depthMapAssetReady": "深度マップ動画をマイ素材に保存しました"
   },
   "ko": {
+    "depthMapPipeline": "깊이 분석 및 RIFE 보간 중",
+    "depthMapInterpolating": "RIFE로 24 fps 보간 중",
     "depthMapExportFailed": "깊이 영상 생성에 실패했습니다. 분석 결과는 보존됩니다. 다시 시도하세요.",
     "depthMapTitle": "깊이 맵",
     "depthMapDescription": "영상을 회색조 깊이로 변환합니다. 가까우면 밝고 멀면 어둡습니다.",
@@ -37,6 +45,8 @@ const DEPTH_MAP_COPY = {
     "depthMapAssetReady": "깊이 맵 영상을 내 에셋에 저장했습니다"
   },
   "es": {
+    "depthMapPipeline": "Analizando profundidad e interpolando con RIFE",
+    "depthMapInterpolating": "Interpolando a 24 fps con RIFE",
     "depthMapExportFailed": "No se pudo generar el vídeo de profundidad. El análisis se conserva; vuelve a intentarlo.",
     "depthMapTitle": "Mapa de profundidad",
     "depthMapDescription": "Convierte vídeo a profundidad en gris: cerca claro, lejos oscuro.",
@@ -46,6 +56,8 @@ const DEPTH_MAP_COPY = {
     "depthMapAssetReady": "Vídeo de profundidad guardado en Mis recursos"
   },
   "fr": {
+    "depthMapPipeline": "Analyse de profondeur et interpolation RIFE",
+    "depthMapInterpolating": "Interpolation à 24 fps avec RIFE",
     "depthMapExportFailed": "La génération de la vidéo de profondeur a échoué. L’analyse est conservée ; réessayez.",
     "depthMapTitle": "Carte de profondeur",
     "depthMapDescription": "Vidéo en profondeur en gris : proche clair, lointain sombre.",
@@ -55,6 +67,8 @@ const DEPTH_MAP_COPY = {
     "depthMapAssetReady": "Vidéo de profondeur enregistrée dans Mes ressources"
   },
   "de": {
+    "depthMapPipeline": "Tiefenanalyse und RIFE-Interpolation",
+    "depthMapInterpolating": "Interpolation auf 24 fps mit RIFE",
     "depthMapExportFailed": "Das Tiefenvideo konnte nicht erstellt werden. Die Analyse bleibt erhalten; bitte erneut versuchen.",
     "depthMapTitle": "Tiefenkarte",
     "depthMapDescription": "Video als Graustufen-Tiefe: nah hell, fern dunkel.",
@@ -64,6 +78,8 @@ const DEPTH_MAP_COPY = {
     "depthMapAssetReady": "Tiefenkartenvideo in Meine Medien gespeichert"
   },
   "pt": {
+    "depthMapPipeline": "Analisando profundidade e interpolando com RIFE",
+    "depthMapInterpolating": "Interpolando para 24 fps com RIFE",
     "depthMapExportFailed": "Falha ao gerar o vídeo de profundidade. A análise foi preservada; tente novamente.",
     "depthMapTitle": "Mapa de profundidade",
     "depthMapDescription": "Vídeo em profundidade cinza: perto claro, longe escuro.",
@@ -73,6 +89,8 @@ const DEPTH_MAP_COPY = {
     "depthMapAssetReady": "Vídeo de profundidade salvo em Meus recursos"
   },
   "th": {
+    "depthMapPipeline": "กำลังวิเคราะห์ความลึกและเพิ่มเฟรมด้วย RIFE",
+    "depthMapInterpolating": "กำลังเพิ่มเฟรมเป็น 24 fps ด้วย RIFE",
     "depthMapExportFailed": "สร้างวิดีโอความลึกไม่สำเร็จ เก็บผลวิเคราะห์ไว้แล้ว โปรดลองอีกครั้ง",
     "depthMapTitle": "แผนที่ความลึก",
     "depthMapDescription": "แปลงวิดีโอเป็นความลึกสีเทา: ใกล้สว่าง ไกลมืด",
@@ -82,6 +100,8 @@ const DEPTH_MAP_COPY = {
     "depthMapAssetReady": "บันทึกวิดีโอแผนที่ความลึกในสื่อของฉันแล้ว"
   },
   "vi": {
+    "depthMapPipeline": "Đang phân tích độ sâu và nội suy bằng RIFE",
+    "depthMapInterpolating": "Đang nội suy lên 24 fps bằng RIFE",
     "depthMapExportFailed": "Tạo video độ sâu thất bại. Kết quả phân tích được giữ lại; hãy thử lại.",
     "depthMapTitle": "Bản đồ độ sâu",
     "depthMapDescription": "Chuyển video thành độ sâu xám: gần sáng, xa tối.",
@@ -91,6 +111,8 @@ const DEPTH_MAP_COPY = {
     "depthMapAssetReady": "Đã lưu video độ sâu vào Tài nguyên của tôi"
   },
   "ru": {
+    "depthMapPipeline": "Анализ глубины и интерполяция RIFE",
+    "depthMapInterpolating": "Интерполяция до 24 fps с RIFE",
     "depthMapExportFailed": "Не удалось создать видео глубины. Анализ сохранён; повторите попытку.",
     "depthMapTitle": "Карта глубины",
     "depthMapDescription": "Видео в оттенках серого: близкое светлее, далёкое темнее.",
@@ -100,6 +122,8 @@ const DEPTH_MAP_COPY = {
     "depthMapAssetReady": "Видео карты глубины сохранено в Моих материалах"
   },
   "it": {
+    "depthMapPipeline": "Analisi della profondità e interpolazione RIFE",
+    "depthMapInterpolating": "Interpolazione a 24 fps con RIFE",
     "depthMapExportFailed": "Generazione del video di profondità non riuscita. Analisi conservata; riprova.",
     "depthMapTitle": "Mappa di profondità",
     "depthMapDescription": "Video in profondità grigia: vicino chiaro, lontano scuro.",
@@ -109,6 +133,8 @@ const DEPTH_MAP_COPY = {
     "depthMapAssetReady": "Video di profondità salvato in Le mie risorse"
   },
   "id": {
+    "depthMapPipeline": "Menganalisis kedalaman dan interpolasi RIFE",
+    "depthMapInterpolating": "Menginterpolasi ke 24 fps dengan RIFE",
     "depthMapExportFailed": "Pembuatan video kedalaman gagal. Analisis tetap tersimpan; coba lagi.",
     "depthMapTitle": "Peta kedalaman",
     "depthMapDescription": "Ubah video menjadi kedalaman abu-abu: dekat terang, jauh gelap.",

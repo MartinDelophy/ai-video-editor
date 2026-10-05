@@ -2,10 +2,11 @@ import { AudioBufferSource, BufferTarget, CanvasSource, Output, WebMOutputFormat
 import { drawCinematicDepthFrame, loadPreviewDepthFrame, resolveDepthAnalysisAtTime } from "./depthOfField.js";
 import { prepareEmbeddedVideoAudio } from "./embeddedVideoAudioExport.js";
 import { mixOfflineAudio } from "./audioExport.js";
+import { createRifeDepthInterpolator } from "./rifeDepthInterpolation.js";
 import { getVisualSourceTime } from "./visualEffects.js";
 
 // Bake the depth surface and source-time-matched sound into an independent asset.
-export async function renderDepthMapAsset({ segment, analysis, effect, signal, onProgress }) {
+export async function renderDepthMapAsset({ segment, analysis, effect, signal, onProgress, sampleStream, interpolationProvider = "webgpu" }) {
   const check = () => { if (signal?.aborted) throw new DOMException("Canceled", "AbortError"); };
   check();
   const canvas = document.createElement("canvas");
@@ -15,7 +16,7 @@ export async function renderDepthMapAsset({ segment, analysis, effect, signal, o
   canvas.height = Math.max(2, Math.round(size.height * scale / 2) * 2);
   const context = canvas.getContext("2d", { alpha: false });
   const duration = Math.max(0.05, Number(segment.duration) || 3);
-  const fps = 30;
+  const fps = 24;
   const count = Math.ceil(duration * fps);
   const target = new BufferTarget();
   const output = new Output({ format: new WebMOutputFormat(), target });
@@ -36,31 +37,42 @@ export async function renderDepthMapAsset({ segment, analysis, effect, signal, o
     }
     audioBuffer = audio;
   }
+  let interpolator = null;
+  const useRife = segment.type === "video" && ["fast", "balanced"].includes(effect.quality || "balanced") && (sampleStream || analysis.samples?.length > 1);
   const abort = () => { void output.cancel().catch(() => {}); };
   signal?.addEventListener("abort", abort, { once: true });
   try {
+    if (useRife) {
+      onProgress?.(0, "depthMapInterpolating");
+      interpolator = await createRifeDepthInterpolator(signal, { executionProvider: interpolationProvider });
+      check();
+    }
     await output.start();
     if (audioSource) await audioSource.add(audioBuffer);
     for (let index = 0; index < count; index += 1) {
       check();
       const time = index / fps;
-      const sample = resolveDepthAnalysisAtTime(analysis, segment.type === "video" ? getVisualSourceTime(segment, time) : 0);
+      const sourceTime = segment.type === "video" ? getVisualSourceTime(segment, time) : 0;
+      const sample = sampleStream ? await sampleStream.atTime(sourceTime) : resolveDepthAnalysisAtTime(analysis, sourceTime);
       const frame = await loadPreviewDepthFrame(sample);
       check();
-      drawCinematicDepthFrame(context, frame.depthVisual, canvas, {
-        ...frame, effect: { ...effect, enabled: true, output: "depth-map" }, fitMode: "contain",
+      const depthVisual = interpolator ? await interpolator.interpolate(frame) : frame.depthVisual;
+      check();
+      drawCinematicDepthFrame(context, depthVisual, canvas, {
+        ...frame, depthVisual, ...(interpolator ? { nextDepthVisual: null, depthMix: 0 } : {}), effect: { ...effect, enabled: true, output: "depth-map" }, fitMode: "contain",
       });
       await video.add(time, Math.min(1 / fps, duration - time));
-      if (index % 5 === 0) onProgress?.(Math.round((index + 1) / count * 100));
+      if (index % 5 === 0) onProgress?.(Math.round((index + 1) / count * 100), useRife ? "depthMapInterpolating" : "depthMapEncoding");
     }
     check();
     await output.finalize();
     check();
-    return { blob: new Blob([target.buffer], { type: "video/webm" }), width: canvas.width, height: canvas.height, duration, hasAudio: Boolean(audioSource) };
+    return { blob: new Blob([target.buffer], { type: "video/webm" }), width: canvas.width, height: canvas.height, duration, fps, hasAudio: Boolean(audioSource) };
   } catch (error) {
     await output.cancel().catch(() => {});
     throw error;
   } finally {
+    interpolator?.dispose();
     signal?.removeEventListener("abort", abort);
   }
 }

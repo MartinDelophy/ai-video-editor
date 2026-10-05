@@ -27,7 +27,7 @@ export function getDepthAnalysisSignature(segment, quality = "balanced") {
     src: segment?.src, type: segment?.type, duration: segment?.duration,
     sourceStart: segment?.sourceStart, sourceDuration: segment?.sourceDuration,
     playbackRate: segment?.playbackRate, speedCurve: segment?.speedCurve,
-    quality, samplingVersion: 2, refinement: 2, model: DEPTH_MODEL_HUGGING_FACE_REVISION,
+    quality, samplingVersion: 3, refinement: 2, model: DEPTH_MODEL_HUGGING_FACE_REVISION,
   });
 }
 

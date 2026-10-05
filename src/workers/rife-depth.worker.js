@@ -22,6 +22,7 @@ async function setup(executionProvider = "webgpu") {
 
 self.onmessage = async ({ data: message }) => {
   try {
+    if (message.type === "reset") { pair?.tensor?.dispose(); pair = null; return; }
     if (message.type === "setup") await setup(message.executionProvider);
     if (message.type === "pair") {
       const { width, height, first, second } = message;
@@ -39,13 +40,14 @@ self.onmessage = async ({ data: message }) => {
           }
         }
       }
-      pair = { input, plane, width, height, paddedWidth, paddedHeight };
+      pair?.tensor?.dispose();
+      const tensor = new ort.Tensor("float32", input, [1, 7, paddedHeight, paddedWidth]);
+      pair = { input, tensor, plane, width, height, paddedWidth, paddedHeight };
     }
     if (message.type === "interpolate") {
       if (!pair || !session) throw new Error("RIFE is not ready");
-      const { input, plane, width, height, paddedWidth, paddedHeight } = pair;
+      const { input, tensor, plane, width, height } = pair;
       input.fill(Math.max(0, Math.min(1, message.time)), 6 * plane);
-      const tensor = new ort.Tensor("float32", input, [1, 7, paddedHeight, paddedWidth]);
       let result;
       try {
         result = await session.run({ [session.inputNames[0]]: tensor });
@@ -58,7 +60,6 @@ self.onmessage = async ({ data: message }) => {
         }
         self.postMessage({ requestId: message.requestId, gray, width, height }, [gray.buffer]);
       } finally {
-        tensor.dispose();
         Object.values(result || {}).forEach((value) => value.dispose());
       }
       return;

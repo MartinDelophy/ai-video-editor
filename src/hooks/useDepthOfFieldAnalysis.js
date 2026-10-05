@@ -212,10 +212,14 @@ export function useDepthOfFieldAnalysis({
         canvas.height = height;
         const context = canvas.getContext("2d", { alpha: false, desynchronized: true });
         const duration = segment.type === "video" ? Math.max(0.05, Number(segment.duration) || 0.05) : 0;
-        const count = segment.type === "video" ? Math.max(1, Math.min(720, Math.ceil(duration * quality.fps))) : 1;
+        const requestedCount = Math.ceil(duration * quality.fps);
+        const count = segment.type === "video" ? Math.max(1, Math.min(720, requestedCount)) : 1;
+        // A fixed sample clock lets 24fps output reuse real 8/16/24fps samples.
+        // Keep even coverage only when a long clip reaches the bounded budget.
+        const sampleFps = duration ? (requestedCount > 720 ? count / duration : quality.fps) : 1;
         const samples = [];
         if (segment.type === "video" && effect.output === "depth-map" && onAssetReady && ["fast", "balanced"].includes(qualityId)) {
-          const streamingAnalysis = { samples, sourceSize: { width: source.width, height: source.height }, duration, fps: count / duration };
+          const streamingAnalysis = { samples, sourceSize: { width: source.width, height: source.height }, duration, fps: sampleFps };
           sampleStream = createDepthSampleStream(streamingAnalysis, controller.signal);
           pipelineResult = renderDepthMapAsset({ segment, analysis: streamingAnalysis, effect, signal: controller.signal,
             onProgress: reportEncodingProgress, sampleStream,
@@ -226,7 +230,7 @@ export function useDepthOfFieldAnalysis({
         }
         const capture = async (index) => {
           if (controller.signal.aborted) throw new DOMException("Canceled", "AbortError");
-          const localTime = segment.type === "video" ? index * duration / count : 0;
+          const localTime = segment.type === "video" ? index / sampleFps : 0;
           const sourceTime = segment.type === "video" ? getVisualSourceTime(segment, localTime) : 0;
           if (segment.type === "video") await seekVideo(source.media, sourceTime, controller.signal);
           if (controller.signal.aborted) throw new DOMException("Canceled", "AbortError");
@@ -269,7 +273,7 @@ export function useDepthOfFieldAnalysis({
               complete: false,
               samples: [...samples],
               sourceSize: { width: source.width, height: source.height },
-              fps: duration ? count / duration : 1,
+              fps: sampleFps,
               model: "Depth Anything V2 Small · Q4F16 · WebGPU",
             },
           }));
@@ -282,7 +286,7 @@ export function useDepthOfFieldAnalysis({
           samples,
           sourceSize: { width: source.width, height: source.height },
           duration,
-          fps: duration ? count / duration : 1,
+          fps: sampleFps,
           model: "Depth Anything V2 Small · Q4F16 · WebGPU",
           analyzedAt: Date.now(),
         };

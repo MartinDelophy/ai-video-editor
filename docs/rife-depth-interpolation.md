@@ -18,3 +18,9 @@ The graph uses a float32 `[1,7,H,W]` input: two RGB frames followed by a full ti
 Only the current pair and one output frame are kept by the interpolator. Cancellation terminates the worker and pending requests; completion releases the session with its worker. Native browser inference and output quality need to be considered independently: a monocular depth surface can still flicker, and synthesized depth is not ground-truth geometry.
 
 Depth sampling and interpolation/encoding run as a bounded pipeline with at most three samples ahead of the consumer. Once neighboring maps exist, RIFE can encode their output timestamps while the next maps are analyzed. Backpressure bounds the queue; cancellation releases both stages. Completed analysis remains available if encoding fails. WebGPU remains the default; an internal WASM CPU provider is available for validation and integration. Shared GPU contention means overlap does not guarantee near-zero added latency.
+
+## Scheduling and reuse
+
+Uncapped clips sample on an exact 8/16/24 Hz clock rather than distributing a rounded sample count across the clip duration. This aligns real samples with 24 fps output even for fractional-second clips. The existing 720-sample budget keeps evenly distributed coverage for long clips. The signature version invalidates analyses produced with the previous clock.
+
+At effectively exact endpoints (fraction tolerance 1e-9), use the existing depth frame directly. Adjacent pairs reuse the previous second-frame grayscale bytes; stable-size canvases, ImageData and the current pair input tensor are reused without changing model precision or resolution. Successful jobs retain at most one idle verified session per backend for 60 seconds, with pair tensors cleared; cancellation, failure and idle errors terminate the worker. Active jobs never share a session. Cold startup and inference still cost time; reuse primarily benefits consecutive jobs.

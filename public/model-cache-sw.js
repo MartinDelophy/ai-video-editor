@@ -54,6 +54,8 @@ const SILERO_HUGGING_FACE_REVISION = "c76fc14496a26d75096072140627db3e4437f52b";
 const SILERO_MODELSCOPE_REVISION = "5b210f4bce036b194e4142345bbdaf9b34363ef4";
 const DEPTH_MODEL_HUGGING_FACE_REVISION = "a0806c6fb9484894dcb78df523156d244461515d";
 const DEPTH_MODEL_MODELSCOPE_REVISION = "4cc757f80330e22cb8f82b628c53ceca6307fd12";
+const RIFE_HUGGING_FACE_REVISION = "64f590200ea7d6142a5e58cbf069025e44c84dbe";
+const RIFE_MODELSCOPE_REVISION = "7e4d08c6147638872679c6d2c2af71424599fd58";
 function hasCacheableExtension(pathname) {
   return CACHEABLE_EXTENSIONS.some((extension) => pathname.endsWith(extension));
 }
@@ -116,6 +118,10 @@ function canonicalModelIdentity(url) {
     && path.startsWith("depth-anything-v2-small/")
   ) {
     revision = DEPTH_MODEL_HUGGING_FACE_REVISION;
+  }
+  if (owner === "haixin" && repository === "timeline-studio-onnx-models"
+    && revision === RIFE_MODELSCOPE_REVISION && path.startsWith("rife-v4.17-lite/")) {
+    revision = RIFE_HUGGING_FACE_REVISION;
   }
   return `${owner}/${repository}/${revision}/${path}`;
 }

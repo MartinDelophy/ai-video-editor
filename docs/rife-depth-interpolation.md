@@ -9,7 +9,10 @@ Flowframes is a Windows GUI which can run RIFE; it is not embedded or launched b
 - Upstream: https://github.com/hzwer/Practical-RIFE
 - Upstream license: MIT; preserved in `model-licenses/practical-rife-MIT.txt`.
 - Conversion: vs-mlrt external-models `rife_v4.17_lite.7z`, `rife_v2` graph.
-- Distribution: `notaneimu/onnx-image-models`, revision `f7bf1c91e94ef516900f68456528fa781e2e7174`, `rife_v4.17_lite_v2.onnx`.
+- Owned Hugging Face mirror: `haixin/timeline-studio-onnx-models`, revision `64f590200ea7d6142a5e58cbf069025e44c84dbe`.
+- Owned ModelScope mirror: `martindelophy/timeline-studio-onnx-models`, revision `7e4d08c6147638872679c6d2c2af71424599fd58`.
+- Both mirrors preserve `rife-v4.17-lite/{rife_v4.17_lite_v2.onnx,LICENSE,README.md}`. Chinese sessions prefer ModelScope; the existing source preference overrides locale, and failed downloads fall back to the other owned mirror. The shared model service worker uses one provider-independent cache identity.
+- Original conversion distribution: `notaneimu/onnx-image-models`, revision `f7bf1c91e94ef516900f68456528fa781e2e7174`. This is provenance only, not a runtime download source.
 - SHA-256: `4192e1db7db7d8a110a667b8776b9fe3d92deb1cce04676d5d57a5fd52d7578a` (verified before session creation).
 - Model source notes: https://huggingface.co/notaneimu/onnx-image-models/blob/f7bf1c91e94ef516900f68456528fa781e2e7174/README.md
 

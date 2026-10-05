@@ -1,3 +1,4 @@
+import { getRifeModelUrls, RIFE_MODEL_SHA256 } from "../lib/rifeModelSources";
 import * as ort from "onnxruntime-web/webgpu";
 import wasmMjs from "onnxruntime-web/ort-wasm-simd-threaded.asyncify.mjs?url";
 import wasmBinary from "onnxruntime-web/ort-wasm-simd-threaded.asyncify.wasm?url";
@@ -6,24 +7,36 @@ ort.env.wasm.wasmPaths = { mjs: wasmMjs, wasm: wasmBinary };
 ort.env.wasm.numThreads = self.crossOriginIsolated ? Math.max(1, Math.min(4, navigator.hardwareConcurrency || 1)) : 1;
 ort.env.webgpu.powerPreference = "high-performance";
 ort.env.webgpu.forceFallbackAdapter = false;
-const MODEL_URL = "https://huggingface.co/notaneimu/onnx-image-models/resolve/f7bf1c91e94ef516900f68456528fa781e2e7174/rife_v4.17_lite_v2.onnx";
-const MODEL_SHA256 = "4192e1db7db7d8a110a667b8776b9fe3d92deb1cce04676d5d57a5fd52d7578a";
 let session;
 let pair;
 
-async function setup(executionProvider = "webgpu") {
-  const response = await fetch(MODEL_URL);
-  if (!response.ok) throw new Error(`RIFE model HTTP ${response.status}`);
-  const bytes = await response.arrayBuffer();
-  const digest = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)), (v) => v.toString(16).padStart(2, "0")).join("");
-  if (digest !== MODEL_SHA256) throw new Error("RIFE model integrity mismatch");
-  session = await ort.InferenceSession.create(bytes, { executionProviders: [executionProvider === "wasm" ? "wasm" : "webgpu"], graphOptimizationLevel: "all" });
+async function setup(executionProvider = "webgpu", modelSource) {
+  let modelBytes;
+  for (const url of getRifeModelUrls(modelSource)) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 45_000);
+    try {
+      const response = await fetch(url, { signal: controller.signal });
+      if (!response.ok) throw new Error(`RIFE model HTTP ${response.status}`);
+      const bytes = await response.arrayBuffer();
+      const digest = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)), (v) => v.toString(16).padStart(2, "0")).join("");
+      if (digest !== RIFE_MODEL_SHA256) throw new Error("RIFE model integrity mismatch");
+      modelBytes = bytes;
+      break;
+    } catch {
+      // Both owned mirrors contain the same verified graph; retry the other source.
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+  if (!modelBytes) throw new Error("RIFE model mirrors unavailable");
+  session = await ort.InferenceSession.create(modelBytes, { executionProviders: [executionProvider === "wasm" ? "wasm" : "webgpu"], graphOptimizationLevel: "all" });
 }
 
 self.onmessage = async ({ data: message }) => {
   try {
     if (message.type === "reset") { pair?.tensor?.dispose(); pair = null; return; }
-    if (message.type === "setup") await setup(message.executionProvider);
+    if (message.type === "setup") await setup(message.executionProvider, message.modelSource);
     if (message.type === "pair") {
       const { width, height, first, second } = message;
       const paddedWidth = Math.ceil(width / 32) * 32;

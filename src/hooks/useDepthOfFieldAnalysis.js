@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getDepthAnalysisSignature } from "../lib/depthOfField.js";
+import { renderDepthMapAsset } from "../lib/depthMapAsset.js";
 import { getVisionKey } from "../lib/vision.js";
 import { getVisualSourceTime } from "../lib/visualEffects.js";
 
@@ -180,6 +181,9 @@ export function useDepthOfFieldAnalysis({
     const previousRecord = record;
     let source;
     const createdUrls = [];
+    let completedAnalysis = reuseAnalysis ? record : null;
+    let analysisCommitted = reuseAnalysis;
+    let encodingStarted = false;
     try {
       let analysis = reuseAnalysis ? record : null;
       if (!reuseAnalysis) {
@@ -258,9 +262,17 @@ export function useDepthOfFieldAnalysis({
           analyzedAt: Date.now(),
         };
       }
+      completedAnalysis = analysis;
+      if (!reuseAnalysis) {
+        const oldUrls = urlsRef.current.get(key) || [];
+        urlsRef.current.set(key, createdUrls);
+        setDepthRecords((records) => ({ ...records, [key]: analysis }));
+        analysisCommitted = true;
+        oldUrls.forEach((url) => URL.revokeObjectURL(url));
+      }
       if (effect.output === "depth-map" && onAssetReady) {
+        encodingStarted = true;
         setJob({ running: true, key, stage: "encoding", progress: 0, phase: t("depthMapEncoding"), error: "" });
-        const { renderDepthMapAsset } = await import("../lib/depthMapAsset.js");
         const rendered = await renderDepthMapAsset({ segment, analysis, effect, signal: controller.signal,
           onProgress: (progress) => setJob({ running: true, key, stage: "encoding", progress,
             phase: t("depthMapEncoding"), error: "" }),
@@ -271,12 +283,6 @@ export function useDepthOfFieldAnalysis({
           meta: `${rendered.width} × ${rendered.height} · 30 fps`,
         }, { sourceSegment: segment });
       }
-      if (!reuseAnalysis) {
-        const oldUrls = urlsRef.current.get(key) || [];
-        oldUrls.forEach((url) => URL.revokeObjectURL(url));
-        urlsRef.current.set(key, createdUrls);
-      }
-      setDepthRecords((records) => ({ ...records, [key]: analysis }));
       if (effect.output !== "depth-map" || !onAssetReady) updateEffect?.({ ...effect, enabled: true });
 
       setJob({ running: false, key, stage: "complete", progress: 100, phase: t("depthAnalysisComplete"), error: "" });
@@ -284,22 +290,24 @@ export function useDepthOfFieldAnalysis({
     } catch (error) {
       setDepthRecords((records) => {
         const restored = { ...records };
-        if (previousRecord) restored[key] = previousRecord;
+        if (analysisCommitted && completedAnalysis) restored[key] = completedAnalysis;
+        else if (previousRecord) restored[key] = previousRecord;
         else delete restored[key];
         return restored;
       });
       if (error?.name === "AbortError") {
-        createdUrls.forEach((url) => URL.revokeObjectURL(url));
+        if (!analysisCommitted) createdUrls.forEach((url) => URL.revokeObjectURL(url));
         setJob({ running: false, key, stage: "idle", progress: 0, phase: t("depthCanceled"), error: "" });
         return;
       }
       workerRef.current?.dispose();
       workerRef.current = null;
       console.error("[Cinematic Depth]", error);
-      createdUrls.forEach((url) => URL.revokeObjectURL(url));
-      const detail = userError(error, t);
-      setJob({ running: false, key, stage: "error", progress: 0, phase: t("depthAnalysisFailed"), error: detail });
-      notify(`${t("depthAnalysisFailed")}：${detail}`);
+      if (!analysisCommitted) createdUrls.forEach((url) => URL.revokeObjectURL(url));
+      const phase = t(encodingStarted ? "depthMapExportFailed" : "depthAnalysisFailed");
+      const detail = encodingStarted ? phase : userError(error, t);
+      setJob((current) => ({ ...current, running: false, key, stage: "error", phase, error: detail }));
+      notify(encodingStarted ? detail : `${phase}：${detail}`);
     } finally {
       source?.cleanup?.();
       if (abortRef.current === controller) abortRef.current = null;

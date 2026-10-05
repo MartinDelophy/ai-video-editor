@@ -1,6 +1,7 @@
 import { RELIGHTING_COPY } from "./lib/relightingCopy.js";
 const DEPTH_MAP_COPY = {
   "zh": {
+    "depthMapExportFailed": "深度视频生成失败，已保留分析结果，请重试。",
     "depthMapTitle": "深度图",
     "depthMapDescription": "将视频转为灰度深度图：近处亮、远处暗。",
     "depthMapEnable": "启用深度图",
@@ -9,6 +10,7 @@ const DEPTH_MAP_COPY = {
     "depthMapAssetReady": "深度图视频已保存到我的素材"
   },
   "en": {
+    "depthMapExportFailed": "Depth video generation failed. Analysis is retained; please retry.",
     "depthMapTitle": "Depth map",
     "depthMapDescription": "Turn video into grayscale depth: near is bright, far is dark.",
     "depthMapEnable": "Enable depth map",
@@ -17,6 +19,7 @@ const DEPTH_MAP_COPY = {
     "depthMapAssetReady": "Depth-map video saved to My assets"
   },
   "ja": {
+    "depthMapExportFailed": "深度動画の生成に失敗しました。解析結果を保持しました。再試行してください。",
     "depthMapTitle": "深度マップ",
     "depthMapDescription": "動画をグレースケール深度に変換。近くは明るく、遠くは暗く。",
     "depthMapEnable": "深度マップを有効化",
@@ -25,6 +28,7 @@ const DEPTH_MAP_COPY = {
     "depthMapAssetReady": "深度マップ動画をマイ素材に保存しました"
   },
   "ko": {
+    "depthMapExportFailed": "깊이 영상 생성에 실패했습니다. 분석 결과는 보존됩니다. 다시 시도하세요.",
     "depthMapTitle": "깊이 맵",
     "depthMapDescription": "영상을 회색조 깊이로 변환합니다. 가까우면 밝고 멀면 어둡습니다.",
     "depthMapEnable": "깊이 맵 활성화",
@@ -33,6 +37,7 @@ const DEPTH_MAP_COPY = {
     "depthMapAssetReady": "깊이 맵 영상을 내 에셋에 저장했습니다"
   },
   "es": {
+    "depthMapExportFailed": "No se pudo generar el vídeo de profundidad. El análisis se conserva; vuelve a intentarlo.",
     "depthMapTitle": "Mapa de profundidad",
     "depthMapDescription": "Convierte vídeo a profundidad en gris: cerca claro, lejos oscuro.",
     "depthMapEnable": "Activar mapa de profundidad",
@@ -41,6 +46,7 @@ const DEPTH_MAP_COPY = {
     "depthMapAssetReady": "Vídeo de profundidad guardado en Mis recursos"
   },
   "fr": {
+    "depthMapExportFailed": "La génération de la vidéo de profondeur a échoué. L’analyse est conservée ; réessayez.",
     "depthMapTitle": "Carte de profondeur",
     "depthMapDescription": "Vidéo en profondeur en gris : proche clair, lointain sombre.",
     "depthMapEnable": "Activer la carte de profondeur",
@@ -49,6 +55,7 @@ const DEPTH_MAP_COPY = {
     "depthMapAssetReady": "Vidéo de profondeur enregistrée dans Mes ressources"
   },
   "de": {
+    "depthMapExportFailed": "Das Tiefenvideo konnte nicht erstellt werden. Die Analyse bleibt erhalten; bitte erneut versuchen.",
     "depthMapTitle": "Tiefenkarte",
     "depthMapDescription": "Video als Graustufen-Tiefe: nah hell, fern dunkel.",
     "depthMapEnable": "Tiefenkarte aktivieren",
@@ -57,6 +64,7 @@ const DEPTH_MAP_COPY = {
     "depthMapAssetReady": "Tiefenkartenvideo in Meine Medien gespeichert"
   },
   "pt": {
+    "depthMapExportFailed": "Falha ao gerar o vídeo de profundidade. A análise foi preservada; tente novamente.",
     "depthMapTitle": "Mapa de profundidade",
     "depthMapDescription": "Vídeo em profundidade cinza: perto claro, longe escuro.",
     "depthMapEnable": "Ativar mapa de profundidade",
@@ -65,6 +73,7 @@ const DEPTH_MAP_COPY = {
     "depthMapAssetReady": "Vídeo de profundidade salvo em Meus recursos"
   },
   "th": {
+    "depthMapExportFailed": "สร้างวิดีโอความลึกไม่สำเร็จ เก็บผลวิเคราะห์ไว้แล้ว โปรดลองอีกครั้ง",
     "depthMapTitle": "แผนที่ความลึก",
     "depthMapDescription": "แปลงวิดีโอเป็นความลึกสีเทา: ใกล้สว่าง ไกลมืด",
     "depthMapEnable": "เปิดแผนที่ความลึก",
@@ -73,6 +82,7 @@ const DEPTH_MAP_COPY = {
     "depthMapAssetReady": "บันทึกวิดีโอแผนที่ความลึกในสื่อของฉันแล้ว"
   },
   "vi": {
+    "depthMapExportFailed": "Tạo video độ sâu thất bại. Kết quả phân tích được giữ lại; hãy thử lại.",
     "depthMapTitle": "Bản đồ độ sâu",
     "depthMapDescription": "Chuyển video thành độ sâu xám: gần sáng, xa tối.",
     "depthMapEnable": "Bật bản đồ độ sâu",
@@ -81,6 +91,7 @@ const DEPTH_MAP_COPY = {
     "depthMapAssetReady": "Đã lưu video độ sâu vào Tài nguyên của tôi"
   },
   "ru": {
+    "depthMapExportFailed": "Не удалось создать видео глубины. Анализ сохранён; повторите попытку.",
     "depthMapTitle": "Карта глубины",
     "depthMapDescription": "Видео в оттенках серого: близкое светлее, далёкое темнее.",
     "depthMapEnable": "Включить карту глубины",
@@ -89,6 +100,7 @@ const DEPTH_MAP_COPY = {
     "depthMapAssetReady": "Видео карты глубины сохранено в Моих материалах"
   },
   "it": {
+    "depthMapExportFailed": "Generazione del video di profondità non riuscita. Analisi conservata; riprova.",
     "depthMapTitle": "Mappa di profondità",
     "depthMapDescription": "Video in profondità grigia: vicino chiaro, lontano scuro.",
     "depthMapEnable": "Attiva mappa di profondità",
@@ -97,6 +109,7 @@ const DEPTH_MAP_COPY = {
     "depthMapAssetReady": "Video di profondità salvato in Le mie risorse"
   },
   "id": {
+    "depthMapExportFailed": "Pembuatan video kedalaman gagal. Analisis tetap tersimpan; coba lagi.",
     "depthMapTitle": "Peta kedalaman",
     "depthMapDescription": "Ubah video menjadi kedalaman abu-abu: dekat terang, jauh gelap.",
     "depthMapEnable": "Aktifkan peta kedalaman",

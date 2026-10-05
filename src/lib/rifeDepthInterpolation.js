@@ -1,10 +1,12 @@
+import { getModelSourcePreference } from "./modelSources";
+
 // Practical-RIFE 4.17-lite: motion interpolation of depth, not crossfading.
 // Keep only the current source pair in the worker; cancellation releases its GPU.
 const idleWorkers = new Map();
 const IDLE_TIMEOUT = 60_000;
 
 // Reuse a verified session between successive jobs, never an active lease.
-export async function createRifeDepthInterpolator(signal, { executionProvider = "webgpu" } = {}) {
+export async function createRifeDepthInterpolator(signal, { executionProvider = "webgpu", modelSource = getModelSourcePreference() } = {}) {
   if (signal?.aborted) throw new DOMException("Canceled", "AbortError");
   executionProvider = executionProvider === "wasm" ? "wasm" : "webgpu";
   const idle = idleWorkers.get(executionProvider);
@@ -79,7 +81,7 @@ export async function createRifeDepthInterpolator(signal, { executionProvider = 
     for (let i = 0; i < gray.length; i += 1) gray[i] = rgba[i * 4];
     return gray;
   };
-  try { if (!initialized) await call("setup", { executionProvider }); initialized = true; } catch (error) { dispose(true); throw error; }
+  try { if (!initialized) await call("setup", { executionProvider, modelSource }); initialized = true; } catch (error) { dispose(true); throw error; }
   return {
     dispose,
     async interpolate(frame) {

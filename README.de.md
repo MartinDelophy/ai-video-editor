@@ -19,11 +19,11 @@ Für sämtliche rechtlichen Folgen eines Verstoßes gegen diese Anforderungen is
 
 ## Projektneuigkeiten
 
+- **2026-10-05** — Die Tiefenanalyse verwendet 8, 16 oder 24 Bilder/s für Schnell, Standard und Fein. Schnell und Standard erzeugen mit RIFE 24 fps; Abtastung und Kodierung laufen über eine begrenzte Pipeline überlappend. Originalton bleibt erhalten, abgeschlossene Analysen sind nach einem Fehler wiederverwendbar.
 - **2026-10-04** — Tiefenbasierte Videobeleuchtung mit interaktiver 3D-Kugel, Lichtabstand, Stärke, Farbe, Reichweite und Weichheit. Gedrückt halten zeigt das Original ohne gespeicherte Änderungen anzutasten; Vorschau und Export nutzen denselben Renderer.
 - **2026-10-04** — Tiefenkarte — Video als Graustufen-Tiefe: nah hell, fern dunkel. Die Tiefenanalyse überlappt Bilddekodierung und Inferenz, kodiert PNGs im Worker und begrenzt UI-Aktualisierungen. Tiefenkarten in Vorschau und Export interpolieren zwischen Bildern, berücksichtigen Quellzeiten bei Zuschnitt und Tempoänderung und verwenden dekodierte Bilder erneut. Tiefenkartenvideo in Meine Medien gespeichert. Erzeugte Tiefenvideos ersetzen ihre Quellclips; Medien bleiben erhalten. Die Bildsequenz bestimmt die Wiedergabedauer und behebt die Nullanzeige nach Löschen und erneutem Einfügen. Tiefenvideos enthalten jetzt zum Zuschnitt und Tempo passende Originaltöne; das Originalvideo mit Ton bleibt erhalten.
 - **2026-10-04** — Anna erhält Projektwerkzeuge und einen Skill für geprüfte Änderungen mit Vorschau und neuen .timeline-Kopien. Das erste native Paket unterstützt macOS Apple Silicon; Live-Bearbeitung bleibt getrennt. In Anna entfallen die Tabs KI-Reparatur und Audio in den Bildeigenschaften.
 - **2026-10-03** — Hauptvideos und Bild-in-Bild-Videos unterstützen Lautstärke und Raumeffekte direkt pro Clip, ohne Audio zu trennen. Einstellungen werden im Projekt gespeichert und in Vorschau und Export angewendet.
-- **2026-10-02 — Anna übernimmt abgeschlossene ChatCut-Bearbeitungen automatisch, mit Rückgängig und Änderungsansicht im Gespräch. Ein cyanfarbenes HOT-Abzeichen hebt die Funktion hervor; beim Wiederherstellen erscheint das Projekt vor der Berechnung fehlender Wellenformen im Hintergrund.**
 
 Geplante Arbeiten stehen in der [Roadmap](ROADMAP.md), veröffentlichte Änderungen in den [Releases](https://github.com/MartinDelophy/ai-video-editor/releases) und einzelne Aufgaben in den [Issues](https://github.com/MartinDelophy/ai-video-editor/issues).
 

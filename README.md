@@ -24,11 +24,11 @@ Users are solely responsible for any legal liability arising from violations of 
 
 ## Project updates
 
+- **2026-10-05** — Depth sampling now uses Fast 8, Standard 16 and Fine 24 samples/s. Fast and Standard use RIFE to output 24 fps while sampling and encoding overlap in a bounded pipeline. Source audio is preserved; completed analysis remains reusable after generation failure.
 - **2026-10-04** — Depth-assisted video relighting adds an interactive 3D light-position sphere, light distance, intensity, color, range and softness. Hold to view the original without changing saved edits; preview and export share the same lighting renderer.
 - **2026-10-04** — Depth map — Turn video into grayscale depth: near is bright, far is dark. Depth analysis overlaps frame decoding with inference, encodes PNGs in the worker, and throttles UI updates. Depth-map preview and export now interpolate between samples, match trimmed and retimed source timestamps, and reuse decoded images. Depth-map video saved to My assets. Generated depth videos replace their source clips while retaining assets; playback duration follows the visual sequence, fixing zero duration after clearing and reinserting video. Depth videos now include source audio matched to trimming and speed changes; the original video and its sound remain available.
 - **2026-10-04** — Anna bundles project Tools and a Skill for inspected, previewed edits to new .timeline copies. The first native package supports macOS Apple Silicon; live browser editing remains separate. Anna visual properties omit the AI Repair and Audio tabs.
 - **2026-10-03** — Main and picture-in-picture videos now support clip-level volume and spatial audio directly, without separating audio. Settings are saved with the project and applied in preview and export.
-- **2026-10-02 — Anna ChatCut automatically applies completed edits, with inline Undo and View changes. A compact cyan HOT badge highlights ChatCut; recovery shows the project before rebuilding missing waveforms in the background.**
 
 See the public [Roadmap](ROADMAP.md) for planned work, [Releases](https://github.com/MartinDelophy/ai-video-editor/releases) for shipped changes, and [Issues](https://github.com/MartinDelophy/ai-video-editor/issues) for focused tasks and bugs.
 

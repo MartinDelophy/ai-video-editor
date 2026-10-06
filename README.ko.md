@@ -5,6 +5,18 @@
 [![skills.sh](https://skills.sh/b/MartinDelophy/ai-video-editor)](https://skills.sh/MartinDelophy/ai-video-editor)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](CONTRIBUTING.md) [![LINUX DO](https://shorturl.at/ggSqS)](https://linux.do)
 
+## Anna에서 확장되는 영상 제작
+
+Anna 버전에서 AI 편집 지원과 프로젝트 이어 작업을 경험하세요.
+
+- Anna에게 편집 요구를 설명하고 요구 사항과 미디어 메타데이터를 바탕으로 만든 계획을 검토한 뒤, 지원되는 클립 정렬과 간단한 1× 영상 트리밍을 적용하세요.
+- 프로젝트와 미디어는 Anna 클라우드에 자동 저장되며, 같은 계정으로 다른 브라우저에서도 작업을 이어갈 수 있습니다. 로컬 프로젝트 체크포인트도 저장할 수 있습니다.
+- 편집 가능한 다중 트랙 타임라인에서 다듬고 AI 음성과 수동 자막을 추가한 뒤, 브라우저에서 사용 가능한 인코더로 MP4를 내보내세요.
+
+현재 데스크톱 미리보기 버전입니다. 계획 단계는 영상 프레임이나 오디오를 분석하지 않으며, 로컬 AI 기능은 Anna 컨테이너의 지원 여부에 따라 달라집니다.
+
+→ [Anna에서 Timeline Studio 체험](https://anna.partners/store/@martindelophy/timeline-studio)
+
 ## 딥 신세시스 기술의 책임 있는 사용
 
 이 도구는 딥 신세시스 기술을 기반으로 하며 기술 연구와 학습 목적으로만 제공됩니다.

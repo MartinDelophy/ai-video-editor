@@ -10,6 +10,18 @@
   <img src="https://toolindex.net/badge/timeline-studio/small.svg?theme=dark" alt="Timeline Studio - Listed on Tool Index" width="130" height="30" />
 </a>
 
+## Create with Anna
+
+Try the Anna edition for AI-assisted editing and project continuity:
+
+- Describe your edit to Anna, review a plan based on your brief and clip metadata, then apply supported clip ordering and simple 1× video trims.
+- Projects and media save automatically to Anna cloud storage and can resume with the same Anna account in another browser. Local project checkpoints provide an additional recovery option.
+- Refine the editable multi-track timeline, add AI voiceovers and manual captions, and export MP4 using an available browser encoder.
+
+This desktop preview plans from metadata, without analyzing video frames or audio; local AI features depend on the Anna container’s capabilities.
+
+→ [Try Timeline Studio on Anna](https://anna.partners/store/@martindelophy/timeline-studio)
+
 ## Responsible use of deep synthesis
 
 This tool uses deep-synthesis technology and is intended solely for technical research and learning.

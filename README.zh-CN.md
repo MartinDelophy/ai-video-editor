@@ -8,6 +8,18 @@
 [![skills.sh](https://skills.sh/b/MartinDelophy/ai-video-editor)](https://skills.sh/MartinDelophy/ai-video-editor)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](CONTRIBUTING.md) [![LINUX DO](https://shorturl.at/ggSqS)](https://linux.do)
 
+## 在 Anna 中体验更进一步的创作
+
+Anna 版将 AI 辅助剪辑与工程续作接入同一体验：
+
+- 用自然语言向 Anna 描述剪辑需求，查看基于需求和素材元数据生成的方案，确认后应用支持的片段排序与简单的 1× 视频裁切。
+- 工程和媒体默认自动保存到 Anna 云端，同一 Anna 账号可在另一浏览器恢复续作；也可保存本地工程检查点，方便主动恢复。
+- 继续在可编辑的多轨时间线上精修，添加 AI 配音和手动字幕，并使用浏览器可用的编码器导出 MP4。
+
+当前为桌面预览版；规划阶段不分析视频画面或声音，本地 AI 功能受 Anna 容器能力影响。
+
+→ [前往 Anna 体验 Timeline Studio](https://anna.partners/store/@martindelophy/timeline-studio)
+
 ## 深度合成使用声明
 
 本工具基于深度合成技术，仅用于技术研究与学习。

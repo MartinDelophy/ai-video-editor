@@ -5,6 +5,18 @@
 [![skills.sh](https://skills.sh/b/MartinDelophy/ai-video-editor)](https://skills.sh/MartinDelophy/ai-video-editor)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](CONTRIBUTING.md) [![LINUX DO](https://shorturl.at/ggSqS)](https://linux.do)
 
+## Mit Anna gestalten
+
+Die Anna-Version verbindet KI-gestützten Schnitt mit der Fortsetzung Ihrer Projekte:
+
+- Beschreiben Sie Anna Ihren Schnitt, prüfen Sie einen Plan auf Basis Ihrer Vorgaben und Medienmetadaten und wenden Sie unterstützte Clip-Sortierungen sowie einfache Videozuschnitte bei 1× an.
+- Projekte und Medien werden automatisch in der Anna-Cloud gespeichert und lassen sich mit demselben Konto in einem anderen Browser fortsetzen. Lokale Projektprüfpunkte bieten eine weitere Wiederherstellungsoption.
+- Verfeinern Sie die bearbeitbare Mehrspur-Timeline, ergänzen Sie KI-Stimmen und manuelle Untertitel und exportieren Sie MP4 mit einem verfügbaren Browser-Encoder.
+
+Diese Vorschau ist für Desktopgeräte bestimmt. Die Planung analysiert keine Videobilder oder Audiodaten; lokale KI-Funktionen hängen vom Anna-Container ab.
+
+→ [Timeline Studio auf Anna ausprobieren](https://anna.partners/store/@martindelophy/timeline-studio)
+
 ## Verantwortungsvolle Nutzung von Deep-Synthesis-Technologie
 
 Dieses Tool basiert auf Deep-Synthesis-Technologie und ist ausschließlich für technische Forschung und Lernzwecke bestimmt.

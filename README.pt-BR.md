@@ -5,6 +5,18 @@
 [![skills.sh](https://skills.sh/b/MartinDelophy/ai-video-editor)](https://skills.sh/MartinDelophy/ai-video-editor)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](CONTRIBUTING.md) [![LINUX DO](https://shorturl.at/ggSqS)](https://linux.do)
 
+## Crie com Anna
+
+A edição Anna combina edição assistida por IA e continuidade dos projetos:
+
+- Descreva sua edição à Anna, revise um plano baseado nas suas instruções e nos metadados da mídia e aplique a ordenação de clipes e os cortes simples de vídeo a 1× compatíveis.
+- Projetos e mídias são salvos automaticamente na nuvem da Anna e podem ser retomados com a mesma conta em outro navegador. Você também pode salvar pontos de recuperação locais.
+- Refine a linha do tempo multifaixa editável, adicione vozes de IA e legendas manuais e exporte MP4 com um codificador disponível no navegador.
+
+Esta versão de prévia é para desktop. O planejamento não analisa quadros de vídeo nem áudio; os recursos de IA local dependem do contêiner da Anna.
+
+→ [Experimente o Timeline Studio na Anna](https://anna.partners/store/@martindelophy/timeline-studio)
+
 ## Uso responsável de síntese profunda
 
 Esta ferramenta utiliza tecnologia de síntese profunda e destina-se exclusivamente à pesquisa técnica e ao aprendizado.

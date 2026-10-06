@@ -5,6 +5,18 @@
 [![skills.sh](https://skills.sh/b/MartinDelophy/ai-video-editor)](https://skills.sh/MartinDelophy/ai-video-editor)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](CONTRIBUTING.md) [![LINUX DO](https://shorturl.at/ggSqS)](https://linux.do)
 
+## Anna で広がる動画制作
+
+Anna 版では、AI による編集支援とプロジェクトの継続を利用できます。
+
+- Anna に編集内容を伝え、要望と素材メタデータに基づく計画を確認してから、対応するクリップの並べ替えや通常速度（1×）での簡単な動画トリミングを適用できます。
+- プロジェクトと素材は Anna のクラウドに自動保存され、同じアカウントなら別のブラウザーでも再開できます。ローカルのチェックポイントも保存できます。
+- 編集可能なマルチトラックタイムラインで調整し、AI ナレーションや手動字幕を追加して、ブラウザーで利用可能なエンコーダーで MP4 を書き出せます。
+
+現在はデスクトップ向けプレビュー版です。計画は映像や音声の解析を行わず、ローカル AI 機能は Anna コンテナの対応状況に依存します。
+
+→ [Anna で Timeline Studio を体験](https://anna.partners/store/@martindelophy/timeline-studio)
+
 ## ディープシンセシス技術の責任ある利用
 
 本ツールはディープシンセシス技術を使用しており、技術研究および学習のみを目的としています。

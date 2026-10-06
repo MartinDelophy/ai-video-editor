@@ -5,6 +5,18 @@
 [![skills.sh](https://skills.sh/b/MartinDelophy/ai-video-editor)](https://skills.sh/MartinDelophy/ai-video-editor)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](CONTRIBUTING.md) [![LINUX DO](https://shorturl.at/ggSqS)](https://linux.do)
 
+## Sáng tạo cùng Anna
+
+Phiên bản Anna kết hợp hỗ trợ dựng bằng AI và khả năng tiếp tục dự án:
+
+- Mô tả yêu cầu dựng cho Anna, xem xét kế hoạch dựa trên yêu cầu và siêu dữ liệu của tư liệu, rồi áp dụng việc sắp xếp clip và cắt video đơn giản ở tốc độ 1× được hỗ trợ.
+- Dự án và tư liệu tự động lưu vào đám mây Anna, có thể tiếp tục trên trình duyệt khác với cùng tài khoản. Bạn cũng có thể lưu các bản khôi phục dự án cục bộ.
+- Tinh chỉnh trên dòng thời gian đa rãnh có thể chỉnh sửa, thêm giọng đọc AI và phụ đề thủ công, rồi xuất MP4 bằng bộ mã hóa có sẵn trong trình duyệt.
+
+Đây là bản xem trước dành cho máy tính. Bước lập kế hoạch không phân tích hình ảnh hay âm thanh; tính năng AI cục bộ phụ thuộc vào khả năng của môi trường Anna.
+
+→ [Trải nghiệm Timeline Studio trên Anna](https://anna.partners/store/@martindelophy/timeline-studio)
+
 ## Sử dụng công nghệ tổng hợp sâu có trách nhiệm
 
 Công cụ này sử dụng công nghệ tổng hợp sâu và chỉ dành cho mục đích nghiên cứu kỹ thuật và học tập.

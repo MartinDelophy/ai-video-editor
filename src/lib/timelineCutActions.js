@@ -53,7 +53,7 @@ export function createTimelineCutActions(d) {
     const duration = getVisualSegmentsTotal(segments);
     if (duration < MIN_VISUAL_SEGMENT_SECONDS * 2) return void d.notify("当前视觉片段太短，不适合继续剪切");
     const time = Math.max(0, Math.min(duration, d.currentTime));
-    if (time <= MIN_VISUAL_SEGMENT_SECONDS || time >= duration - MIN_VISUAL_SEGMENT_SECONDS) return void d.notify("请把播放头放在视觉片段中间再剪切");
+    if (time < MIN_VISUAL_SEGMENT_SECONDS || time > duration - MIN_VISUAL_SEGMENT_SECONDS) return void d.notify("请把播放头放在视觉片段中间再剪切");
     const timeline = getVisualSegmentTimeline(segments);
     const index = timeline.findIndex((range) => time > range.start && time < range.end);
     const range = timeline[index]; const source = segments[index];

@@ -14,7 +14,8 @@ export const SAMPLE_IMAGE = "/assets/sample-portrait.png";
 export const DEFAULT_TIMELINE_DURATION_SECONDS = 10;
 export const MAX_TIMELINE_DURATION_SECONDS = 24 * 60 * 60;
 export const IMAGE_SEGMENT_SECONDS = 2;
-export const MIN_VISUAL_SEGMENT_SECONDS = 0.5;
+// Keep short cuts valid through trimming, speed changes and project recovery.
+export const MIN_VISUAL_SEGMENT_SECONDS = 0.05;
 export const MAX_IMAGE_THUMBNAILS = 80;
 export const IMAGE_RESIZE_OVERFLOW_SECONDS_PER_PIXEL = 0.05;
 export const IMAGE_SNAP_THRESHOLD_PIXELS = 16;

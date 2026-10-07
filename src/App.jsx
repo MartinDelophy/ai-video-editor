@@ -1604,6 +1604,7 @@ export function App() {
           previewVideoRef={previewVideoRef}
           onPreviewVideoTimeUpdate={previewVisionBaseAnalysis?.kind === "video-timeline" ? setPreviewVideoMediaTime : undefined}
           previewVisualSrc={previewVisualSrc}
+          previewVisualSegment={previewVisualSegment}
           previewVisualRenderSrc={previewVisualRenderSrc}
           previewVisionMaskUrl={previewVisionMaskUrl}
           previewVisualType={previewVisualType}

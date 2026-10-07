@@ -132,6 +132,7 @@ export function PreviewStage({
   previewVideoRef,
   onPreviewVideoTimeUpdate,
   previewVisualSrc,
+  previewVisualSegment,
   previewVisualRenderSrc,
   previewVisionMaskUrl = "",
   previewVisualType,
@@ -563,6 +564,7 @@ export function PreviewStage({
     previewVideoRef,
     previewVisualSrc,
     previewVisualType,
+    isFocusPreviewOpen,
   ]);
 
   useEffect(() => {
@@ -743,6 +745,22 @@ export function PreviewStage({
                   muted={previewVisualMuted}
                   playsInline
                   preload="metadata"
+                  onLoadedMetadata={(event) => {
+                    // Entering/leaving the focus portal mounts a new media element.
+                    // Restore its source clock and playback even when src/isPlaying
+                    // have not changed, so parent synchronization effects stay valid.
+                    const video = event.currentTarget;
+                    const sourceTime = getVisualSourceTime(previewVisualSegment, visualLocalTime);
+                    const maxTime = Number.isFinite(video.duration)
+                      ? Math.max(0, video.duration - 0.001) : sourceTime;
+                    video.currentTime = Math.max(0, Math.min(sourceTime, maxTime));
+                    video.playbackRate = getVisualPlaybackRateAtTime(previewVisualSegment, visualLocalTime);
+                    if ("preservesPitch" in video) video.preservesPitch = true;
+                    setTimelineAudioGain(video, previewVisualSegment?.volume ?? 1, previewVisualSegment?.spatialEffect, previewVisualSegment?.spatialAmount);
+                    syncSmartBackgroundVideo(video);
+                    if (isPlaying && trackVisibility.image !== false) requestTimelineMediaPlay(video);
+                    else video.pause();
+                  }}
                   onTimeUpdate={(event) => {
                     syncSmartBackgroundVideo(event.currentTarget);
                     onPreviewVideoTimeUpdate?.(event.currentTarget.currentTime);

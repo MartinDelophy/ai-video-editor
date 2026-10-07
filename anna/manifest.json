@@ -1,13 +1,6 @@
 {
   "schema": 2,
-  "required_executas": [
-    {
-      "tool_id": "bundled:timeline-project-tools"
-    },
-    {
-      "tool_id": "bundled:timeline-editing-skill"
-    }
-  ],
+  "required_executas": [],
   "optional_executas": [],
   "permissions": [
     "llm.complete",

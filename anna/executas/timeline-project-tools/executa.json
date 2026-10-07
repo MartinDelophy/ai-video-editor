@@ -1,7 +1,7 @@
 {
   "slug": "timeline-studio-project-tools",
   "name": "Timeline Studio Project Tools",
-  "version": "0.1.3",
+  "version": "0.1.5",
   "executa_type": "tool",
   "description": "Inspect, preview and create edited copies of user-provided .timeline archives on the Anna Agent host. Optional verified headless MP4 rendering requires FFmpeg. No live browser or private cloud project access.",
   "type": "node",
@@ -17,6 +17,11 @@
     "binary_artifacts": {
       "darwin-arm64": {
         "path": "dist/timeline-project-tools-{version}-darwin-arm64.tar.gz",
+        "entrypoint": "timeline-project-tools",
+        "format": "tar.gz"
+      },
+      "linux-x86_64": {
+        "path": "dist/timeline-project-tools-{version}-linux-x86_64.tar.gz",
         "entrypoint": "timeline-project-tools",
         "format": "tar.gz"
       }

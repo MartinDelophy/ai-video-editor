@@ -45,7 +45,7 @@ const parameterDescriptions = {
 };
 const parameter = (name,type,required=true) => ({name,type,required,description:parameterDescriptions[name]});
 export const manifest = {
-  name: "timeline-project-tools", display_name: "Timeline Studio Project Tools", version: "0.1.3",
+  name: "timeline-project-tools", display_name: "Timeline Studio Project Tools", version: "0.1.5",
   description: "Inspect, preview, edit and render supplied portable Timeline Studio projects. Runs on the user's Anna Agent host; no live browser bridge, cloud project access or AI generation.",
   license: "MIT", category: "productivity", host_capabilities: [],
   tools: Object.keys(schemas).map(name => ({ name, description: descriptions[name], timeout: name.endsWith("render") ? 180 : 60, parameters: [parameter("project","string"),

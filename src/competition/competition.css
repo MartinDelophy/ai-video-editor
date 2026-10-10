@@ -1,0 +1,26 @@
+.competition-assistant { position: fixed; z-index: 80; top: 64px; left: 16px; width: min(350px, calc(100vw - 32px)); max-height: calc(100dvh - 100px); display: flex; flex-direction: column; background: #181e24; border: 1px solid #78dce740; border-radius: 14px; box-shadow: 0 12px 44px #0006; color: #e8eff2; font-size: 12px; overflow: hidden; }
+.competition-assistant header { display: flex; gap: 10px; align-items: center; padding: 14px; border-bottom: 1px solid #ffffff12; color: #78dce7; }
+.competition-assistant header div { flex: 1; min-width: 0; }
+.competition-assistant strong { display: block; font-size: 13px; }
+.competition-assistant small { display: block; font-size: 11px; color: #a4b3bd; margin-top: 4px; }
+.competition-assistant button, .competition-launch { display: inline-flex; align-items: center; justify-content: center; gap: 7px; border: 1px solid #ffffff18; border-radius: 7px; background: #222c35; color: #e8eff2; cursor: pointer; padding: 8px 10px; font-size: 12px; }
+.competition-assistant button:hover, .competition-launch:hover { background: #2b3a43; border-color: #78dce770; transform: none; }
+.competition-assistant button:disabled { cursor: not-allowed; opacity: .5; }
+.competition-assistant :is(button, textarea, input):focus-visible, .competition-launch:focus-visible { outline: 2px solid #78dce7; outline-offset: 2px; }
+.competition-modes { display: flex; gap: 5px; padding: 10px 14px 0; }
+.competition-modes button { flex: 1; }
+.competition-modes button[aria-pressed="true"] { background: #78dce718; border-color: #78dce760; color: #78dce7; }
+.competition-log { overflow: auto; min-height: 80px; padding: 14px; overscroll-behavior: contain; touch-action: pan-y; }
+.competition-log p { line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; margin: 0 0 12px; }
+.competition-intro { color: #a4b3bd; }
+.competition-message { padding: 10px 12px; background: #ffffff06; border: 1px solid #ffffff0c; border-radius: 9px; }
+.competition-message.is-user { background: #78dce710; border-color: #78dce726; margin-left: 20px; }
+.competition-error { color: #ffbe97; }
+.competition-assistant form { padding: 12px 14px; border-top: 1px solid #ffffff12; }
+.competition-help { font-size: 11px; line-height: 1.6; color: #a4b3bd; margin: 0 0 10px; }
+.competition-assistant textarea, .competition-assistant input[type="password"] { box-sizing: border-box; width: 100%; padding: 10px; background: #10161c; color: #e8eff2; border: 1px solid #ffffff20; border-radius: 8px; font: inherit; resize: vertical; }
+.competition-consent { display: flex; align-items: flex-start; gap: 7px; font-size: 11px; line-height: 1.5; margin: 10px 0; }
+.competition-actions { display: flex; justify-content: flex-end; margin-top: 9px; }
+.competition-actions button[type="submit"] { background: #78dce7; color: #102027; }
+.competition-launch { position: fixed; bottom: 18px; left: 18px; z-index: 80; border-color: #78dce760; box-shadow: 0 6px 24px #0006; }
+@media (max-width: 760px) { .competition-assistant { top: 60px; max-height: min(560px, calc(100dvh - 100px)); } .competition-assistant:has(~ .webmcp-review) { visibility: hidden; } }

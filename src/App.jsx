@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { X } from "@phosphor-icons/react";
 
 import { LanguageIntro } from "./components/panels.jsx";
@@ -103,6 +103,8 @@ import { getMobileClipPanelOrigin } from "./lib/mobileClipActions.js";
 import { getVisualPropertyTabIds } from "./lib/visualPropertyTabs.js";
 import { applyTimelineRipple } from "./lib/timelineRipple.js";
 import { COMPACT_WORKSPACE_QUERY } from "./config/editor.js";
+
+const CompetitionAssistant = lazy(() => import("./competition/CompetitionAssistant.jsx").then((module) => ({ default: module.CompetitionAssistant })));
 
 export function App() {
   const [uiLanguage, setUiLanguage] = useState(() => getStoredLanguage());
@@ -1563,6 +1565,7 @@ export function App() {
         projectFileInputRef={projectFileInputRef}
       />
 
+      {window.location.pathname.replace(/\/$/, "") === "/competition" ? <Suspense fallback={null}><CompetitionAssistant agent={webMcp} language={activeLanguage} /></Suspense> : null}
       <WebMcpReview agent={webMcp} language={activeLanguage} />
       <WebMcpAiStatus agent={webMcp} />
       <ProjectImportOverlay progress={projectImportProgress} language={activeLanguage} />

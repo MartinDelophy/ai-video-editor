@@ -28,6 +28,7 @@
     "check": "npm run lint && npm run typecheck && npm run build"
   },
   "dependencies": {
+    "@aws-sdk/client-bedrock-runtime": "3.1148.0",
     "@diffusionstudio/vits-web": "^1.0.3",
     "@ffmpeg/core": "^0.12.10",
     "@ffmpeg/ffmpeg": "^0.12.15",

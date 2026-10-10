@@ -1,4 +1,5 @@
-import { defineConfig } from "vite";
+import { defineConfig, loadEnv } from "vite";
+import { competitionDevPlugin } from "./server/competition-api.mjs";
 import react from "@vitejs/plugin-react";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -12,7 +13,7 @@ const isolationHeaders = {
   Link: agentDiscoveryLinkHeader,
 };
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   build: {
     rollupOptions: {
       input: {
@@ -42,5 +43,5 @@ export default defineConfig({
   preview: {
     headers: isolationHeaders,
   },
-  plugins: [agentDiscoveryPlugin(), react()],
-});
+  plugins: [competitionDevPlugin({ ...loadEnv(mode, projectRoot, ["COMPETITION_", "AWS_"]), ...process.env }), agentDiscoveryPlugin(), react()],
+}));

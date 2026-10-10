@@ -54,17 +54,18 @@ export function useWebMcpEditor(editor) {
     return () => registration.dispose();
   }, [t]);
 
-  const run = async (name, input) => {
+  const run = async (name, input, options) => {
     if (!sessionRef.current || working) return;
     setWorking(true);
     setError("");
     try {
-      const result = await sessionRef.current.run(name, input);
+      const result = await sessionRef.current.run(name, input, options);
       if (!result.ok) setError(result.error.message);
+      return result;
     } finally { setWorking(false); }
   };
   return {
-    t, view, aiJob, error, working,
+    t, view, aiJob, error, working, execute: run,
     isAiRunning: () => sessionRef.current?.isAiRunning() === true,
     cancelAi: () => run("timeline_ai_cancel", { jobId: aiJob?.jobId }),
     dismissAi: () => setAiJob(null),

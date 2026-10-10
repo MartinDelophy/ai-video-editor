@@ -1,0 +1,10 @@
+@import "../competition/competition.css";
+.paypal-body { overflow: auto; padding: 14px; line-height: 1.6; }
+.paypal-body > p { color: #a4b3bd; white-space: pre-wrap; overflow-wrap: anywhere; }
+.paypal-body form { border: 0; padding: 0; }
+.paypal-body label { display: grid; gap: 6px; margin: 12px 0; }
+.paypal-body :is(input,select) { box-sizing: border-box; width: 100%; border: 1px solid #ffffff20; border-radius: 8px; padding: 9px; color: #e8eff2; background: #10161c; font: inherit; }
+.paypal-body select:focus-visible { outline: 2px solid #78dce7; outline-offset: 2px; }
+.paypal-body .paypal-price { font-size: 15px; font-weight: 600; color: #78dce7; }
+.paypal-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.paypal-body small { display: block; overflow-wrap: anywhere; }

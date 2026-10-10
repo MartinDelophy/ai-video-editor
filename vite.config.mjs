@@ -1,5 +1,6 @@
 import { defineConfig, loadEnv } from "vite";
 import { competitionDevPlugin } from "./server/competition-api.mjs";
+import { paypalDevPlugin } from "./server/paypal-api.mjs";
 import react from "@vitejs/plugin-react";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -43,5 +44,5 @@ export default defineConfig(({ mode }) => ({
   preview: {
     headers: isolationHeaders,
   },
-  plugins: [competitionDevPlugin({ ...loadEnv(mode, projectRoot, ["COMPETITION_", "AWS_", "NEBIUS_"]), ...process.env }), agentDiscoveryPlugin(), react()],
+  plugins: [paypalDevPlugin({ ...loadEnv(mode, projectRoot, ["PAYPAL_"]), ...process.env }), competitionDevPlugin({ ...loadEnv(mode, projectRoot, ["COMPETITION_", "AWS_", "NEBIUS_"]), ...process.env }), agentDiscoveryPlugin(), react()],
 }));

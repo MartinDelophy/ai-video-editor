@@ -104,6 +104,7 @@ import { getVisualPropertyTabIds } from "./lib/visualPropertyTabs.js";
 import { applyTimelineRipple } from "./lib/timelineRipple.js";
 import { COMPACT_WORKSPACE_QUERY } from "./config/editor.js";
 
+const PayPalCommission = lazy(() => import("./paypal/PayPalCommission.jsx").then((module) => ({ default: module.PayPalCommission })));
 const CompetitionAssistant = lazy(() => import("./competition/CompetitionAssistant.jsx").then((module) => ({ default: module.CompetitionAssistant })));
 
 export function App() {
@@ -1565,6 +1566,7 @@ export function App() {
         projectFileInputRef={projectFileInputRef}
       />
 
+      {window.location.pathname.replace(/\/$/, "") === "/paypal" ? <Suspense fallback={null}><PayPalCommission agent={webMcp} language={activeLanguage} /></Suspense> : null}
       {["/competition", "/nebius"].includes(window.location.pathname.replace(/\/$/, "")) ? <Suspense fallback={null}><CompetitionAssistant agent={webMcp} language={activeLanguage} /></Suspense> : null}
       <WebMcpReview agent={webMcp} language={activeLanguage} />
       <WebMcpAiStatus agent={webMcp} />

@@ -45,3 +45,6 @@ desktop.ini
 
 # Local Netlify folder
 .netlify
+
+# Local sandbox order records and session secrets
+.paypal-sandbox/

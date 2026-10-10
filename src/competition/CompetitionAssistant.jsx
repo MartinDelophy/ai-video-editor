@@ -4,12 +4,12 @@ import { competitionCopy } from "./copy.js";
 import { captureCompetitionContext, planLocalCommand, validateCompetitionPlan } from "./planner.js";
 import "./competition.css";
 
-export function CompetitionAssistant({ agent, language }) {
+export function CompetitionAssistant({ agent, language, initialPrompt = "" }) {
   const c = competitionCopy(language);
-  if (window.location.pathname.replace(/\/$/, "") === "/nebius") c.badge = c.cloud;
+  if (["/nebius", "/paypal"].includes(window.location.pathname.replace(/\/$/, ""))) c.badge = c.cloud;
   const [open, setOpen] = useState(true);
   const [mode, setMode] = useState("local");
-  const [prompt, setPrompt] = useState("");
+  const [prompt, setPrompt] = useState(initialPrompt);
   const [messages, setMessages] = useState([]);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
@@ -45,7 +45,7 @@ export function CompetitionAssistant({ agent, language }) {
         const response = await fetch("/api/competition/plan", {
           method: "POST", signal: AbortSignal.any([abort.signal, AbortSignal.timeout(135000)]),
           headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-          body: JSON.stringify({ messages: conversation, context }),
+          body: JSON.stringify({ messages: conversation, context, experience: window.location.pathname.replace(/\/$/, "") === "/paypal" ? "paypal" : undefined }),
         });
         if (!response.ok) throw new Error("cloudError");
         plan = validateCompetitionPlan(await response.json());

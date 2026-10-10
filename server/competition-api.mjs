@@ -39,7 +39,7 @@ export async function competitionApi(request, env = process.env, planner, localD
       data.messages.at(-1).role !== "user" || !data.context?.tracks) return json({ error: "invalidRequest" }, 400);
   } catch { return json({ error: "invalidRequest" }, 400); }
   try {
-    const plan = validateCompetitionPlan(await (planner || (provider === "ollama" ? planWithOllama : provider === "nebius" ? planWithNebius : planWithBedrock))(data, env, provider === "nebius" ? instructions.replace("simulated Alexa+ experience. You are not connected to Alexa+.", "conversational editing assistant.") : instructions,
+    const plan = validateCompetitionPlan(await (planner || (provider === "ollama" ? planWithOllama : provider === "nebius" ? planWithNebius : planWithBedrock))(data, env, (provider === "nebius" || data.experience === "paypal") ? instructions.replace("simulated Alexa+ experience. You are not connected to Alexa+.", "conversational editing assistant.") : instructions,
       AbortSignal.any([request.signal, AbortSignal.timeout(provider === "ollama" ? 120000 : 45000)])));
     return json(plan);
   } catch { return json({ error: "providerFailed" }, 502); }

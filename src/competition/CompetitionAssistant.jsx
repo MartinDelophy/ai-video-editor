@@ -6,6 +6,7 @@ import "./competition.css";
 
 export function CompetitionAssistant({ agent, language }) {
   const c = competitionCopy(language);
+  if (window.location.pathname.replace(/\/$/, "") === "/nebius") c.badge = c.cloud;
   const [open, setOpen] = useState(true);
   const [mode, setMode] = useState("local");
   const [prompt, setPrompt] = useState("");

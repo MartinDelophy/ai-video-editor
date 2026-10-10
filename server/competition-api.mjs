@@ -1,4 +1,5 @@
 import { planWithOllama } from "./ollama-planner.mjs";
+import { planWithNebius } from "./nebius-planner.mjs";
 import { planWithBedrock } from "./bedrock-planner.mjs";
 import { validateCompetitionPlan } from "../src/competition/planner.js";
 
@@ -21,7 +22,8 @@ Maximum 30 operations. Ask a concise clarification with empty operations when am
 export async function competitionApi(request, env = process.env, planner, localDev = false) {
   if (request.method !== "POST") return json({ error: "method" }, 405);
   const provider = env.COMPETITION_PROVIDER || "ollama";
-  if (!["ollama", "bedrock"].includes(provider) || !env.COMPETITION_ALLOWED_ORIGIN ||
+  if (!["ollama", "bedrock", "nebius"].includes(provider) || !env.COMPETITION_ALLOWED_ORIGIN ||
+    (provider === "nebius" && !env.NEBIUS_API_KEY) ||
     (provider === "bedrock" && (!env.AWS_REGION || !env.COMPETITION_BEDROCK_MODEL_ID)) ||
     ((!localDev || provider !== "ollama") && !env.COMPETITION_ACCESS_TOKEN)) return json({ error: "notConfigured" }, 503);
   if (request.headers.get("origin") !== env.COMPETITION_ALLOWED_ORIGIN) return json({ error: "forbidden" }, 403);
@@ -37,7 +39,7 @@ export async function competitionApi(request, env = process.env, planner, localD
       data.messages.at(-1).role !== "user" || !data.context?.tracks) return json({ error: "invalidRequest" }, 400);
   } catch { return json({ error: "invalidRequest" }, 400); }
   try {
-    const plan = validateCompetitionPlan(await (planner || (provider === "ollama" ? planWithOllama : planWithBedrock))(data, env, instructions,
+    const plan = validateCompetitionPlan(await (planner || (provider === "ollama" ? planWithOllama : provider === "nebius" ? planWithNebius : planWithBedrock))(data, env, provider === "nebius" ? instructions.replace("simulated Alexa+ experience. You are not connected to Alexa+.", "conversational editing assistant.") : instructions,
       AbortSignal.any([request.signal, AbortSignal.timeout(provider === "ollama" ? 120000 : 45000)])));
     return json(plan);
   } catch { return json({ error: "providerFailed" }, 502); }

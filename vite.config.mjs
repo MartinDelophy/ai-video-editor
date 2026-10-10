@@ -43,5 +43,5 @@ export default defineConfig(({ mode }) => ({
   preview: {
     headers: isolationHeaders,
   },
-  plugins: [competitionDevPlugin({ ...loadEnv(mode, projectRoot, ["COMPETITION_", "AWS_"]), ...process.env }), agentDiscoveryPlugin(), react()],
+  plugins: [competitionDevPlugin({ ...loadEnv(mode, projectRoot, ["COMPETITION_", "AWS_", "NEBIUS_"]), ...process.env }), agentDiscoveryPlugin(), react()],
 }));

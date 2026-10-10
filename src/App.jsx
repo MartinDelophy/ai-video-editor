@@ -1565,7 +1565,7 @@ export function App() {
         projectFileInputRef={projectFileInputRef}
       />
 
-      {window.location.pathname.replace(/\/$/, "") === "/competition" ? <Suspense fallback={null}><CompetitionAssistant agent={webMcp} language={activeLanguage} /></Suspense> : null}
+      {["/competition", "/nebius"].includes(window.location.pathname.replace(/\/$/, "")) ? <Suspense fallback={null}><CompetitionAssistant agent={webMcp} language={activeLanguage} /></Suspense> : null}
       <WebMcpReview agent={webMcp} language={activeLanguage} />
       <WebMcpAiStatus agent={webMcp} />
       <ProjectImportOverlay progress={projectImportProgress} language={activeLanguage} />

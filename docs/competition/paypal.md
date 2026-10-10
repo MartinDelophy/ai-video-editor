@@ -4,7 +4,17 @@ Branch: `codex/paypal-hackathon-2026`, based on the clean Nebius competition bra
 
 ## Run
 
-Use `npm ci`, copy `.env.example` to ignored `.env.local`, and configure:
+Prerequisites: Node.js 22, npm, a current Chromium browser, [Ollama](https://ollama.com/), and a free [PayPal Developer](https://developer.paypal.com/) sandbox app with a Personal sandbox buyer account. Use your own sandbox client ID and secret; no live credentials or real funds are needed.
+
+```sh
+git clone --branch codex/paypal-hackathon-2026 https://github.com/MartinDelophy/ai-video-editor.git
+cd ai-video-editor
+npm ci
+cp .env.example .env.local
+ollama pull qwen3:4b
+```
+
+Start Ollama if it is not already running. Configure ignored `.env.local`:
 
 ```dotenv
 PAYPAL_ALLOWED_ORIGIN=http://127.0.0.1:5179
@@ -12,6 +22,8 @@ PAYPAL_SANDBOX_CLIENT_ID=<sandbox app client ID>
 PAYPAL_SANDBOX_CLIENT_SECRET=<sandbox app secret>
 COMPETITION_ALLOWED_ORIGIN=http://127.0.0.1:5179
 COMPETITION_PROVIDER=ollama
+COMPETITION_OLLAMA_URL=http://127.0.0.1:11434
+COMPETITION_OLLAMA_MODEL=qwen3:4b
 ```
 
 Run `npm run dev -- --host 127.0.0.1 --port 5179 --strictPort` and open `http://127.0.0.1:5179/paypal`. The sandbox middleware rejects non-loopback requests and non-loopback server configuration. Vite preview/static deployment does not serve these APIs. A production deployment needs its own authenticated server and database; this prototype is single-process local development only.
@@ -34,7 +46,11 @@ Verified on 2026-10-10: real local Ollama qwen3:4b inference through both the sh
 
 Browser verification also completed the paid-order assistant handoff, real Ollama ratio proposal, semantic review, apply, and undo on an empty timeline. The original 16:9 canvas was restored. This is a functional workflow smoke check, not a rendered client video. Closing the paid assistant returns to the order panel.
 
-Pending: hosted reviewer access; delivery portal; English demo and final competition submission. No live-money PayPal transaction or rendered-video delivery is claimed. Mock validation is only adapter validation.
+The complete recorded workflow was subsequently verified on 2026-10-10: a USD 15 sandbox commission was captured, a 12.01-second portrait gift-box video was imported, real Qwen3:4b inference proposed a trim to the first 10 seconds, and the reviewed edit was applied. Browser export produced a 720×1280 H.264/AAC MP4 with 300 video frames. That actual export was attached to the paid order and downloaded with an identical SHA-256 hash. The English narrated and captioned demonstration is approximately 100 seconds.
+
+To reproduce, select 10 seconds and 9:16, approve and verify the USD 15 sandbox order, import your own video longer than 10 seconds, then ask: “Trim the first video to its first 10 seconds. Keep sourceIn at 0 and set sourceOut to 10.” Review the proposed trim, apply it, export MP4, attach the export, and download it from the commission panel. Verify status again after a page reload to check persistence. Use an appropriately licensed local source video; the demonstration's user-provided media is not distributed in this repository.
+
+Pending: public demo link and final competition submission. Hosted access and a customer delivery portal are outside this local prototype. No live-money transaction is claimed.
 
 Official references: [rules](https://paypalaihackathon.devpost.com/rules), [Orders integration](https://developer.paypal.com/api/rest/integration/orders-api), [sandbox quickstart](https://developer.paypal.com/checkout/integrate).
 

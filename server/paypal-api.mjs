@@ -29,6 +29,7 @@ export function createPayPalApi(env, { fetcher = fetch, file = resolve(".paypal-
     if (!request.headers.get("content-type")?.startsWith("application/json")) return json({ error: "invalidRequest" }, 400);
     let data;
     try { const body = await request.text(); if (body.length > 8000) return json({ error: "invalidRequest" }, 400); data = JSON.parse(body); } catch { return json({ error: "invalidRequest" }, 400); }
+    if (!data || typeof data !== "object" || Array.isArray(data)) return json({ error: "invalidRequest" }, 400);
     const action = new URL(request.url).pathname.split("/").at(-1);
     const records = await read();
     if (action === "quote") {

@@ -4,11 +4,11 @@ import { competitionCopy } from "./copy.js";
 import { captureCompetitionContext, planLocalCommand, validateCompetitionPlan } from "./planner.js";
 import "./competition.css";
 
-export function CompetitionAssistant({ agent, language, initialPrompt = "" }) {
+export function CompetitionAssistant({ agent, language, initialPrompt = "", initialMode = "local", onClose }) {
   const c = competitionCopy(language);
   if (["/nebius", "/paypal"].includes(window.location.pathname.replace(/\/$/, ""))) c.badge = c.cloud;
   const [open, setOpen] = useState(true);
-  const [mode, setMode] = useState("local");
+  const [mode, setMode] = useState(initialMode);
   const [prompt, setPrompt] = useState(initialPrompt);
   const [messages, setMessages] = useState([]);
   const [pending, setPending] = useState(false);
@@ -63,7 +63,7 @@ export function CompetitionAssistant({ agent, language, initialPrompt = "" }) {
   const blocked = pending || agent.working || agent.view?.status === "pending";
   if (!open) return <button className="competition-launch" onClick={() => { setOpen(true); requestAnimationFrame(() => input.current?.focus()); }}><ChatCircleText size={18} />{c.title}</button>;
   return <aside className="competition-assistant" aria-label={c.title}>
-    <header><ChatCircleText size={20} /><div><strong>{c.title}</strong><small>{c.badge}</small></div><button type="button" aria-label={agent.t("close")} onClick={() => setOpen(false)}><X size={18} /></button></header>
+    <header><ChatCircleText size={20} /><div><strong>{c.title}</strong><small>{c.badge}</small></div><button type="button" aria-label={agent.t("close")} onClick={() => { if (onClose) onClose(); else setOpen(false); }}><X size={18} /></button></header>
     <div className="competition-modes">{["local", "cloud"].map((value) => <button type="button" key={value} aria-pressed={mode === value} disabled={blocked} onClick={() => { setMode(value); setError(""); }}>{c[value]}</button>)}</div>
     <div className="competition-log" role="log" aria-live="polite" ref={log}>
       <p className="competition-intro">{c.intro}</p>

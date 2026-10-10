@@ -18,15 +18,20 @@ export function PayPalCommission({ agent, language }) {
   async function request(action, event) {
     event?.preventDefault(); if (busy) return; setBusy(true); setError("");
     try {
-      const response = await fetch(`/api/paypal/${action}`, { method: "POST", headers: { "Content-Type": "application/json", ...(record ? { Authorization: `Bearer ${record.token}` } : {}) }, body: JSON.stringify(action === "quote" ? { brief, seconds: Number(seconds), ratio } : { id: record.id }), signal: AbortSignal.timeout(55000) });
-      const data = await response.json(); if (!response.ok) throw new Error(data.error);
+      const send = (step) => fetch(`/api/paypal/${step}`, { method: "POST", headers: { "Content-Type": "application/json", ...(record ? { Authorization: `Bearer ${record.token}` } : {}) }, body: JSON.stringify(action === "quote" ? { brief, seconds: Number(seconds), ratio } : { id: record.id }), signal: AbortSignal.timeout(55000) });
+      let response = await send(action);
+      let data = await response.json(); if (!response.ok) throw new Error(data.error);
+      if (action === "status" && data.orderId && data.status !== "paid") {
+        response = await send("capture"); data = await response.json();
+        if (!response.ok) throw new Error(data.error);
+      }
       const next = { ...data, token: data.token || record?.token };
       // Payment state is always refreshed from the server before enabling the assistant.
       sessionStorage.setItem(SESSION, JSON.stringify({ id: next.id, token: next.token })); setRecord(next);
       if (action === "create" && next.approvalUrl && next.status !== "paid") window.location.assign(next.approvalUrl);
     } catch (failure) { setError(c[failure.message] || c.error); } finally { setBusy(false); }
   }
-  if (editing) return <CompetitionAssistant agent={agent} language={language} initialPrompt={`${record.ratio}\n${record.brief}`} />;
+  if (editing) return <CompetitionAssistant agent={agent} language={language} initialMode="cloud" onClose={() => setEditing(false)} initialPrompt={`${record.ratio}\n${record.brief}`} />;
   if (!open) return <button className="competition-launch" onClick={() => setOpen(true)}><CreditCard size={18} />{c.title}</button>;
   return <aside className="competition-assistant paypal-commission" aria-label={c.title}>
     <header><CreditCard size={20} /><div><strong>{c.title}</strong><small>{c.sandbox}</small></div><button aria-label={c.close} onClick={() => setOpen(false)}><X size={18} /></button></header>

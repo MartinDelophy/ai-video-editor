@@ -8,3 +8,8 @@
 .paypal-body .paypal-price { font-size: 15px; font-weight: 600; color: #78dce7; }
 .paypal-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
 .paypal-body small { display: block; overflow-wrap: anywhere; }
+
+.paypal-delivery { margin-top: 18px; padding-top: 12px; border-top: 1px solid #ffffff18; }
+.paypal-delivery h2 { font-size: 13px; margin: 0 0 8px; }
+.paypal-delivery p { color: #a4b3bd; overflow-wrap: anywhere; }
+.paypal-delivery input[type="file"] { padding: 8px; font-size: 11px; }

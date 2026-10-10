@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { X, CreditCard } from "@phosphor-icons/react";
 import { CompetitionAssistant } from "../competition/CompetitionAssistant.jsx";
+import { Delivery } from "./Delivery.jsx";
 import { paypalCopy } from "./copy.js";
 import "./paypal.css";
 const SESSION = "timeline-paypal-sandbox-session";
@@ -29,7 +30,7 @@ export function PayPalCommission({ agent, language }) {
       // Payment state is always refreshed from the server before enabling the assistant.
       sessionStorage.setItem(SESSION, JSON.stringify({ id: next.id, token: next.token })); setRecord(next);
       if (action === "create" && next.approvalUrl && next.status !== "paid") window.location.assign(next.approvalUrl);
-    } catch (failure) { setError(c[failure.message] || c.error); } finally { setBusy(false); }
+    } catch (failure) { setError(c[failure.message === "notConfigured" ? "unconfigured" : failure.message] || c.error); } finally { setBusy(false); }
   }
   if (editing) return <CompetitionAssistant agent={agent} language={language} initialMode="cloud" onClose={() => setEditing(false)} initialPrompt={`${record.ratio}\n${record.brief}`} />;
   if (!open) return <button className="competition-launch" onClick={() => setOpen(true)}><CreditCard size={18} />{c.title}</button>;
@@ -51,6 +52,7 @@ export function PayPalCommission({ agent, language }) {
           </>}
           <button disabled={busy} onClick={() => { sessionStorage.removeItem(SESSION); setRecord(null); setError(""); }}>{c.newOrder}</button>
         </div>
+        {record.status === "paid" ? <Delivery record={record} language={language} setRecord={setRecord} blocked={busy} onBusy={setBusy} /> : null}
       </>}
       {error ? <p className="competition-error" role="alert">{error}</p> : null}
     </div>

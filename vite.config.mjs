@@ -36,6 +36,7 @@ export default defineConfig(({ mode }) => ({
     format: "es",
   },
   server: {
+    fs: { deny: [".env", ".env.*", "*.{crt,pem}", "**/.git/**", "**/.paypal-sandbox/**"] },
     headers: isolationHeaders,
     warmup: {
       clientFiles: ["./src/main.jsx"],

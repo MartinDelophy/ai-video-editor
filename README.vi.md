@@ -31,7 +31,7 @@ Người dùng tự chịu mọi trách nhiệm pháp lý phát sinh từ việc
 
 ## Cập nhật dự án
 
-- **2026-10-10** — Bản thử `/paypal`: báo giá cố định, duyệt sandbox, xác minh thu tiền trên máy chủ và trợ lý. Đã kiểm chứng thanh toán sandbox và suy luận Ollama cục bộ thật; giao thủ công.
+- **2026-10-10** — Bản thử `/paypal`: báo giá cố định, duyệt sandbox, xác minh thu tiền trên máy chủ và trợ lý. Đã kiểm chứng thanh toán sandbox và suy luận Ollama cục bộ thật; giao thủ công. Hỗ trợ đính kèm MP4/WebM cục bộ và tải xuống có xác thực (64 MiB).
 - **2026-10-10** — Bản xem trước cuộc thi tại `/nebius`: kết nối Token Factory với NVIDIA Nemotron phía máy chủ, chỉ gửi siêu dữ liệu và duyệt chỉnh sửa. Suy luận thực chờ khóa API và tín dụng miễn phí.
 - **2026-10-07** — Clip hình ảnh hỗ trợ thời lượng tối thiểu 0,05 giây, khắc phục việc từ chối cắt đoạn mở đầu ngắn như tại 0,45 giây. Cắt mép, đổi tốc độ và khôi phục dự án dùng chung giới hạn này. Sửa lỗi video đứng hình khi mở hoặc đóng bản xem trước lớn bằng cách khôi phục thời gian nguồn, trạng thái phát và cập nhật từng khung hình cho phần tử video mới.
 - **2026-10-05** — Lấy mẫu độ sâu ở 8, 16 và 24 ảnh/giây cho chế độ Nhanh, Tiêu chuẩn và Chi tiết. Nhanh và Tiêu chuẩn dùng RIFE để xuất 24fps, đồng thời lấy mẫu và mã hóa qua hàng đợi có giới hạn. Giữ âm thanh gốc và tái sử dụng phân tích đã hoàn tất nếu tạo video thất bại. Thời điểm lấy mẫu cố định và tái sử dụng phiên, điểm ảnh, tensor RIFE giúp giảm nội suy thừa mà không giảm độ chính xác, độ phân giải hay số mẫu. RIFE dùng bản cố định từ kho Hugging Face và ModelScope của chúng tôi, kiểm tra mã băm, tự chuyển nguồn và dùng chung bộ nhớ đệm.

@@ -31,7 +31,7 @@ O usuário é o único responsável por quaisquer consequências legais decorren
 
 ## Novidades do projeto
 
-- **2026-10-10** — Protótipo `/paypal`: orçamento fixo, aprovação sandbox, captura verificada no servidor e assistente. Pagamento sandbox e inferência local real Ollama verificados; entrega manual.
+- **2026-10-10** — Protótipo `/paypal`: orçamento fixo, aprovação sandbox, captura verificada no servidor e assistente. Pagamento sandbox e inferência local real Ollama verificados; entrega manual. Anexos locais MP4/WebM e download autenticado disponíveis (64 MiB).
 - **2026-10-10** — Prévia do concurso em `/nebius`: adaptador Token Factory para NVIDIA Nemotron no servidor, apenas metadados e edições revisadas. Inferência real aguarda chave e créditos gratuitos.
 - **2026-10-07** — Clipes visuais agora aceitam duração mínima de 0,05 segundo, corrigindo cortes recusados em introduções curtas, como em 0,45 segundo. Recorte, alterações de velocidade e recuperação usam o mesmo limite. Corrigido o congelamento ao abrir ou fechar a prévia ampliada: o novo elemento de vídeo recupera o tempo de origem, a reprodução e os callbacks de quadros.
 - **2026-10-05** — A profundidade usa 8, 16 ou 24 amostras/s nos modos Rápido, Padrão e Fino. Rápido e Padrão usam RIFE para gerar 24 fps, sobrepondo amostragem e codificação em uma fila limitada. O áudio original é preservado e análises concluídas podem ser reutilizadas após falhas. Tempos fixos e reutilização de sessões, pixels e tensores RIFE reduzem interpolações redundantes sem diminuir precisão, resolução ou número de amostras. RIFE usa espelhos próprios com versões imutáveis no Hugging Face e ModelScope, verificação de hash, alternativa automática e cache compartilhado.

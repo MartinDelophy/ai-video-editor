@@ -28,7 +28,7 @@ Orders use Orders v2 and OAuth, always on `api-m.sandbox.paypal.com`. Approval o
 
 ## Actual status
 
-Implemented: 13 interface languages; fixed quotes; sandbox create/approval/capture adapter; durable retry IDs; payment verification; existing assistant handoff; manual editor export.
+Implemented: 13 interface languages; fixed quotes; sandbox create/approval/capture adapter; durable retry IDs; payment verification; existing assistant handoff; manual editor export; local MP4/WebM delivery attachment and authenticated download.
 
 Verified on 2026-10-10: real local Ollama qwen3:4b inference through both the shared handler and the running HTTP endpoint at port 5179. Chinese and English ratio requests returned exactly project.set_ratio 9:16; no timeline edit was applied in these API checks. Existing PayPal sandbox app credentials are configured only in ignored local environment storage. Orders v2 created a real sandbox order for USD 20, an existing virtual Personal buyer approved it using sandbox balance, and server capture verification completed. Order 6BY284329T253910F; capture 5YL95995EH3003304. No real funds were involved.
 
@@ -37,3 +37,9 @@ Browser verification also completed the paid-order assistant handoff, real Ollam
 Pending: hosted reviewer access; delivery portal; English demo and final competition submission. No live-money PayPal transaction or rendered-video delivery is claimed. Mock validation is only adapter validation.
 
 Official references: [rules](https://paypalaihackathon.devpost.com/rules), [Orders integration](https://developer.paypal.com/api/rest/integration/orders-api), [sandbox quickstart](https://developer.paypal.com/checkout/integrate).
+
+## Local delivery
+
+After payment, manually export a video and attach an MP4/WebM up to 64 MiB. Browser metadata checks reject unreadable video; the server checks container signatures, authorization and paid status. It does not fully decode frames. Each order has one immutable final attachment; identical retries are safe. Files are private in ignored `.paypal-sandbox/deliveries`, and downloads check SHA-256 integrity. Vite denies direct access to the private storage directory. The same per-order session secret authorizes upload and download; seller/buyer roles and a public customer portal are not implemented.
+
+Verified on 2026-10-10: a generated two-second technical fixture was uploaded to the existing paid sandbox order, survived refresh, and downloaded byte-for-byte unchanged. Adapter checks covered missing authorization, unpaid orders, malformed media, size limits, idempotent retries, conflicting uploads, restart recovery and corruption detection. This fixture is not a client promotional video.

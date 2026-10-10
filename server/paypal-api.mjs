@@ -1,7 +1,8 @@
-import { randomUUID, randomBytes, timingSafeEqual } from "node:crypto";
+import { randomUUID, randomBytes, timingSafeEqual, createHash } from "node:crypto";
 import { readFile, writeFile, mkdir, rename } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 
+export const MAX_DELIVERY_BYTES = 64 * 1024 * 1024;
 const BASE = "https://api-m.sandbox.paypal.com";
 const json = (body, status = 200) => Response.json(body, { status, headers: { "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" } });
 const equal = (a, b) => { const x = Buffer.from(a || ""), y = Buffer.from(b || ""); return x.length === y.length && timingSafeEqual(x, y); };
@@ -21,16 +22,38 @@ export function createPayPalApi(env, { fetcher = fetch, file = resolve(".paypal-
     if (!response.ok) throw new Error("providerFailed");
     return response.json();
   }
-  const publicRecord = (r) => ({ id: r.id, brief: r.brief, seconds: r.seconds, ratio: r.ratio, amount: r.amount, currency: "USD", status: r.status, orderId: r.orderId, approvalUrl: r.approvalUrl, captureId: r.captureId });
+  const publicRecord = (r) => ({ id: r.id, brief: r.brief, seconds: r.seconds, ratio: r.ratio, amount: r.amount, currency: "USD", status: r.status, orderId: r.orderId, approvalUrl: r.approvalUrl, captureId: r.captureId, delivery: r.delivery ? { name: r.delivery.name, bytes: r.delivery.bytes, mime: r.delivery.mime, sha256: r.delivery.sha256, createdAt: r.delivery.createdAt } : null });
   async function handle(request) {
     if (request.method !== "POST") return json({ error: "method" }, 405);
     if (!env.PAYPAL_ALLOWED_ORIGIN) return json({ error: "notConfigured" }, 503);
     if (request.headers.get("origin") !== env.PAYPAL_ALLOWED_ORIGIN) return json({ error: "forbidden" }, 403);
+    const action = new URL(request.url).pathname.split("/").at(-1);
+    if (action === "upload") {
+      const records = await read(); const r = records[request.headers.get("x-commission-id")];
+      if (!r || !equal(request.headers.get("authorization"), `Bearer ${r.token}`)) return json({ error: "unauthorized" }, 401);
+      if (r.status !== "paid" || !r.captureId) return json({ error: "notApproved" }, 409);
+      const mime = request.headers.get("content-type");
+      if (!["video/mp4", "video/webm"].includes(mime)) return json({ error: "invalidVideo" }, 400);
+      const bytes = Buffer.from(await request.arrayBuffer());
+      if (!bytes.length || bytes.length > MAX_DELIVERY_BYTES) return json({ error: "tooLarge" }, 413);
+      const valid = mime === "video/mp4" ? bytes.subarray(4, 8).toString() === "ftyp" : bytes.subarray(0, 4).equals(Buffer.from([0x1a, 0x45, 0xdf, 0xa3]));
+      if (!valid) return json({ error: "invalidVideo" }, 400);
+      const sha256 = createHash("sha256").update(bytes).digest("hex");
+      if (r.delivery) return r.delivery.sha256 === sha256 ? json(publicRecord(r)) : json({ error: "alreadyDelivered" }, 409);
+      let name;
+      try { name = decodeURIComponent(request.headers.get("x-file-name") || "video"); } catch { return json({ error: "invalidRequest" }, 400); }
+      name = name.split(/[\\/]/).at(-1).replace(/[\x00-\x1f\x7f]/g, "").slice(0, 160) || "video";
+      const storageId = `${randomUUID()}.${mime === "video/mp4" ? "mp4" : "webm"}`;
+      const directory = resolve(dirname(file), "deliveries");
+      await mkdir(directory, { recursive: true, mode: 0o700 });
+      await writeFile(resolve(directory, storageId), bytes, { flag: "wx", mode: 0o600 });
+      r.delivery = { storageId, name, bytes: bytes.length, mime, sha256, createdAt: new Date().toISOString() };
+      await save(records); return json(publicRecord(r));
+    }
     if (!request.headers.get("content-type")?.startsWith("application/json")) return json({ error: "invalidRequest" }, 400);
     let data;
     try { const body = await request.text(); if (body.length > 8000) return json({ error: "invalidRequest" }, 400); data = JSON.parse(body); } catch { return json({ error: "invalidRequest" }, 400); }
     if (!data || typeof data !== "object" || Array.isArray(data)) return json({ error: "invalidRequest" }, 400);
-    const action = new URL(request.url).pathname.split("/").at(-1);
     const records = await read();
     if (action === "quote") {
       if (typeof data.brief !== "string" || !data.brief.trim() || data.brief.length > 2000 || !Number.isInteger(data.seconds) || data.seconds < 5 || data.seconds > 180 || !["16:9", "9:16", "1:1", "4:5"].includes(data.ratio)) return json({ error: "invalidRequest" }, 400);
@@ -39,6 +62,13 @@ export function createPayPalApi(env, { fetcher = fetch, file = resolve(".paypal-
     }
     const r = records[data.id];
     if (!r || !equal(request.headers.get("authorization"), `Bearer ${r.token}`)) return json({ error: "unauthorized" }, 401);
+    if (action === "download") {
+      if (r.status !== "paid" || !r.delivery) return json({ error: "notDelivered" }, 409);
+      if (!/^[a-f0-9-]{36}\.(mp4|webm)$/.test(r.delivery.storageId)) throw new Error("invalidStorage");
+      const bytes = await readFile(resolve(dirname(file), "deliveries", r.delivery.storageId));
+      if (createHash("sha256").update(bytes).digest("hex") !== r.delivery.sha256) throw new Error("invalidStorage");
+      return new Response(bytes, { headers: { "Content-Type": r.delivery.mime, "Content-Length": String(bytes.length), "Content-Disposition": `attachment; filename="delivery.${r.delivery.mime === "video/mp4" ? "mp4" : "webm"}"; filename*=UTF-8''${encodeURIComponent(r.delivery.name)}`, "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" } });
+    }
     if (action === "status") return json(publicRecord(r));
     if (action === "create") {
       if (r.orderId) return json(publicRecord(r));
@@ -78,10 +108,11 @@ export function paypalDevPlugin(env) {
     const api = createPayPalApi({ PAYPAL_ALLOWED_ORIGIN: `http://127.0.0.1:${server.config.server.port}`, ...env });
     server.middlewares.use("/api/paypal", async (req, res) => {
       if (server.config.server.host !== "127.0.0.1" || !["127.0.0.1", "::1", "::ffff:127.0.0.1"].includes(req.socket.remoteAddress)) { res.writeHead(403); res.end(); return; }
+      const limit = req.url?.split("?")[0] === "/upload" ? MAX_DELIVERY_BYTES : 8000;
       const chunks = []; let bytes = 0;
-      for await (const chunk of req) { bytes += chunk.length; if (bytes > 8000) { res.writeHead(413); res.end(); return; } chunks.push(chunk); }
+      for await (const chunk of req) { bytes += chunk.length; if (bytes > limit) { res.writeHead(413); res.end(); return; } chunks.push(chunk); }
       const response = await api(new Request(`http://localhost/api/paypal${req.url}`, { method: req.method, headers: req.headers, ...(["GET", "HEAD"].includes(req.method) ? {} : { body: Buffer.concat(chunks) }) }));
-      res.writeHead(response.status, Object.fromEntries(response.headers)); res.end(await response.text());
+      res.writeHead(response.status, Object.fromEntries(response.headers)); res.end(Buffer.from(await response.arrayBuffer()));
     });
   } };
 }

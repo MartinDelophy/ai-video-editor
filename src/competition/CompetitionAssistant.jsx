@@ -53,7 +53,7 @@ export function CompetitionAssistant({ agent, language }) {
       if (plan.operations.length) {
         const preview = await agent.execute("timeline_edit_preview", { stateToken: context.stateToken, operations: plan.operations, summary: content }, { signal: abort.signal });
         if (!preview?.ok) throw new Error(preview?.error?.message || "failed");
-        setMessages((current) => [...current, { role: "assistant", content: `${plan.reply ? `${plan.reply}\n\n` : ""}${c.review}` }].slice(-40));
+        setMessages((current) => [...current, { role: "assistant", content: c.review }].slice(-40));
       } else setMessages((current) => [...current, { role: "assistant", content: plan.reply }].slice(-40));
     } catch (failure) {
       if (!abort.signal.aborted) setError(c[failure.message] || (mode === "local" && ["unsupported", "missingMusic", "cannotTrim", "needClips"].includes(failure.message) ? c.help : agent.t("failed")));

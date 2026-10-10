@@ -5,7 +5,7 @@ Timeline Studio's competition branch targets **Alexa+ simulated experience** wit
 ## Implemented
 
 - Browser-local commands: `9:16`, `trim first 3s`, `music 20%`, `last first` (Chinese equivalents are shown in the Chinese UI).
-- Local Ollama planning (default), with an optional Amazon Bedrock **Converse** server adapter. The planner receives the conversation and bounded clip metadata, never source media. It proposes edits; the existing editor previews and validates them before the user applies them.
+- Local Ollama planning (default), with an optional Amazon Bedrock **Converse** server adapter. The planner receives the conversation and bounded clip metadata, never source media. Local output is constrained by a JSON schema containing the current clip IDs and trim bounds. It proposes edits; the existing editor previews and validates them before the user applies them.
 - Supported AI plan operations: canvas ratio/fit, simple video trims, visual reorder, clip volume/fades/mute. Existing timeline editing, guarded undo, project saving and video export remain available in the editor.
 - Real state tokens prevent a delayed plan from changing a project that was edited during planning. Review and apply reuse the production browser command engine.
 - All 13 UI languages, explicit simulation disclosure, separate local-command and AI modes, opt-in metadata transmission and cancellable planning.
@@ -52,6 +52,10 @@ For the existing Netlify hosting path, use its function with the same server env
 Current limitations: metadata-only planning (no understanding of video pixels or speech), no voice-input UI, no assistant-driven narration/caption generation, no remote MCP/actual Alexa+ connection, and no conversation restore after page refresh. These are not represented as working features.
 
 Official references: [competition rules](https://amazonappdev2026.devpost.com/rules), [AWS Bedrock JavaScript Converse example](https://docs.aws.amazon.com/sdk-for-javascript/v3/developer-guide/javascript_bedrock-runtime_code_examples.html).
+
+## Validation on October 10, 2026
+
+Real local inference was verified with Ollama 0.40.2 and Qwen3 4B Q4_K_M on Apple M1. An English request changed the ratio to 9:16, trimmed the first clip to two seconds and set music gain to 0.2 through review/apply. A subsequent Chinese request reordered clips and muted music; undo restored the previous state. The final seven-second portable project reopened correctly, and its 720×1280 H.264/AAC export passed complete ffmpeg decoding. Cancellation and stale-plan rejection were also checked. `npm run check` passed with existing warnings. No paid API or live Bedrock call was used. This validation uses synthetic media and is not the public competition demo.
 
 ## Responsible use of deep synthesis
 

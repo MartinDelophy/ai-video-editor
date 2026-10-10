@@ -1,3 +1,4 @@
+import { getAnnaVideoCopy } from "./i18nAnnaVideo.js";
 import { getAnnaImageCopy } from "./plugins/generation/providers/anna/copy.js";
 import { ANIMATION_COPY } from "./i18nAnimation.js";
 import { SILENCE_REMOVAL_COPY } from "./i18nSilenceRemoval.js";
@@ -32,3 +33,5 @@ const NARRATION_LENGTH_COPY = {"zh": "解说超出指定时段，请精简文案
 for (const [language, text] of Object.entries(NARRATION_LENGTH_COPY)) WEB_MCP_AI_COPY[language].aiNarrationTooLong = text;
 
 for (const [locale, copy] of Object.entries(WEB_MCP_AI_COPY)) { const image = getAnnaImageCopy(locale); copy.toolImageGenerateTitle = image.title; copy.toolImageGenerateDescription = `${image.prompt}. ${image.quota}`; }
+
+for (const [locale, copy] of Object.entries(WEB_MCP_AI_COPY)) { const video = getAnnaVideoCopy(locale); copy.toolVideoGenerateTitle = video.title; copy.toolVideoGenerateDescription = `${video.prompt}. ${video.quota}`; }

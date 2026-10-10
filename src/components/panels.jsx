@@ -1,3 +1,4 @@
+import { getAnnaVideoCopy } from "../i18nAnnaVideo.js";
 import { getAnnaImageCopy } from "../plugins/generation/providers/anna/copy.js";
 import { AnnaImagePanel } from "../plugins/generation/providers/anna/Inspector.jsx";
 import { supportsFileSpeech } from "../lib/browserFileSpeech.js";
@@ -1464,6 +1465,7 @@ export function ToolPanel(props) {
     if (import.meta.env?.VITE_ANNA_EDITION === "true") return <div className="tool-panel smart-hub-panel">
       <div className="smart-hub-grid" role="tablist" aria-label={t("smartTools")}>
         <button className={smartMode === "chatcut" ? "is-active" : ""} type="button" role="tab" aria-selected={smartMode === "chatcut"} onClick={() => setSmartMode("chatcut")}><span className="chatcut-hot-badge" aria-hidden="true"><Sparkle size={12} weight="fill" />HOT</span><Scissors size={24} weight="duotone" /><strong>{getChatCutCopy(uiLanguage).title}</strong><span>{getChatCutCopy(uiLanguage).hint}</span></button>
+        <button type="button" role="tab" aria-selected={smartMode === "anna-video"} className={smartMode === "anna-video" ? "is-active" : ""} onClick={() => { setSmartMode("anna-video"); if (window.matchMedia?.(COMPACT_WORKSPACE_QUERY).matches) openMobileInspector?.(); }}><span className="chatcut-hot-badge" aria-hidden="true"><Sparkle size={12} weight="fill" />HOT</span><MagicWand size={24} weight="duotone" /><strong>{getAnnaVideoCopy(uiLanguage).title}</strong><span>{getAnnaVideoCopy(uiLanguage).prompt}</span></button>
         <button className={smartMode === "watermark" ? "is-active" : ""} type="button" role="tab" aria-selected={smartMode === "watermark"} onClick={() => {
           setSmartMode("watermark");
           if (window.matchMedia?.(COMPACT_WORKSPACE_QUERY).matches) openMobileInspector?.();
@@ -1649,6 +1651,10 @@ export function ToolPanel(props) {
         </div>
       </div>
     );
+  }
+
+  if (activeTool === "workflow") {
+    return <div className="tool-panel"><h2>{t("workflow")}</h2><div className="empty-state"><strong>{t("workflowEmpty")}</strong><p>{t("workflowDescription")}</p></div></div>;
   }
 
   if (activeTool === "stickers") {

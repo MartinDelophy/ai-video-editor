@@ -156,6 +156,9 @@ export function createWebMcpEditorSession(getEditor, { publish = () => {}, publi
         case "timeline_animation_generate":
           result = await aiJobs.generateAnimation(input, signal);
           break;
+        case "timeline_video_generate":
+          result = await aiJobs.generateVideo(input, signal);
+          break;
         case "timeline_image_generate":
           result = await aiJobs.generateImage(input, signal);
           break;
@@ -396,6 +399,7 @@ export function createWebMcpTools(session, t) {
     ["timeline_assets_inspect", "Assets", schema({ query: { type: "string", maxLength: 256 }, type: { type: "string", enum: ["image", "video", "audio"] }, readyOnly: { type: "boolean" }, ...pagination }), true],
     ["timeline_markers_inspect", "Markers", schema({ markerId: { ...stringSchema, maxLength: 160 }, ...pagination }), true],
     ["timeline_image_generate", "ImageGenerate", IMAGE_GENERATE_SCHEMA, false],
+    ["timeline_video_generate", "VideoGenerate", { ...IMAGE_GENERATE_SCHEMA, properties: { ...IMAGE_GENERATE_SCHEMA.properties, referenceTime: { type: "number", minimum: 0 }, durationSec: { type: "integer", minimum: 5, maximum: 15 }, resolution: { type: "string", enum: ["480p", "720p", "768p", "1080p"] } } }, false],
     ["timeline_animation_generate", "AnimationGenerate", ANIMATION_GENERATE_SCHEMA, false],
     ["timeline_ai_process", "AiProcess", AI_PROCESS_SCHEMA, false],
     ["timeline_ai_result_frames", "AiFrames", AI_FRAMES_SCHEMA, true],

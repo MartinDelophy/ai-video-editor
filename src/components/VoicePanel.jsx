@@ -1,3 +1,5 @@
+import { AnnaVideoPanel } from "./AnnaVideoPanel.jsx";
+import { getAnnaVideoCopy } from "../i18nAnnaVideo.js";
 import { BeatShakeInspector } from "./BeatShake.jsx";
 import { GlitchInspector } from "./GlitchEffect.jsx";
 import { DriftingHaloInspector } from "./DriftingHalo.jsx";
@@ -1387,6 +1389,7 @@ function CaptionFontSheet({
 }
 
 export function VoicePanel({
+  generationAssets = [],
   t,
   activeTool,
   captionVoiceFocusRequest = 0,
@@ -1595,7 +1598,7 @@ export function VoicePanel({
     background: t("effectBackground"),
     edge: t("effectEdgeCleanup"),
   }[mobileInspectorSection];
-  const title = focusedSectionTitle || (isPluginsContext ? getPluginCopy(uiLanguage).title : isFaceSwapContext ? t("faceSwapTitle") : isOpticalFlowContext ? t("effectVectorTracking") : isCinematicDepthContext ? t(effectsPanelMode === "relight" ? "relightTitle" : effectsPanelMode === "depth-map" ? "depthMapTitle" : "depthTitle") : isPhotoParallaxContext ? t("parallaxTitle") : isEffectsContext ? t("effectProperties") : isAiMusicContext ? (AI_MUSIC_COPY[uiLanguage] || AI_MUSIC_COPY.en).title : isSmartAutoContext ? (anna?.enabled ? anna.t("title") : t("smartAutoEdit")) : isSmartFrameContext ? t("smartFrame") : isAvatarContext ? t("avatarTitle") : isVectorOverlay || isVectorVisual ? t("vectorProperties", "矢量图形") : isOverlayContext ? t("pictureInPicture", "画中画") : isStickerContext ? t("stickerProperties") : isVisualContext ? t("visualPanelTitle") : isCaptionContext ? t("caption") : isAudioClipContext ? t("audioClipProperties") : t("aiVoice"));
+  const title = focusedSectionTitle || (isSmartContext && smartMode === "anna-video" ? getAnnaVideoCopy(uiLanguage).title : isPluginsContext ? getPluginCopy(uiLanguage).title : isFaceSwapContext ? t("faceSwapTitle") : isOpticalFlowContext ? t("effectVectorTracking") : isCinematicDepthContext ? t(effectsPanelMode === "relight" ? "relightTitle" : effectsPanelMode === "depth-map" ? "depthMapTitle" : "depthTitle") : isPhotoParallaxContext ? t("parallaxTitle") : isEffectsContext ? t("effectProperties") : isAiMusicContext ? (AI_MUSIC_COPY[uiLanguage] || AI_MUSIC_COPY.en).title : isSmartAutoContext ? (anna?.enabled ? anna.t("title") : t("smartAutoEdit")) : isSmartFrameContext ? t("smartFrame") : isAvatarContext ? t("avatarTitle") : isVectorOverlay || isVectorVisual ? t("vectorProperties", "矢量图形") : isOverlayContext ? t("pictureInPicture", "画中画") : isStickerContext ? t("stickerProperties") : isVisualContext ? t("visualPanelTitle") : isCaptionContext ? t("caption") : isAudioClipContext ? t("audioClipProperties") : t("aiVoice"));
   const isLocalInferenceContext = (isEffectsContext && !isClickRippleContext && !isHaloContext && !isGlitchContext && !isBeatShakeContext) || isAiMusicContext || isSmartFrameContext || isAvatarContext
     || (isCaptionContext && captionPanelTab === "voice")
     || (isAudioClipContext && mobileInspectorSection === "voice-color")
@@ -1670,6 +1673,7 @@ export function VoicePanel({
   const watermarkDuration = Math.max(0, Number(watermarkClip?.duration) || 0);
   const watermarkSourceDuration = Math.max(0, Number(watermarkClip?.sourceDuration) || watermarkDuration * (Number(watermarkClip?.playbackRate) || 1));
 
+  if (import.meta.env?.VITE_ANNA_EDITION === "true" && isSmartContext && smartMode === "anna-video") return <aside className="voice-panel" ref={panelRef}><div className="panel-title-row"><h1>{getAnnaVideoCopy(uiLanguage).title}</h1></div><div className="voice-tab-body"><AnnaVideoPanel language={uiLanguage} plugins={generationPlugins} assets={generationAssets} /></div></aside>;
   if (import.meta.env?.VITE_ANNA_EDITION === "true" && isSmartContext) return <aside className={`voice-panel ${mobileInspectorSection ? "is-focused-mobile-section" : ""}`} ref={panelRef}>
     {mobileInspectorSection ? <header className="focused-mobile-sheet-header"><strong>{t("annaVideoWatermark")}</strong><button type="button" aria-label={t("close")} onClick={onCloseMobileInspector}><X size={20} /></button></header> : null}
     <div className="panel-title-row"><h1>{t("annaVideoWatermark")}</h1></div>

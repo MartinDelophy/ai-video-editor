@@ -4,7 +4,7 @@ import { requestAnnaChatCompletion } from "./annaRuntime.js";
 // Only inspections and a validated preview are callable by the model. Applying
 // remains an explicit editor action; never execute model-supplied JavaScript.
 export const CHATCUT_TOOLS = new Set([
-  "timeline_animation_generate", "timeline_image_generate", "timeline_ai_process", "timeline_ai_preview", "timeline_ai_result_frames",
+  "timeline_animation_generate", "timeline_image_generate", "timeline_video_generate", "timeline_ai_process", "timeline_ai_preview", "timeline_ai_result_frames",
   "timeline_project_inspect", "timeline_track_inspect", "timeline_clip_inspect",
   "timeline_transcript_inspect", "timeline_assets_inspect", "timeline_markers_inspect", "timeline_edit_preview",
 ]);
@@ -45,7 +45,7 @@ export async function runAnnaChatCut({ instruction, generationCommand = null, re
     if (reply.type === "message" && typeof reply.text === "string" && reply.text.length <= 6000) return { text: reply.text, assetIds };
     if (generationCommand === "image" && reply.name === "timeline_animation_generate" || generationCommand === "remotion" && reply.name === "timeline_image_generate") throw new Error("Generation command mismatch");
     if (reply.type !== "tool" || !(CHATCUT_TOOLS.has(reply.name) || (inspectMedia && reply.name === CHATCUT_FRAME_TOOL.name) || (captureFrame && reply.name === currentFrameTool.name)) || !reply.arguments || typeof reply.arguments !== "object" || Array.isArray(reply.arguments)) throw new Error("Invalid model response");
-    onStage?.(["timeline_animation_generate", "timeline_image_generate", "timeline_ai_process"].includes(reply.name) ? "processing" : ["timeline_edit_preview", "timeline_ai_preview"].includes(reply.name) ? "validating" : "inspecting");
+    onStage?.(["timeline_animation_generate", "timeline_image_generate", "timeline_video_generate", "timeline_ai_process"].includes(reply.name) ? "processing" : ["timeline_edit_preview", "timeline_ai_preview"].includes(reply.name) ? "validating" : "inspecting");
     if (reply.name === currentFrameTool.name) {
       if (Object.keys(reply.arguments).length || sampledFrames >= 18) throw new Error("Invalid current frame request");
       sampledFrames += 1;
@@ -71,7 +71,7 @@ export async function runAnnaChatCut({ instruction, generationCommand = null, re
       continue;
     }
     // Reject edits computed from an older project, even if the model re-reads it.
-    const args = ["timeline_edit_preview", "timeline_ai_preview", "timeline_ai_process", "timeline_image_generate", "timeline_animation_generate"].includes(reply.name) ? { ...reply.arguments, stateToken: initial.stateToken } : reply.arguments;
+    const args = ["timeline_edit_preview", "timeline_ai_preview", "timeline_ai_process", "timeline_image_generate", "timeline_video_generate", "timeline_animation_generate"].includes(reply.name) ? { ...reply.arguments, stateToken: initial.stateToken } : reply.arguments;
     if (reply.name === "timeline_ai_result_frames") {
       const count = args.times?.length || 0;
       if (!count || sampledFrames + count > 18) throw new Error("Visual sample budget exceeded");
@@ -79,7 +79,7 @@ export async function runAnnaChatCut({ instruction, generationCommand = null, re
     }
     const result = await execute(reply.name, args, { signal });
     check();
-    if (["timeline_animation_generate", "timeline_image_generate", "timeline_ai_process"].includes(reply.name) && result.ok && result.assets?.length) {
+    if (["timeline_animation_generate", "timeline_image_generate", "timeline_video_generate", "timeline_ai_process"].includes(reply.name) && result.ok && result.assets?.length) {
       assetIds.push(...result.assets.map(asset => asset.assetId));
       onAssets?.([...assetIds]);
     }

@@ -90,6 +90,12 @@
       ],
       "chat": [
         "append_artifact"
+      ],
+      "video": [
+        "generate",
+        "getJob",
+        "cancelJob",
+        "listJobs"
       ]
     },
     "csp_overrides": {

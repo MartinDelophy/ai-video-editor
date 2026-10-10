@@ -1528,7 +1528,7 @@ export function App() {
   const webMcp = useWebMcpEditor({
     deferReview: anna.enabled && activeTool === "smart" && smartMode === "chatcut",
     selectedTrack, selectedVisualSegmentId, selectedVisualOverlayId,
-    language: activeLanguage, generateAnimation: agentAi.generateAnimation, generateImage: agentAi.generateImage, commitAiAssets: ids => setUserAssets(items => [...webMcp.aiAssets().filter(asset => ids.includes(asset.id) && !items.some(item => item.id === asset.id)), ...items]), processAi: agentAi.process, discardAiAsset: agentAi.discard, prepareAi: agentAi.prepare, releaseAi: agentAi.release, aiSupport: agentAi.supports, visualSegments, visualOverlaySegments, audioSegments, musicSegments,
+    language: activeLanguage, generateAnimation: agentAi.generateAnimation, generateImage: agentAi.generateImage, generateVideo: agentAi.generateVideo, commitAiAssets: ids => setUserAssets(items => [...webMcp.aiAssets().filter(asset => ids.includes(asset.id) && !items.some(item => item.id === asset.id)), ...items]), processAi: agentAi.process, discardAiAsset: agentAi.discard, prepareAi: agentAi.prepare, releaseAi: agentAi.release, aiSupport: agentAi.supports, visualSegments, visualOverlaySegments, audioSegments, musicSegments,
     sourceAudioBlob, musicBlob, audioBlob, rippleEditing, getProjectSnapshot,
     assets: userAssets, getRuntimeProject: getBrowserRuntimeProject,
     currentTime, duration: exportContentDuration, historySignature,
@@ -1938,6 +1938,7 @@ export function App() {
           removeSelectedSubjectEffect={removeSelectedSubjectEffect}
           onOpticalFlowAssetReady={handleOpticalFlowAssetReady}
           generationPlugins={generationPlugins}
+          generationAssets={userAssets}
         />}
       </section>
 

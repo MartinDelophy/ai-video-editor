@@ -1,11 +1,22 @@
 import { preserveUnmaskedImage } from "../../../../lib/imageEditMask.js";
-import { connectAnna, generateAnnaImage, editAnnaImage } from "../../../../lib/annaRuntime.js";
+import { connectAnna, generateAnnaVideo, generateAnnaImage, editAnnaImage } from "../../../../lib/annaRuntime.js";
 import { normalizeImageBlob } from "../../host.js";
 const check = signal => { if (signal?.aborted) throw new DOMException("Cancelled", "AbortError"); };
 export function createAnnaAdapter() {
   return {
-    async connect({ signal }) { await connectAnna({ signal }); return { state: "connected", capabilities: ["text-to-image", "image-to-image"] }; },
+    async connect({ signal }) { await connectAnna({ signal }); return { state: "connected", capabilities: ["text-to-image", "image-to-image", "text-to-video", "image-to-video"] }; },
     async generate({ request, signal }) {
+      if (request.mode === "text-to-video") {
+        if (typeof request.prompt !== "string" || !request.prompt.trim() || request.prompt.length > 4000) throw new Error("invalid_request");
+        const view = await generateAnnaVideo({ resolution: request.resolution, durationSec: request.durationSec, prompt: request.prompt, aspectRatio: request.aspectRatio, referenceBlob: request.referenceAssets?.[0]?.blob, jobId: request.providerOptions?.jobId, onJob: request.onJob, signal });
+        const url = new URL(view.result?.url);
+        if (url.protocol !== "https:") throw new Error("invalid_result");
+        const response = await fetch(url, { signal, credentials: "omit", referrerPolicy: "no-referrer" });
+        if (!response.ok) throw new Error("download_failed");
+        const blob = await response.blob();
+        if (!blob.size) throw new Error("empty_result");
+        return { provider: "anna", jobId: view.jobId, outputs: [{ type: "video", blob, fileName: `Anna-${view.jobId}.mp4`, providerLabel: "Anna", prompt: request.prompt, provenance: { provider: "Anna", model: view.model, jobId: view.jobId } }] };
+      }
       check(signal);
       if (!["text-to-image", "image-to-image"].includes(request.mode) || typeof request.prompt !== "string" || !request.prompt.trim() || request.prompt.length > 4000) throw Object.assign(new Error("invalid_request"), { code: "invalid_request" });
       const size = { "1:1": "2048x2048", "16:9": "2560x1440", "9:16": "1440x2560" }[request.aspectRatio || "1:1"];

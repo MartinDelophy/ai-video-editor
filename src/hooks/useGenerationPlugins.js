@@ -11,6 +11,9 @@ export function useGenerationPlugins({ imageUrlRefs, notify, setActiveTool, setM
   const activeJobRef = useRef(null);
   const [selectedPluginId, setSelectedPluginId] = useState(GENERATION_PROVIDERS[0].id);
   const [connections, setConnections] = useState(() => createInitialConnections(GENERATION_PROVIDERS));
+  const [annaVideoJobId, setAnnaVideoJobId] = useState("");
+  const [annaVideoRequest, setAnnaVideoRequest] = useState(null);
+  const [annaVideoDraft, setAnnaVideoDraft] = useState(null);
   const [job, setJob] = useState(createIdleGenerationJob);
 
   useEffect(() => {
@@ -116,7 +119,7 @@ export function useGenerationPlugins({ imageUrlRefs, notify, setActiveTool, setM
     setJob({ state: "running", providerId, progress: null, message: "generating", assetId: "" });
     try {
       const result = await adapter.generate({
-        request,
+        request: providerId === "anna" && request.mode === "text-to-video" ? { ...request, onJob: id => { setAnnaVideoJobId(id); setAnnaVideoRequest({ prompt: request.prompt, aspectRatio: request.aspectRatio, durationSec: request.durationSec, resolution: request.resolution }); request.onJob?.(id); } } : request,
         connection: readyConnection || connections[providerId],
         signal: controller.signal,
         onState: (state) => {
@@ -143,7 +146,7 @@ export function useGenerationPlugins({ imageUrlRefs, notify, setActiveTool, setM
       return committed;
     } catch (error) {
       if (error?.name !== "AbortError" && mountedRef.current && activeJobRef.current?.controller === controller) {
-        setJob({ state: "error", providerId, progress: null, message: error?.msg || error?.message || String(error), assetId: "" });
+        setJob({ state: "error", providerId, progress: null, errorCode: String(error?.code || ""), message: error?.msg || error?.message || String(error), assetId: "" });
       }
     } finally {
       if (activeJobRef.current?.controller === controller) activeJobRef.current = null;
@@ -167,6 +170,7 @@ export function useGenerationPlugins({ imageUrlRefs, notify, setActiveTool, setM
   }, [job.assetId, setActiveTool, setMediaTab, setSelectedLibraryAssetId]);
 
   return {
+    annaVideoJobId, annaVideoRequest, annaVideoDraft, setAnnaVideoDraft,
     selectedPluginId,
     setSelectedPluginId,
     connections,

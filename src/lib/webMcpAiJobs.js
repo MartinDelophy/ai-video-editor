@@ -117,26 +117,29 @@ export function createWebMcpAiJobs({ getEditor, capture, guard, publish = () => 
       return { resultId, kind: input.kind, clipId: clip.id, operations, ...(output.candidates ? { cuts: output.candidates.map(cut => ({ start: timelineStart + cut.start, end: timelineStart + cut.end })), removedSeconds: output.candidates.reduce((sum, cut) => sum + cut.end - cut.start, 0), rippleEditing: Boolean(editor.rippleEditing) } : {}), assets: (output.asset ? [output.asset] : []).map(asset => ({ assetId: asset.id, name: asset.name, type: asset.type })), needsVisualInspection: input.kind === "watermark", timing: input.kind === "narration" ? "Clip-relative slots; generated audio and captions use measured speech duration. Video duration unchanged." : input.kind === "pauses" ? "Remove only detected pauses in this inspected main clip; source audio follows, other tracks follow the current ripple mode." : input.kind === "captions" ? "Pause-estimated timeline seconds; review alignment. Singing may not be recognized." : "Original clip timing preserved; processed media source starts at zero.", ...(output.asset ? { asset: { name: output.asset.name, duration: output.asset.duration, width: output.asset.width, height: output.asset.height } } : {}) };
     } catch (error) { for (const asset of output?.assets || (output?.asset ? [output.asset] : [])) editor.discardAiAsset?.(asset); throw error; } finally { signal?.removeEventListener("abort", abort); controllers.delete(controller); publish(null); }
   };
-  const generateImage = async (input, signal) => {
-    if (Object.keys(input).some(key => !["stateToken", "prompt", "aspectRatio", "sourceAssetId"].includes(key)) || typeof input.prompt !== "string" || !input.prompt.trim() || input.prompt.length > 4000 || !["1:1", "16:9", "9:16"].includes(input.aspectRatio || "16:9")) fail("INVALID_ARGUMENT");
+  const generateImage = async (input, signal, video = false) => {
+    if (Object.keys(input).some(key => !["stateToken", "prompt", "aspectRatio", "sourceAssetId", ...(video ? ["referenceTime", "durationSec", "resolution"] : [])].includes(key)) || typeof input.prompt !== "string" || !input.prompt.trim() || input.prompt.length > 4000 || !["1:1", "16:9", "9:16"].includes(input.aspectRatio || "16:9")) fail("INVALID_ARGUMENT");
     guard(signal, true); const state = capture();
     if (state.stateToken !== input.stateToken) fail("STALE_STATE");
     if (results.size >= 8) fail("AI_RESULT_LIMIT");
     const editor = getEditor();
-    if (!editor.generateImage || !editor.aiSupport?.().image) fail("AI_UNAVAILABLE");
+    if (!(video ? editor.generateVideo && editor.aiSupport?.().video : editor.generateImage && editor.aiSupport?.().image)) fail("AI_UNAVAILABLE");
+    if (video && input.resolution !== undefined && !["480p", "720p", "768p", "1080p"].includes(input.resolution)) fail("INVALID_ARGUMENT");
+    if (video && input.durationSec !== undefined && (!Number.isInteger(input.durationSec) || input.durationSec < 5 || input.durationSec > 15)) fail("INVALID_ARGUMENT");
+    if (video && input.referenceTime !== undefined && (!Number.isFinite(input.referenceTime) || input.referenceTime < 0)) fail("INVALID_ARGUMENT");
     const sourceAsset = input.sourceAssetId === undefined ? null : [...(editor.assets || []), ...assets()].find(asset => asset.id === input.sourceAssetId);
-    if (input.sourceAssetId !== undefined && (typeof input.sourceAssetId !== "string" || sourceAsset?.type !== "image" || !(sourceAsset.blob instanceof Blob))) fail("ASSET_NOT_FOUND");
+    if (input.sourceAssetId !== undefined && (typeof input.sourceAssetId !== "string" || !(video ? ["image", "video"] : ["image"]).includes(sourceAsset?.type) || !(sourceAsset.blob instanceof Blob))) fail("ASSET_NOT_FOUND");
     const controller = new AbortController(); const abort = () => controller.abort();
     signal?.addEventListener("abort", abort, { once: true }); controllers.add(controller);
     const resultId = makeId(); let output;
     publish({ running: true, kind: "image", progress: null });
     try {
-      output = await editor.generateImage({ ...input, sourceAsset, signal: controller.signal });
+      output = await (video ? editor.generateVideo : editor.generateImage)({ ...input, sourceAsset, signal: controller.signal });
       check(controller.signal); guard(signal);
       if (capture().fingerprint !== state.fingerprint) fail("STALE_STATE");
       if (!Array.isArray(output.assets) || !output.assets.length) fail("AI_EMPTY_RESULT");
       results.set(resultId, { kind: "image", fingerprint: state.fingerprint, assets: output.assets, asset: output.assets[0], inspected: true });
-      return { resultId, assets: output.assets.map(asset => ({ assetId: asset.id, type: asset.type, name: asset.name, width: asset.width, height: asset.height })), note: "Generated media only; no timeline changes. Inspect using timeline_ai_result_frames, then use asset.insert in timeline_edit_preview only if the user asked for placement." };
+      return { resultId, assets: output.assets.map(asset => ({ assetId: asset.id, type: asset.type, name: asset.name, width: asset.width, height: asset.height, ...(video ? { duration: asset.duration } : {}) })), note: "Generated media only; no timeline changes. Inspect using timeline_ai_result_frames, then use asset.insert in timeline_edit_preview only if the user asked for placement." };
     } catch (error) { for (const asset of output?.assets || []) editor.discardAiAsset?.(asset); throw error; }
     finally { signal?.removeEventListener("abort", abort); controllers.delete(controller); publish(null); }
   };
@@ -197,7 +200,7 @@ export function createWebMcpAiJobs({ getEditor, capture, guard, publish = () => 
     for (const result of results.values()) for (const asset of result.assets || (result.asset ? [result.asset] : [])) if (!editor.assets?.some(item => item.id === asset.id)) editor.discardAiAsset?.(asset);
     results.clear();
   };
-  return { generateAnimation, generateImage, process, inspectFrames, preview, assets, reset, close: reset };
+  return { generateAnimation, generateImage, generateVideo: (input, signal) => generateImage(input, signal, true), process, inspectFrames, preview, assets, reset, close: reset };
 }
 
 const id = { type: "string", minLength: 1, maxLength: 256 };

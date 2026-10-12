@@ -66,6 +66,17 @@ function applyLatestSeek(video, state) {
   };
   const onSeeked = () => {
     if (state.version !== version || finished) return;
+    // A completed native seek has freed the decoder. During scrubbing there
+    // is no reason to spend two compositor frames observing an obsolete
+    // target before starting the latest one. Do not interrupt an active
+    // decode on every pointer move: that can starve long-GOP sources entirely.
+    if (!video.seeking && video.readyState >= 2 && state.pending) {
+      finished = true;
+      clearObservation(video, state);
+      state.active = null;
+      applyLatestSeek(video, state);
+      return;
+    }
     // Same-frame seeks need not emit another rVFC. Allow two compositor frames
     // before unlocking the queue, but never report requested currentTime as a
     // confirmed PTS. Keep observing a late final frame if nothing is pending.

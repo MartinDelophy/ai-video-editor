@@ -3347,9 +3347,9 @@ export function Timeline({
                               contentWidth: rulerViewport.contentWidth,
                             })}
                             imageCellWidth={IMAGE_THUMBNAIL_TARGET_WIDTH}
-                            currentTime={segmentType === "video" && isCurrentVisualSegment && segmentRange ? currentTime : null}
+                            currentTime={!timelineSeekActive && segmentType === "video" && isCurrentVisualSegment && segmentRange ? currentTime : null}
                             segmentStart={segmentRange?.start || 0}
-                            previewVideoMediaTime={segmentType === "video" && isCurrentVisualSegment ? previewVideoMediaTime : 0}
+                            previewVideoMediaTime={!timelineSeekActive && segmentType === "video" && isCurrentVisualSegment ? previewVideoMediaTime : 0}
                             timelineSeekActive={isCurrentVisualSegment && timelineSeekActive}
                           />
                         ) : null}

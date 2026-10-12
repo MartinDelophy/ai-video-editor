@@ -46,6 +46,8 @@ export function useTimelinePlayhead(state) {
     let animationKey = "";
     let animations = [];
     let lastAriaTime = -1;
+    let scrubTime = null;
+    let scrubActive = false;
 
     const stopAnimations = () => {
       animations.forEach((animation) => animation.cancel());
@@ -56,13 +58,13 @@ export function useTimelinePlayhead(state) {
       const current = stateRef.current;
       if (current.isPlaying && !wasPlayingRef.current) suspendedRef.current = false;
       wasPlayingRef.current = current.isPlaying;
-      const time = playbackTime(current, now);
+      const time = scrubTime ?? playbackTime(current, now);
       const duration = Math.max(0.001, Number(current.timelineDuration) || 0.001);
       const ratio = Math.max(0, Math.min(1, time / duration));
       const line = playheadRef.current;
       const triangle = rulerPlayheadRef.current;
       if (!line || !triangle) return;
-      const canAnimate = current.isPlaying && !mobile?.matches
+      const canAnimate = current.isPlaying && !scrubActive && !mobile?.matches
         && current.playbackDuration > time
         && typeof line.animate === "function" && typeof triangle.animate === "function";
       const key = canAnimate
@@ -137,6 +139,18 @@ export function useTimelinePlayhead(state) {
       rulerWidth = ruler.getBoundingClientRect().width;
       sync();
     };
+    const seekPosition = (event) => {
+      if (!Number.isFinite(event.detail?.time)) return;
+      scrubTime = event.detail.time;
+      position(performance.now());
+      if (!scrubActive) scrubTime = null;
+    };
+    const seekState = (event) => {
+      scrubActive = event.detail?.active === true;
+      if (!scrubActive) scrubTime = null;
+    };
+    window.addEventListener("timeline-seek-position", seekPosition);
+    window.addEventListener("timeline-seek-state", seekState);
     const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(measure);
     observer?.observe(track);
     observer?.observe(ruler);
@@ -149,6 +163,8 @@ export function useTimelinePlayhead(state) {
       if (frameId) window.cancelAnimationFrame(frameId);
       stopAnimations();
       scroll.removeEventListener("scroll", sync);
+      window.removeEventListener("timeline-seek-position", seekPosition);
+      window.removeEventListener("timeline-seek-state", seekState);
       observer?.disconnect();
       window.removeEventListener("resize", measure);
       mobile?.removeEventListener?.("change", measure);

@@ -18,3 +18,9 @@ Validation and release results are recorded below after the Anna bundle is built
 - Immutable **0.1.1-beta.7**, version id **1296**, bundle id **1203**, submitted through `apps release`.
 - Submission response: `release_review_state=pending`, `is_latest=false`, `published_at=null`. This confirms submission, not approval or public availability. The previously approved latest version remains 0.1.1-beta.5 at submission time.
 - No new Anna browser performance benchmark was run during this migration. Source-task benchmark evidence is distinguished above from this migration's lint/type/build/package validation.
+
+## Scrubbing follow-up
+
+The first queue-only adjustment (`180538c`, draft r100) did not resolve the user's reported preview stutter. A second adjustment separates native seek requests and playhead positioning from full-editor reconciliation: pointer positions remain display-frame coalesced, editor state updates are bounded to 30 Hz, and press, release, cancellation, and visual-clip crossings commit synchronously. Native playhead animations are suppressed during pointer scrubbing. The active filmstrip receives stable props during the gesture, then restores its exact presented-frame override after release. No export settings or source-media resolution are changed.
+
+A temporary Node gesture simulation outside the repository verified 62 playhead position notifications, 24 editor updates, and an exact final 6.35-second position. This is a scheduling regression check, not a measured browser preview FPS result. Real-footage responsiveness remains subject to user verification on the refreshed online draft.

@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { PLAYBACK_UI_FRAME_MS, getAudioSegmentPreviewVolume, getTimelineTrackLocalTime, isAudioSegmentAudible, isTimelineTimeInsideTrack, requestTimelineMediaPlay, setTimelineAudioGain, shouldCorrectPreviewMediaTime } from "../lib/editorRuntime.js";
 import { getLinkedSourceAudioState } from "../lib/sourceAudioSync.js";
 import { filterTimedSegmentsByLaneVisibility } from "../lib/timeline.js";
@@ -43,6 +43,8 @@ export function syncVoiceAudioSegments({ segments, refs, timelineTime, isPlaying
 }
 
 export function useMediaSync(d) {
+  const playbackStateRef = useRef(d);
+  playbackStateRef.current = d;
   // Lane packing depends on edits and visibility, never on the playback clock.
   const visibleAudioSegmentIds = useMemo(() => new Set(
     filterTimedSegmentsByLaneVisibility(d.audioSegments, d.trackVisibility).map((segment) => segment.id),
@@ -134,7 +136,32 @@ export function useMediaSync(d) {
     const start = d.currentTimeRef.current >= d.estimatedDuration - 0.02 ? 0 : Math.max(0, d.currentTimeRef.current);
     if (start !== d.currentTimeRef.current) { d.setCurrentTime(start); d.currentTimeRef.current = start; }
     d.visualPlaybackStartTimeRef.current = start; d.visualPlaybackStartedAtRef.current = performance.now(); d.visualPlaybackLastUpdateRef.current = 0;
+    let previousTick = d.visualPlaybackStartedAtRef.current;
+    const bufferedAudio = new Set();
     const tick = (now) => {
+      const state = playbackStateRef.current;
+      const video = state.previewVideoRef.current;
+      const elapsed = Math.max(0, now - previousTick);
+      previousTick = now;
+      // Long GOP seeks can take longer than one UI frame. Keep the project
+      // clock and already-running audio at the requested position until the
+      // native decoder can continue; never chase it with repeated seeks.
+      const waiting = state.previewVisualType === "video" && state.trackVisibility.image !== false
+        && video && !video.error && !video.ended
+        && !(Number.isFinite(video.duration) && video.currentTime >= video.duration - 0.1)
+        && (video.seeking || video.readyState < 3
+          || (video.paused && video.__timelinePlayPending));
+      if (waiting) {
+        d.visualPlaybackStartedAtRef.current += elapsed;
+        const media = [...state.audioSegmentRefs.current.values(), state.sourceAudioRef.current, state.musicRef.current];
+        for (const audio of media) {
+          if (audio && !audio.paused) { audio.pause(); bufferedAudio.add(audio); }
+        }
+        d.visualPlaybackFrameRef.current = requestAnimationFrame(tick);
+        return;
+      }
+      for (const audio of bufferedAudio) requestTimelineMediaPlay(audio);
+      bufferedAudio.clear();
       const wallClockTime = Math.min(
         d.estimatedDuration,
         d.visualPlaybackStartTimeRef.current + (now - d.visualPlaybackStartedAtRef.current) / 1000,

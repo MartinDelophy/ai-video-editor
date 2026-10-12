@@ -1,10 +1,13 @@
 import {
-  AudioBufferSource,
+  AudioSample,
+  AudioSampleSource,
   ALL_FORMATS,
   BlobSource,
   BufferTarget,
   CanvasSink,
   CanvasSource,
+  canEncodeVideo,
+  VideoSampleSink,
   Input,
   MovOutputFormat,
   Mp4OutputFormat,
@@ -30,8 +33,9 @@ import {
   getVisualSegmentIndexAtTime,
   getVisualSegmentTimeline,
 } from "./timeline.js";
+import { composeColorGradeFilter, resolveColorGrade } from "./colorGrade.js";
 import { resolveVisionAnalysisAtTime } from "./vision.js";
-import { getVisualSourceTime } from "./visualEffects.js";
+import { getVisualSourceTime, normalizeVisualTransform } from "./visualEffects.js";
 import { getVectorRenderSource } from "./vectorDesign.js";
 import { hasSubjectEffect } from "./subjectEffects.js";
 import { getGeneratedMediaTags } from "./generatedMediaMetadata.js";
@@ -74,6 +78,28 @@ export function getOfflineVisualOverlaysAtTime(segments = [], time = 0) {
     .sort((left, right) => (left.layer || 1) - (right.layer || 1));
 }
 
+// Feed bounded planar chunks so cancellation can stop between submissions,
+// before closing an encoder that may still be awaiting its dequeue event.
+async function encodeAudioBuffer(source, buffer, signal) {
+  const channels = buffer.numberOfChannels;
+  const chunkFrames = Math.max(1, Math.floor(240_000 / channels));
+  for (let offset = 0; offset < buffer.length; offset += chunkFrames) {
+    throwIfExportAborted(signal);
+    const frames = Math.min(chunkFrames, buffer.length - offset);
+    const data = new Float32Array(frames * channels);
+    for (let channel = 0; channel < channels; channel++) {
+      buffer.copyFromChannel(data.subarray(channel * frames, (channel + 1) * frames), channel, offset);
+    }
+    const sample = new AudioSample({
+      format: "f32-planar", sampleRate: buffer.sampleRate, numberOfChannels: channels,
+      timestamp: offset / buffer.sampleRate, data,
+    });
+    try { await source.add(sample); }
+    finally { sample.close(); }
+  }
+  throwIfExportAborted(signal);
+}
+
 async function prepareComposition(options) {
   throwIfExportAborted(options.signal);
   const targetWidth = Math.max(2, Math.round(Number(options.exportSettings?.width) || options.ratio.width));
@@ -98,27 +124,84 @@ async function prepareComposition(options) {
       ? [...new Set((segment.vision?.samples || []).map((sample) => sample.cutoutUrl).filter(Boolean))] : [];
     let sequentialFrames = null;
     if (segment.type === "video" && options.framePlan?.length) {
+      let input = null;
       try {
         const blob = segment.blob instanceof Blob ? segment.blob : await fetch(segment.src, { signal: options.signal }).then((response) => {
           if (!response.ok) throw new Error(`Unable to read video source (${response.status})`);
           return response.blob();
         });
-        const input = new Input({ source: new BlobSource(blob), formats: ALL_FORMATS });
+        input = new Input({ source: new BlobSource(blob), formats: ALL_FORMATS });
         const track = await input.getPrimaryVideoTrack();
         if (!track || !(await track.canDecode())) throw new Error("VideoDecoder does not support this source codec");
-        const sink = new CanvasSink(track, { poolSize: 3, decoderOptions: { optimizeForLatency: true } });
+        // Unrotated frames can go straight to the shared compositor. Avoid a
+        // full-resolution YUV→canvas→canvas copy for every exported frame.
+        // Preserve the existing rasterization when rotation, resampling or
+        // visual effects could change pixel rounding.
+        const transform = normalizeVisualTransform(segment.baseTransform);
+        const pixelAspectRatio = await track.getPixelAspectRatio();
+        const directFrames = (await track.getRotation()) === 0
+          && pixelAspectRatio.num === pixelAspectRatio.den
+          && track.squarePixelWidth === targetWidth && track.squarePixelHeight === targetHeight
+          && transform.x === 0 && transform.y === 0 && transform.scale === 1 && transform.rotation === 0
+          && transform.opacity === 1 && !segment.keyframes?.length
+          && (!segment.animation?.in?.id || segment.animation.in.id === "none")
+          && (!segment.animation?.out?.id || segment.animation.out.id === "none")
+          && (!segment.mask?.type || segment.mask.type === "none")
+          && !segment.smartFrame?.cropKeyframes?.length && !segment.cinematicDepth?.enabled && !segment.photoParallax?.enabled
+          && !subjectMaskNeeded && !segment.vision?.options?.removeBackground
+          && (!segment.transition?.id || segment.transition.id === "none")
+          && composeColorGradeFilter(options.filter || "none", resolveColorGrade([], 0, segment.colorGrade)) === "none";
+        const sink = directFrames
+          ? new VideoSampleSink(track, { optimizeForLatency: true })
+          : new CanvasSink(track, { poolSize: 3, decoderOptions: { optimizeForLatency: true } });
         const range = timeline[index];
         const timestamps = options.framePlan
           .filter((frame) => frame.timestamp >= range.start && frame.timestamp < range.end)
           .map((frame) => getVisualSourceTime(segment, frame.timestamp - range.start));
-        const iterator = sink.canvasesAtTimestamps(timestamps)[Symbol.asyncIterator]();
+        const iterator = (directFrames ? sink.samplesAtTimestamps(timestamps) : sink.canvasesAtTimestamps(timestamps))[Symbol.asyncIterator]();
+        let currentFrame = null;
+        let disposed = false;
+        let bufferedSample = null;
+        // Decode at most one frame ahead while the current frame is composed
+        // and encoded. Reflect rejection immediately so cancellation cannot
+        // leave an unhandled background promise.
+        const readAhead = () => iterator.next().then((result) => {
+          if (directFrames) {
+            if (disposed) result.value?.close();
+            else bufferedSample = result.value || null;
+          }
+          return { result };
+        }, (error) => ({ error }));
+        let pendingFrame = readAhead();
         sequentialFrames = {
+          mode: directFrames ? "sequential-video-frame" : "sequential-webcodecs",
           async next() {
-            const result = await iterator.next();
-            return result.done ? null : result.value?.canvas || null;
+            currentFrame?.close();
+            currentFrame = null;
+            const pending = await pendingFrame;
+            if (pending.error) throw pending.error;
+            const result = pending.result;
+            bufferedSample = null;
+            if (result.done) return null;
+            pendingFrame = readAhead();
+            if (!result.value) return null;
+            if (!directFrames) return result.value.canvas;
+            const sample = result.value;
+            try { currentFrame = sample.toVideoFrame(); }
+            finally { sample.close(); }
+            return currentFrame;
+          },
+          release() { currentFrame?.close(); currentFrame = null; },
+          dispose() {
+            disposed = true;
+            currentFrame?.close(); currentFrame = null;
+            bufferedSample?.close(); bufferedSample = null;
+            input.dispose();
           },
         };
       } catch (error) {
+        input?.dispose();
+        throwIfExportAborted(options.signal);
         console.warn("Sequential WebCodecs video decode unavailable; using precise seek fallback", error);
       }
     }
@@ -129,7 +212,7 @@ async function prepareComposition(options) {
         ? createTemporalMaskCache([...new Set(segment.depth.samples.map((sample) => sample.depthUrl).filter(Boolean))])
         : null,
       sequentialFrames,
-      decodeMode: segment.type === "video" ? (sequentialFrames ? "sequential-webcodecs" : "precise-seek") : "static-image",
+      decodeMode: segment.type === "video" ? (sequentialFrames ? sequentialFrames.mode : "precise-seek") : "static-image",
     };
   }));
   throwIfExportAborted(options.signal);
@@ -233,24 +316,28 @@ async function renderCompositionAt(context, canvas, prepared, options, time) {
       },
     };
   }));
-  drawPreviewFrame(context, frameVisual, canvas, {
-    subtitle: caption, fitMode: options.fitMode, filter: options.filter,
-    captionsEnabled: options.captionsEnabled, captionPosition: options.captionPosition,
-    captionPlacement: resolveCaptionSegmentPlacement(activeCaptionSegment, options.captionPlacement),
-    captionSize: resolveCaptionSizeForSegment(options.captionSize, activeCaptionSegment),
-    captionStyle: resolveCaptionStyleForSegment(options.captionStyle, activeCaptionSegment),
-    captionReferenceSize: options.captionReferenceSize,
-    stickers, stickerImages: stickers.map((sticker) => prepared.stickerImages.get(sticker.src)),
-    transitionId: next ? junction.id : "none",
-    transitionNext: next ? {
-      visual: next.cutoutVisual || next.visual,
-      visualEffects: next.segment,
-      visualTime: transitionProgress * transitionDuration,
-    } : null,
-    transitionProgress, vision: frameVision, depth: frameDepth, visualEffects: item.segment, visualTime: localTime,
-    visualOverlays: renderedOverlayItems.map((item) => ({ ...item.renderSegment, start: item.segment.start - (range?.start || 0) })),
-    visualOverlaySources: renderedOverlayItems.map((item) => item.visual),
-  });
+  try {
+    drawPreviewFrame(context, frameVisual, canvas, {
+      subtitle: caption, fitMode: options.fitMode, filter: options.filter,
+      captionsEnabled: options.captionsEnabled, captionPosition: options.captionPosition,
+      captionPlacement: resolveCaptionSegmentPlacement(activeCaptionSegment, options.captionPlacement),
+      captionSize: resolveCaptionSizeForSegment(options.captionSize, activeCaptionSegment),
+      captionStyle: resolveCaptionStyleForSegment(options.captionStyle, activeCaptionSegment),
+      captionReferenceSize: options.captionReferenceSize,
+      stickers, stickerImages: stickers.map((sticker) => prepared.stickerImages.get(sticker.src)),
+      transitionId: next ? junction.id : "none",
+      transitionNext: next ? {
+        visual: next.cutoutVisual || next.visual,
+        visualEffects: next.segment,
+        visualTime: transitionProgress * transitionDuration,
+      } : null,
+      transitionProgress, vision: frameVision, depth: frameDepth, visualEffects: item.segment, visualTime: localTime,
+      visualOverlays: renderedOverlayItems.map((item) => ({ ...item.renderSegment, start: item.segment.start - (range?.start || 0) })),
+      visualOverlaySources: renderedOverlayItems.map((item) => item.visual),
+    });
+  } finally {
+    item.sequentialFrames?.release();
+  }
 }
 
 export async function exportOfflineVideo(options) {
@@ -272,6 +359,11 @@ export async function exportOfflineVideo(options) {
   const frames = createOfflineFramePlan(options.duration, settings.frameRate, settings.keyFrameInterval);
   const timelineOffset = Math.max(0, Number(options.timelineOffset) || 0);
   const compositionFrames = frames.map((frame) => ({ ...frame, timestamp: frame.timestamp + timelineOffset }));
+  const videoBitrate = Math.max(1_000_000, Number(settings.videoBitsPerSecond) || 12_000_000);
+  const hardwareAvailable = await canEncodeVideo(codec.video, {
+    width, height, bitrate: videoBitrate, latencyMode: "realtime", hardwareAcceleration: "prefer-hardware",
+  }).catch(() => false);
+  throwIfExportAborted(options.signal);
   const preparedPromise = prepareComposition({ ...options, framePlan: compositionFrames });
   const audioPromise = mixOfflineAudio({ ...options, duration: frames.length * frames[0].duration });
   const [prepared, audioBuffer] = await Promise.all([preparedPromise, audioPromise]);
@@ -288,7 +380,8 @@ export async function exportOfflineVideo(options) {
   let encoderConfig = null;
   const videoSource = new CanvasSource(canvas, {
     codec: codec.video,
-    bitrate: Math.max(1_000_000, Number(settings.videoBitsPerSecond) || 12_000_000),
+    bitrate: videoBitrate,
+    ...(hardwareAvailable ? { hardwareAcceleration: "prefer-hardware" } : {}),
     keyFrameInterval: Math.max(0.25, Number(settings.keyFrameInterval) || 2),
     latencyMode: "realtime",
     onEncoderConfig: (config) => { encoderConfig = config; },
@@ -297,41 +390,66 @@ export async function exportOfflineVideo(options) {
   let audioSource = null;
   const audioBitrate = Math.max(96_000, Number(settings.audioBitsPerSecond) || 192_000);
   if (audioBuffer) {
-    audioSource = new AudioBufferSource({
+    audioSource = new AudioSampleSource({
       codec: codec.audio,
       bitrate: audioBitrate,
     });
     output.addAudioTrack(audioSource);
   }
-  const abortOutput = () => { output.cancel().catch(() => {}); };
-  options.signal?.addEventListener("abort", abortOutput, { once: true });
+  const encodingController = new AbortController();
+  const abortEncoding = () => encodingController.abort();
+  options.signal?.addEventListener("abort", abortEncoding, { once: true });
+  let pendingAudio = Promise.resolve(null);
+  let pendingVideo = Promise.resolve(null);
+  let audioError = null;
   try {
     throwIfExportAborted(options.signal);
     await output.start();
-    if (audioSource) await audioSource.add(audioBuffer);
+    // Audio and video use independent encoders. Observe failures immediately,
+    // while allowing the picture pipeline to start before long audio finishes.
+    if (audioSource) pendingAudio = encodeAudioBuffer(audioSource, audioBuffer, encodingController.signal).then(
+      () => null, (error) => { audioError = error; return error; },
+    );
     for (const frame of frames) {
       throwIfExportAborted(options.signal);
       await renderCompositionAt(context, canvas, prepared, options, frame.timestamp + timelineOffset);
       throwIfExportAborted(options.signal);
-      await videoSource.add(frame.timestamp, frame.duration, { keyFrame: frame.keyFrame });
+      if (audioError) throw audioError;
+      const videoError = await pendingVideo;
+      throwIfExportAborted(options.signal);
+      if (videoError) throw videoError;
+      // CanvasSource captures an immutable VideoFrame synchronously in add().
+      // Compose the next picture while this submission waits for backpressure;
+      // only one submission is in flight, so the encoder queue stays bounded.
+      pendingVideo = videoSource.add(frame.timestamp, frame.duration, { keyFrame: frame.keyFrame }).then(
+        () => null, (error) => error,
+      );
       if (frame.index % Math.max(1, Math.round(frames.length / 100)) === 0) {
         options.onProgress?.({ progress: 10 + Math.round((frame.index / frames.length) * 84), phaseKey: "exportOfflineRendering", phaseParams: { current: frame.index + 1, total: frames.length } });
       }
     }
+    const [finalAudioError, finalVideoError] = await Promise.all([pendingAudio, pendingVideo]);
+    throwIfExportAborted(options.signal);
+    if (finalAudioError) throw finalAudioError;
+    if (finalVideoError) throw finalVideoError;
     throwIfExportAborted(options.signal);
     await output.finalize();
   } catch (error) {
+    encodingController.abort();
+    // Finish the bounded in-flight submissions before closing encoders:
+    // closing first can strand native WebCodecs dequeue promises forever.
+    await Promise.all([pendingAudio, pendingVideo]);
     await output.cancel().catch(() => {});
+    throwIfExportAborted(options.signal);
     throw error;
   } finally {
-    options.signal?.removeEventListener("abort", abortOutput);
-    prepared.items.forEach((item) => {
+    options.signal?.removeEventListener("abort", abortEncoding);
+    for (const item of [...prepared.items, ...prepared.overlayItems]) {
       item.temporalMaskCache?.dispose();
+      item.depthCache?.dispose();
+      item.sequentialFrames?.dispose?.();
       if (item.segment.type === "video") { item.visual.removeAttribute("src"); item.visual.load(); }
-    });
-    prepared.overlayItems.forEach((item) => {
-      if (item.segment.type === "video") { item.visual.removeAttribute("src"); item.visual.load(); }
-    });
+    }
   }
   throwIfExportAborted(options.signal);
   options.onProgress?.({ progress: 98, phaseKey: "exportVerifyFile" });

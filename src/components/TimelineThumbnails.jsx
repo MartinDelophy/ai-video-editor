@@ -6,7 +6,6 @@ import {
   PLAYHEAD_FRAME_SYNC_TOLERANCE_SECONDS,
 } from "../lib/videoTrackFrames.js";
 import { getVisualSourceTime } from "../lib/visualEffects.js";
-import { captureVideoTrackFrame } from "../lib/media.js";
 
 const EMPTY_FRAMES = [];
 
@@ -37,6 +36,7 @@ export const TimelineThumbnails = memo(function TimelineThumbnails({
   visible = true,
 }) {
   const [playheadFrame, setPlayheadFrame] = useState(null);
+  const liveCanvasRef = useRef(null);
   const playheadFrameCaptureRef = useRef(0);
   const playheadPresentedFrameRef = useRef(null);
   useEffect(() => {
@@ -71,27 +71,29 @@ export const TimelineThumbnails = memo(function TimelineThumbnails({
         if (attempts++ < 48) playheadFrameCaptureRef.current = window.requestAnimationFrame(capturePresentedFrame);
         return;
       }
-      // Zoom, selection and progressive strip commits can revisit the same
-      // presented video frame. Reuse that exact PTS capture instead of another
-      // synchronous GPU readback and JPEG encode. A new decoded PTS still gets
-      // its own capture, including immediately after a completed seek.
+      // Keep the causal playhead cell on the GPU drawing path. Encoding a
+      // JPEG and decoding a new image every playback frame blocks long GOP
+      // preview decoders and creates needless allocation/React work.
+      const canvas = liveCanvasRef.current;
+      if (!canvas || previewVideo.seeking) return;
       const presented = playheadPresentedFrameRef.current;
-      const frame = presented?.video === previewVideo
-        && presented.src === previewVideo.currentSrc
-        && presented.sourceTime === previewVideoMediaTime
-        ? presented.frame
-        : captureVideoTrackFrame(previewVideo, { sourceTime: previewVideoMediaTime });
-      if (!frame) return;
-      playheadPresentedFrameRef.current = { video: previewVideo, src: previewVideo.currentSrc, sourceTime: previewVideoMediaTime, frame };
-      setPlayheadFrame((previous) => previous?.frame === frame
-        && previous.segmentId === segment.id
+      if (presented?.video !== previewVideo || presented.canvas !== canvas || presented.sourceTime !== previewVideoMediaTime) {
+        const height = 180;
+        const width = Math.max(36, Math.min(360, Math.round(height * previewVideo.videoWidth / Math.max(1, previewVideo.videoHeight))));
+        if (canvas.width !== width || canvas.height !== height) { canvas.width = width; canvas.height = height; }
+        const context = canvas.getContext("2d", { alpha: false });
+        if (!context) return;
+        context.drawImage(previewVideo, 0, 0, width, height);
+        playheadPresentedFrameRef.current = { video: previewVideo, canvas, sourceTime: previewVideoMediaTime };
+      }
+      setPlayheadFrame((previous) => previous?.segmentId === segment.id
+        && previous.sourceTime === previewVideoMediaTime
         && Math.abs(previous.timelineTime - currentTime) <= PLAYHEAD_FRAME_SYNC_TOLERANCE_SECONDS
         ? previous
         : {
           segmentId: segment.id,
           timelineTime: currentTime,
           sourceTime: previewVideoMediaTime,
-          frame,
         });
     };
     playheadFrameCaptureRef.current = window.requestAnimationFrame(capturePresentedFrame);
@@ -117,6 +119,7 @@ export const TimelineThumbnails = memo(function TimelineThumbnails({
   // All hooks run even when offscreen or inactive; only artwork is culled.
   if (!visible) return null;
   let visibleFrames = sampledFrames;
+  let liveCellIndex = -1;
   if (type === "video" && currentTime !== null && sampledFrames.length) {
     const localTime = Math.max(0, Math.min(Number(segment.duration) || 0, currentTime - segmentStart));
     const activeFrameIndex = Math.min(
@@ -132,11 +135,12 @@ export const TimelineThumbnails = memo(function TimelineThumbnails({
     const liveFrame = playheadFrame?.segmentId === segment.id
       && Math.abs(playheadFrame.timelineTime - currentTime) <= PLAYHEAD_FRAME_SYNC_TOLERANCE_SECONDS
       && Math.abs(playheadFrame.sourceTime - expectedSourceTime) <= PLAYHEAD_FRAME_SYNC_TOLERANCE_SECONDS
-      ? playheadFrame.frame
+      ? playheadFrame
       : null;
-    if (liveFrame || exactFrame) {
+    if (liveFrame) liveCellIndex = activeFrameIndex;
+    if (exactFrame) {
       visibleFrames = sampledFrames.slice();
-      visibleFrames[activeFrameIndex] = liveFrame || exactFrame;
+      visibleFrames[activeFrameIndex] = exactFrame;
     }
   }
   const isPortraitVideo = type === "video" && (segment.height || 0) > (segment.width || 0);
@@ -144,6 +148,7 @@ export const TimelineThumbnails = memo(function TimelineThumbnails({
     <div
       className={overlay ? "visual-overlay-thumbnails" : `image-thumbnails ${type === "video" ? "is-video" : ""} ${isPortraitVideo ? "is-portrait-video" : ""}`}
       style={overlay ? undefined : {
+        position: "relative",
         "--thumbnail-cell-width": `${imageCellWidth}px`,
         "--video-thumbnail-count": Math.max(1, visibleFrames.length),
       }}
@@ -157,6 +162,11 @@ export const TimelineThumbnails = memo(function TimelineThumbnails({
         : Array.from({ length: Math.max(1, imageFrameCount) }, (_, index) => (
           <TimelineThumbnailImage src={src} key={index} />
         ))}
+      {type === "video" ? <canvas ref={liveCanvasRef} aria-hidden="true" style={{
+        position: "absolute", top: 0, left: `${Math.max(0, liveCellIndex) / Math.max(1, sampledFrames.length) * 100}%`,
+        width: `${100 / Math.max(1, sampledFrames.length)}%`, height: "100%", objectFit: "cover",
+        visibility: liveCellIndex >= 0 ? "visible" : "hidden", pointerEvents: "none",
+      }} /> : null}
     </div>
   );
 });

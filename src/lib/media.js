@@ -242,6 +242,7 @@ async function extractVideoTrackFramesWithWebCodecs(src, sampleTimes, options) {
     yieldEveryFrames = 0,
   } = options;
   let input = null;
+  const abortDecode = () => input?.dispose();
   try {
     onProgress?.(0.03);
     const { ALL_FORMATS, BlobSource, CanvasSink, Input, UrlSource } = await import("mediabunny");
@@ -258,6 +259,8 @@ async function extractVideoTrackFramesWithWebCodecs(src, sampleTimes, options) {
         });
     if (signal?.aborted) throw signal.reason || new DOMException("Aborted", "AbortError");
     input = new Input({ source, formats: ALL_FORMATS });
+    signal?.addEventListener("abort", abortDecode, { once: true });
+    if (signal?.aborted) throw signal.reason || new DOMException("Aborted", "AbortError");
     const track = await input.getPrimaryVideoTrack();
     if (!track) return null;
     onProgress?.(0.06);
@@ -312,10 +315,12 @@ async function extractVideoTrackFramesWithWebCodecs(src, sampleTimes, options) {
     onProgress?.(1);
     return frames;
   } catch (error) {
+    if (signal?.aborted) throw signal.reason || new DOMException("Aborted", "AbortError");
     if (error?.name === "AbortError") throw error;
     console.warn("Video timeline WebCodecs extraction unavailable; using native seek fallback.", error);
     return null;
   } finally {
+    signal?.removeEventListener("abort", abortDecode);
     input?.dispose();
   }
 }

@@ -207,7 +207,7 @@ export function createPlaybackControls(deps) {
     }
     if (music && deps.musicUrl) { const state = getMusicState(timelineTime); const segment = deps.musicSegments?.find((item) => isTimelineTimeInsideTrack(timelineTime, item.start, item.duration)); music.currentTime = state.sourceTime; music.playbackRate = state.playbackRate; setTimelineAudioGain(music, segment ? getAudioSegmentPreviewVolume({ ...segment, volume: segment.volume ?? deps.musicVolume }, timelineTime) : deps.musicVolume, segment?.spatialEffect, segment?.spatialAmount); if ("preservesPitch" in music) music.preservesPitch = true; playIf(music, state.active); }
     if (video && deps.previewVisualType === "video") {
-      syncPreviewVideoTime(timelineTime);
+      syncPreviewVideoTime(timelineTime, { immediate: true });
       playIf(video, true);
     }
     deps.setIsPlaying(true);

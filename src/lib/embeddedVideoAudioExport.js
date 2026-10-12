@@ -1,6 +1,7 @@
 import { concatenateAudioBlobs, decodeWaveform, extractAudioFromVideo } from "./media.js";
 import { isExportAbortError, throwIfExportAborted } from "./exportCancellation.js";
 import { getVisualSegmentTimeline } from "./timeline.js";
+import { remuxEmbeddedAudio } from "./embeddedAudioRemux.js";
 
 const getAssetKey = (segment) => segment?.assetId || segment?.src || segment?.id || "";
 
@@ -83,6 +84,17 @@ export async function prepareEmbeddedVideoAudio(visualSegments = [], onProgress,
           input.dispose();
         }
       }
+      if (!(segment.compatibilityAudioBlob instanceof Blob)) {
+        const remuxed = await remuxEmbeddedAudio(sourceBlob, signal).catch((error) => {
+          throwIfExportAborted(signal);
+          console.warn("Audio packet extraction unavailable; using compatibility decoder", error);
+          return null;
+        });
+        if (remuxed) {
+          if (remuxed.blob && remuxed.duration > 0) extracted.push({ key, ...remuxed });
+          continue;
+        }
+      }
       const blob = segment.compatibilityAudioBlob instanceof Blob
         ? segment.compatibilityAudioBlob
         : await extractAudioFromVideo(sourceBlob, segment.name || "source-video.mp4");
@@ -101,9 +113,11 @@ export async function prepareEmbeddedVideoAudio(visualSegments = [], onProgress,
   if (!extracted.length) return { blob: null, segments: [] };
 
   let offset = 0;
+  // Concatenation occupies the stored duration, including retained AAC
+  // preroll; clip source offsets skip that preroll without re-encoding.
   const audioAssets = new Map(extracted.map((item) => {
-    const mapped = [item.key, { offset, duration: item.duration }];
-    offset += item.duration;
+    const mapped = [item.key, { offset: offset + (item.sourceOffset || 0), duration: item.duration }];
+    offset += item.storageDuration || item.duration;
     return mapped;
   }));
   throwIfExportAborted(signal);

@@ -1,3 +1,6 @@
+import { HANDOFF_KEY } from "./handoff.js";
+import { handoffCopy } from "./handoff-copy.js";
+import { directorOptions } from "./director-options.js";
 import { registerTasteTools } from "./tools.js";
 import { directorCopy } from "./director-copy.js";
 import { useState, useRef, useEffect } from "react";
@@ -139,6 +142,7 @@ function App() {
   const [language, setLanguage] = useState("zh");
   const t = copy(language);
   const d = directorCopy(language);
+  const h = handoffCopy(language);
   const [brief, setBrief] = useState("");
   const [plans, setPlans] = useState(null);
   const [seeds, setSeeds] = useState([null, null]);
@@ -312,6 +316,24 @@ function App() {
                   </div>
                 </article>
               ))}
+              <button
+                onClick={() => {
+                  const index = directorOptions(language).pacing.indexOf(value.plan.pacing);
+                  if (index < 0) return;
+                  sessionStorage.setItem(
+                    HANDOFF_KEY,
+                    JSON.stringify({
+                      version: 1,
+                      pace: ["gentle", "balanced", "punchy"][index],
+                      seed: String(seeds[i].name).slice(0, 300),
+                      at: Date.now(),
+                    }),
+                  );
+                  window.location.assign("/?qloo=1");
+                }}
+              >
+                {h.send}
+              </button>
               {value.plan.rationale.map((r, j) => (
                 <article key={j}>
                   <div>

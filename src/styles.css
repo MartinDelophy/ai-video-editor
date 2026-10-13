@@ -12670,3 +12670,9 @@ canvas.relight-position { width:100%; height:auto; display:block; }
 .relight-color button,.relight-quality button { white-space:normal; overflow-wrap:normal; }
 .relight-entry { position:relative; }
 .relight-footer { flex:0 0 auto; margin-top:10px; padding:0; background:#10171d; }
+
+/* A Qloo handoff exists only after an explicit same-tab transfer. */
+.app-shell:has(> .qloo-handoff) { grid-template-rows: 52px auto minmax(0, 1fr) var(--timeline-panel-height); }
+.qloo-handoff { grid-column: 1 / -1; }
+.qloo-handoff button, .qloo-handoff input { color: #eee; background: #282e41; border: 1px solid #626a85; border-radius: 6px; padding: 6px 9px; }
+.qloo-handoff button:disabled { opacity: .45; }

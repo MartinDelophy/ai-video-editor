@@ -1,3 +1,4 @@
+import { QlooHandoff } from "./components/QlooHandoff.jsx";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { X } from "@phosphor-icons/react";
 
@@ -1563,6 +1564,7 @@ export function App() {
         projectFileInputRef={projectFileInputRef}
       />
 
+      <QlooHandoff language={activeLanguage} visualSegments={visualSegments} agent={webMcp} />
       <WebMcpReview agent={webMcp} language={activeLanguage} />
       <WebMcpAiStatus agent={webMcp} />
       <ProjectImportOverlay progress={projectImportProgress} language={activeLanguage} />

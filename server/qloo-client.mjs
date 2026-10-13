@@ -28,16 +28,24 @@ export function createQlooClient({ apiKey, fetchImpl = fetch } = {}) {
     if (!response.ok) {
       // Never relay upstream error bodies, which can contain credential details.
       throw new QlooError(
-        response.status === 429 ? "QLOO_RATE_LIMITED" :
-          response.status === 401 || response.status === 403 ? "QLOO_ACCESS_DENIED" : "QLOO_REQUEST_FAILED",
+        response.status === 429
+          ? "QLOO_RATE_LIMITED"
+          : response.status === 401 || response.status === 403
+            ? "QLOO_ACCESS_DENIED"
+            : "QLOO_REQUEST_FAILED",
         response.status === 429 ? 429 : 502,
       );
     }
     const body = await response.text();
     if (body.length > 2_000_000) throw new QlooError("QLOO_RESPONSE_TOO_LARGE", 502);
     let data;
-    try { data = JSON.parse(body); } catch { throw new QlooError("QLOO_INVALID_RESPONSE", 502); }
-    if (!data || typeof data !== "object" || Array.isArray(data)) throw new QlooError("QLOO_INVALID_RESPONSE", 502);
+    try {
+      data = JSON.parse(body);
+    } catch {
+      throw new QlooError("QLOO_INVALID_RESPONSE", 502);
+    }
+    if (!data || typeof data !== "object" || Array.isArray(data))
+      throw new QlooError("QLOO_INVALID_RESPONSE", 502);
     return {
       source: "Qloo",
       retrievedAt: new Date().toISOString(),
@@ -47,13 +55,18 @@ export function createQlooClient({ apiKey, fetchImpl = fetch } = {}) {
   }
   return {
     search(text) {
-      if (typeof text !== "string" || !text.trim() || text.length > 120) throw new QlooError("INVALID_SEARCH");
+      if (typeof text !== "string" || !text.trim() || text.length > 120)
+        throw new QlooError("INVALID_SEARCH");
       return query("/search", { query: text.trim(), take: "8" });
     },
     insights({ entityIds, type } = {}) {
       if (!TYPES.has(type)) throw new QlooError("INVALID_CATEGORY");
-      if (!Array.isArray(entityIds) || entityIds.length < 1 || entityIds.length > 5 ||
-          entityIds.some((id) => typeof id !== "string" || !/^[a-zA-Z0-9:-]{1,120}$/.test(id))) {
+      if (
+        !Array.isArray(entityIds) ||
+        entityIds.length < 1 ||
+        entityIds.length > 5 ||
+        entityIds.some((id) => typeof id !== "string" || !/^[a-zA-Z0-9:-]{1,120}$/.test(id))
+      ) {
         throw new QlooError("INVALID_ENTITY_IDS");
       }
       return query("/v2/insights", {

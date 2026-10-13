@@ -17,6 +17,7 @@ export default defineConfig({
     rollupOptions: {
       input: {
         editor: resolve(projectRoot, "index.html"),
+        qloo: resolve(projectRoot, "qloo/index.html"),
       },
     },
   },
@@ -34,6 +35,7 @@ export default defineConfig({
     format: "es",
   },
   server: {
+    proxy: { "/api/qloo": "http://127.0.0.1:5182" },
     headers: isolationHeaders,
     warmup: {
       clientFiles: ["./src/main.jsx"],

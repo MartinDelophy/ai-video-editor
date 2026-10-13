@@ -1,3 +1,4 @@
+import { registerTasteTools } from "./tools.js";
 import { directorCopy } from "./director-copy.js";
 import { useState, useRef, useEffect } from "react";
 import { copy, languages } from "./copy.js";
@@ -144,16 +145,22 @@ function App() {
   const [evidence, setEvidence] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(false);
+  const [director, setDirector] = useState("ollama");
   const [configured, setConfigured] = useState(null);
   const pending = useRef(null);
   useEffect(() => {
+    const disposeTools = registerTasteTools(api);
     const c = new AbortController();
     api("status", null, c.signal)
-      .then((x) => setConfigured(x.configured))
+      .then((x) => {
+        setConfigured(x.configured);
+        setDirector(x.director);
+      })
       .catch(() => {
         if (!c.signal.aborted) setConfigured(false);
       });
     return () => {
+      disposeTools();
       c.abort();
       pending.current?.abort();
     };
@@ -269,7 +276,9 @@ function App() {
         <p>{t.notice}</p>
       </div>
       <section className="brief">
-        <label htmlFor="brief">{d.brief}</label>
+        <label htmlFor="brief">
+          {d.brief} · {director === "policy" ? d.policy : d.inference}
+        </label>
         <textarea
           id="brief"
           value={brief}
@@ -292,7 +301,8 @@ function App() {
           {plans.map((value, i) => (
             <section className="evidence" key={i}>
               <div className="eyebrow">
-                {t.audience} {i ? "B" : "A"} · {d.inference}
+                {t.audience} {i ? "B" : "A"} ·{" "}
+                {value.provider === "evidence-policy" ? d.policy : d.inference}
               </div>
               {["hook", "pacing", "visuals", "audio"].map((key) => (
                 <article key={key}>

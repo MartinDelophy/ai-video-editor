@@ -93,11 +93,29 @@ const words = {
     "Audio",
   ],
 };
+const policy = {
+  zh: "证据规则建议 · 待审阅",
+  en: "Evidence policy · review required",
+  ja: "根拠に基づくルール提案 · 要確認",
+  ko: "근거 기반 규칙 제안 · 검토 필요",
+  es: "Propuesta por reglas · requiere revisión",
+  fr: "Proposition par règles · à valider",
+  de: "Evidenzbasierter Regelvorschlag · prüfen",
+  pt: "Proposta por regras · revisar",
+  th: "ข้อเสนอจากกฎตามหลักฐาน · ต้องตรวจทาน",
+  vi: "Đề xuất theo quy tắc · cần duyệt",
+  ru: "Предложение по правилам · нужна проверка",
+  it: "Proposta basata su regole · da verificare",
+  id: "Saran berbasis aturan · perlu ditinjau",
+};
 export function directorCopy(lang) {
-  return Object.fromEntries(
-    ["brief", "generate", "inference", "hook", "pacing", "visuals", "audio"].map((k, i) => [
-      k,
-      (words[lang] || words.en)[i],
-    ]),
-  );
+  return {
+    policy: policy[lang] || policy.en,
+    ...Object.fromEntries(
+      ["brief", "generate", "inference", "hook", "pacing", "visuals", "audio"].map((k, i) => [
+        k,
+        (words[lang] || words.en)[i],
+      ]),
+    ),
+  };
 }

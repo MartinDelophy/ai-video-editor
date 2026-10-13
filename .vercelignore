@@ -1,0 +1,7 @@
+.git
+.env*
+node_modules
+dist
+.paypal-sandbox
+work
+outputs

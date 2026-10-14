@@ -1673,7 +1673,7 @@ export function VoicePanel({
   const watermarkDuration = Math.max(0, Number(watermarkClip?.duration) || 0);
   const watermarkSourceDuration = Math.max(0, Number(watermarkClip?.sourceDuration) || watermarkDuration * (Number(watermarkClip?.playbackRate) || 1));
 
-  if (import.meta.env?.VITE_ANNA_EDITION === "true" && isSmartContext && smartMode === "anna-video") return <aside className="voice-panel" ref={panelRef}><div className="panel-title-row"><h1>{getAnnaVideoCopy(uiLanguage).title}</h1></div><div className="voice-tab-body"><AnnaVideoPanel language={uiLanguage} plugins={generationPlugins} assets={generationAssets} /></div></aside>;
+  if (import.meta.env?.VITE_ANNA_EDITION === "true" && isSmartContext && smartMode === "anna-video") return <aside className="voice-panel" ref={panelRef}><div className="panel-title-row"><h1>{getAnnaVideoCopy(uiLanguage).title}</h1></div><div className="voice-tab-body anna-video-body"><AnnaVideoPanel language={uiLanguage} plugins={generationPlugins} assets={generationAssets} /></div></aside>;
   if (import.meta.env?.VITE_ANNA_EDITION === "true" && isSmartContext) return <aside className={`voice-panel ${mobileInspectorSection ? "is-focused-mobile-section" : ""}`} ref={panelRef}>
     {mobileInspectorSection ? <header className="focused-mobile-sheet-header"><strong>{t("annaVideoWatermark")}</strong><button type="button" aria-label={t("close")} onClick={onCloseMobileInspector}><X size={20} /></button></header> : null}
     <div className="panel-title-row"><h1>{t("annaVideoWatermark")}</h1></div>

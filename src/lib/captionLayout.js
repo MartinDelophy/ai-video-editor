@@ -295,7 +295,7 @@ export function drawCaptionLayout(context, layout, position = { x: 0, y: 0 }) {
   }
 
   context.font = metrics.font;
-  context.textAlign = "center";
+  context.textAlign = ["left", "right"].includes(style.textAlign) ? style.textAlign : "center";
   context.textBaseline = "middle";
   context.fillStyle = style.textColor || "#f5fbff";
   context.shadowColor = style.effect === "neon" ? (style.borderColor || "#35f0dd") : `rgba(0, 0, 0, ${Math.max(0, Math.min(1, Number(style.shadowOpacity ?? 0.45)))})`;
@@ -305,7 +305,9 @@ export function drawCaptionLayout(context, layout, position = { x: 0, y: 0 }) {
   const blockHeight = layout.lines.length * metrics.lineHeight;
   const firstLineY = position.y + (layout.height - blockHeight) / 2 + metrics.lineHeight / 2;
   layout.lines.forEach((line, index) => {
-    const textX = position.x + layout.width / 2;
+    const textX = context.textAlign === "left" ? position.x + metrics.paddingX
+      : context.textAlign === "right" ? position.x + layout.width - metrics.paddingX
+      : position.x + layout.width / 2;
     const textY = firstLineY + index * metrics.lineHeight;
     const strokeWidth = Math.max(0, Number(style.textStrokeWidth ?? 0)) * metrics.scale;
     if (strokeWidth) {

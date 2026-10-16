@@ -1,3 +1,4 @@
+import { getVisualSourceDurationLimit } from "./visualSourceLimit.js";
 import {
   IMAGE_SNAP_THRESHOLD_PIXELS, MAX_TIMELINE_DURATION_SECONDS, MIN_VISUAL_SEGMENT_SECONDS,
 } from "../config/editor.js";
@@ -110,7 +111,7 @@ export function createImageResizeControl(d) {
         d.setImageClipCount(getImageThumbnailCount(getVisualSegmentsTotal(next)));
         return;
       }
-      const maxDuration = Math.max(MIN_VISUAL_SEGMENT_SECONDS, MAX_TIMELINE_DURATION_SECONDS - before - after);
+      const maxDuration = Math.min(getVisualSourceDurationLimit(segments[index]), Math.max(MIN_VISUAL_SEGMENT_SECONDS, MAX_TIMELINE_DURATION_SECONDS - before - after));
       const resized = Math.min(maxDuration, Math.max(MIN_VISUAL_SEGMENT_SECONDS, target - before));
       finalDuration = resized;
       const next = segments.map((segment, position) => position === index ? {

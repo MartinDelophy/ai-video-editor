@@ -1,4 +1,5 @@
 export const CAPTION_VISUAL_STYLE_KEYS = [
+  "textAlign",
   "fontId",
   "textColor",
   "backgroundColor",

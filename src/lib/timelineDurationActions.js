@@ -1,3 +1,5 @@
+import { getVideoSourceEndCopy } from "../i18nCaptionEditing.js";
+import { getVisualSourceDurationLimit } from "./visualSourceLimit.js";
 import { MAX_TIMELINE_DURATION_SECONDS, MIN_VISUAL_SEGMENT_SECONDS } from "../config/editor.js";
 import { createVisualSegment, getVisualSegmentsTotal, hasExplicitCaptionTiming } from "./timeline.js";
 
@@ -20,8 +22,9 @@ export function createTimelineDurationActions(d) {
       const index = d.selectedVisualSegmentId && source.some((segment) => segment.id === d.selectedVisualSegmentId)
         ? d.selectedVisualSegmentIndex : d.currentVisualSegmentIndex >= 0 ? d.currentVisualSegmentIndex : source.length - 1;
       const target = source[index]; const without = getVisualSegmentsTotal(source) - target.duration;
-      const max = Math.max(MIN_VISUAL_SEGMENT_SECONDS, MAX_TIMELINE_DURATION_SECONDS - without);
+      const max = Math.min(getVisualSourceDurationLimit(target), Math.max(MIN_VISUAL_SEGMENT_SECONDS, MAX_TIMELINE_DURATION_SECONDS - without));
       const duration = Math.min(max, Math.max(MIN_VISUAL_SEGMENT_SECONDS, target.duration + (delta > 0 ? 1 : -1)));
+      if (duration === target.duration && delta > 0 && target.type === "video" && max < MAX_TIMELINE_DURATION_SECONDS - without) return void d.notify(getVideoSourceEndCopy(d.uiLanguage));
       if (duration === target.duration) return void d.notify(delta > 0 ? "视觉轨道已经达到 30 分钟上限" : "当前视觉片段已到最短时长");
       const next = source.map((segment, position) => position === index ? {
         ...segment,

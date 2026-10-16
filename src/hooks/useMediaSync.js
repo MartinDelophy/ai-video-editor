@@ -99,18 +99,9 @@ export function useMediaSync(d) {
     v.playbackRate = getVisualPlaybackRateAtTime(d.previewVisualSegment, localTime);
     if ("preservesPitch" in v) v.preservesPitch = true;
   }, [d.currentTime, d.previewVisualRange?.start, d.previewVisualSegment, d.previewVisualSrc, d.previewVisualType]);
-  useEffect(() => {
-    const v = d.previewVideoRef.current; if (!v || d.previewVisualType !== "video") return;
-    const sourceStart = Math.max(0, Number(d.previewVisualSegment?.sourceStart) || 0);
-    const max = Math.max(0, (Number(v.duration) || sourceStart) - 0.001);
-    const time = Math.min(sourceStart, max);
-    if (Number.isFinite(time) && Math.abs(v.currentTime - time) > 0.04) {
-      requestLatestVideoFrame(v, time, {
-        immediate: true,
-        onPresented: d.setPreviewVideoMediaTime,
-      });
-    }
-  }, [d.previewVisualSegment?.id, d.previewVisualSegment?.sourceStart, d.previewVisualSrc, d.previewVisualType]);
+  // Metadata restoration and the source-time synchronization below already
+  // locate the requested frame. A separate sourceStart seek here races them
+  // on every clip change and can briefly reveal the opening frame again.
   useEffect(() => {
     const v = d.previewVideoRef.current; if (!v || d.previewVisualType !== "video") return;
     const max = Math.max(0, (Number(v.duration) || d.previewVisualSourceTime) - 0.001);

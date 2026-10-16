@@ -1,6 +1,8 @@
+import { isAnnaEdition, transcribeAnnaAudio } from "./annaRuntime.js";
 // File-track recognition is a separate capability from microphone dictation.
 // Chrome desktop added start(audioTrack) in 135; never fall back to start().
 export function supportsFileSpeech(scope = globalThis) {
+  if (isAnnaEdition) return Boolean(scope.AudioContext || scope.webkitAudioContext);
   const ua = scope.navigator?.userAgent || "";
   const version = /(?:Chrome|Chromium)\/(\d+)/.exec(ua);
   return Boolean(scope.isSecureContext && version && Number(version[1]) >= 135 && !/Android|Mobile|iPhone|iPad/.test(ua)
@@ -44,7 +46,22 @@ export function speechRanges(buffer) {
   });
 }
 
-function recognizeRange(context, buffer, range, language, signal) {
+async function recognizeRange(context, buffer, range, language, signal) {
+  if (isAnnaEdition) {
+    check(signal);
+    const first = Math.floor(range.start * buffer.sampleRate);
+    const length = Math.min(buffer.length - first, Math.ceil((range.end - range.start) * buffer.sampleRate));
+    const chunk = context.createBuffer(buffer.numberOfChannels, length, buffer.sampleRate);
+    for (let channel = 0; channel < buffer.numberOfChannels; channel++) {
+      chunk.copyToChannel(buffer.getChannelData(channel).subarray(first, first + length), channel);
+    }
+    const { encodeAudioBufferAsWav } = await import("./media.js");
+    const text = await transcribeAnnaAudio(encodeAudioBufferAsWav(chunk), language, { signal });
+    check(signal);
+    // Empty provider text is silence/non-speech, not permission to invent words.
+    if (!text) throw fail("empty");
+    return text;
+  }
   return new Promise((resolve, reject) => {
     const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     const recognition = new Recognition(); const destination = context.createMediaStreamDestination();

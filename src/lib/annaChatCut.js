@@ -36,7 +36,7 @@ export async function runAnnaChatCut({ instruction, generationCommand = null, re
   if (captureFrame) catalog.push(currentFrameTool);
   let sampledFrames = 0;
   const assetIds = [];
-  const messages = [{ role: "user", content: [{ type: "text", text: JSON.stringify({ instruction, generationCommand, referencedAssets, language, history: history.slice(-8).map(({ role, text }) => ({ role, text })), project: initial, image: image ? "One current source-media frame at the reported playhead; excludes editor effects, captions and overlays. Not the whole video." : "No images or audio supplied." }) }, ...(image ? [{ type: "image", data: image, mimeType: "image/jpeg" }] : [])] }];
+  const messages = [{ role: "user", content: [{ type: "text", text: JSON.stringify({ instruction, generationCommand, referencedAssets, language, history: history.slice(-8).map(({ role, text, edit, assetIds }) => ({ role, text, assetIds, ...(edit ? { previousEdit: { status: edit.status, transactionId: edit.transactionId, rows: edit.preview?.rows, diff: edit.preview?.diff, entities: edit.preview?.entities } } : {}) })), project: initial, image: image ? "One current source-media frame at the reported playhead; excludes editor effects, captions and overlays. Not the whole video." : "No images or audio supplied." }) }, ...(image ? [{ type: "image", data: image, mimeType: "image/jpeg" }] : [])] }];
   for (let step = 0; step < 16; step += 1) {
     check();
     onStage?.("thinking");

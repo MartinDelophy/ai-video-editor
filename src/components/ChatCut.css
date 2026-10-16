@@ -359,3 +359,5 @@
 .chatcut .chatcut-activity small { font-size: 11px; white-space: nowrap; }
 .chatcut .chatcut-activity strong { font-size: 11px; font-weight: 500; }
 .chatcut .chatcut-activity pre { max-height: 180px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; padding: 10px; border-radius: 8px; background: #091216; font-size: 11px; scrollbar-width: thin; }
+
+.chatcut-transcription-notice{display:block;font-size:11px;line-height:1.5;color:var(--muted,#8dabb2);overflow-wrap:anywhere;margin-bottom:8px}

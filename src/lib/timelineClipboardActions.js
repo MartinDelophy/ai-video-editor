@@ -39,7 +39,7 @@ export function createTimelineClipboardActions(d) {
         const boundary = getVisualSegmentsTotal(source.slice(0, index + 1));
         d.rippleTimelineAfter?.(boundary, -removed.duration);
       }
-      return void (next.length ? d.commitVisualSegments(next, "已删除当前视觉片段", Math.max(0, index - 1)) : d.clearImageTrack("已删除当前视觉片段"));
+      return void (next.length ? d.commitVisualSegments(next, "已删除当前视觉片段", Math.max(0, index - 1), [removed.id]) : d.clearImageTrack("已删除当前视觉片段", [removed.id]));
     }
     if (d.selectedTrack === "audio") {
       const id = d.selectedAudioSegmentId || d.selectedAudioSegment?.id;

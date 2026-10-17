@@ -8,10 +8,10 @@ import {
 } from "../src/lib/captionFonts.js";
 
 const outputRoot = path.resolve(process.argv[2] || ".artifacts/caption-font-pack");
-const languages = ["zh", "en", "ja", "ko", "es", "fr", "de", "pt", "th", "vi", "ru"];
+const languages = ["zh", "en", "ja", "ko", "es", "fr", "de", "pt", "th", "vi", "ru", "it", "id"];
 
 function googleFontsDirectory(font) {
-  return font.id.replaceAll("-", "");
+  return font.sourceDirectory || font.id.replaceAll("-", "");
 }
 
 function metadataFontBlocks(metadata) {
@@ -37,18 +37,21 @@ async function fetchRequired(url) {
 
 async function downloadFont(font) {
   const directory = googleFontsDirectory(font);
-  const base = `https://raw.githubusercontent.com/google/fonts/main/ofl/${directory}`;
+  const revision = font.pack === "additions-v2" ? "47d54ca1ebb14fd864695f1d39dc734f39017c33" : "main";
+  const base = `https://raw.githubusercontent.com/google/fonts/${revision}/ofl/${directory}`;
   const metadata = await (await fetchRequired(`${base}/METADATA.pb`)).text();
   const sourceFilename = resolveFontFilename(metadata, font.weight);
   const sourceUrl = `${base}/${sourceFilename.split("/").map(encodeURIComponent).join("/")}`;
-  const destination = path.join(outputRoot, "fonts", font.id);
+  const fontPath = path.join(outputRoot, "fonts", font.file);
+  const licensePath = font.licensePath ? path.join(outputRoot, font.licensePath) : path.join(path.dirname(fontPath), "OFL.txt");
+  const destination = path.dirname(fontPath);
   await mkdir(destination, { recursive: true });
   let bytes;
   let licenseText;
   try {
     [bytes, licenseText] = await Promise.all([
-      readFile(path.join(destination, "font.ttf")),
-      readFile(path.join(destination, "OFL.txt"), "utf8"),
+      readFile(fontPath),
+      readFile(licensePath, "utf8"),
     ]);
   } catch {
     const [fontBytes, downloadedLicense] = await Promise.all([
@@ -57,9 +60,11 @@ async function downloadFont(font) {
     ]);
     bytes = Buffer.from(fontBytes);
     licenseText = downloadedLicense;
-    await writeFile(path.join(destination, "font.ttf"), bytes);
-    await writeFile(path.join(destination, "OFL.txt"), licenseText);
+    await writeFile(fontPath, bytes);
+    await writeFile(licensePath, licenseText);
   }
+  const sha256 = createHash("sha256").update(bytes).digest("hex");
+  if (font.sha256 && font.sha256 !== sha256) throw new Error(`Font integrity mismatch: ${font.id}`);
   return {
     id: font.id,
     family: font.family,
@@ -67,13 +72,13 @@ async function downloadFont(font) {
     weight: font.weight,
     category: font.category,
     sample: font.sample,
-    path: `fonts/${font.id}/font.ttf`,
-    licensePath: `fonts/${font.id}/OFL.txt`,
+    path: `fonts/${font.file}`,
+    licensePath: path.relative(outputRoot, licensePath),
     license: font.license,
-    source: `https://github.com/google/fonts/tree/main/ofl/${directory}`,
+    source: `https://github.com/google/fonts/tree/${revision}/ofl/${directory}`,
     sourceFilename,
     bytes: bytes.length,
-    sha256: createHash("sha256").update(bytes).digest("hex"),
+    sha256,
   };
 }
 

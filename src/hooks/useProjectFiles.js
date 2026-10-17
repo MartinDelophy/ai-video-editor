@@ -207,7 +207,7 @@ export function useProjectFiles(deps = {}) {
       const hasAudioSegments = Boolean(Array.isArray(data.audioSegments) && data.audioSegments.length && (audioSegmentMedia?.size || audio));
       const pendingAudioSegments = hasAudioSegments ? data.audioSegments.flatMap((segment) => {
         const blob = audioSegmentMedia?.get(segment.id)?.blob || audio;
-        return blob ? [{ segment, blob }] : [];
+        return blob ? [{ segment: { ...segment, ...(audioSegmentMedia?.get(segment.id)?.originalBlob ? { processingOriginalBlob: audioSegmentMedia.get(segment.id).originalBlob } : {}) }, blob }] : [];
       }) : [];
       if (generation !== importGenerationRef.current) return false;
       const visualUrls = new Map();

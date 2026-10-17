@@ -5,7 +5,7 @@ import { getTimedSegmentLaneStateKey, isTimedSegmentLaneLocked } from "./timelin
 import { getLinkedSourceAudioSegments } from "./sourceAudioSync.js";
 
 const TIME_EPSILON = 0.000001;
-const MEDIA_FIELDS = ["blob", "src", "url", "originalSrc", "thumbnail", "originalBlob", "originalPeaks", "compatibilityAudioBlob", "voiceColorOriginalBlob", "peaks", "trackFrames", "trackFrameDuration", "trackFrameSampling", "trackFrameImportBudget", "cutoutVisual", "enhancement", "assetId", "archiveMediaId", "integrity"];
+const MEDIA_FIELDS = ["blob", "src", "url", "originalSrc", "thumbnail", "originalBlob", "originalPeaks", "compatibilityAudioBlob", "voiceColorOriginalBlob", "processingOriginalBlob", "peaks", "trackFrames", "trackFrameDuration", "trackFrameSampling", "trackFrameImportBudget", "cutoutVisual", "enhancement", "assetId", "archiveMediaId", "integrity"];
 const RIPPLE_ARRAY_FIELDS = ["audioSegments", "captionSegments", "visualOverlaySegments", "stickerSegments", "musicSegments"];
 const RIPPLE_FIELDS = [...RIPPLE_ARRAY_FIELDS, "musicStart", "sourceAudioStart"];
 const runtimeIdentities = new WeakMap();
@@ -336,7 +336,7 @@ const MEDIA_COLLECTIONS = ["visualSegments", "visualOverlaySegments", "audioSegm
 const CLIP_COLLECTIONS = [...MEDIA_COLLECTIONS, "captionSegments"];
 
 export const BROWSER_OPERATION_FIELDS = Object.freeze({
-  "caption.add": ["clipId", "text", "start", "end", "audioClipId"],
+  "caption.add": ["clipId", "text", "start", "end", "audioClipId", "visualClipId"],
   "caption.update": ["clipId", "text", "start", "end"],
   "caption.delete": ["clipId"],
   "clip.set_property": ["clipId", "property", "value"],
@@ -354,7 +354,7 @@ export const BROWSER_OPERATION_FIELDS = Object.freeze({
   "visual.duplicate": ["clipId", "newClipId", "atIndex"],
   "visual.insert": ["clipId", "sourceClipId", "assetId", "atIndex", "duration"],
   "overlay.add": ["clipId", "sourceClipId", "assetId", "start", "duration", "layer", "muted", "transform"],
-  "asset.insert": ["clipId", "assetId", "track", "atIndex", "start", "duration", "layer", "muted", "transform"],
+  "asset.insert": ["clipId", "assetId", "track", "atIndex", "start", "duration", "layer", "muted", "transform", "visualClipId"],
 });
 
 function assertId(id) {
@@ -410,7 +410,7 @@ function validateBrowserOperation(operation) {
   if (!fields) reject("BROWSER_EDIT_INVALID_PLAN", "unsupported_operation_type");
   const unsupported = Object.keys(operation).filter(field => field !== "type" && !fields.includes(field));
   if (unsupported.length) reject("BROWSER_EDIT_INVALID_PLAN", `unsupported_fields:${unsupported.join(",")}`);
-  for (const field of ["clipId", "sourceClipId", "newClipId", "rightClipId", "assetId", "audioClipId", "markerId"]) {
+  for (const field of ["clipId", "sourceClipId", "newClipId", "rightClipId", "assetId", "audioClipId", "visualClipId", "markerId"]) {
     if (Object.hasOwn(operation, field)) assertId(operation[field]);
   }
   if (operation.type.startsWith("marker.")) {
@@ -740,7 +740,7 @@ export function restoreBrowserProjectMedia(next, runtimeProject, origins = {}, a
   const restored = { ...runtimeProject, ...next };
   for (const key of MEDIA_COLLECTIONS) restored[key] = restoreBrowserSegmentMedia(next[key] || [], originals, origins, assets);
   restored.musicSegments = restored.musicSegments.map(({ blob: _blob, src: _src, url: _url, originalBlob: _originalBlob,
-    compatibilityAudioBlob: _compatibilityAudioBlob, voiceColorOriginalBlob: _voiceColorOriginalBlob, ...clip }) => clip);
+    compatibilityAudioBlob: _compatibilityAudioBlob, voiceColorOriginalBlob: _voiceColorOriginalBlob, processingOriginalBlob: _processingOriginalBlob, ...clip }) => clip);
   const musicAssetIds = new Set((next.musicSegments || []).flatMap((clip) => {
     const origin = Object.hasOwn(origins, clip.id) ? origins[clip.id] : null;
     return origin?.kind === "asset" ? [origin.id] : [];

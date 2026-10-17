@@ -1,3 +1,4 @@
+import { requestLatestVideoFrame } from "../lib/videoFrameSync.js";
 import { useRelightCompare } from "../lib/videoRelighting.js";
 import { applyBeatShakeTransform } from "../lib/beatShakeEffect.js";
 import { GlitchPreview } from "./GlitchEffect.jsx";
@@ -204,6 +205,8 @@ export function PreviewStage({
   const smartBackgroundVideoRef = useRef(null);
   const depthCanvasRef = useRef(null);
   const lastReportedVideoTimeRef = useRef(-Infinity);
+  const latestPlaybackRef = useRef({ isPlaying, trackVisibility });
+  latestPlaybackRef.current = { isPlaying, trackVisibility };
   const [decodedFrameRevision, setDecodedFrameRevision] = useState(0);
   const [isFocusPreviewOpen, setIsFocusPreviewOpen] = useState(false);
   const [focusPreviewFrameSize, setFocusPreviewFrameSize] = useState({ width: 0, height: 0 });
@@ -551,7 +554,7 @@ export function PreviewStage({
     let callbackId = 0;
     const handleVideoFrame = (_now, metadata) => {
       const mediaTime = Number.isFinite(metadata?.mediaTime) ? metadata.mediaTime : video.currentTime;
-      if (Math.abs(mediaTime - lastReportedVideoTimeRef.current) >= 1 / 12) {
+      if (!video.__timelineFramePending && !video.seeking && Math.abs(mediaTime - lastReportedVideoTimeRef.current) >= 1 / 12) {
         setDecodedFrameRevision((revision) => revision + 1);
         lastReportedVideoTimeRef.current = mediaTime;
         onPreviewVideoTimeUpdate?.(mediaTime);
@@ -745,7 +748,7 @@ export function PreviewStage({
                   crossOrigin="anonymous"
                   muted={previewVisualMuted}
                   playsInline
-                  preload="metadata"
+                  preload="auto"
                   onLoadedMetadata={(event) => {
                     // Entering/leaving the focus portal mounts a new media element.
                     // Restore its source clock and playback even when src/isPlaying
@@ -754,23 +757,39 @@ export function PreviewStage({
                     const sourceTime = getVisualSourceTime(previewVisualSegment, visualLocalTime);
                     const maxTime = Number.isFinite(video.duration)
                       ? Math.max(0, video.duration - 0.001) : sourceTime;
-                    video.currentTime = Math.max(0, Math.min(sourceTime, maxTime));
+                    video.__timelineFramePending = true;
+                    video.pause();
                     video.playbackRate = getVisualPlaybackRateAtTime(previewVisualSegment, visualLocalTime);
                     if ("preservesPitch" in video) video.preservesPitch = true;
                     setTimelineAudioGain(video, previewVisualSegment?.volume ?? 1, previewVisualSegment?.spatialEffect, previewVisualSegment?.spatialAmount);
                     syncSmartBackgroundVideo(video);
-                    if (isPlaying && trackVisibility.image !== false) requestTimelineMediaPlay(video);
-                    else video.pause();
+                    requestLatestVideoFrame(video, Math.max(0, Math.min(sourceTime, maxTime)), {
+                      immediate: true,
+                      onPresented: mediaTime => {
+                        if (previewVideoRef.current !== video) return;
+                        video.__timelineFramePending = false;
+                        onPreviewVideoTimeUpdate?.(mediaTime);
+                        if (latestPlaybackRef.current.isPlaying && latestPlaybackRef.current.trackVisibility.image !== false) requestTimelineMediaPlay(video);
+                      },
+                    });
                   }}
                   onTimeUpdate={(event) => {
                     syncSmartBackgroundVideo(event.currentTarget);
-                    onPreviewVideoTimeUpdate?.(event.currentTarget.currentTime);
+                    if (!event.currentTarget.seeking && !event.currentTarget.__timelineFramePending) onPreviewVideoTimeUpdate?.(event.currentTarget.currentTime);
                   }}
                   onSeeked={(event) => {
                     setDecodedFrameRevision((revision) => revision + 1);
                     syncSmartBackgroundVideo(event.currentTarget);
-                    lastReportedVideoTimeRef.current = event.currentTarget.currentTime;
-                    onPreviewVideoTimeUpdate?.(event.currentTarget.currentTime);
+                    // Native seek completion is sufficient to resume decoding,
+                    // including low-frame-rate sources whose causal PTS can be
+                    // farther from the requested clock. PTS publication still
+                    // comes from the frame observer while entering a clip.
+                    if (!event.currentTarget.__timelineFramePending) {
+                      lastReportedVideoTimeRef.current = event.currentTarget.currentTime;
+                      onPreviewVideoTimeUpdate?.(event.currentTarget.currentTime);
+                    }
+                    event.currentTarget.__timelineFramePending = false;
+                    if (latestPlaybackRef.current.isPlaying && latestPlaybackRef.current.trackVisibility.image !== false) requestTimelineMediaPlay(event.currentTarget);
                   }}
                   style={{
                     ...visualTransformStyle, opacity: depthRenderActive ? 0 : visualTransformStyle.opacity, filter: selectedFilterCss, objectFit: activeObjectFit, objectPosition: activeObjectPosition, background: smartContainActive ? "transparent" : undefined,

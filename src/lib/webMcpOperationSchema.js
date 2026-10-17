@@ -44,7 +44,7 @@ const operation = (type, properties, required) => ({
 // media, filesystem paths, URLs, reducer payloads, or arbitrary JavaScript.
 export const WEB_MCP_OPERATION_SCHEMA = {
   oneOf: [
-    operation("caption.add", { clipId: id, text: { type: "string", maxLength: 20000 }, start: time, end: time, audioClipId: id }, ["clipId", "text", "start", "end"]),
+    operation("caption.add", { clipId: id, text: { type: "string", maxLength: 20000 }, start: time, end: time, audioClipId: id, visualClipId: id }, ["clipId", "text", "start", "end"]),
     operation("caption.update", { clipId: id, text: { type: "string", maxLength: 20000 }, start: time, end: time }, ["clipId"]),
     operation("caption.delete", { clipId: id }, ["clipId"]),
     {
@@ -72,7 +72,7 @@ export const WEB_MCP_OPERATION_SCHEMA = {
       oneOf: [{ required: ["sourceClipId"] }, { required: ["assetId"] }],
     },
     {
-      ...operation("asset.insert", { assetId: id, clipId: id, track: { type: "string", enum: ["visuals", "overlays", "audio", "music"] }, atIndex: index, start: time, duration, layer, muted, transform }, ["assetId", "clipId", "track"]),
+      ...operation("asset.insert", { visualClipId: id, assetId: id, clipId: id, track: { type: "string", enum: ["visuals", "overlays", "audio", "music"] }, atIndex: index, start: time, duration, layer, muted, transform }, ["assetId", "clipId", "track"]),
       allOf: [{ if: { properties: { track: { const: "visuals" } } }, then: { required: ["atIndex"] }, else: { required: ["start"] } }],
     },
   ],

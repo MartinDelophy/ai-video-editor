@@ -12,6 +12,7 @@ export async function generateBrowserCaptionSegments(blob, { clip, language, off
     ? getVisualSpeedCurveTimelineProgress(clip.speedCurve, time / (clip.sourceDuration || clip.duration * (clip.playbackRate || 1))) * clip.duration
     : time / (clip.playbackRate || 1);
   for (const segment of segments) {
+    if (clip?.type === "video" && (clip.clipId || clip.id)) segment.visualSegmentId = clip.clipId || clip.id;
     segment.start = offset + Math.max(0, mapTime(segment.start));
     segment.end = offset + Math.min(clip?.duration ?? Infinity, mapTime(segment.end));
   }

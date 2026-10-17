@@ -31,3 +31,31 @@ const sourceEnd = {
   id: "Video mencapai akhir sumber. Tambahkan rekaman atau ubah kecepatan untuk memperpanjang gerakan.",
 };
 export const getVideoSourceEndCopy = language => sourceEnd[language] || sourceEnd.en;
+
+const spacingCopy = {
+  zh: ['字间距', '行间距'], en: ['Letter spacing', 'Line spacing'],
+  ja: ['文字間隔', '行間隔'], ko: ['자간', '줄 간격'],
+  es: ['Espaciado de letras', 'Interlineado'], fr: ['Espacement des lettres', 'Interligne'],
+  de: ['Zeichenabstand', 'Zeilenabstand'], pt: ['Espaçamento entre letras', 'Entrelinha'],
+  th: ['ระยะห่างตัวอักษร', 'ระยะห่างบรรทัด'], vi: ['Giãn chữ', 'Giãn dòng'],
+  ru: ['Межбуквенный интервал', 'Межстрочный интервал'],
+  it: ['Spaziatura caratteri', 'Interlinea'], id: ['Jarak huruf', 'Jarak baris'],
+};
+export const getCaptionSpacingCopy = language => spacingCopy[language] || spacingCopy.en;
+
+const keywordCopy = {
+  zh: ['关键词高亮', '高亮颜色', '输入词语或短语，用逗号或换行分隔；清空后关闭高亮。英文不区分大小写。'],
+  en: ['Keyword highlighting', 'Highlight color', 'Separate words or phrases with commas or new lines. Clear to disable. Matching ignores case.'],
+  ja: ['キーワード強調', '強調色', '単語やフレーズをカンマまたは改行で区切ります。空欄で無効。英字の大小は区別しません。'],
+  ko: ['키워드 강조', '강조 색상', '단어나 구를 쉼표 또는 줄바꿈으로 구분하세요. 비우면 꺼집니다. 대소문자를 구분하지 않습니다.'],
+  es: ['Resaltar palabras clave', 'Color de resaltado', 'Separa palabras o frases con comas o saltos de línea. Borra para desactivar. No distingue mayúsculas.'],
+  fr: ['Mots-clés en couleur', 'Couleur de mise en valeur', 'Séparez les mots ou expressions par des virgules ou des retours à la ligne. Videz pour désactiver. La casse est ignorée.'],
+  de: ['Schlüsselwörter hervorheben', 'Hervorhebungsfarbe', 'Wörter oder Ausdrücke mit Kommas oder Zeilenumbrüchen trennen. Leeren zum Deaktivieren. Groß-/Kleinschreibung wird ignoriert.'],
+  pt: ['Destacar palavras-chave', 'Cor de destaque', 'Separe palavras ou frases por vírgulas ou quebras de linha. Apague para desativar. Não diferencia maiúsculas.'],
+  th: ['เน้นคำสำคัญ', 'สีเน้น', 'คั่นคำหรือวลีด้วยจุลภาคหรือขึ้นบรรทัดใหม่ ล้างเพื่อปิด ไม่แยกตัวพิมพ์เล็กและใหญ่'],
+  vi: ['Tô nổi bật từ khóa', 'Màu nổi bật', 'Ngăn cách từ hoặc cụm từ bằng dấu phẩy hay xuống dòng. Xóa để tắt. Không phân biệt hoa thường.'],
+  ru: ['Выделение ключевых слов', 'Цвет выделения', 'Разделяйте слова или фразы запятыми или переносами строк. Очистите для отключения. Регистр не учитывается.'],
+  it: ['Evidenzia parole chiave', 'Colore evidenziazione', 'Separa parole o frasi con virgole o nuove righe. Svuota per disattivare. Maiuscole e minuscole sono equivalenti.'],
+  id: ['Sorotan kata kunci', 'Warna sorotan', 'Pisahkan kata atau frasa dengan koma atau baris baru. Kosongkan untuk menonaktifkan. Huruf besar/kecil diabaikan.'],
+};
+export const getCaptionKeywordCopy = language => keywordCopy[language] || keywordCopy.en;

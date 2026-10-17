@@ -33,10 +33,15 @@ export function applyTimelineRipple(d, boundary, delta) {
   let moved = 0;
   let skippedLocked = 0;
   const shiftedAudioIds = new Set();
+  const ownedVisualIds = new Set((d.visualSegments || []).map(segment => segment.id));
+  const isOwned = segment => ownedVisualIds.has(segment.visualSegmentId);
+  const activeAudioIds = new Set((d.audioSegments || []).map(segment => segment.id));
+  const captionLockedAudioIds = new Set(d.trackLocks.caption
+    ? (d.captionSegments || []).map(segment => segment.audioSegmentId).filter(Boolean) : []);
 
   const nextAudioSegments = (d.audioSegments || []).map((segment) => {
-    if (!startsAtOrAfter(segment, safeBoundary)) return segment;
-    if (isTimedSegmentLaneLocked(d.audioSegments, segment.id, d.trackLocks)) {
+    if (isOwned(segment) || !startsAtOrAfter(segment, safeBoundary)) return segment;
+    if (captionLockedAudioIds.has(segment.id) || isTimedSegmentLaneLocked(d.audioSegments, segment.id, d.trackLocks)) {
       skippedLocked += 1;
       return segment;
     }
@@ -53,7 +58,9 @@ export function applyTimelineRipple(d, boundary, delta) {
     )).length;
   } else {
     d.setCaptionSegments((d.captionSegments || []).map((segment) => {
-      const linkedAudioId = segment.audioSegmentId || "";
+      // A deleted voice is not an active link; the caption follows its own time.
+      if (isOwned(segment)) return segment;
+      const linkedAudioId = activeAudioIds.has(segment.audioSegmentId) ? segment.audioSegmentId : "";
       const shouldMove = linkedAudioId
         ? shiftedAudioIds.has(linkedAudioId)
         : startsAtOrAfter(segment, safeBoundary);
@@ -70,7 +77,7 @@ export function applyTimelineRipple(d, boundary, delta) {
       return segments || [];
     }
     const next = (segments || []).map((segment) => {
-      if (!startsAtOrAfter(segment, safeBoundary)) return segment;
+      if (segments === d.stickerSegments && isOwned(segment) || !startsAtOrAfter(segment, safeBoundary)) return segment;
       moved += 1;
       return shiftRange(segment, safeDelta);
     });

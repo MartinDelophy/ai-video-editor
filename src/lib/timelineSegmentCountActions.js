@@ -85,11 +85,11 @@ export function createTimelineSegmentCountActions(d) {
         const index = d.selectedVisualSegmentId && source.some((segment) => segment.id === d.selectedVisualSegmentId) ? d.selectedVisualSegmentIndex : d.currentVisualSegmentIndex >= 0 ? d.currentVisualSegmentIndex : source.length - 1;
         const removed = source[index];
         d.rippleTimelineAfter?.(getVisualSegmentsTotal(source.slice(0, index + 1)), -removed.duration);
-        return void d.commitVisualSegments(source.filter((_, position) => position !== index), "已删除当前视觉片段", Math.max(0, index - 1));
+        return void d.commitVisualSegments(source.filter((_, position) => position !== index), "已删除当前视觉片段", Math.max(0, index - 1), [removed.id]);
       }
       if (source[0].duration <= IMAGE_SEGMENT_SECONDS) {
         d.rippleTimelineAfter?.(source[0].duration, -source[0].duration);
-        return void d.clearImageTrack("已删除最后一个视觉片段");
+        return void d.clearImageTrack("已删除最后一个视觉片段", [source[0].id]);
       }
       d.rippleTimelineAfter?.(source[0].duration, -IMAGE_SEGMENT_SECONDS);
       return void d.commitVisualSegments([{ ...source[0], duration: source[0].duration - IMAGE_SEGMENT_SECONDS }], "已缩短当前视觉片段", 0);

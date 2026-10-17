@@ -1,4 +1,3 @@
-import { getAnnaTranscriptionNotice } from "../i18nAnnaTranscription.js";
 import { ChatCutActivity } from "./ChatCutActivity.jsx";
 import { ChatCutMediaPreview } from "./ChatCutMediaPreview.jsx";
 import { getChatCutTrigger, getChatCutCommand, getChatCutMentions, getChatCutClipboardFiles } from "../lib/chatCutComposer.js";
@@ -239,7 +238,6 @@ export function ChatCut({ language, editor, captureFrame, hasMedia, assets = [],
     {previewAsset && <ChatCutMediaPreview asset={previewAsset} language={language} editLabel={previewAsset.type === "image" ? imageCopy.edit : imageCopy.editVideo} onClose={() => setPreviewAsset(null)} onEdit={() => { if (previewAsset.type === "image") setEditImageAsset(previewAsset); else setInput(`${imageCopy.editVideo} [assetId=${previewAsset.id}]: `); setPreviewAsset(null); }} />}
     {editImageAsset && generationPlugins && <ImageEditDialog asset={editImageAsset} assets={assets} language={language} plugins={generationPlugins} closeLabel={copy.back} onClose={() => setEditImageAsset(null)} onGenerated={assetIds => setMessages(items => [...items, { role: "assistant", text: imageCopy.saved, assetIds }])} />}
     <form ref={composerRef} onSubmit={send} className="chatcut-composer">
-      <small className="chatcut-transcription-notice">{getAnnaTranscriptionNotice(language)}</small>
       {visibleAssets.length > 0 && <div className="chatcut-assets" tabIndex={0} role="region" aria-label={copy.importMedia}>{visibleAssets.map(asset => <div key={asset.id} className="chatcut-asset" title={asset.name} onPointerDown={event => { if (!asset.preparing && !closing && !(event.target instanceof Element && event.target.closest("button"))) onAssetPointerDown?.(event, asset); }} onDragStart={event => event.preventDefault()}>
         {asset.thumbnail || asset.type === "image" ? <img src={asset.thumbnail || asset.src} alt="" draggable={false} /> : asset.type === "video" ? <video src={asset.src} muted playsInline preload="metadata" draggable={false} aria-hidden="true" /> : <Waveform size={24} />}
         <span>{asset.name}</span>{asset.preparing && <SpinnerGap className="chatcut-spinner" size={14} />}

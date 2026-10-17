@@ -1,3 +1,4 @@
+import { reconcileVisualAssociations } from "./visualAssociations.js";
 import {
   MAX_TIMELINE_DURATION_SECONDS,
   MIN_VISUAL_SEGMENT_SECONDS,
@@ -51,7 +52,22 @@ export function createVisualTimelineActions(d) {
     d.setVisualType(asset?.type ?? "image");
   }
 
-  function commitVisualSegments(nextSegments, message, selectedIndex = 0) {
+  function reconcileOwnedContent(next, deletedIds = []) {
+    const state = { trackLocks: d.trackLocks, audioSegments: d.audioSegments || [], captionSegments: d.captionSegments || [], stickerSegments: d.stickerSegments || [] };
+    reconcileVisualAssociations(state, d.visualSegments || [], next, deletedIds);
+    if (state.script !== undefined) d.setScript?.(state.script);
+    for (const [key, setter] of [["audioSegments", d.setAudioSegments], ["captionSegments", d.setCaptionSegments], ["stickerSegments", d.setStickerSegments]]) {
+      const before = new Map((d[key] || []).map(segment => [segment.id, segment]));
+      const after = new Map(state[key].map(segment => [segment.id, segment]));
+      setter?.(items => items.flatMap(segment => {
+        if (!before.has(segment.id)) return [segment];
+        if (!after.has(segment.id)) return [];
+        return [after.get(segment.id) !== before.get(segment.id) ? after.get(segment.id) : segment];
+      }));
+    }
+  }
+
+  function commitVisualSegments(nextSegments, message, selectedIndex = 0, deletedIds = []) {
     const normalizedSegments = ensureUniqueVisualSegmentIds(nextSegments
       .filter((segment) => segment.duration > 0.05)
       .map((segment) => ({
@@ -65,6 +81,7 @@ export function createVisualTimelineActions(d) {
       MAX_TIMELINE_DURATION_SECONDS,
       getVisualSegmentsTotal(normalizedSegments),
     );
+    reconcileOwnedContent(normalizedSegments, deletedIds);
     d.setVisualSegments(normalizedSegments);
     d.setImageDuration(nextDuration);
     d.setImageClipCount(getImageThumbnailCount(nextDuration));
@@ -177,7 +194,8 @@ export function createVisualTimelineActions(d) {
     }
   }
 
-  function clearImageTrack(message = "图片素材已从时间线移除") {
+  function clearImageTrack(message = "图片素材已从时间线移除", deletedIds = []) {
+    if (deletedIds.length) reconcileOwnedContent([], deletedIds);
     const remainingDuration = Math.max(
       d.audioBlob ? d.audioDuration : 0,
       d.captionDuration,
@@ -202,6 +220,7 @@ export function createVisualTimelineActions(d) {
     appendVisualAssetToTimeline,
     clearImageTrack,
     commitVisualSegments,
+    reconcileOwnedContent,
     getCurrentVisualAssetSnapshot,
     getVisualDurationForAsset,
     replaceVisualTimeline,

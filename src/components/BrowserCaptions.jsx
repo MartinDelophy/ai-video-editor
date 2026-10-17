@@ -1,5 +1,5 @@
 import { isAnnaEdition } from "../lib/annaRuntime.js";
-import { getAnnaTranscriptionNotice, getAnnaTranscriptionError } from "../i18nAnnaTranscription.js";
+import { getAnnaTranscriptionError } from "../i18nAnnaTranscription.js";
 import { useEffect, useRef, useState } from "react";
 import { ClosedCaptioning, SpinnerGap } from "@phosphor-icons/react";
 import { supportsFileSpeech } from "../lib/browserFileSpeech.js";
@@ -69,7 +69,7 @@ export function BrowserCaptions({ language, assets, timelineMedia = [], preferre
         {window.Translator && <label>{copy.target}<select value={target} onChange={event => setTarget(event.target.value)}>{options}</select></label>}
         {translationReady && <label className="browser-caption-check"><input type="checkbox" checked={bilingual} onChange={event => setBilingual(event.target.checked)} />{copy.bilingual}</label>}
       </fieldset>
-      <small>{isAnnaEdition ? getAnnaTranscriptionNotice(language) : copy.privacy}</small><small>{copy.review}</small>
+      {!isAnnaEdition && <small>{copy.privacy}</small>}<small>{copy.review}</small>
       {running && <div className="browser-caption-progress" role="status"><SpinnerGap className="chatcut-spinner" size={18} /><span>{copy.title}</span><span>{Math.floor(progress)}%</span><progress max="100" value={progress} /></div>}
       {message && <p role="status">{message}</p>}
       <button className={running ? "panel-secondary" : "panel-primary"} disabled={!running && (!asset || locked)} type="button" onClick={running ? () => controller.current?.abort() : generate}>{running ? copy.cancel : copy.generate}</button>

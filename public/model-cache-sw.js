@@ -54,6 +54,8 @@ const DEPTH_MODEL_HUGGING_FACE_REVISION = "a0806c6fb9484894dcb78df523156d2444615
 const DEPTH_MODEL_MODELSCOPE_REVISION = "4cc757f80330e22cb8f82b628c53ceca6307fd12";
 const RIFE_HUGGING_FACE_REVISION = "64f590200ea7d6142a5e58cbf069025e44c84dbe";
 const RIFE_MODELSCOPE_REVISION = "7e4d08c6147638872679c6d2c2af71424599fd58";
+const AUDIO_PROCESSING_HF_REVISION = "259f586f3fd594a29071a6f3c6024956d2ac47c5";
+const AUDIO_PROCESSING_MS_REVISION = "e5907c932772584333dd8c9c0fb7282912958ca2";
 function hasCacheableExtension(pathname) {
   return CACHEABLE_EXTENSIONS.some((extension) => pathname.endsWith(extension));
 }
@@ -101,7 +103,9 @@ function canonicalModelIdentity(url) {
     revision = VOCAL_REMOVER_REVISION;
   }
   if (owner === "haixin" && repository === "timeline-studio-voice-models") {
-    if (path.startsWith("openvoice-v2-converter-fp16/") && revision === OPENVOICE_MODELSCOPE_REVISION) {
+    if (path.startsWith("audio-denoise-v1/") && revision === AUDIO_PROCESSING_MS_REVISION) {
+      revision = AUDIO_PROCESSING_HF_REVISION;
+    } else if (path.startsWith("openvoice-v2-converter-fp16/") && revision === OPENVOICE_MODELSCOPE_REVISION) {
       revision = OPENVOICE_HUGGING_FACE_REVISION;
     } else if (revision === VOICE_MODEL_MODELSCOPE_REVISION) {
       revision = VOICE_MODEL_HUGGING_FACE_REVISION;

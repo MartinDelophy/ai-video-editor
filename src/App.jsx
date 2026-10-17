@@ -1,3 +1,6 @@
+import { applyProcessedSourceMedia, getSourceProcessingLane } from "./lib/sourceAudioProcessing.js";
+import { getAudioProcessingCopy } from "./i18nAudioProcessing.js";
+import { isTimedSegmentLaneLocked } from "./lib/timeline.js";
 import { SilenceRemovalPanel } from "./components/SilenceRemovalPanel.jsx";
 import { useSilenceRemoval } from "./hooks/useSilenceRemoval.js";
 import { useTimelineAiProcessor } from "./hooks/useTimelineAiProcessor.js";
@@ -792,7 +795,8 @@ export function App() {
     setStatus, setStatusText, setTimelineHorizon, sourceAudioBlob, sourceAudioDuration,
     sourceAudioAssetId, sourceAudioRef, sourceAudioStart, sourceAudioUrlRef, t,
   });
-  const moveSourceAudioToAudioLane = ({ segmentId = "source-audio", start = 0, lane = 0 } = {}) => {
+  const moveSourceAudioToAudioLane = ({ segmentId = "source-audio", start = 0, lane = 0, processingPatch = null } = {}) => {
+    if (trackLocks.source || trackLocks.audio || trackLocks[`audio-${lane}`] || trackLocks.image) return false;
     if (!(sourceAudioBlob instanceof Blob)) return false;
     const linkedPiece = sourceAudioLinked && segmentId !== "source-audio"
       ? linkedSourceAudioSegments.find((segment) => segment.id === segmentId) ?? null
@@ -808,7 +812,7 @@ export function App() {
       0,
       Number(linkedPiece?.sourceDuration) || Math.min(sourceAudioDuration - sourceStart, duration * playbackRate),
     );
-    const nextSegment = {
+    let nextSegment = {
       id: nextId,
       blob: sourceAudioBlob,
       url: nextUrl,
@@ -835,6 +839,14 @@ export function App() {
       sourceAudioWasLinked: Boolean(linkedPiece),
     };
 
+    if (processingPatch) {
+      nextSegment = applyProcessedSourceMedia(nextSegment, processingPatch);
+      if (!nextSegment) { URL.revokeObjectURL(nextUrl); return false; }
+      URL.revokeObjectURL(nextUrl);
+      if (linkedPiece) nextSegment.visualSegmentId = linkedPiece.id;
+    }
+    imageUrlRefs.current.add(nextSegment.url);
+
     const hasExplicitSourceMappings = visualSegments.some((segment) => (
       segment.type === "video" && Number.isFinite(segment.sourceAudioOffset)
     ));
@@ -851,6 +863,13 @@ export function App() {
     });
     setVisualSegments(nextVisualSegments);
     setAudioSegments((segments) => [...segments, nextSegment]);
+    if (processingPatch) {
+      const oldId = linkedPiece?.id || "source-audio";
+      setCaptionSegments(items => items.map(item => ({ ...item,
+        ...(item.audioSegmentId === oldId ? { audioSegmentId: nextId } : {}),
+        ...(item.detachedAudioSegmentId === oldId ? { detachedAudioSegmentId: nextId } : {}),
+      })));
+    }
 
     const remainingLinkedPieces = sourceAudioLinked
       ? getLinkedSourceAudioSegments(nextVisualSegments, sourceAudioAssetId, sourceAudioDuration)
@@ -893,7 +912,7 @@ export function App() {
     : selectedTrack === "music" && musicBlob
       ? { ...(selectedMusicSegment ?? musicSegments[0] ?? { id: "music-audio", start: musicStart, duration: musicDuration, sourceStart: 0, sourceDuration: musicDuration, playbackRate: 1 }), blob: musicBlob, name: musicName || t("musicTrack"), segmentId: selectedMusicSegment?.id || musicSegments[0]?.id || "music-audio", track: "music", volume: selectedMusicSegment?.volume ?? musicSegments[0]?.volume ?? musicVolume, canChangeSpeed: true }
       : selectedTrack === "source" && sourceAudioBlob
-        ? { ...(selectedSourceAudioPiece ?? {}), blob: sourceAudioBlob, name: sourceAudioName, start: selectedSourceAudioPiece?.start ?? sourceAudioStart, sourceStart: selectedSourceAudioPiece?.sourceStart ?? 0, duration: selectedSourceAudioPiece?.duration ?? sourceAudioDuration, sourceDuration: selectedSourceAudioPiece?.sourceDuration ?? sourceAudioDuration, playbackRate: selectedSourceAudioPiece?.playbackRate ?? 1, segmentId: selectedSourceAudioSegmentId || "source-audio", track: "source", volume: selectedSourceAudioPiece?.volume ?? sourceAudioVolume, spatialEffect: sourceAudioSpatialEffect, spatialAmount: sourceAudioSpatialAmount, canChangeStart: !sourceAudioLinked, canChangeSpeed: Boolean(sourceAudioLinked && selectedSourceAudioPiece), voiceColorOriginalBlob: sourceVoiceColorOriginalRef.current?.blob || null }
+        ? { ...(selectedSourceAudioPiece ?? {}), blob: sourceAudioBlob, url: sourceAudioUrl, peaks: selectedSourceAudioPiece ? sliceSourceAudioPeaks(sourceAudioPeaks, selectedSourceAudioPiece, sourceAudioDuration) : sourceAudioPeaks, name: sourceAudioName, start: selectedSourceAudioPiece?.start ?? sourceAudioStart, sourceStart: selectedSourceAudioPiece?.sourceStart ?? 0, duration: selectedSourceAudioPiece?.duration ?? sourceAudioDuration, sourceDuration: selectedSourceAudioPiece?.sourceDuration ?? sourceAudioDuration, playbackRate: selectedSourceAudioPiece?.playbackRate ?? 1, segmentId: selectedSourceAudioSegmentId || "source-audio", track: "source", volume: selectedSourceAudioPiece?.volume ?? sourceAudioVolume, spatialEffect: sourceAudioSpatialEffect, spatialAmount: sourceAudioSpatialAmount, canChangeStart: !sourceAudioLinked, canChangeSpeed: Boolean(sourceAudioLinked && selectedSourceAudioPiece), voiceColorOriginalBlob: sourceVoiceColorOriginalRef.current?.blob || null }
         : selectedTrack === "image" && selectedVisualSegment?.type === "video"
           ? { ...selectedVisualSegment, segmentId: selectedVisualSegment.id, track: "image", start: selectedVisualRange?.start ?? 0, canChangeStart: false, canChangeSpeed: false, embeddedVideo: true }
           : selectedTrack === "overlay" && selectedVisualOverlay?.type === "video"
@@ -919,7 +938,7 @@ export function App() {
     getCurrentVisualAssetSnapshot, getVisualDurationForAsset, replaceVisualTimeline,
     setCurrentVisualAsset, updateVisualAssetInTimeline,
   } = createVisualTimelineActions({
-    audioBlob, audioDuration, captionDuration,
+    audioBlob, audioDuration, captionDuration, audioSegments, captionSegments, stickerSegments, setAudioSegments, setCaptionSegments, setStickerSegments, setScript,
     extractVideoSourceAudio: (...args) => extractVideoSourceAudio(...args),
     imageDuration, imageMeta, imageName, imageSrc, musicBlob, musicDuration, notify, rippleTimelineAfter,
     previewVisualSegment, script, seekTo: (...args) => seekTo(...args), setCurrentTime,
@@ -986,7 +1005,7 @@ export function App() {
 
   const { deleteAudioSegment, toggleAudioSegmentReverse, updateAudioSegment } = createAudioClipActions({
     audioSegmentRefs, audioSegments, notify, setAudioSegments, setCaptionSegments,
-    setSelectedAudioSegmentId, setTimelineHorizon, t,
+    setSelectedAudioSegmentId, setTimelineHorizon, t, trackLocks,
   });
   const handleVoiceColorAssetReady = async ({ blob, decoded, profileName, sourceName }) => {
     const id = crypto.randomUUID(); const src = URL.createObjectURL(blob); imageUrlRefs.current.add(src);
@@ -1087,6 +1106,12 @@ export function App() {
       return;
     }
     if (selectedTrack === "source") {
+      if (patch.blob instanceof Blob) {
+        const lane = getSourceProcessingLane(audioSegments, trackLocks);
+        if (lane === null) return false;
+        const piece = linkedSourceAudioSegments.find(item => item.id === id);
+        return moveSourceAudioToAudioLane({ segmentId: id, start: piece?.start ?? sourceAudioStart, lane, processingPatch: patch });
+      }
       if (Number.isFinite(patch.volume)) {
         const volume = Math.max(0, Math.min(4, patch.volume));
         if (sourceAudioLinked && id !== "source-audio") setVisualSegments((items) => items.map((item) => item.id === id ? { ...item, sourceAudioVolume: volume } : item));
@@ -1887,6 +1912,8 @@ export function App() {
           selectedTrack={selectedTrack}
           selectedAudioSegment={selectedAudioSegment}
           selectedTrackAudioSegment={selectedAudioToolTarget}
+          audioProcessingDisabled={selectedTrack === "source" ? Boolean(trackLocks.source || trackLocks.audio || trackLocks.image) : selectedTrack !== "audio" || isTimedSegmentLaneLocked(audioSegments, selectedAudioSegmentId, trackLocks)}
+          registerAudioProcessingUrl={url => imageUrlRefs.current.add(url)}
           mobileInspectorOrigin={mobilePanel === "inspector" ? mobilePanelOrigin : ""}
           mobileInspectorSection={isCompactViewport && mobilePanel === "inspector" ? mobileInspectorSection : ""}
           onCloseMobileInspector={() => changeMobilePanel("")}
@@ -1944,6 +1971,7 @@ export function App() {
       </section>
 
       <Timeline
+        audioProcessingLabel={getAudioProcessingCopy(uiLanguage).processing}
         timelineMarkers={timelineMarkers}
         setTimelineMarkers={setTimelineMarkers}
         t={t}
@@ -2110,6 +2138,7 @@ export function App() {
             audio: t("mobileClipAudio"),
             fade: t("mobileClipFade"),
             "voice-color": t("voiceColorTab", "音色"),
+            processing: getAudioProcessingCopy(uiLanguage).processing,
             sticker: t("stickerProperties"),
           }[mobileInspectorSection]) || (mobilePanelOrigin === "audio-clip"
             ? t("audioClipProperties")

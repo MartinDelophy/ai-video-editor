@@ -1,6 +1,6 @@
-const AUDIO_CLIP_ACTIONS = ["dismiss", "audio-properties", "audio-fade", "audio-spatial", "audio-voice-color", "split", "captions", "separate", "delete"];
+const AUDIO_CLIP_ACTIONS = ["dismiss", "audio-properties", "audio-fade", "audio-spatial", "audio-voice-color", "audio-processing", "split", "captions", "separate", "delete"];
 const MUSIC_CLIP_ACTIONS = ["dismiss", "audio-properties", "audio-fade", "audio-spatial", "split", "captions", "separate", "delete"];
-const SOURCE_AUDIO_CLIP_ACTIONS = ["dismiss", "audio-properties", "audio-spatial", "audio-voice-color", "split", "captions", "delete"];
+const SOURCE_AUDIO_CLIP_ACTIONS = ["dismiss", "audio-properties", "audio-spatial", "audio-voice-color", "audio-processing", "split", "captions", "delete"];
 const STICKER_CLIP_ACTIONS = ["dismiss", "sticker-properties", "copy", "delete"];
 
 export function getMobileClipActionIds(track, options = {}) {

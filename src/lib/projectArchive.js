@@ -98,7 +98,10 @@ export async function createProjectArchive({ project, visualSegments = [], audio
     if (!segment?.id || !blob) continue;
     const path = `media/audio/voice-${String(index + 1).padStart(3, "0")}-${safeName(segment.name, "voiceover")}.${extensionFor(blob, "wav")}`;
     files[path] = blob;
-    media.audioSegments.push({ id: segment.id, path, name: segment.name || "配音", type: blob.type, size: blob.size });
+    const original = segment.processingOriginalBlob;
+    const originalPath = original instanceof Blob ? `media/audio/original-${String(index + 1).padStart(3, "0")}.${extensionFor(original, "wav")}` : null;
+    if (originalPath) files[originalPath] = original;
+    media.audioSegments.push({ id: segment.id, path, name: segment.name || "配音", type: blob.type, size: blob.size, ...(originalPath ? { originalPath, originalType: original.type } : {}) });
   }
 
   for (const [key, track] of Object.entries({ audio, sourceAudio, music })) {

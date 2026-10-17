@@ -1,3 +1,4 @@
+import { reconcileVisualAssociations } from "./visualAssociations.js";
 import { normalizeVisualTransform } from "./visualEffects.js";
 import { normalizeColorGrade } from "./colorGrade.js";
 import { normalizeGlitch } from "./glitchEffect.js";
@@ -320,6 +321,10 @@ function insertPreparedAsset(project, operation) {
   }
   const duration = finitePositive(operation.duration, "duration");
   const segment = { ...structuredClone(source), id, duration };
+  if (operation.visualClipId) {
+    if (operation.track !== "audio") throw Object.assign(new Error("Visual ownership is supported for voice audio"), { code: "INVALID_ARGUMENT" });
+    segment.visualSegmentId = findById(project.visualSegments, operation.visualClipId, "Visual clip").id;
+  }
   if (source.type !== "image") {
     const available = finitePositive(source.sourceDuration, "sourceDuration");
     if (duration > available) throw Object.assign(new Error("Asset duration exceeds its source"), { code: "SOURCE_RANGE_EXCEEDED" });
@@ -489,6 +494,7 @@ function addCaption(project, operation) {
     end,
     fontId: operation.fontId || previousCaption?.fontId || project.captionStyle?.fontId || "default",
     ...(audioSegmentId ? { audioSegmentId } : {}),
+    ...(operation.visualClipId ? { visualSegmentId: findById(project.visualSegments, operation.visualClipId, "Visual clip").id } : {}),
   }].sort((left, right) => (Number(left.start) || 0) - (Number(right.start) || 0));
   project.script = project.captionSegments.map((item) => item.text).join("\n");
   project.captionsEnabled = true;
@@ -997,7 +1003,10 @@ export function applyCommandPlan(project, plan) {
     for (const operation of plan.operations) {
       if (alreadyApplied.has(operation.id)) continue;
       operationId = operation.id;
+      const beforeVisuals = (next.visualSegments || []).map(clip => ({ ...clip }));
       reducers[operation.type](next, operation);
+      if (operation.type.startsWith("visual.") || operation.type === "asset.insert" && operation.track === "visuals")
+        reconcileVisualAssociations(next, beforeVisuals, next.visualSegments || [], operation.type === "visual.delete" ? [operation.clipId] : []);
       appliedOperationIds.push(operation.id);
     }
   } catch (error) {

@@ -43,6 +43,7 @@ export function syncVoiceAudioSegments({ segments, refs, timelineTime, isPlaying
 }
 
 export function useMediaSync(d) {
+  const videoClipRef = useRef(null);
   const playbackStateRef = useRef(d);
   playbackStateRef.current = d;
   // Lane packing depends on edits and visibility, never on the playback clock.
@@ -92,7 +93,6 @@ export function useMediaSync(d) {
     syncTimelineAudioElement(music, { active, shouldPlay: play, expectedTime: expected, playbackRate });
   }, [d.currentTime, d.isPlaying, d.musicDuration, d.musicSegments, d.musicStart, d.musicUrl, d.trackVisibility.music]);
   useEffect(() => { d.currentTimeRef.current = d.currentTime; }, [d.currentTime]);
-  useEffect(() => { d.setPreviewVideoMediaTime(d.previewVisualType === "video" ? Math.max(0, Number(d.previewVisualSegment?.sourceStart) || 0) : 0); }, [d.previewVisualSegment?.id, d.previewVisualSrc, d.previewVisualType]);
   useEffect(() => {
     const v = d.previewVideoRef.current; if (!v || d.previewVisualType !== "video") return;
     const localTime = Math.max(0, d.currentTime - (d.previewVisualRange?.start || 0));
@@ -104,17 +104,29 @@ export function useMediaSync(d) {
   // on every clip change and can briefly reveal the opening frame again.
   useEffect(() => {
     const v = d.previewVideoRef.current; if (!v || d.previewVisualType !== "video") return;
+    const clipChanged = videoClipRef.current?.video !== v || videoClipRef.current?.id !== d.previewVisualSegment?.id;
+    videoClipRef.current = { video: v, id: d.previewVisualSegment?.id };
+    if (clipChanged) { v.__timelineFramePending = true; v.pause(); }
+    // Metadata restoration queues the same target after the source is ready.
+    if (v.readyState < 1) return;
     const max = Math.max(0, (Number(v.duration) || d.previewVisualSourceTime) - 0.001);
     const time = Math.min(Math.max(0, d.previewVisualSourceTime), max);
-    if (shouldCorrectPreviewMediaTime({ isPlaying: d.isPlaying, currentTime: v.currentTime, targetTime: time })) {
+    if (clipChanged || shouldCorrectPreviewMediaTime({ isPlaying: d.isPlaying, currentTime: v.currentTime, targetTime: time })) {
       requestLatestVideoFrame(v, time, {
-        onPresented: d.setPreviewVideoMediaTime,
+        immediate: clipChanged,
+        onPresented: mediaTime => {
+          if (d.previewVideoRef.current !== v || videoClipRef.current?.id !== d.previewVisualSegment?.id) return;
+          v.__timelineFramePending = false;
+          d.setPreviewVideoMediaTime(mediaTime);
+          const latest = playbackStateRef.current;
+          if (latest.isPlaying && latest.trackVisibility?.image !== false) requestTimelineMediaPlay(v);
+        },
       });
     }
   }, [d.isPlaying, d.previewVisualSegment?.id, d.previewVisualSourceTime, d.previewVisualSrc, d.previewVisualType]);
   useEffect(() => {
     const v = d.previewVideoRef.current; if (!v || d.previewVisualType !== "video") return;
-    if (!d.isPlaying || d.trackVisibility?.image === false) v.pause(); else requestTimelineMediaPlay(v);
+    if (!d.isPlaying || d.trackVisibility?.image === false) v.pause(); else if (!v.__timelineFramePending) requestTimelineMediaPlay(v);
   }, [d.isPlaying, d.previewVisualSegment?.id, d.previewVisualSrc, d.previewVisualType, d.trackVisibility.image]);
   useEffect(() => {
     if (d.previewVisualType === "video") setTimelineAudioGain(d.previewVideoRef.current, d.previewVisualSegment?.volume ?? 1, d.previewVisualSegment?.spatialEffect, d.previewVisualSegment?.spatialAmount);
@@ -140,7 +152,7 @@ export function useMediaSync(d) {
       const waiting = state.previewVisualType === "video" && state.trackVisibility.image !== false
         && video && !video.error && !video.ended
         && !(Number.isFinite(video.duration) && video.currentTime >= video.duration - 0.1)
-        && (video.seeking || video.readyState < 3
+        && (video.__timelineFramePending || video.seeking || video.readyState < 3
           || (video.paused && video.__timelinePlayPending));
       if (waiting) {
         d.visualPlaybackStartedAtRef.current += elapsed;

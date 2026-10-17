@@ -1,4 +1,4 @@
-import { getCaptionEditingCopy } from "../i18nCaptionEditing.js";
+import { getCaptionEditingCopy, getCaptionSpacingCopy, getCaptionKeywordCopy } from "../i18nCaptionEditing.js";
 import { getAnnaVideoCopy } from "../i18nAnnaVideo.js";
 import { getAnnaImageCopy } from "../plugins/generation/providers/anna/copy.js";
 import { AnnaImagePanel } from "../plugins/generation/providers/anna/Inspector.jsx";
@@ -1448,14 +1448,27 @@ export function ToolPanel(props) {
           />
         </div>
         <div className="caption-style-panel">
-          <label>{getCaptionEditingCopy(uiLanguage)[0]}<select aria-label={getCaptionEditingCopy(uiLanguage)[0]} value={effectiveCaptionStyle.textAlign || "center"} onChange={(event) => updateCaptionStyleField("textAlign", event.target.value)}>{["left", "center", "right"].map((value, index) => <option key={value} value={value}>{getCaptionEditingCopy(uiLanguage)[index + 1]}</option>)}</select></label>
+          <label className="caption-alignment-field">
+            <span>{getCaptionEditingCopy(uiLanguage)[0]}</span>
+            <span className="caption-alignment-select">
+              <select aria-label={getCaptionEditingCopy(uiLanguage)[0]} value={effectiveCaptionStyle.textAlign || "center"} onChange={(event) => updateCaptionStyleField("textAlign", event.target.value)}>
+                {["left", "center", "right"].map((value, index) => <option key={value} value={value}>{getCaptionEditingCopy(uiLanguage)[index + 1]}</option>)}
+              </select>
+              <CaretDown size={16} aria-hidden="true" />
+            </span>
+          </label>
+          <div className="caption-keyword-controls">
+            <label className="caption-keyword-words">{getCaptionKeywordCopy(uiLanguage)[0]}<textarea rows={2} maxLength={2000} value={effectiveCaptionStyle.highlightWords || ""} onChange={event => updateCaptionStyleField("highlightWords", event.target.value)} aria-describedby="caption-keyword-help" /></label>
+            <label className="caption-keyword-color">{getCaptionKeywordCopy(uiLanguage)[1]}<input type="color" value={effectiveCaptionStyle.highlightColor || "#ffe066"} onChange={event => updateCaptionStyleField("highlightColor", event.target.value)} /></label>
+            <small id="caption-keyword-help">{getCaptionKeywordCopy(uiLanguage)[2]}</small>
+          </div>
           <div className="caption-color-row">
             <label>{t("captionTextColor")}<input type="color" value={effectiveCaptionStyle.textColor} onChange={(event) => updateCaptionStyleField("textColor", event.target.value)} /></label>
             <label>{t("captionBackground")}<input type="color" value={effectiveCaptionStyle.backgroundColor} onChange={(event) => updateCaptionStyleField("backgroundColor", event.target.value)} /></label>
             <label>{t("captionBorderColor")}<input type="color" value={effectiveCaptionStyle.borderColor} onChange={(event) => updateCaptionStyleField("borderColor", event.target.value)} /></label>
           </div>
-          {[["backgroundOpacity", t("captionOpacity"), 0, 1, 0.05, "%"], ["textStrokeWidth", t("captionOutlineWidth"), 0, 6, 1, "px"], ["borderWidth", t("captionBorderWidth"), 0, 8, 1, "px"], ["radius", t("captionRadius"), 0, 28, 1, "px"], ["paddingX", getCaptionEditingCopy(uiLanguage)[4], 0, 52, 1, "px"], ["paddingY", getCaptionEditingCopy(uiLanguage)[5], 0, 32, 1, "px"], ["shadowOpacity", t("captionShadow"), 0, 1, 0.05, "%"]].map(([key, label, min, max, step, unit]) => (
-            <div className="slider-field compact-slider" key={key}><div><label>{label}</label><span>{unit === "%" ? `${Math.round(effectiveCaptionStyle[key] * 100)}%` : `${effectiveCaptionStyle[key]}${unit}`}</span></div><input type="range" min={min} max={max} step={step} value={effectiveCaptionStyle[key]} onChange={(event) => updateCaptionStyleField(key, Number(event.target.value))} /></div>
+          {[["letterSpacing", getCaptionSpacingCopy(uiLanguage)[0], 0, 12, 0.5, "px"], ["lineGap", getCaptionSpacingCopy(uiLanguage)[1], 0, 32, 1, "px"], ["backgroundOpacity", t("captionOpacity"), 0, 1, 0.05, "%"], ["textStrokeWidth", t("captionOutlineWidth"), 0, 6, 1, "px"], ["borderWidth", t("captionBorderWidth"), 0, 8, 1, "px"], ["radius", t("captionRadius"), 0, 28, 1, "px"], ["paddingX", getCaptionEditingCopy(uiLanguage)[4], 0, 52, 1, "px"], ["paddingY", getCaptionEditingCopy(uiLanguage)[5], 0, 32, 1, "px"], ["shadowOpacity", t("captionShadow"), 0, 1, 0.05, "%"]].map(([key, label, min, max, step, unit]) => (
+            <div className="slider-field compact-slider" key={key}><div><label>{label}</label><span>{unit === "%" ? `${Math.round(effectiveCaptionStyle[key] * 100)}%` : `${effectiveCaptionStyle[key] ?? 0}${unit}`}</span></div><input type="range" min={min} max={max} step={step} value={effectiveCaptionStyle[key] ?? 0} onChange={(event) => updateCaptionStyleField(key, Number(event.target.value))} /></div>
           ))}
           <button className="caption-save-style-button" type="button" onClick={saveCurrentCaptionStyle}><Plus size={15} weight="bold" />{t("captionSaveAsStyle")}</button>
         </div>
@@ -1501,10 +1514,14 @@ export function ToolPanel(props) {
   }
 
   if (activeTool === "audio") {
+    const sourceSelected = selectedAudioToolTarget?.track === "source";
     return (
       <div className="tool-panel audio-tool-panel mobile-panel-scroll-body">
-        <h2>{t("audioPanel")}</h2>
-        <button
+        <h2>{sourceSelected ? t("sourceAudio") : t("audioPanel")}</h2>
+        {sourceSelected ? <div className="source-audio-identity">
+          <span className="source-audio-identity-icon"><Waveform size={26} weight="duotone" /></span>
+          <div><strong>{t("sourceAudio")}</strong><span title={sourceAudioName}>{sourceAudioName}</span></div>
+        </div> : <button
           className="audio-entry-card"
           type="button"
           onClick={() => {
@@ -1519,7 +1536,7 @@ export function ToolPanel(props) {
             <strong>{t("aiVoiceEntryTitle")}</strong>
             <em>{t("aiVoiceEntryDesc")}</em>
           </span>
-        </button>
+        </button>}
         {import.meta.env?.VITE_ANNA_EDITION !== "true" ? <AnnaModelGate anna={anna}>
         <button
           className="audio-entry-card separation-entry-card"
@@ -1559,6 +1576,7 @@ export function ToolPanel(props) {
         </button>
         </AnnaModelGate> : null}
         <div className="metric-list">
+          {!sourceSelected && <>
           <div>
             <span>{t("currentVoice")}</span>
             <strong>{selectedVoice.name}</strong>
@@ -1567,14 +1585,16 @@ export function ToolPanel(props) {
             <span>{t("voiceDuration")}</span>
             <strong>{formatTime(audioBlob ? audioDuration : 0)}</strong>
           </div>
-          <div>
+          </>}
+          {!sourceSelected && <div>
             <span>{t("sourceAudio")}</span>
             <strong>{sourceAudioBlob ? sourceAudioName : t("notSeparated")}</strong>
-          </div>
+          </div>}
           <div>
             <span>{t("sourceDuration")}</span>
             <strong>{formatTime(sourceAudioBlob ? sourceAudioDuration : 0)}</strong>
           </div>
+          {!sourceSelected && <>
           <div>
             <span>{t("bgm")}</span>
             <strong>{musicBlob ? musicName : t("notAdded")}</strong>
@@ -1583,6 +1603,7 @@ export function ToolPanel(props) {
             <span>{t("musicDuration")}</span>
             <strong>{formatTime(musicBlob ? musicDuration : 0)}</strong>
           </div>
+          </>}
         </div>
         <div className="slider-field compact-slider">
           <div>
@@ -1601,7 +1622,7 @@ export function ToolPanel(props) {
             onChange={(event) => setSourceAudioVolume(Number(event.target.value))}
           />
         </div>
-        <div className="slider-field compact-slider">
+        {!sourceSelected && <div className="slider-field compact-slider">
           <div>
             <label htmlFor="music-volume">{t("bgm")} {t("volume")}</label>
             <span>{Math.round(musicVolume * 100)}%</span>
@@ -1617,23 +1638,24 @@ export function ToolPanel(props) {
             onChange={(event) => setMusicVolume(Number(event.target.value))}
           />
         </div>
+        }
         <div className="audio-download-actions">
-          <button
+          {!sourceSelected && <button
             className="panel-primary"
             type="button"
             disabled={!audioBlob}
             onClick={() => audioBlob && downloadBlob(audioBlob, "ai-voiceover.wav")}
           >
             {t("downloadCurrentWav")}
-          </button>
-          <button
+          </button>}
+          {!sourceSelected && <button
             className="panel-secondary"
             type="button"
             disabled={!musicBlob}
             onClick={() => musicBlob && downloadBlob(musicBlob, musicName || "background-music.wav")}
           >
             {t("downloadBgm")}
-          </button>
+          </button>}
           <button
             className="panel-secondary"
             type="button"
@@ -1647,9 +1669,9 @@ export function ToolPanel(props) {
           <button className="panel-secondary is-danger" type="button" disabled={!sourceAudioBlob} onClick={() => clearSourceAudioTrack()}>
             {t("deleteSource")}
           </button>
-          <button className="panel-secondary is-danger" type="button" disabled={!musicBlob} onClick={() => clearMusicTrack()}>
+          {!sourceSelected && <button className="panel-secondary is-danger" type="button" disabled={!musicBlob} onClick={() => clearMusicTrack()}>
             {t("deleteBgm")}
-          </button>
+          </button>}
         </div>
       </div>
     );

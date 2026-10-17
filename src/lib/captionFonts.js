@@ -1,3 +1,4 @@
+import { CAPTION_FONT_ADDITIONS, CAPTION_FONT_ADDITIONS_HF_REVISION, CAPTION_FONT_ADDITIONS_MS_REVISION } from "../config/captionFontAdditions.js";
 import { fetchFirstAvailableModel, mirroredModelFileUrls } from "./modelSources.js";
 
 export const DEFAULT_CAPTION_FONT_ID = "default";
@@ -103,27 +104,31 @@ export const CAPTION_FONT_CATALOG = [
   font("chonburi", "Chonburi", "Chonburi", { category: "display", sample: "คำบรรยายศิลป์" }),
 ];
 
+CAPTION_FONT_CATALOG.push(...CAPTION_FONT_ADDITIONS.map((item) => ({ ...font(item.id, item.family, item.label, item), ...item })));
+
 const BY_ID = new Map(CAPTION_FONT_CATALOG.map((item) => [item.id, item]));
 
 const LATIN_FONT_IDS = [
   "inter", "montserrat", "poppins", "oswald", "barlow-condensed",
   "playfair-display", "bebas-neue", "caveat", "lobster", "libre-baskerville",
+  "lato", "raleway", "nunito-sans", "lora",
 ];
 
 const FONT_IDS_BY_LANGUAGE = {
   zh: [
     "noto-sans-sc", "noto-serif-sc", "zcool-kuaile", "zcool-qingke-huangyou",
     "zcool-xiaowei", "ma-shan-zheng", "long-cang", "liu-jian-mao-cao",
-    "zhi-mang-xing", "noto-sans-tc",
+    "zhi-mang-xing", "noto-sans-tc", "lxgw-wenkai-tc", "lxgw-wenkai-mono-tc", "noto-serif-tc",
   ],
   ja: [
     "noto-sans-jp", "noto-serif-jp", "m-plus-1p", "klee-one",
     "zen-kaku-gothic-new", "zen-maru-gothic", "zen-old-mincho",
-    "shippori-mincho", "kaisei-decol", "hachi-maru-pop",
+    "shippori-mincho", "kaisei-decol", "hachi-maru-pop", "zen-kurenaido", "yusei-magic",
   ],
   ko: [
     "noto-sans-kr", "noto-serif-kr", "black-han-sans", "do-hyeon", "jua",
     "gamja-flower", "gowun-batang", "gowun-dodum", "song-myung", "nanum-pen-script",
+    "nanum-gothic", "nanum-myeongjo", "gaegu",
   ],
   en: LATIN_FONT_IDS,
   es: LATIN_FONT_IDS,
@@ -135,15 +140,17 @@ const FONT_IDS_BY_LANGUAGE = {
   vi: [
     "be-vietnam-pro", "noto-sans", "noto-serif", "inter", "montserrat",
     "poppins", "merriweather", "barlow-condensed", "baloo-2", "coiny",
+    "lato", "raleway", "nunito-sans", "lora", "patrick-hand",
   ],
   ru: [
     "montserrat", "rubik", "pt-sans", "pt-serif", "oswald",
     "russo-one", "comfortaa", "lobster", "caveat", "cormorant-garamond",
+    "lato", "raleway", "nunito-sans", "lora", "marck-script",
   ],
   th: [
     "noto-sans-thai", "noto-serif-thai", "ibm-plex-sans-thai",
     "ibm-plex-sans-thai-looped", "bai-jamjuree", "kanit",
-    "prompt", "sarabun", "mitr", "chonburi",
+    "prompt", "sarabun", "mitr", "chonburi", "sriracha", "charm",
   ],
 };
 
@@ -190,36 +197,43 @@ const FONT_CACHE_NAME = "timeline-studio-caption-fonts-v1";
 
 async function loadMirroredFont(selected) {
   if (!CAPTION_FONT_REVISION || !globalThis.FontFace) return false;
-  const canonicalUrl = `https://timeline-studio.local/caption-fonts/${CAPTION_FONT_REVISION}/${selected.file}`;
+  const additions = selected.pack === "additions-v2";
+  const revision = additions ? CAPTION_FONT_ADDITIONS_HF_REVISION : CAPTION_FONT_REVISION;
+  const canonicalUrl = `https://timeline-studio.local/caption-fonts/${revision}/${selected.file}`;
   let response = null;
-  if (globalThis.caches) {
-    const cache = await caches.open(FONT_CACHE_NAME);
-    response = await cache.match(canonicalUrl);
-  }
+  try { response = await (await caches.open(FONT_CACHE_NAME)).match(canonicalUrl); } catch { /* Optional browser cache. */ }
+  const cached = Boolean(response);
   if (!response) {
-    const urls = mirroredModelFileUrls({
-      repository: CAPTION_FONT_REPOSITORY,
-      revision: CAPTION_FONT_REVISION,
-      path: `fonts/${selected.file}`,
-    });
-    const remote = await fetchFirstAvailableModel(urls);
-    response = remote.response;
-    if (globalThis.caches) {
-      const cache = await caches.open(FONT_CACHE_NAME);
-      await cache.put(canonicalUrl, response.clone());
-    }
+    const urls = additions && !CAPTION_FONT_ADDITIONS_MS_REVISION
+      ? [`https://huggingface.co/haixin/${CAPTION_FONT_REPOSITORY}/resolve/${revision}/fonts/${selected.file}`]
+      : mirroredModelFileUrls({ repository: CAPTION_FONT_REPOSITORY,
+        huggingFaceRevision: revision,
+        modelScopeRevision: additions ? CAPTION_FONT_ADDITIONS_MS_REVISION : revision,
+        path: `fonts/${selected.file}` });
+    response = (await fetchFirstAvailableModel(urls)).response;
   }
   const blob = await response.blob();
+  if (selected.sha256) {
+    const digest = await crypto.subtle.digest("SHA-256", await blob.arrayBuffer());
+    const hash = Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, "0")).join("");
+    if (hash !== selected.sha256) {
+      try { await (await caches.open(FONT_CACHE_NAME)).delete(canonicalUrl); } catch { /* Optional cache. */ }
+      throw new Error(`CAPTION_FONT_INTEGRITY_FAILED:${selected.id}`);
+    }
+  }
+  if (!cached) {
+    try { await (await caches.open(FONT_CACHE_NAME)).put(canonicalUrl, new Response(blob)); } catch { /* In-memory loading remains usable. */ }
+  }
   const objectUrl = URL.createObjectURL(blob);
-  const face = new FontFace(selected.family, `url("${objectUrl}")`, {
-    style: "normal",
-    weight: String(selected.weight),
-    display: "swap",
-  });
-  await face.load();
-  document.fonts.add(face);
-  loadedFontFaces.set(selected.id, { face, objectUrl });
-  return true;
+  try {
+    const face = new FontFace(selected.family, `url("${objectUrl}")`, {
+      style: "normal", weight: String(selected.weight), display: "swap",
+    });
+    await face.load();
+    document.fonts.add(face);
+    loadedFontFaces.set(selected.id, { face, objectUrl });
+    return true;
+  } catch (error) { URL.revokeObjectURL(objectUrl); throw error; }
 }
 
 function loadGoogleFontStylesheet(selected) {

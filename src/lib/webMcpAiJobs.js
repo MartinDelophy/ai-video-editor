@@ -94,14 +94,14 @@ export function createWebMcpAiJobs({ getEditor, capture, guard, publish = () => 
           if (!(asset.blob instanceof Blob) || !asset.blob.size || asset.type !== "audio" || !number(asset.duration, 0.001, clip.duration)
             || !number(segment.start, timelineStart, timelineStart + clip.duration) || !number(segment.end, segment.start + 0.001, timelineStart + clip.duration)) fail("AI_EMPTY_RESULT");
           const audioId = `agent-voice-${resultId}-${index}`;
-          return [{ type: "asset.insert", clipId: audioId, assetId: asset.id, track: "audio", start: segment.start, duration: asset.duration },
-            { type: "caption.add", clipId: `agent-caption-${resultId}-${index}`, text: segment.text, start: segment.start, end: segment.end }];
+          return [{ type: "asset.insert", clipId: audioId, assetId: asset.id, ...((state.project.visualSegments || []).some(item => item.id === clip.id) ? { visualClipId: clip.id } : {}), track: "audio", start: segment.start, duration: asset.duration },
+            { type: "caption.add", clipId: `agent-caption-${resultId}-${index}`, text: segment.text, start: segment.start, end: segment.end, ...((state.project.visualSegments || []).some(item => item.id === clip.id) ? { visualClipId: clip.id } : {}) }];
         });
       } else if (input.kind === "captions") {
         if (!Array.isArray(output.segments) || !output.segments.length || output.segments.length > 500) fail("AI_EMPTY_RESULT");
         operations = output.segments.map((segment, index) => {
           if (!number(segment.start, timelineStart, timelineStart + metadata.duration) || !number(segment.end, segment.start + 0.2, Math.min(MAX_TIMELINE_DURATION_SECONDS, timelineStart + metadata.duration)) || typeof segment.text !== "string" || !segment.text.trim() || segment.text.length > 20000) fail("AI_EMPTY_RESULT");
-          return { type: "caption.add", clipId: `agent-caption-${resultId}-${index}`, text: segment.text, start: segment.start, end: segment.end };
+          return { type: "caption.add", clipId: `agent-caption-${resultId}-${index}`, text: segment.text, start: segment.start, end: segment.end, ...((state.project.visualSegments || []).some(item => item.id === clip.id) ? { visualClipId: clip.id } : {}) };
         });
       } else if (input.kind === "pauses") {
         if (!Array.isArray(output.candidates) || output.candidates.length > 500) fail("AI_EMPTY_RESULT");

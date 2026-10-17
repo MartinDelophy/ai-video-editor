@@ -1,3 +1,4 @@
+import { isTimedSegmentLaneLocked } from "./timeline.js";
 import { reverseAudioBlob } from "./media.js";
 
 export function normalizeAudioPlaybackRate(value) {
@@ -25,7 +26,7 @@ export function updateAudioSegmentPlaybackRate(segment, value) {
 
 export function createAudioClipActions(d) {
   const updateAudioSegment = (id, patch) => d.setAudioSegments((segments) => segments.map((segment) => {
-    if (segment.id !== id) return segment;
+    if (segment.id !== id || isTimedSegmentLaneLocked(segments, id, d.trackLocks || {})) return segment;
     const normalizedPatch = Number.isFinite(patch.volume)
       ? { ...patch, volume: normalizeAudioVolume(patch.volume) }
       : patch;
@@ -45,16 +46,30 @@ export function createAudioClipActions(d) {
     return next;
   }));
   const toggleAudioSegmentReverse = async (id) => {
-    const segment = d.audioSegments.find((item) => item.id === id); if (!segment || segment.reversing) return;
+    const segment = d.audioSegments.find((item) => item.id === id); if (!segment || segment.reversing || isTimedSegmentLaneLocked(d.audioSegments, id, d.trackLocks || {})) return;
     d.audioSegmentRefs.current.get(id)?.pause();
     d.setAudioSegments((items) => items.map((item) => item.id === id ? { ...item, reversing: true } : item));
     try {
       const originalBlob = segment.originalBlob || segment.blob; const originalPeaks = segment.originalPeaks || segment.peaks;
       const blob = segment.reversed ? originalBlob : await reverseAudioBlob(originalBlob);
-      const peaks = segment.reversed ? originalPeaks : [...originalPeaks].reverse(); const url = URL.createObjectURL(blob);
+      const peaks = segment.reversed ? originalPeaks : [...originalPeaks].reverse();
+      let processingPatch = {};
+      if (segment.processingOriginalBlob instanceof Blob) {
+        // Keep the restorable raw source in the same orientation as the baked file.
+        const raw = await reverseAudioBlob(segment.processingOriginalBlob);
+        const header = new DataView(await raw.slice(0, 44).arrayBuffer());
+        const rawDuration = header.getUint32(40, true) / header.getUint32(28, true);
+        const processedHeader = new DataView(await segment.blob.slice(0, 44).arrayBuffer());
+        const processedDuration = segment.processingOriginal?.sourceDuration
+          || processedHeader.getUint32(40, true) / processedHeader.getUint32(28, true);
+        processingPatch = { processingOriginalBlob: raw,
+          processingOriginalPeaks: [...(segment.processingOriginalPeaks || [])].reverse(),
+          processingOriginal: { sourceStart: Math.max(0, rawDuration - (segment.processingOriginal?.sourceStart || 0) - processedDuration), sourceDuration: processedDuration } };
+      }
+      const url = URL.createObjectURL(blob);
       URL.revokeObjectURL(segment.url);
       d.setAudioSegments((items) => items.map((item) => item.id === id ? { ...item, blob, url, peaks,
-        reversed: !segment.reversed, reversing: false, originalBlob, originalPeaks } : item));
+        reversed: !segment.reversed, reversing: false, originalBlob, originalPeaks, ...processingPatch } : item));
       d.notify(segment.reversed ? d.t("audioReverseRestored") : d.t("audioReversed"));
     } catch (error) {
       d.setAudioSegments((items) => items.map((item) => item.id === id ? { ...item, reversing: false } : item));

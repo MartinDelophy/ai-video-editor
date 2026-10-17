@@ -1,3 +1,4 @@
+import { getCaptionLineKeywordRanges } from "./captionKeywords.js";
 import {
   DEFAULT_CAPTION_FONT_ID,
   resolveCaptionFontFamily,
@@ -29,6 +30,10 @@ function toPositiveNumber(value, fallback = 0) {
   return Number.isFinite(number) && number > 0 ? number : fallback;
 }
 
+function nonNegative(value, fallback = 0) {
+  return value != null && Number.isFinite(Number(value)) ? Math.max(0, Number(value)) : fallback;
+}
+
 function normalizeFrameSize(size) {
   return {
     width: toPositiveNumber(size?.width),
@@ -57,8 +62,8 @@ export function resolveCaptionMetrics({
   const frame = normalizeFrameSize(renderFrame);
   const scale = getCaptionScale(referenceFrame, frame);
   const fontSize = Math.max(1, toPositiveNumber(captionSize, 14) * scale);
-  const paddingX = toPositiveNumber(captionStyle.paddingX, CAPTION_PADDING_X) * scale;
-  const paddingY = toPositiveNumber(captionStyle.paddingY, CAPTION_PADDING_Y) * scale;
+  const paddingX = nonNegative(captionStyle.paddingX, CAPTION_PADDING_X) * scale;
+  const paddingY = nonNegative(captionStyle.paddingY, CAPTION_PADDING_Y) * scale;
   const minWidth = frame.width * CAPTION_MIN_WIDTH_RATIO;
   const maxWidth = Math.max(
     minWidth,
@@ -75,7 +80,9 @@ export function resolveCaptionMetrics({
     fontWeight,
     fontFamily,
     font: `${fontWeight} ${fontSize}px ${fontFamily}`,
-    lineHeight: fontSize * CAPTION_LINE_HEIGHT,
+    lineHeight: fontSize * CAPTION_LINE_HEIGHT + Math.min(32, nonNegative(captionStyle.lineGap)) * scale,
+    lineGap: Math.min(32, nonNegative(captionStyle.lineGap)) * scale,
+    letterSpacing: Math.min(12, nonNegative(captionStyle.letterSpacing)) * scale,
     paddingX,
     paddingY,
     minHeight: CAPTION_MIN_HEIGHT * scale,
@@ -114,12 +121,20 @@ function getWrapTokens(text) {
   return text.match(/\s+|[\u3400-\u9fff\u3040-\u30ff\uac00-\ud7af]|[^\s\u3400-\u9fff\u3040-\u30ff\uac00-\ud7af]+/gu) ?? [];
 }
 
-function splitOversizedToken(context, token, maxWidth) {
+function measureCaptionText(context, text, spacing) {
+  if ("letterSpacing" in context) {
+    context.letterSpacing = `${spacing}px`;
+    return context.measureText(text).width;
+  }
+  return context.measureText(text).width + Math.max(0, getGraphemes(text).length - 1) * spacing;
+}
+
+function splitOversizedToken(context, token, maxWidth, spacing) {
   const chunks = [];
   let current = "";
   getGraphemes(token).forEach((grapheme) => {
     const candidate = current + grapheme;
-    if (current && context.measureText(candidate).width > maxWidth) {
+    if (current && measureCaptionText(context, candidate, spacing) > maxWidth) {
       chunks.push(current);
       current = grapheme;
     } else {
@@ -132,7 +147,7 @@ function splitOversizedToken(context, token, maxWidth) {
   return chunks;
 }
 
-export function wrapCaptionText(context, text, maxWidth) {
+export function wrapCaptionText(context, text, maxWidth, spacing = 0) {
   const safeText = String(text ?? "");
   const paragraphs = safeText.split(/\r?\n/);
   const lines = [];
@@ -146,7 +161,7 @@ export function wrapCaptionText(context, text, maxWidth) {
     let current = "";
     getWrapTokens(paragraph).forEach((token) => {
       const candidate = current + token;
-      if (context.measureText(candidate).width <= maxWidth) {
+      if (measureCaptionText(context, candidate, spacing) <= maxWidth) {
         current = candidate;
         return;
       }
@@ -160,12 +175,12 @@ export function wrapCaptionText(context, text, maxWidth) {
         return;
       }
 
-      if (context.measureText(nextToken).width <= maxWidth) {
+      if (measureCaptionText(context, nextToken, spacing) <= maxWidth) {
         current = nextToken;
         return;
       }
 
-      const chunks = splitOversizedToken(context, nextToken, maxWidth);
+      const chunks = splitOversizedToken(context, nextToken, maxWidth, spacing);
       lines.push(...chunks.slice(0, -1));
       current = chunks.at(-1) ?? "";
     });
@@ -200,7 +215,7 @@ export function getCaptionTextLayout({
   const paragraphWidths = String(text ?? "")
     .split(/\r?\n/)
     .map((paragraph) =>
-      context ? context.measureText(paragraph).width : getFallbackTextWidth(paragraph, metrics.fontSize),
+      context ? measureCaptionText(context, paragraph, metrics.letterSpacing) : getFallbackTextWidth(paragraph, metrics.fontSize) + Math.max(0, getGraphemes(paragraph).length - 1) * metrics.letterSpacing,
     );
   const preferredTextWidth = Math.max(0, ...paragraphWidths);
   const width = clamp(
@@ -210,11 +225,11 @@ export function getCaptionTextLayout({
   );
   const contentWidth = Math.max(1, width - metrics.paddingX * 2);
   const lines = context
-    ? wrapCaptionText(context, text, contentWidth)
+    ? wrapCaptionText(context, text, contentWidth, metrics.letterSpacing)
     : String(text ?? "").split(/\r?\n/);
   const height = Math.max(
     metrics.minHeight,
-    lines.length * metrics.lineHeight + metrics.paddingY * 2,
+    lines.length * metrics.lineHeight - metrics.lineGap + metrics.paddingY * 2,
   );
 
   return {
@@ -225,6 +240,7 @@ export function getCaptionTextLayout({
     height,
     contentWidth,
     lines,
+    keywordRanges: getCaptionLineKeywordRanges(text, lines, captionStyle.highlightWords),
     style: captionStyle,
   };
 }
@@ -295,6 +311,21 @@ export function drawCaptionLayout(context, layout, position = { x: 0, y: 0 }) {
   }
 
   context.font = metrics.font;
+  const spacing = metrics.letterSpacing || 0;
+  if ("letterSpacing" in context) context.letterSpacing = `${spacing}px`;
+  const drawText = (method, text, x, y) => {
+    if (!spacing || "letterSpacing" in context) { context[method](text, x, y, layout.contentWidth); return; }
+    const width = measureCaptionText(context, text, spacing);
+    const start = context.textAlign === "left" ? x : context.textAlign === "right" ? x - width : x - width / 2;
+    context.save();
+    context.textAlign = "left";
+    let prefix = "";
+    getGraphemes(text).forEach((grapheme, index) => {
+      context[method](grapheme, start + context.measureText(prefix).width + index * spacing, y);
+      prefix += grapheme;
+    });
+    context.restore();
+  };
   context.textAlign = ["left", "right"].includes(style.textAlign) ? style.textAlign : "center";
   context.textBaseline = "middle";
   context.fillStyle = style.textColor || "#f5fbff";
@@ -302,8 +333,8 @@ export function drawCaptionLayout(context, layout, position = { x: 0, y: 0 }) {
   context.shadowBlur = style.effect === "neon" ? metrics.shadowBlur * 2.6 : metrics.shadowBlur;
   context.shadowOffsetX = 0;
   context.shadowOffsetY = metrics.shadowOffsetY;
-  const blockHeight = layout.lines.length * metrics.lineHeight;
-  const firstLineY = position.y + (layout.height - blockHeight) / 2 + metrics.lineHeight / 2;
+  const blockHeight = layout.lines.length * metrics.lineHeight - (metrics.lineGap || 0);
+  const firstLineY = position.y + (layout.height - blockHeight) / 2 + (metrics.lineHeight - (metrics.lineGap || 0)) / 2;
   layout.lines.forEach((line, index) => {
     const textX = context.textAlign === "left" ? position.x + metrics.paddingX
       : context.textAlign === "right" ? position.x + layout.width - metrics.paddingX
@@ -317,15 +348,30 @@ export function drawCaptionLayout(context, layout, position = { x: 0, y: 0 }) {
       context.miterLimit = 2;
       context.lineWidth = strokeWidth * 2;
       context.strokeStyle = style.textStrokeColor || "#05080d";
-      context.strokeText(line, textX, textY, layout.contentWidth);
+      drawText("strokeText", line, textX, textY);
       context.restore();
     }
-    context.fillText(
-      line,
-      textX,
-      textY,
-      layout.contentWidth,
-    );
+    drawText("fillText", line, textX, textY);
+    const ranges = layout.keywordRanges?.[index] || [];
+    if (ranges.length) {
+      const width = measureCaptionText(context, line, spacing);
+      const left = context.textAlign === "left" ? textX : context.textAlign === "right" ? textX - width : textX - width / 2;
+      const boundary = offset => offset === 0 ? 0 : measureCaptionText(context, line.slice(0, offset), spacing)
+        + (spacing && !("letterSpacing" in context) ? spacing : 0);
+      for (const range of ranges) {
+        context.save();
+        context.beginPath();
+        const start = boundary(range.start), end = Math.min(width, boundary(range.end));
+        context.rect(left + start, textY - metrics.fontSize, Math.max(0, end - start), metrics.fontSize * 2);
+        context.clip();
+        context.fillStyle = style.highlightColor || "#ffe066";
+        context.shadowColor = "transparent";
+        // Repaint the shaped whole line through a clip. This preserves font
+        // ligatures, alignment and tracking rather than splitting glyph runs.
+        drawText("fillText", line, textX, textY);
+        context.restore();
+      }
+    }
   });
   context.restore();
 }

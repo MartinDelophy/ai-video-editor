@@ -4,7 +4,7 @@ import { AudioProcessingGraph } from "./AudioProcessingGraph.jsx";
 import { useEffect, useRef, useState } from "react";
 import { getAudioProcessingCopy } from "../i18nAudioProcessing.js";
 import { normalizeAudioProcessing } from "../lib/audioProcessingDsp.js";
-import { audioProcessingIdentity, processAudioClip } from "../lib/audioProcessing.js";
+import { audioProcessingIdentity, processAudioClip, audioProcessingResultPatch, audioProcessingRestorePatch } from "../lib/audioProcessing.js";
 
 export function AudioProcessingPanel({
   segment,
@@ -113,44 +113,14 @@ export function AudioProcessingPanel({
       return;
     const url = URL.createObjectURL(result.blob);
     registerUrl?.(url);
-    updateAudioSegment(segment.id, {
-      blob: result.blob,
-      url,
-      sourceStart: 0,
-      sourceDuration: result.sourceDuration,
-      peaks: result.peaks,
-      audioProcessing: result.settings,
-      processingOriginalBlob:
-        segment.processingOriginalBlob instanceof Blob
-          ? segment.processingOriginalBlob
-          : segment.blob,
-      processingOriginalPeaks: segment.processingOriginalPeaks || segment.peaks,
-      processingOriginal: {
-        sourceStart: result.originalSourceStart,
-        sourceDuration: result.sourceDuration,
-      },
-      processingRevision: crypto.randomUUID(),
-      originalBlob: null,
-      originalPeaks: null,
-      reversed: false,
-    });
+    updateAudioSegment(segment.id, audioProcessingResultPatch(segment, result, url));
     setResult(null);
   };
   const restore = () => {
     if (disabled || !(segment.processingOriginalBlob instanceof Blob)) return;
     const url = URL.createObjectURL(segment.processingOriginalBlob);
     registerUrl?.(url);
-    updateAudioSegment(segment.id, {
-      blob: segment.processingOriginalBlob,
-      url,
-      sourceStart: (segment.processingOriginal?.sourceStart || 0) + (segment.sourceStart || 0),
-      processingOriginalBlob: null,
-      processingOriginal: null,
-      audioProcessing: null,
-      processingRevision: crypto.randomUUID(),
-      peaks: segment.processingOriginalPeaks || [],
-      processingOriginalPeaks: null,
-    });
+    updateAudioSegment(segment.id, audioProcessingRestorePatch(segment, url));
     setSettings(normalizeAudioProcessing());
     setResult(null);
   };

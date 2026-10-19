@@ -8,3 +8,9 @@
 .timeline-gain[aria-disabled="true"] { pointer-events: none; opacity: .35; }
 
 .timeline-gain-tooltip { position: fixed; z-index: 100000; transform: translateX(-50%); padding: 3px 6px; border: 1px solid #3c6f79; border-radius: 5px; background: #10252f; color: #e5fcff; font-size: 11px; line-height: 16px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; pointer-events: none; box-shadow: 0 2px 8px #0005; }
+
+.timeline-ducking-envelope { position:absolute; inset:0 7px; width:calc(100% - 14px); height:100%; z-index:3; pointer-events:none; overflow:visible; }
+.timeline-ducking-envelope polyline { fill:none; stroke:#a3f3ed; stroke-width:2; vector-effect:non-scaling-stroke; stroke-linejoin:round; }
+.timeline-ducking-envelope ellipse { fill:#d0fffa; }
+.timeline-gain.has-ducking-envelope::before { opacity:0; }
+.timeline-gain.has-ducking-envelope:is(:hover,:focus-visible,.is-adjusting)::before { opacity:.35; }

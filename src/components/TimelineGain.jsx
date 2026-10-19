@@ -1,4 +1,5 @@
-import { useRef, useState } from "react";
+import { getDuckingStatus, subscribeDucking, normalizeAutoDuck } from "../lib/audioDucking.js";
+import { useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import "./TimelineGain.css";
 
@@ -8,7 +9,9 @@ const toDb = (gain) => gain > 0 ? Math.max(MIN_DB, Math.min(MAX_DB, 20 * Math.lo
 const toGain = (db) => db <= MIN_DB ? 0 : Math.min(4, 10 ** (db / 20));
 
 // Edits the existing linear gain, shared by project persistence, preview and export.
-export function TimelineGain({ volume = 1, disabled, onChange, t, compact = false }) {
+export function TimelineGain({ volume = 1, disabled, onChange, t, compact = false, segment }) {
+  const job = useSyncExternalStore(subscribeDucking, () => getDuckingStatus(segment?.id));
+  const points = normalizeAutoDuck(segment?.autoDuck).enabled && job.status === "ready" ? job.points : null;
   const drag = useRef(null);
   const [active, setActive] = useState(false);
   const [hovered, setHovered] = useState(false);
@@ -24,6 +27,10 @@ export function TimelineGain({ volume = 1, disabled, onChange, t, compact = fals
   const linePosition = db >= 0
     ? unityPosition - (db / MAX_DB) * (unityPosition - (compact ? 8 : 18))
     : unityPosition + (db / MIN_DB) * ((compact ? 80 : 82) - unityPosition);
+  const curve = points?.length && segment.duration > 0 ? points.map(([time, gain]) => [
+    Math.max(0, Math.min(100, (time - (segment.start || 0)) / segment.duration * 100)),
+    linePosition + (95 - linePosition) * (1 - gain),
+  ]) : null;
   const label = volume <= 0 ? "−∞ dB" : `${db > 0 ? "+" : ""}${db.toFixed(1)} dB`;
   const finish = (event, cancel = false) => {
     if (!drag.current || event.pointerId !== drag.current.id) return;
@@ -33,8 +40,8 @@ export function TimelineGain({ volume = 1, disabled, onChange, t, compact = fals
     if (cancel) onChange(original);
     if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
   };
-  return <><div
-    className={`timeline-gain ${active ? "is-adjusting" : ""}`}
+  return <>{curve ? <svg className="timeline-ducking-envelope" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><polyline points={curve.map(point => point.join(",")).join(" ")} />{curve.map(([x,y], index) => <ellipse key={index} cx={x} cy={y} rx="0.25" ry="2.5" />)}</svg> : null}<div
+    className={`timeline-gain ${curve ? "has-ducking-envelope" : ""} ${active ? "is-adjusting" : ""}`}
     style={{ top: `${linePosition}%` }}
     role="slider" tabIndex={disabled ? -1 : 0} aria-disabled={disabled}
     aria-label={t("timelineGain")} aria-valuemin={MIN_DB} aria-valuemax={MAX_DB}

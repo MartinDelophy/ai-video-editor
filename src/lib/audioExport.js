@@ -1,3 +1,4 @@
+import { getDuckingEnvelope, scheduleDuckingGain } from "./audioDucking.js";
 import { connectAudioSpatialEffect } from "./audioSpatialEffects.js";
 import { throwIfExportAborted } from "./exportCancellation.js";
 import { encodeAudioBufferAsWav, transcodeAudioToMp3 } from "./media.js";
@@ -11,6 +12,7 @@ function makeAudioInput(segment, defaults = {}) {
   const playbackRate = normalizeVisualPlaybackRate(segment.playbackRate);
   return {
     blob: segment.blob ?? defaults.blob,
+    duckingEnvelope: getDuckingEnvelope(segment,{strict:true}),
     start: nonnegative(segment.start ?? defaults.start),
     volume: segment.muted === true ? 0 : clamp(Number(segment.volume ?? defaults.volume ?? 1), 0, 4),
     sourceStart: nonnegative(segment.sourceStart),
@@ -153,7 +155,9 @@ export async function mixOfflineAudio({
       const outputStart = visibleStart - rangeStart;
       scheduleAudioEnvelope(gain.gain, input, clipDuration, localStart, localEnd, outputStart);
       source.connect(gain);
-      connectAudioSpatialEffect(context, gain, context.destination, input.spatialEffect, input.spatialAmount, { smooth: false });
+      const duckGain = context.createGain(); gain.connect(duckGain);
+      scheduleDuckingGain(duckGain.gain,input.duckingEnvelope,visibleStart,outputStart,localEnd-localStart);
+      connectAudioSpatialEffect(context, duckGain, context.destination, input.spatialEffect, input.spatialAmount, { smooth: false });
       sources.push(source);
       source.start(outputStart, preservePitch ? 0 : offset, preservePitch ? localEnd - localStart : trimmedSourceDuration);
     }
@@ -208,7 +212,8 @@ export async function exportAudioClip({
   if (!segment || !(nonnegative(segment.duration) > 0)) throw new Error("Audio clip duration must be positive");
   return exportAudioMix({
     duration: segment.duration,
-    voiceAudioSegments: [{ ...segment, blob, start: 0, volume, spatialEffect, spatialAmount }],
+    timelineOffset: segment.start || 0,
+    voiceAudioSegments: [{ ...segment, blob, volume, spatialEffect, spatialAmount }],
     format,
     audioBitsPerSecond,
     signal,

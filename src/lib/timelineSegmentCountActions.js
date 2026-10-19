@@ -19,9 +19,13 @@ export function createTimelineSegmentCountActions(d) {
       .sort((left, right) => (Number(left.start) || 0) - (Number(right.start) || 0))
       .filter((item) => (Number(item.start) || 0) <= start)
       .at(-1);
+    // This explicit Add action targets the main picture under the insertion
+    // point. Record ownership now rather than guessing from overlap on delete.
+    const owner = getVisualSegmentTimeline(d.visualSegments || []).find(range => start >= range.start && start < range.end && range.end - start >= 0.2);
     const segment = { id: makeId("caption"), text: d.t?.("newCaptionDefault") ?? "新的字幕片段", weight: 1, hidden: false,
       fontId: previousSegment?.fontId || d.captionStyle?.fontId || "default",
-      start, end: Math.min(MAX_TIMELINE_DURATION_SECONDS, start + 1.8) };
+      ...(owner ? { visualSegmentId: owner.id } : {}),
+      start, end: Math.min(MAX_TIMELINE_DURATION_SECONDS, start + 1.8, owner?.end ?? Infinity) };
     const next = [...d.captionSegments, segment].sort((a, b) => (Number(a.start) || 0) - (Number(b.start) || 0));
     d.commitCaptionSegments(next, Number.isFinite(requestedStart) ? "已在点击位置新增字幕片段" : "已在播放头位置新增字幕片段", next.findIndex((item) => item.id === segment.id));
   };
@@ -31,6 +35,8 @@ export function createTimelineSegmentCountActions(d) {
       const source = d.stickerSegments[stickerIndex()] ?? d.getStickerDragAsset(d.selectedSticker);
       if (!source?.src) return void d.notify("请先选择一个贴纸");
       const segment = createStickerSegment(source, d.currentTime, DEFAULT_STICKER_SEGMENT_SECONDS);
+      const owner = getVisualSegmentTimeline(d.visualSegments || []).find(range => d.currentTime >= range.start && d.currentTime < range.end && range.end - d.currentTime >= MIN_VISUAL_SEGMENT_SECONDS);
+      if (owner) { segment.visualSegmentId = owner.id; segment.duration = Math.min(segment.duration, owner.end - d.currentTime); }
       return void d.commitStickerSegments([...d.stickerSegments, segment], "已新增贴纸片段", segment.id);
     }
     if (d.selectedTrack === "image") {

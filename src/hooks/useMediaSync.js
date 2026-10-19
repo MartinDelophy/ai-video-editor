@@ -1,3 +1,4 @@
+import { getAutoDuckGain } from "../lib/audioDucking.js";
 import { useEffect, useMemo, useRef } from "react";
 import { PLAYBACK_UI_FRAME_MS, getAudioSegmentPreviewVolume, getTimelineTrackLocalTime, isAudioSegmentAudible, isTimelineTimeInsideTrack, requestTimelineMediaPlay, setTimelineAudioGain, shouldCorrectPreviewMediaTime } from "../lib/editorRuntime.js";
 import { getLinkedSourceAudioState } from "../lib/sourceAudioSync.js";
@@ -65,7 +66,7 @@ export function useMediaSync(d) {
       visibleSegmentIds: visibleAudioSegmentIds,
     });
   }, [d.audioSegments, d.currentTime, d.isPlaying, d.trackVisibility, visibleAudioSegmentIds]);
-  useEffect(() => { if (d.sourceAudioRef.current) setTimelineAudioGain(d.sourceAudioRef.current, d.sourceAudioLinked ? getLinkedSourceAudioState(d.linkedSourceAudioSegments, d.currentTime).segment?.volume ?? d.sourceAudioVolume : d.sourceAudioVolume, d.sourceAudioSpatialEffect, d.sourceAudioSpatialAmount); }, [d.currentTime, d.linkedSourceAudioSegments, d.sourceAudioLinked, d.sourceAudioSpatialAmount, d.sourceAudioSpatialEffect, d.sourceAudioVolume, d.sourceAudioUrl]);
+  useEffect(() => { if (d.sourceAudioRef.current) setTimelineAudioGain(d.sourceAudioRef.current, (d.sourceAudioLinked ? getLinkedSourceAudioState(d.linkedSourceAudioSegments, d.currentTime).segment?.volume ?? d.sourceAudioVolume : d.sourceAudioVolume) * getAutoDuckGain(d.sourceAudioLinked ? getLinkedSourceAudioState(d.linkedSourceAudioSegments,d.currentTime).segment : {id:"source-audio",autoDuck:d.sourceAudioAutoDuck},d.currentTime), d.sourceAudioSpatialEffect, d.sourceAudioSpatialAmount); }, [d.currentTime, d.linkedSourceAudioSegments, d.sourceAudioLinked, d.sourceAudioSpatialAmount, d.sourceAudioSpatialEffect, d.sourceAudioVolume, d.sourceAudioUrl, d.sourceAudioAutoDuck]);
   useEffect(() => {
     const a = d.sourceAudioRef.current; if (!a || !d.sourceAudioUrl) return;
     const state = d.sourceAudioLinked
@@ -129,8 +130,8 @@ export function useMediaSync(d) {
     if (!d.isPlaying || d.trackVisibility?.image === false) v.pause(); else if (!v.__timelineFramePending) requestTimelineMediaPlay(v);
   }, [d.isPlaying, d.previewVisualSegment?.id, d.previewVisualSrc, d.previewVisualType, d.trackVisibility.image]);
   useEffect(() => {
-    if (d.previewVisualType === "video") setTimelineAudioGain(d.previewVideoRef.current, d.previewVisualSegment?.volume ?? 1, d.previewVisualSegment?.spatialEffect, d.previewVisualSegment?.spatialAmount);
-  }, [d.previewVideoRef, d.previewVisualType, d.previewVisualSrc, d.previewVisualSegment?.volume, d.previewVisualSegment?.spatialEffect, d.previewVisualSegment?.spatialAmount]);
+    if (d.previewVisualType === "video") setTimelineAudioGain(d.previewVideoRef.current, (d.previewVisualSegment?.volume ?? 1) * getAutoDuckGain(d.previewVisualSegment,d.currentTime), d.previewVisualSegment?.spatialEffect, d.previewVisualSegment?.spatialAmount);
+  }, [d.currentTime, d.previewVisualSegment?.autoDuck, d.previewVideoRef, d.previewVisualType, d.previewVisualSrc, d.previewVisualSegment?.volume, d.previewVisualSegment?.spatialEffect, d.previewVisualSegment?.spatialAmount]);
   // Clip changes and filmstrip refinement must not re-anchor the master clock.
   // Explicit seeks update its refs directly; only playback state or the actual
   // project duration starts a new clock session.

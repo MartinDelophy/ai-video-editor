@@ -45,13 +45,19 @@ function applyLatestSeek(video, state) {
   const hasFrameCallback = typeof video.requestVideoFrameCallback === "function";
   let earlyMediaTime = null;
   let finished = false;
+  let nativeSeekCompleted = false;
   const finish = (mediaTime) => {
     if (state.version !== version || finished) return;
     finished = true;
     state.presentedTime = mediaTime;
     clearObservation(video, state);
     state.active = null;
-    try { if (!state.pending) request.onPresented?.(mediaTime); }
+    try {
+      if (!state.pending) {
+        video.dispatchEvent(new Event("timelineframepresented"));
+        request.onPresented?.(mediaTime);
+      }
+    }
     finally { scheduleLatestSeek(video, state); }
   };
   const watchFrame = () => {
@@ -62,12 +68,13 @@ function applyLatestSeek(video, state) {
       // Retain its actual PTS instead of requiring an additional paused frame.
       if (Number.isFinite(metadata?.mediaTime)) earlyMediaTime = metadata.mediaTime;
       const offset = earlyMediaTime === null ? Infinity : request.targetTime - earlyMediaTime;
-      if (video.seeking || offset < -EARLY_PRESENTED_FRAME_TOLERANCE || offset > EARLY_PRESENTED_FRAME_TOLERANCE) { watchFrame(); return; }
+      if (video.seeking || offset < -EARLY_PRESENTED_FRAME_TOLERANCE || (offset > EARLY_PRESENTED_FRAME_TOLERANCE && !nativeSeekCompleted)) { watchFrame(); return; }
       finish(earlyMediaTime);
     });
   };
   const onSeeked = () => {
     if (state.version !== version || finished) return;
+    nativeSeekCompleted = !video.seeking;
     // A completed native seek has freed the decoder. During scrubbing there
     // is no reason to spend two compositor frames observing an obsolete
     // target before starting the latest one. Do not interrupt an active

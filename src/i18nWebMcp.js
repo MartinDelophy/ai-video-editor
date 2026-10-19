@@ -1,3 +1,5 @@
+import { getChatCutFeatureCopy } from "./i18nChatCutFeatures.js";
+import { AUDIO_SPATIAL_EFFECTS } from "./lib/audioSpatialEffects.js";
 import { WEB_MCP_AI_COPY } from "./i18nWebMcpAi.js";
 import { createTranslator } from "./i18n.js";
 import { WEBMCP_EXTENDED_COPY } from "./i18nWebMcpExtended.js";
@@ -231,12 +233,17 @@ for (const [locale, copy] of Object.entries(WEBMCP_EXTENDED_COPY)) Object.assign
 
 export function createWebMcpTranslator(language) {
   const locale = String(language || "en").toLowerCase().split(/[-_]/)[0];
-  const copy = { ...(WEBMCP_COPY[locale] || WEBMCP_COPY.en), ...(WEB_MCP_AI_COPY[locale] || WEB_MCP_AI_COPY.en) };
+  const copy = { ...(WEBMCP_COPY[locale] || WEBMCP_COPY.en), ...(WEB_MCP_AI_COPY[locale] || WEB_MCP_AI_COPY.en), ...getChatCutFeatureCopy(locale) };
   const editorCopy = createTranslator(locale);
   const direct = {
     it: { editColor: "Ruote colore", editTransition: "Impostazioni transizione", editTemperature: "Temperatura", editTint: "Tinta", editSaturation: "Saturazione", editShadows: "Ombre", editMidtones: "Mezzitoni", editHighlights: "Luci", editOffset: "Offset", editHue: "Tonalità", editLuminance: "Luminanza" },
     id: { editColor: "Roda warna", editTransition: "Pengaturan transisi", editTemperature: "Suhu", editTint: "Rona", editSaturation: "Saturasi", editShadows: "Bayangan", editMidtones: "Nada tengah", editHighlights: "Sorotan", editOffset: "Offset", editHue: "Corak", editLuminance: "Luminansi" },
   }[locale] || {};
   const editKeys = { editColor: "colorGradeTitle", editGlitch: "glitchTitle", editShake: "shakeTitle", editTransition: "transitionSettings", editTemperature: "colorGradeTemperature", editTint: "colorGradeTint", editSaturation: "colorGradeSaturation", editShadows: "colorGradeShadows", editMidtones: "colorGradeMidtones", editHighlights: "colorGradeHighlights", editOffset: "colorGradeOffset", editHue: "colorGradeHue", editLuminance: "colorGradeLuminance", editIntensity: "glitch_intensity", editSeparation: "glitch_separation", editFrequency: "glitch_frequency", editScanlines: "glitch_scanlines", editBpm: "shake_bpm", editDecay: "shake_decay", editDirection: "shake_direction", editShakeIntensity: "shake_intensity", editShakeOffset: "shake_offset" };
-  return (key, values = {}) => String(direct[key] ?? (editKeys[key] ? editorCopy(editKeys[key]) : copy[key] ?? key)).replace(/\{(\w+)\}/g, (match, name) => Object.prototype.hasOwnProperty.call(values, name) ? String(values[name]) : match);
+  const spatialFallbacks = {
+    it: ["Originale", "Camera da letto", "Soggiorno", "Bagno", "Sala", "Corridoio", "Piazza", "Valle", "Studio di registrazione", "Ufficio", "Caffè", "Aula", "Teatro", "Chiesa", "Foresta", "Metropolitana"],
+    id: ["Asli", "Kamar tidur", "Ruang tamu", "Kamar mandi", "Aula", "Koridor", "Alun-alun", "Lembah", "Studio rekaman", "Kantor", "Kafe", "Ruang kelas", "Teater", "Gereja", "Hutan", "Kereta bawah tanah"],
+  };
+  const spaces = Object.fromEntries(AUDIO_SPATIAL_EFFECTS.map((effect, index) => [`space_${effect.id}`, spatialFallbacks[locale]?.[index] || editorCopy(effect.labelKey)]));
+  return (key, values = {}) => String(spaces[key] ?? direct[key] ?? (editKeys[key] ? editorCopy(editKeys[key]) : copy[key] ?? key)).replace(/\{(\w+)\}/g, (match, name) => Object.prototype.hasOwnProperty.call(values, name) ? String(values[name]) : match);
 }

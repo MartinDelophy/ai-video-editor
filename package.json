@@ -35,7 +35,7 @@
     "build:anna:executa": "node scripts/build-anna-executa.mjs"
   },
   "dependencies": {
-    "@anna-ai/app-runtime": "0.20.0",
+    "@anna-ai/app-runtime": "0.21.0",
     "@diffusionstudio/piper-wasm": "1.0.0",
     "@diffusionstudio/vits-web": "^1.0.3",
     "@ffmpeg/core": "^0.12.10",
@@ -62,6 +62,7 @@
     "remark-breaks": "^4.0.0",
     "remark-gfm": "^4.0.1",
     "remotion": "4.0.532",
+    "three": "0.180.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {

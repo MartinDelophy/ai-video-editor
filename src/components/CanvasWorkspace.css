@@ -1,0 +1,857 @@
+.canvas-workspace {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  display: grid;
+  grid-template-columns: 285px minmax(0, 1fr) 285px;
+  grid-template-rows: 60px minmax(0, 1fr);
+  gap: 6px;
+  padding: 0 7px 7px;
+  background: #0b1118;
+  color: #e6eef3;
+  font:
+    13px/1.6 system-ui,
+    -apple-system,
+    "PingFang SC",
+    sans-serif;
+  isolation: isolate;
+}
+.canvas-workspace * {
+  box-sizing: border-box;
+}
+.canvas-workspace :is(.nc-picker, .nc-node-menu, .nc-modal) {
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: #49616e transparent;
+}
+.canvas-workspace :is(.nc-picker, .nc-node-menu, .nc-modal)::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+.canvas-workspace :is(.nc-picker, .nc-node-menu, .nc-modal)::-webkit-scrollbar-track {
+  background: transparent;
+}
+.canvas-workspace :is(.nc-picker, .nc-node-menu, .nc-modal)::-webkit-scrollbar-thumb {
+  background: #49616e;
+  border-radius: 8px;
+}
+.canvas-workspace :is(.nc-picker, .nc-node-menu, .nc-modal)::-webkit-scrollbar-thumb:hover {
+  background: #6d919e;
+}
+.canvas-workspace.nc-chat-closed {
+  grid-template-columns: 0 minmax(0, 1fr) 285px;
+}
+.canvas-workspace.nc-inspector-closed {
+  grid-template-columns: 285px minmax(0, 1fr) 0;
+}
+.canvas-workspace.nc-chat-closed.nc-inspector-closed {
+  grid-template-columns: 0 minmax(0, 1fr) 0;
+}
+.canvas-workspace button:not(:where(.chatcut *)) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 7px 10px;
+  min-height: 34px;
+  font: inherit;
+  font-size: 12px;
+  color: #d9e5ee;
+  background: #1b2632;
+  cursor: pointer;
+  transform: none;
+}
+.canvas-workspace button:not(:where(.chatcut *)):hover {
+  background: #273644;
+}
+.canvas-workspace button:not(:where(.chatcut *)):disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.canvas-workspace :is(button, input, textarea, select):not(:where(.chatcut *)):focus-visible {
+  outline: 2px solid #35e9d6;
+  outline-offset: 2px;
+}
+.canvas-workspace :is(input, textarea, select):not(:where(.chatcut *)) {
+  font: inherit;
+  color: #dce7ee;
+  background: #19232e;
+  border: 1px solid #2d3d4d;
+  border-radius: 8px;
+  min-width: 0;
+  padding: 10px;
+  width: 100%;
+}
+.canvas-workspace textarea:not(:where(.chatcut *)) {
+  resize: vertical;
+  line-height: 1.8;
+}
+.canvas-workspace .nc-icon {
+  background: transparent;
+  width: 32px;
+  height: 32px;
+  min-height: 32px;
+  padding: 4px;
+  flex-shrink: 0;
+}
+.nc-topbar {
+  grid-column: 1/-1;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 0 12px;
+  border-bottom: 1px solid #253341;
+}
+.nc-topbar > strong {
+  font-size: 15px;
+}
+.nc-spacer {
+  flex: 1;
+}
+.nc-save {
+  font-size: 11px;
+  color: #90a3b4;
+  max-width: 45%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.nc-save.is-saved {
+  color: #63ceba;
+}
+.nc-save:is(.is-conflict, .is-saveError) {
+  color: #e5bd81;
+}
+.nc-chat,
+.nc-inspector {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: #101820;
+  border: 1px solid #263440;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.nc-chat {
+  grid-column: 1;
+}
+.nc-heading {
+  height: 65px;
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+.nc-heading strong {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 15px;
+}
+.nc-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #35e9d6;
+}
+.nc-chat.chatcut {
+  grid-row: 2;
+  width: 100%;
+  min-width: 0;
+  --chatcut-body-size: 13px;
+}
+.nc-chat .chatcut-session-heading {
+  flex: 1;
+  min-width: 0;
+}
+.nc-chat .chatcut-session-heading > strong {
+  font-size: 14px;
+  line-height: 1.6;
+}
+.nc-chat .chatcut-composer {
+  flex-shrink: 0;
+}
+.nc-chat .chatcut-composer:focus-within {
+  border-color: #418c89;
+}
+.nc-proposal {
+  padding: 13px;
+  border: 1px solid #2d7276;
+  border-radius: 9px;
+  background: #123237;
+}
+.nc-proposal p,
+.nc-proposal li {
+  font-size: 12px;
+}
+.nc-proposal ul {
+  padding-left: 15px;
+}
+.nc-proposal button {
+  margin-right: 5px;
+}
+.nc-canvas {
+  grid-column: 2;
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid #283b48;
+  border-radius: 8px;
+  background-color: #0e1821;
+  background-image: radial-gradient(#304452 1px, transparent 1px);
+  background-size: 24px 24px;
+  touch-action: none;
+  cursor: grab;
+}
+.nc-canvas:active {
+  cursor: grabbing;
+}
+.nc-toolbar {
+  position: absolute;
+  left: 12px;
+  top: 18px;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  background: #15212c;
+  border: 1px solid #304351;
+  border-radius: 12px;
+}
+.canvas-workspace .nc-add {
+  width: 37px;
+  height: 37px;
+  min-height: 37px;
+  border-radius: 50%;
+  padding: 0;
+  color: #062c2d;
+  background: #35e9d6;
+}
+.nc-world {
+  position: absolute;
+  inset: 0;
+  transform-origin: 0 0;
+  pointer-events: none;
+}
+.nc-node {
+  position: absolute;
+  background: #192630;
+  border: 1px solid #3a4e5c;
+  border-radius: 10px;
+  box-shadow: 0 6px 18px #0003;
+  pointer-events: auto;
+  cursor: move;
+  user-select: none;
+}
+.nc-node.is-selected {
+  border: 2px solid #35e9d6;
+  box-shadow: 0 0 0 3px #35e9d611;
+}
+.nc-node header {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 44px;
+  padding: 7px 12px;
+  border-bottom: 1px solid #2b3f4d;
+}
+.nc-node header strong {
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.nc-node header .nc-icon {
+  margin-left: auto;
+  width: 23px;
+}
+.nc-node header > small {
+  font-size: 9px;
+  color: #67d6bf;
+  background: #163f3e;
+  border-radius: 12px;
+  padding: 2px 6px;
+  white-space: nowrap;
+}
+.nc-node header > small.is-stale {
+  color: #f2cb86;
+  background: #3f3928;
+}
+.nc-node-content {
+  padding: 12px;
+}
+.nc-node-content > img,
+.nc-node-content > video {
+  display: block;
+  width: 100%;
+  height: 170px;
+  object-fit: cover;
+  border-radius: 5px;
+}
+.nc-node-media .nc-node-content > img {
+  height: 150px;
+}
+.nc-node-content > audio {
+  width: 100%;
+  height: 45px;
+}
+.nc-node-content > p {
+  white-space: pre-wrap;
+  max-height: 190px;
+  overflow: auto;
+  font-size: 11px;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+.nc-node-placeholder {
+  min-height: 150px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #91a8b8;
+  gap: 12px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: #101d263d;
+}
+.nc-node-placeholder p {
+  font-size: 12px;
+  line-height: 1.8;
+  margin: 0;
+  max-height: 135px;
+  overflow: hidden;
+  white-space: pre-wrap;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  text-align: center;
+}
+.nc-node-placeholder.has-text p {
+  align-self: stretch;
+  text-align: left;
+}
+.nc-node-placeholder.is-empty > svg {
+  opacity: 0.65;
+}
+.nc-node-placeholder > small {
+  font-size: 10px;
+  color: #b5aa8e;
+}
+.nc-node footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px 10px;
+}
+.nc-node footer select {
+  font-size: 11px;
+  padding: 5px;
+  height: 30px;
+}
+.canvas-workspace .nc-port {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  min-height: 0;
+  padding: 0;
+  border-radius: 50%;
+  background: #244457;
+  border: 2px solid #adcadd;
+  z-index: 3;
+}
+.nc-port.is-input {
+  left: -7px;
+}
+.nc-port.is-output {
+  right: -7px;
+}
+.canvas-workspace .nc-port:is(.is-available, .is-armed) {
+  border-color: #35e9d6;
+  box-shadow: 0 0 0 3px #35e9d620;
+}
+.nc-port > span {
+  position: absolute;
+  top: -3px;
+  font-size: 9px;
+  white-space: nowrap;
+  color: #9bb7c7;
+  pointer-events: none;
+}
+.nc-port.is-input > span {
+  left: 13px;
+}
+.nc-port.is-output > span {
+  right: 13px;
+}
+.nc-edges {
+  position: absolute;
+  overflow: visible;
+  pointer-events: none;
+}
+.nc-edges path {
+  fill: none;
+  stroke: #8eb6cb;
+  stroke-width: 1.5;
+  opacity: 0.7;
+}
+.nc-navigation {
+  position: absolute;
+  right: 16px;
+  bottom: 18px;
+  width: 180px;
+  padding: 6px;
+  background: #111d28;
+  border: 1px solid #344a5b;
+  border-radius: 9px;
+  z-index: 4;
+}
+.canvas-workspace .nc-minimap {
+  display: block;
+  position: relative;
+  height: 85px;
+  width: 100%;
+  background: transparent;
+  overflow: hidden;
+}
+.nc-minimap i {
+  position: absolute;
+  border: 1px solid #466171;
+  background: #2e4451;
+  border-radius: 2px;
+}
+.nc-minimap i.is-selected {
+  border-color: #35e9d6;
+  background: #25605f;
+}
+.nc-navigation > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+}
+.nc-picker {
+  position: absolute;
+  left: 75px;
+  top: 18px;
+  width: 235px;
+  z-index: 10;
+  border: 1px solid #405b6d;
+  border-radius: 12px;
+  padding: 10px;
+  background: #152532;
+  box-shadow: 0 12px 40px #0007;
+  max-height: 85%;
+  overflow: auto;
+}
+.nc-picker > label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.nc-picker input {
+  font-size: 12px;
+}
+.nc-picker > button {
+  width: 100%;
+  justify-content: flex-start;
+  background: transparent;
+  margin-top: 5px;
+  padding: 10px;
+}
+.nc-connect-hint {
+  position: absolute;
+  top: 20px;
+  left: 90px;
+  background: #123c43;
+  border: 1px solid #388d91;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  padding: 6px 10px;
+  z-index: 10;
+  font-size: 12px;
+}
+.nc-empty {
+  position: absolute;
+  left: 50%;
+  top: 45%;
+  transform: translate(-50%, -50%);
+  max-width: 360px;
+  width: 80%;
+  text-align: center;
+  color: #93adbd;
+  cursor: default;
+}
+.nc-empty > svg {
+  color: #35e9d6;
+}
+.nc-empty h2 {
+  font-size: 20px;
+  color: #e4eef4;
+}
+.nc-empty p {
+  font-size: 13px;
+  line-height: 1.9;
+}
+.nc-empty > div {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  margin-top: 20px;
+}
+.nc-inspector {
+  grid-column: 3;
+}
+.nc-tabs {
+  display: flex;
+  align-items: center;
+  justify-content: space-evenly;
+  margin: 0 16px 8px;
+  border-bottom: 1px solid #293c4b;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+.nc-tabs > span {
+  color: #35e9d6;
+  padding: 10px 5px;
+  border-bottom: 2px solid #35e9d6;
+}
+.canvas-workspace .nc-tabs > button {
+  background: none;
+  border: 0;
+}
+.nc-inspector-body {
+  overflow: auto;
+  padding: 14px 17px;
+  scrollbar-width: none;
+}
+.nc-field {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 23px;
+}
+.nc-field > :is(textarea, input, select, div) {
+  display: block;
+  width: 100%;
+  margin-top: 11px;
+  font-weight: 400;
+}
+.nc-field textarea {
+  height: 125px;
+  font-size: 12px;
+  min-height: 70px;
+}
+.nc-field select {
+  height: 40px;
+  font-size: 12px;
+}
+.nc-inputs {
+  margin: 0 0 26px;
+}
+.nc-inputs h4 {
+  font-size: 11px;
+  color: #8ca6b6;
+  font-weight: 400;
+}
+.nc-inputs > div {
+  margin: 16px 0;
+}
+.nc-inputs strong {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  margin-bottom: 8px;
+}
+.nc-input-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #1a2a36;
+  border-radius: 7px;
+  padding: 5px 9px;
+  margin-bottom: 6px;
+  font-size: 11px;
+}
+.canvas-workspace .nc-outline {
+  width: 100%;
+  background: #12363c;
+  border-color: #2b7a80;
+  color: #5cddd2;
+  min-height: 36px;
+  font-size: 12px;
+}
+.canvas-workspace .nc-primary {
+  background: #35e9d6;
+  color: #062a2b;
+  font-weight: 600;
+}
+.canvas-workspace .nc-primary:hover {
+  background: #63eee0;
+}
+.canvas-workspace .nc-primary:disabled {
+  background: #344451;
+  color: #acbac4;
+}
+.nc-run {
+  width: 100%;
+  height: 43px;
+}
+.nc-help {
+  font-size: 11px;
+  line-height: 1.9;
+  color: #90a8b8;
+  margin: 12px 0 20px;
+}
+.nc-inspector > .nc-help {
+  padding: 15px;
+}
+.nc-model-row {
+  display: flex !important;
+  align-items: center;
+  gap: 6px;
+}
+.nc-model-row select {
+  flex: 1;
+  width: 0;
+}
+.nc-connection {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  color: #8bb7ba;
+  margin: -10px 0 23px;
+  gap: 5px;
+}
+.nc-connection button {
+  font-size: 11px;
+}
+.canvas-workspace .nc-delete {
+  color: #bd9da0;
+  background: transparent;
+  margin-top: 24px;
+}
+.nc-result-download {
+  max-width: 100%;
+  font-size: 11px !important;
+  text-align: left;
+  overflow: hidden;
+  word-break: break-word;
+  margin-top: 8px;
+}
+.nc-toast {
+  position: fixed;
+  bottom: 25px;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: 80%;
+  border: 1px solid #426370;
+  border-radius: 9px;
+  padding: 13px 20px;
+  background: #1b3542;
+  color: #daeaf0;
+  box-shadow: 0 8px 30px #0008;
+  z-index: 15;
+  font-size: 12px;
+}
+.nc-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: #000a;
+  backdrop-filter: blur(5px);
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  padding: 25px;
+}
+.nc-modal {
+  background: #152632;
+  border: 1px solid #3d5a6d;
+  border-radius: 14px;
+  padding: 20px;
+  width: min(780px, 90vw);
+  max-height: 90vh;
+  overflow: auto;
+}
+.nc-modal header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 15px;
+}
+.nc-modal > img,
+.nc-modal > video {
+  width: 100%;
+  max-height: 68vh;
+  object-fit: contain;
+}
+.nc-modal > audio {
+  width: 100%;
+}
+.nc-modal > button {
+  margin: 15px 10px 0 0;
+}
+.nc-input-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 14px;
+}
+.canvas-workspace .nc-input-options > button {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  padding: 12px;
+  background: #1d3443;
+  text-align: left;
+}
+.nc-input-options img {
+  width: 100%;
+  height: 110px;
+  object-fit: cover;
+  border-radius: 5px;
+}
+.nc-input-options small {
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+.nc-spin {
+  animation: nc-spin 1s linear infinite;
+}
+@keyframes nc-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (max-width: 1100px) {
+  .canvas-workspace {
+    grid-template-columns: 240px minmax(0, 1fr) 250px;
+  }
+  .canvas-workspace.nc-chat-closed {
+    grid-template-columns: 0 minmax(0, 1fr) 250px;
+  }
+  .canvas-workspace.nc-inspector-closed {
+    grid-template-columns: 240px minmax(0, 1fr) 0;
+  }
+}
+@media (max-width: 760px) {
+  .canvas-workspace {
+    grid-template-columns: 0 1fr 0;
+    grid-template-rows: 54px 1fr;
+  }
+  .nc-chat {
+    position: absolute;
+    left: 8px;
+    top: 60px;
+    bottom: 8px;
+    width: min(310px, 85vw);
+    z-index: 12;
+    box-shadow: 10px 0 35px #0007;
+  }
+  .nc-chat-closed .nc-chat {
+    display: none;
+  }
+  .nc-inspector {
+    position: absolute;
+    right: 8px;
+    top: 60px;
+    bottom: 8px;
+    width: 270px;
+    z-index: 11;
+    box-shadow: -10px 0 35px #0007;
+  }
+  .nc-inspector-closed .nc-inspector {
+    display: none;
+  }
+  .nc-topbar {
+    gap: 7px;
+    padding: 0 2px;
+  }
+  .nc-topbar > strong {
+    font-size: 13px;
+  }
+  .nc-save {
+    max-width: 20%;
+    font-size: 10px;
+  }
+  .nc-navigation {
+    width: 150px;
+  }
+  .nc-minimap {
+    height: 60px;
+  }
+  .nc-picker {
+    left: 70px;
+    width: min(235px, 70vw);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .nc-spin {
+    animation: none;
+  }
+}
+
+.nc-edges path.nc-arrowhead {
+  fill: #8eb6cb;
+  stroke: none;
+  opacity: 1;
+}
+.nc-edges path.nc-live-edge {
+  stroke: #35e9d6;
+  opacity: 1;
+  stroke-width: 2;
+  stroke-dasharray: 6 4;
+}
+.canvas-workspace .nc-port.is-output {
+  touch-action: none;
+  cursor: crosshair;
+}
+.nc-next-picker {
+  max-height: 320px;
+  overflow-y: auto;
+  z-index: 30;
+}
+.nc-next-heading {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #152532;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 8px 10px;
+}
+.nc-next-picker button small {
+  margin-left: auto;
+  color: #9ab0be;
+  font-size: 10px;
+}
+
+.nc-node-menu {
+  position: fixed;
+  z-index: 100;
+  width: 210px;
+  padding: 6px;
+  border: 1px solid #334c59;
+  border-radius: 12px;
+  background: #182731;
+  box-shadow: 0 12px 30px #0006;
+}
+.canvas-workspace .nc-node-menu button {
+  display: flex;
+  justify-content: flex-start;
+  width: 100%;
+  background: transparent;
+  padding: 9px 10px;
+}
+.canvas-workspace .nc-node-menu button:hover:enabled {
+  background: #273d48;
+}
+.nc-node-menu .is-danger {
+  color: #f3a9a9;
+  border-top: 1px solid #ffffff10;
+}

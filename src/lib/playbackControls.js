@@ -1,3 +1,4 @@
+import { getAutoDuckGain } from "./audioDucking.js";
 import { MAX_TIMELINE_DURATION_SECONDS } from "../config/editor.js";
 import { getAudioSegmentPreviewVolume, getTimelineTrackLocalTime, isAudioSegmentAudible, isTimelineTimeInsideTrack, requestTimelineMediaPlay, setTimelineAudioGain } from "./editorRuntime.js";
 import { filterTimedSegmentsByLaneVisibility, getVisualSegmentIndexAtTime } from "./timeline.js";
@@ -213,7 +214,7 @@ export function createPlaybackControls(deps) {
       const sourceState = getSourceState(timelineTime);
       source.currentTime = sourceState.sourceTime;
       source.playbackRate = sourceState.playbackRate;
-      setTimelineAudioGain(source, sourceState.segment?.volume ?? deps.sourceAudioVolume, deps.sourceAudioSpatialEffect, deps.sourceAudioSpatialAmount);
+      setTimelineAudioGain(source, (sourceState.segment?.volume ?? deps.sourceAudioVolume) * getAutoDuckGain(sourceState.segment || {id:"source-audio",autoDuck:deps.sourceAudioAutoDuck},timelineTime), deps.sourceAudioSpatialEffect, deps.sourceAudioSpatialAmount);
       if ("preservesPitch" in source) source.preservesPitch = true;
       playIf(source, sourceState.active);
     }

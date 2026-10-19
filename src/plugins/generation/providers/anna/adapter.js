@@ -23,7 +23,7 @@ export function createAnnaAdapter() {
       if (!size) throw Object.assign(new Error("invalid_request"), { code: "invalid_request" });
       const result = request.mode === "image-to-image"
         ? await editAnnaImage({ prompt: request.prompt.trim(), blob: request.referenceAssets?.[0]?.blob, name: request.referenceAssets?.[0]?.name, maskBlob: request.maskBlob, signal })
-        : await generateAnnaImage({ prompt: request.prompt.trim(), size, signal });
+        : await generateAnnaImage({ prompt: request.prompt.trim(), size, signal, model: request.providerOptions?.model, referenceAssets: request.referenceAssets || [] });
       if (!Array.isArray(result.images) || !result.images.length || result.images.length > 4) throw Object.assign(new Error("empty_result"), { code: "empty_result" });
       const outputs = [];
       for (const item of result.images) {

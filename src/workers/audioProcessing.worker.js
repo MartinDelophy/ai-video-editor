@@ -10,9 +10,14 @@ async function loadEngine(name, language) {
   if (loaded.has(name)) return loaded.get(name);
   const spec = AUDIO_PROCESSING_MODELS[name];
   let received = 0;
-  const total = spec.files.reduce((sum, file) => sum + file.size, 0);
+  // Executable loaders must be bundled same-origin modules, never blob scripts.
+  const runtime = name === "rnnoise"
+    ? import("../vendor/audio-processing/rnnoise/runtime.js")
+    : import("../vendor/audio-processing/deepfilter/runtime.js");
+  const files = spec.files.filter((file) => file.path.endsWith(".wasm"));
+  const total = files.reduce((sum, file) => sum + file.size, 0);
   const blobs = await Promise.all(
-    spec.files.map(async (file) => {
+    files.map(async (file) => {
       const { response } = await fetchFirstAvailableModel(
         audioProcessingModelUrls(file.path, language),
       );
@@ -38,16 +43,12 @@ async function loadEngine(name, language) {
       return blob;
     }),
   );
-  const moduleUrl = URL.createObjectURL(blobs[0]);
-  try {
-    const module = await import(/* @vite-ignore */ moduleUrl);
-    const engine =
-      name === "rnnoise" ? { rn: await module.Rnnoise.load() } : { module, wasm: blobs[1] };
-    loaded.set(name, engine);
-    return engine;
-  } finally {
-    URL.revokeObjectURL(moduleUrl);
-  }
+  const module = await runtime;
+  const engine = name === "rnnoise"
+    ? { rn: await module.Rnnoise.load() }
+    : { module, wasm: blobs[0] };
+  loaded.set(name, engine);
+  return engine;
 }
 self.onmessage = async ({ data }) => {
   try {

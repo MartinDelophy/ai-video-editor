@@ -33,7 +33,8 @@
         "https://commons.wikimedia.org",
         "https://upload.wikimedia.org",
         "https://thumb.wikimedia.org",
-        "https://5244841125c1e42784f5bda924751be6.r2.cloudflarestorage.com"
+        "https://5244841125c1e42784f5bda924751be6.r2.cloudflarestorage.com",
+        "https://help-static-aliyun-doc.aliyuncs.com"
       ]
     },
     "views": [
@@ -64,7 +65,8 @@
     ],
     "host_api": {
       "llm": [
-        "complete"
+        "complete",
+        "catalog"
       ],
       "storage": [
         "get",
@@ -98,7 +100,9 @@
         "listJobs"
       ],
       "audio": [
-        "transcribe"
+        "transcribe",
+        "speak",
+        "session"
       ]
     },
     "csp_overrides": {
@@ -110,7 +114,8 @@
         "https://*.r2.cloudflarestorage.com"
       ],
       "media-src": [
-        "https://upload.wikimedia.org"
+        "https://upload.wikimedia.org",
+        "https://help-static-aliyun-doc.aliyuncs.com"
       ],
       "font-src": [
         "blob:"

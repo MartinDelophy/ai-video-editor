@@ -218,7 +218,11 @@ export function getCaptionTextLayout({
       context ? measureCaptionText(context, paragraph, metrics.letterSpacing) : getFallbackTextWidth(paragraph, metrics.fontSize) + Math.max(0, getGraphemes(paragraph).length - 1) * metrics.letterSpacing,
     );
   const preferredTextWidth = Math.max(0, ...paragraphWidths);
-  const width = clamp(
+  // Edge alignment needs a real text column: a shrink-to-fit single line
+  // otherwise occupies the exact same pixels for left, center and right.
+  // Keep centered captions compact; use the shared safe column for edges.
+  const edgeAligned = ["left", "right"].includes(captionStyle.textAlign);
+  const width = edgeAligned ? metrics.maxWidth : clamp(
     preferredTextWidth + metrics.paddingX * 2,
     metrics.minWidth,
     metrics.maxWidth,
@@ -240,7 +244,7 @@ export function getCaptionTextLayout({
     height,
     contentWidth,
     lines,
-    keywordRanges: getCaptionLineKeywordRanges(text, lines, captionStyle.highlightWords),
+    keywordRanges: getCaptionLineKeywordRanges(text, lines, captionStyle.highlightWords, captionStyle.highlightRanges),
     style: captionStyle,
   };
 }

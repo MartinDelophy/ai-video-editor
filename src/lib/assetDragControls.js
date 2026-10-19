@@ -113,7 +113,7 @@ export function createAssetDragControls(deps) {
   const handleStickerClick = (event, sticker) => {
     if (deps.suppressAssetClickRef.current === sticker.id) { deps.suppressAssetClickRef.current = ""; event.preventDefault(); event.stopPropagation(); return; }
     deps.setSelectedStickerId(sticker.id);
-    if (resolveStickerSelectionIntent({ isMobile: window.matchMedia?.("(max-width: 760px)").matches })) return;
+    if (resolveStickerSelectionIntent({ isMobile: window.matchMedia?.("(max-width: 760px)").matches }) === "stage") return;
     deps.addStickerAssetToTimeline(sticker, { startTime: deps.currentTime });
   };
   const confirmStickerSelection = (sticker) => {

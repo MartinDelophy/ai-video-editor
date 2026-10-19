@@ -1,0 +1,33 @@
+const rows = {
+ zh: ['语音助手','开始通话','正在连接','正在聆听','正在处理','正在播报','麦克风已静音','静音','开启麦克风','打断','结束通话','说出你想打开的面板或剪辑操作。','连接失败，请重试并检查麦克风权限。','此操作需要生成媒体，确认后继续。','确认生成','等待确认','操作已完成。','请试听并检查预览后应用。'],
+ en: ['Voice assistant','Start call','Connecting','Listening','Working','Speaking','Microphone muted','Mute','Unmute','Interrupt','End call','Say which panel to open or how to edit.','Connection failed. Retry and check microphone permission.','This action generates media. Confirm to continue.','Confirm generation','Awaiting confirmation','Action completed.','Listen and review the preview before applying.'],
+ ja: ['音声アシスタント','通話を開始','接続中','聞き取り中','処理中','読み上げ中','マイクはミュート中','ミュート','ミュート解除','中断','通話を終了','開くパネルや編集内容を話してください。','接続できません。マイクの権限を確認して再試行してください。','メディアを生成します。続行を確認してください。','生成を確認','確認待ち','操作が完了しました。','試聴とプレビュー確認後に適用してください。'],
+ ko: ['음성 도우미','통화 시작','연결 중','듣는 중','처리 중','말하는 중','마이크 음소거됨','음소거','음소거 해제','중단','통화 종료','열 패널이나 편집할 내용을 말하세요.','연결 실패. 마이크 권한을 확인하고 다시 시도하세요.','미디어를 생성합니다. 계속하려면 확인하세요.','생성 확인','확인 대기','작업을 완료했습니다.','미리 듣기와 미리 보기를 확인한 후 적용하세요.'],
+ es: ['Asistente de voz','Iniciar llamada','Conectando','Escuchando','Procesando','Hablando','Micrófono silenciado','Silenciar','Activar micrófono','Interrumpir','Finalizar llamada','Di qué panel abrir o cómo editar.','Error de conexión. Revisa el permiso del micrófono y reintenta.','Esta acción genera medios. Confirma para continuar.','Confirmar generación','Esperando confirmación','Acción completada.','Escucha y revisa la vista previa antes de aplicar.'],
+ fr: ['Assistant vocal','Démarrer l’appel','Connexion','À l’écoute','Traitement','Lecture vocale','Microphone coupé','Couper le micro','Activer le micro','Interrompre','Terminer l’appel','Dites quel panneau ouvrir ou comment monter.','Connexion impossible. Vérifiez l’autorisation du micro et réessayez.','Cette action génère des médias. Confirmez pour continuer.','Confirmer la génération','Confirmation attendue','Action terminée.','Écoutez et vérifiez l’aperçu avant d’appliquer.'],
+ de: ['Sprachassistent','Anruf starten','Verbindung wird hergestellt','Hört zu','Verarbeitet','Spricht','Mikrofon stumm','Stummschalten','Mikrofon aktivieren','Unterbrechen','Anruf beenden','Sage, welches Panel geöffnet oder was bearbeitet werden soll.','Verbindung fehlgeschlagen. Mikrofonberechtigung prüfen und erneut versuchen.','Diese Aktion erzeugt Medien. Zum Fortfahren bestätigen.','Generierung bestätigen','Bestätigung ausstehend','Aktion abgeschlossen.','Vor dem Anwenden anhören und die Vorschau prüfen.'],
+ pt: ['Assistente de voz','Iniciar chamada','Conectando','Ouvindo','Processando','Falando','Microfone silenciado','Silenciar','Ativar microfone','Interromper','Encerrar chamada','Diga qual painel abrir ou como editar.','Falha na conexão. Verifique a permissão do microfone e tente novamente.','Esta ação gera mídia. Confirme para continuar.','Confirmar geração','Aguardando confirmação','Ação concluída.','Ouça e revise a prévia antes de aplicar.'],
+ th: ['ผู้ช่วยเสียง','เริ่มการโทร','กำลังเชื่อมต่อ','กำลังฟัง','กำลังประมวลผล','กำลังพูด','ปิดไมโครโฟนแล้ว','ปิดเสียง','เปิดไมโครโฟน','ขัดจังหวะ','วางสาย','บอกแผงที่ต้องการเปิดหรือวิธีตัดต่อ','เชื่อมต่อไม่สำเร็จ โปรดตรวจสิทธิ์ไมโครโฟนแล้วลองใหม่','การทำงานนี้จะสร้างสื่อ โปรดยืนยันเพื่อดำเนินการต่อ','ยืนยันการสร้าง','รอการยืนยัน','ดำเนินการเรียบร้อยแล้ว','ฟังและตรวจตัวอย่างก่อนนำไปใช้'],
+ vi: ['Trợ lý giọng nói','Bắt đầu cuộc gọi','Đang kết nối','Đang nghe','Đang xử lý','Đang đọc','Đã tắt mic','Tắt mic','Bật mic','Ngắt lời','Kết thúc cuộc gọi','Nói bảng cần mở hoặc cách chỉnh sửa.','Kết nối thất bại. Kiểm tra quyền mic rồi thử lại.','Thao tác này tạo nội dung. Xác nhận để tiếp tục.','Xác nhận tạo','Chờ xác nhận','Đã hoàn tất thao tác.','Nghe và kiểm tra bản xem trước rồi áp dụng.'],
+ ru: ['Голосовой помощник','Начать звонок','Подключение','Слушаю','Обработка','Говорю','Микрофон выключен','Выключить микрофон','Включить микрофон','Прервать','Завершить звонок','Скажите, какую панель открыть или что изменить.','Ошибка подключения. Проверьте разрешение микрофона и повторите.','Это действие создаёт медиа. Подтвердите продолжение.','Подтвердить создание','Ожидается подтверждение','Действие выполнено.','Прослушайте и проверьте предпросмотр перед применением.'],
+ it: ['Assistente vocale','Avvia chiamata','Connessione','In ascolto','Elaborazione','Riproduzione vocale','Microfono disattivato','Disattiva microfono','Attiva microfono','Interrompi','Termina chiamata','Di’ quale pannello aprire o come montare.','Connessione non riuscita. Controlla il permesso del microfono e riprova.','Questa azione genera contenuti. Conferma per continuare.','Conferma generazione','In attesa di conferma','Operazione completata.','Ascolta e controlla l’anteprima prima di applicare.'],
+ id: ['Asisten suara','Mulai panggilan','Menghubungkan','Mendengarkan','Memproses','Berbicara','Mikrofon dibisukan','Bisukan','Aktifkan mikrofon','Interupsi','Akhiri panggilan','Sebutkan panel yang ingin dibuka atau cara mengedit.','Koneksi gagal. Periksa izin mikrofon lalu coba lagi.','Tindakan ini membuat media. Konfirmasi untuk melanjutkan.','Konfirmasi pembuatan','Menunggu konfirmasi','Tindakan selesai.','Dengarkan dan periksa pratinjau sebelum menerapkan.'],
+};
+const keys = ['title','start','connecting','listening','working','speaking','muted','mute','unmute','interrupt','end','hint','error','confirmHint','confirm','pending','done','review'];
+export function getVoiceCallCopy(language) { return Object.fromEntries(keys.map((key, i) => [key, (rows[language] || rows.en)[i]])); }
+
+const fastReplies={
+zh:['你好，我在。想做什么剪辑？','听得到，请说。','不客气，随时告诉我。'],
+en:['Hi, I’m here. What would you like to edit?','I can hear you. Go ahead.','You’re welcome.'],
+ja:['こんにちは。どんな編集をしますか？','聞こえています。どうぞ。','どういたしまして。'],
+ko:['안녕하세요. 어떤 편집을 할까요?','잘 들려요. 말씀하세요.','천만에요.'],
+es:['Hola. ¿Qué quieres editar?','Te oigo. Adelante.','De nada.'],
+fr:['Bonjour. Que souhaitez-vous monter ?','Je vous entends. Allez-y.','Avec plaisir.'],
+de:['Hallo. Was möchtest du bearbeiten?','Ich höre dich. Sprich weiter.','Gern geschehen.'],
+pt:['Olá. O que você quer editar?','Estou ouvindo. Pode falar.','De nada.'],
+th:['สวัสดี ต้องการตัดต่ออะไร','ได้ยินแล้ว พูดได้เลย','ยินดีเสมอ'],
+vi:['Xin chào. Bạn muốn chỉnh sửa gì?','Tôi nghe được. Bạn nói đi.','Không có gì.'],
+ru:['Здравствуйте. Что хотите смонтировать?','Я вас слышу. Говорите.','Пожалуйста.'],
+it:['Ciao. Cosa vuoi montare?','Ti sento. Dimmi pure.','Prego.'],
+id:['Halo. Apa yang ingin diedit?','Saya bisa dengar. Silakan.','Sama-sama.']};
+export function getVoiceFastReplyCopy(language){const row=fastReplies[language]||fastReplies.en;return {hello:row[0],hear:row[1],thanks:row[2]};}

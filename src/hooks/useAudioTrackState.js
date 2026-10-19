@@ -34,6 +34,7 @@ export function useAudioTrackState() {
   const [sourceAudioPeaks, setSourceAudioPeaks] = useState([]);
   const [sourceAudioVolume, setSourceAudioVolume] = useState(1);
   const [sourceAudioSpatialEffect, setSourceAudioSpatialEffect] = useState("original");
+  const [sourceAudioAutoDuck, setSourceAudioAutoDuck] = useState(null);
   const [sourceAudioSpatialAmount, setSourceAudioSpatialAmount] = useState(1);
   const [sourceAudioStart, setSourceAudioStart] = useState(0);
   const [sourceAudioAssetId, setSourceAudioAssetId] = useState("");
@@ -52,8 +53,8 @@ export function useAudioTrackState() {
     setMusicStart, setMusicUrl, setMusicVolume, setRecordedVoices, setRecordingElapsed,
     setRecordingState, setSelectedAudioSegmentId, setSelectedVoiceId, setSourceAudioBlob,
     setSourceAudioAssetId, setSourceAudioDuration, setSourceAudioLinked, setSourceAudioName, setSourceAudioPeaks, setSourceAudioStart,
-    setSourceAudioUrl, setSourceAudioVolume, setSourceAudioSpatialEffect, setSourceAudioSpatialAmount, setSpeed, setTimelineHorizon, setVolume,
+    setSourceAudioUrl, setSourceAudioVolume, setSourceAudioSpatialEffect, setSourceAudioSpatialAmount, setSourceAudioAutoDuck, setSpeed, setTimelineHorizon, setVolume,
     sourceAudioAssetId, sourceAudioBlob, sourceAudioDuration, sourceAudioLinked, sourceAudioName, sourceAudioPeaks,
-    sourceAudioStart, sourceAudioUrl, sourceAudioVolume, sourceAudioSpatialEffect, sourceAudioSpatialAmount, speed, timelineHorizon, volume,
+    sourceAudioStart, sourceAudioUrl, sourceAudioVolume, sourceAudioSpatialEffect, sourceAudioSpatialAmount, sourceAudioAutoDuck, speed, timelineHorizon, volume,
   };
 }

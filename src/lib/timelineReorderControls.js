@@ -1,3 +1,5 @@
+import { rebindMovedVisualGroup } from "./visualAssociations.js";
+import { isTimedSegmentLaneLocked } from "./timeline.js";
 import { MAX_TIMELINE_DURATION_SECONDS } from "../config/editor.js";
 import { materializeCaptionTimings, moveTimedCaptionSegment, packTimedSegmentsIntoLanes, reorderTimelineItems } from "./timeline.js";
 import { collectTimelineSnapPoints, createTimelineSnapGuide, findClosestTimelineSnap, snapTimelineRange } from "./timelineSnap.js";
@@ -48,6 +50,8 @@ export function createTimelineReorderControls(d) {
     const materializedCaptions = track === "caption" ? materializeCaptionTimings(d.captionSegments, d.captionTargetDuration) : [];
     const caption = materializedCaptions[index];
     if (caption) {
+      const linkedAudio = d.audioSegments.find(audio => audio.id === caption.audioSegmentId);
+      if (linkedAudio && isTimedSegmentLaneLocked(d.audioSegments, linkedAudio.id, d.trackLocks)) return;
       event.preventDefault(); event.stopPropagation();
       const duration = Math.max(0.2, caption.end - caption.start);
       const snapPoints = collectTimelineSnapPoints(d, { track: "caption", id: segmentId });
@@ -77,9 +81,10 @@ export function createTimelineReorderControls(d) {
           contentWidth: width,
           timelineDuration: d.timelineDuration,
         });
-        const unsnappedStart = Math.max(0, Math.min(MAX_TIMELINE_DURATION_SECONDS - duration, state.originalStart + delta));
+        const groupFloor = linkedAudio ? Math.max(0, caption.start - Math.min(linkedAudio.start, ...materializedCaptions.filter(item => item.audioSegmentId === linkedAudio.id).map(item => item.start))) : 0;
+        const unsnappedStart = Math.max(groupFloor, Math.min(MAX_TIMELINE_DURATION_SECONDS - duration, state.originalStart + delta));
         const snapped = snapTimelineRange(unsnappedStart, duration, snapPoints, (10 / width) * d.timelineDuration);
-        const previewStart = Math.max(0, Math.min(MAX_TIMELINE_DURATION_SECONDS - duration, snapped.start));
+        const previewStart = Math.max(groupFloor, Math.min(MAX_TIMELINE_DURATION_SECONDS - duration, snapped.start));
         const previewEnd = previewStart + duration;
         const previewSegments = moveTimedCaptionSegment(materializedCaptions, segmentId, previewStart, previewEnd);
         const next = { ...state, previewStart, previewEnd, previewSegments, dragging: true };
@@ -108,7 +113,20 @@ export function createTimelineReorderControls(d) {
           settle: () => {
             d.setTimelineClipDrag(null);
             d.setSnapGuide?.(null);
-            d.commitCaptionSegments(state.previewSegments, "已移动字幕片段", index);
+            if (!state?.dragging) return;
+            const delta = state.previewStart - caption.start;
+            if (Math.abs(delta) <= 0.000001) return;
+            const linkedCaptions = linkedAudio
+              ? materializedCaptions.filter(item => item.audioSegmentId === linkedAudio.id)
+              : [caption];
+            const movedCaptions = linkedCaptions.map(item => ({ ...item, start: item.start + delta, end: item.end + delta }));
+            const group = rebindMovedVisualGroup([
+              ...movedCaptions,
+              ...(linkedAudio ? [{ ...linkedAudio, start: linkedAudio.start + delta }] : []),
+            ], d.visualSegments);
+            if (linkedAudio) d.setAudioSegments(items => items.map(item => item.id === linkedAudio.id ? group.at(-1) : item));
+            const replacements = new Map(group.slice(0, movedCaptions.length).map(item => [item.id, item]));
+            d.commitCaptionSegments(materializedCaptions.map(item => replacements.get(item.id) || item), "已移动字幕片段", index);
           },
         });
         d.timelineClipDragRef.current = null;

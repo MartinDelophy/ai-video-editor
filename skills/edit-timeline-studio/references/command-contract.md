@@ -44,7 +44,8 @@ The standalone `validate_edit_plan.mjs` checks transport shape only. `project.di
 - `visual.append`, `visual.insert`, `visual.trim`, `visual.split`, `visual.reorder`
 - `overlay.add`, `timed.move`, `timed.resize`
 - `clip.delete`, `clip.set_property`, `clip.set_speed`, `clip.set_muted`
-- `caption.add`, `caption.update`, `caption.link_audio`, `caption.unlink_audio`
+- `caption.add`, `caption.update`, `caption.configure`, `caption.link_audio`, `caption.unlink_audio`
+- `clip.link_visual`, `sticker.configure`, `audio.configure`
 - `marker.add`, `marker.update`, `marker.delete`
 - `visual.configure` (transform, color wheels, glitch, beat shake), `transition.set`, `track.set_visibility`, `track.set_locked`
 - `project.set_ratio`

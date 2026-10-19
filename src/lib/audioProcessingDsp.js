@@ -2,6 +2,7 @@ const clamp = (value, min, max) => Math.max(min, Math.min(max, Number(value) || 
 export function normalizeAudioProcessing(value = {}) {
   value = value || {};
   return {
+    ...( ["gentle","natural","strong"].includes(value.speechEnhancement) ? {speechEnhancement:value.speechEnhancement} : {} ),
     engine: ["rnnoise", "deepfilter"].includes(value.engine) ? value.engine : "off",
     strength: value.strength == null ? 0.75 : clamp(value.strength, 0, 1),
     eq: {

@@ -1,4 +1,4 @@
-import { VISUAL_SETTINGS_SCHEMA } from "./webMcpOperationSchema.js";
+import { VISUAL_SETTINGS_SCHEMA, CAPTION_SETTINGS_SCHEMA, AUDIO_PROCESSING_SCHEMA } from "./webMcpOperationSchema.js";
 import { validateAnimationScene } from "./animationScene.js";
 const COLLECTIONS = {
   visuals: "visualSegments", overlays: "visualOverlaySegments", audio: "audioSegments",
@@ -6,7 +6,7 @@ const COLLECTIONS = {
 };
 const FIELDS = [
   "id", "type", "name", "text", "start", "end", "duration", "sourceStart", "sourceDuration",
-  "playbackRate", "volume", "fadeIn", "fadeOut", "muted", "layer", "lane", "hidden", "audioSegmentId",
+  "visualSegmentId", "spatialEffect", "spatialAmount", "processingRevision", "playbackRate", "volume", "fadeIn", "fadeOut", "muted", "layer", "lane", "hidden", "audioSegmentId",
   "sourceAudioDisabled", "sourceAudioUnmapped", "sourceAudioVolume", "audioSeparated",
   "detachedAudioSegmentId", "x", "y", "scale", "rotation", "opacity", "fontId",
 ];
@@ -14,7 +14,7 @@ const GLOBAL_FIELDS = ["script", "ratioId", "fitMode", "musicName", "musicDurati
 const scalar = (value) => ["string", "boolean", "number"].includes(typeof value) || value === null;
 const pick = (value, fields) => Object.fromEntries(fields.filter((key) => Object.hasOwn(value || {}, key) && scalar(value[key])).map((key) => [key, value[key]]));
 
-const structuredFields = { ...VISUAL_SETTINGS_SCHEMA.properties, transition: { type: "object", properties: { id: { type: "string" }, duration: { type: "number" } } } };
+const structuredFields = { styleOverrides: CAPTION_SETTINGS_SCHEMA, audioProcessing: AUDIO_PROCESSING_SCHEMA, placement: { type: "object", properties: { x: { type: "number" }, y: { type: "number" } } }, ...VISUAL_SETTINGS_SCHEMA.properties, transition: { type: "object", properties: { id: { type: "string" }, duration: { type: "number" } } } };
 function pickStructured(value, schema) {
   if (schema.type !== "object") return scalar(value) ? value : null;
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;

@@ -52,6 +52,7 @@ export function createProjectSnapshotFromState(deps = {}, commandState) {
     musicName: state.musicName ?? "", musicDuration: finiteOr(state.musicDuration, 0), musicVolume: finiteOr(state.musicVolume, 0.35),
     sourceAudioName: state.sourceAudioName ?? "", sourceAudioDuration: finiteOr(state.sourceAudioDuration, 0),
     sourceAudioStart: finiteOr(state.sourceAudioStart, 0), sourceAudioVolume: finiteOr(state.sourceAudioVolume, 1),
+    sourceAudioAutoDuck: state.sourceAudioAutoDuck ?? null,
     sourceAudioSpatialEffect: state.sourceAudioSpatialEffect ?? "original", sourceAudioSpatialAmount: finiteOr(state.sourceAudioSpatialAmount, 1),
     musicStart: finiteOr(state.musicStart, 0),
     sourceAudioAssetId: state.sourceAudioAssetId ?? "", sourceAudioLinked: state.sourceAudioLinked !== false,
@@ -346,6 +347,7 @@ export function useProjectFiles(deps = {}) {
         if (restoredMusicSegments) current.setMusicSegments(restoredMusicSegments);
       } else current.clearMusicTrack("");
       current.setMusicVolume(finiteOr(data.musicVolume, 0.35)); current.setSourceAudioVolume(finiteOr(data.sourceAudioVolume, 1));
+      current.setSourceAudioAutoDuck(data.sourceAudioAutoDuck || null);
       current.setSourceAudioSpatialEffect(data.sourceAudioSpatialEffect || "original"); current.setSourceAudioSpatialAmount(finiteOr(data.sourceAudioSpatialAmount, 1));
       current.setSourceAudioAssetId(data.sourceAudioAssetId || ""); current.setSourceAudioLinked(data.sourceAudioLinked !== false);
       if (sessionCollections) {

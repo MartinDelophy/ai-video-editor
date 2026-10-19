@@ -1,4 +1,7 @@
-import { getCaptionEditingCopy, getCaptionSpacingCopy, getCaptionKeywordCopy } from "../i18nCaptionEditing.js";
+import { AutoCaptionAction } from "./AutoCaptionAction.jsx";
+import { useAnnaSpeech } from "../hooks/useAnnaSpeech.js";
+import { getAnnaAudioCopy, getAnnaAuditionCopy } from "../i18nAnnaAudio.js";
+import { getCaptionEditingCopy, getCaptionSpacingCopy } from "../i18nCaptionEditing.js";
 import { getAnnaVideoCopy } from "../i18nAnnaVideo.js";
 import { getAnnaImageCopy } from "../plugins/generation/providers/anna/copy.js";
 import { AnnaImagePanel } from "../plugins/generation/providers/anna/Inspector.jsx";
@@ -11,6 +14,9 @@ import { AnnaModelGate } from "./AnnaCapabilityNotice.jsx";
 
 import {
   ArrowCounterClockwise,
+  Infinity as InfinityIcon,
+  FilmStrip,
+  Cube,
   ArrowsClockwise,
   CaretDown,
   CaretLeft,
@@ -1457,11 +1463,6 @@ export function ToolPanel(props) {
               <CaretDown size={16} aria-hidden="true" />
             </span>
           </label>
-          <div className="caption-keyword-controls">
-            <label className="caption-keyword-words">{getCaptionKeywordCopy(uiLanguage)[0]}<textarea rows={2} maxLength={2000} value={effectiveCaptionStyle.highlightWords || ""} onChange={event => updateCaptionStyleField("highlightWords", event.target.value)} aria-describedby="caption-keyword-help" /></label>
-            <label className="caption-keyword-color">{getCaptionKeywordCopy(uiLanguage)[1]}<input type="color" value={effectiveCaptionStyle.highlightColor || "#ffe066"} onChange={event => updateCaptionStyleField("highlightColor", event.target.value)} /></label>
-            <small id="caption-keyword-help">{getCaptionKeywordCopy(uiLanguage)[2]}</small>
-          </div>
           <div className="caption-color-row">
             <label>{t("captionTextColor")}<input type="color" value={effectiveCaptionStyle.textColor} onChange={(event) => updateCaptionStyleField("textColor", event.target.value)} /></label>
             <label>{t("captionBackground")}<input type="color" value={effectiveCaptionStyle.backgroundColor} onChange={(event) => updateCaptionStyleField("backgroundColor", event.target.value)} /></label>
@@ -1551,58 +1552,30 @@ export function ToolPanel(props) {
           </span>
           {vocalSeparationJob.running ? <span className="inline-progress" aria-hidden="true"><span style={{ width: `${vocalSeparationJob.progress}%` }} /></span> : null}
         </button>
-        <button
-          className="audio-entry-card caption-entry-card"
-          type="button"
-          disabled={!selectedAudioToolTarget || isGeneratingCaptions}
-          onClick={() => selectedAudioToolTarget && generateCaptionsFromSourceAudio({
+        </AnnaModelGate> : null}
+        <AutoCaptionAction language={uiLanguage} t={t} available={Boolean(selectedAudioToolTarget)} running={isGeneratingCaptions} progress={automaticCaptionProgress} onCancel={generateCaptionsFromSourceAudio.cancel}
+          onStart={() => selectedAudioToolTarget && generateCaptionsFromSourceAudio({
             blob: selectedAudioToolTarget.blob,
+            clip: selectedAudioToolTarget,
             start: selectedAudioToolTarget.start,
             sourceStart: selectedAudioToolTarget.sourceStart,
             duration: selectedAudioToolTarget.duration,
             append: selectedAudioToolTarget.track !== "source",
-          })}
-        >
-          <ClosedCaptioning size={24} weight="duotone" />
-          <span>
-            <strong>{isGeneratingCaptions ? t("autoCaptionsRunning") : t("autoCaptionsTitle")}</strong>
-            <em>{selectedAudioToolTarget ? t("autoCaptionsDesc") : t("autoCaptionsNeedsSource")}</em>
-          </span>
-          {isGeneratingCaptions ? (
-            <span className="inline-progress" aria-hidden="true">
-              <span style={{ width: `${automaticCaptionProgress}%` }} />
-            </span>
-          ) : null}
-        </button>
-        </AnnaModelGate> : null}
-        <div className="metric-list">
-          {!sourceSelected && <>
-          <div>
+          })} />
+        <div className="audio-summary-list">
+          {!sourceSelected && <div className="audio-summary-row">
             <span>{t("currentVoice")}</span>
-            <strong>{selectedVoice.name}</strong>
-          </div>
-          <div>
-            <span>{t("voiceDuration")}</span>
-            <strong>{formatTime(audioBlob ? audioDuration : 0)}</strong>
-          </div>
-          </>}
-          {!sourceSelected && <div>
-            <span>{t("sourceAudio")}</span>
-            <strong>{sourceAudioBlob ? sourceAudioName : t("notSeparated")}</strong>
+            <div><strong>{selectedVoice.name}</strong>{audioBlob && <small>{formatTime(audioDuration)}</small>}</div>
           </div>}
-          <div>
-            <span>{t("sourceDuration")}</span>
-            <strong>{formatTime(sourceAudioBlob ? sourceAudioDuration : 0)}</strong>
-          </div>
-          {!sourceSelected && <>
-          <div>
-            <span>{t("bgm")}</span>
-            <strong>{musicBlob ? musicName : t("notAdded")}</strong>
-          </div>
-          <div>
-            <span>{t("musicDuration")}</span>
-            <strong>{formatTime(musicBlob ? musicDuration : 0)}</strong>
-          </div>
+          {sourceSelected ? <div className="audio-summary-row"><span>{t("sourceDuration")}</span><strong>{formatTime(sourceAudioBlob ? sourceAudioDuration : 0)}</strong></div> : <>
+            <div className="audio-summary-row">
+              <span>{t("sourceAudio")}</span>
+              <div><strong title={sourceAudioName}>{sourceAudioBlob ? sourceAudioName : t("notSeparated")}</strong>{sourceAudioBlob && <small>{formatTime(sourceAudioDuration)}</small>}</div>
+            </div>
+            <div className="audio-summary-row">
+              <span>{t("bgm")}</span>
+              <div><strong title={musicName}>{musicBlob ? musicName : t("notAdded")}</strong>{musicBlob && <small>{formatTime(musicDuration)}</small>}</div>
+            </div>
           </>}
         </div>
         <div className="slider-field compact-slider">
@@ -1622,7 +1595,7 @@ export function ToolPanel(props) {
             onChange={(event) => setSourceAudioVolume(Number(event.target.value))}
           />
         </div>
-        {!sourceSelected && <div className="slider-field compact-slider">
+        {!sourceSelected && musicBlob && <div className="slider-field compact-slider">
           <div>
             <label htmlFor="music-volume">{t("bgm")} {t("volume")}</label>
             <span>{Math.round(musicVolume * 100)}%</span>
@@ -1678,7 +1651,13 @@ export function ToolPanel(props) {
   }
 
   if (activeTool === "workflow") {
-    return <div className="tool-panel"><h2>{t("workflow")}</h2><div className="empty-state"><strong>{t("workflowEmpty")}</strong><p>{t("workflowDescription")}</p></div></div>;
+    return <div className="tool-panel workflow-panel" role="region" aria-label={t("workflow")}>
+      <div className="workflow-card-grid">
+        {[["workflowCanvas", InfinityIcon], ["workflowStoryboard", FilmStrip], ["workflowBlockout", Cube]].map(([key, Icon]) =>
+          <button className={`workflow-card workflow-card--${key}`} type="button" key={key} onClick={() => setSmartMode({workflowCanvas:"canvas",workflowStoryboard:"storyboard",workflowBlockout:"blockout"}[key])}><Icon size={24} weight="duotone" aria-hidden="true" /><h3>{t(key)}</h3></button>
+        )}
+      </div>
+    </div>;
   }
 
   if (activeTool === "stickers") {
@@ -2581,7 +2560,7 @@ function StickerPanel({
 
 export function VoiceSynthesisPanel({ anna, ...props }) {
   return <>
-    <AnnaModelGate anna={anna}><VoiceSynthesisControls {...props} /></AnnaModelGate>
+    <VoiceSynthesisControls {...props} anna={anna} />
     {anna?.enabled && anna.localComputeReason && props.audioBlob ? <div className="generated-voice-result">
       {props.audioUrl ? <audio controls preload="metadata" src={props.audioUrl} /> : null}
       <button className="panel-secondary" type="button" onClick={() => props.downloadBlob(props.audioBlob, "ai-voiceover.wav")}><DownloadSimple size={17} />{props.t("downloadCurrentWav")}</button>
@@ -2590,6 +2569,7 @@ export function VoiceSynthesisPanel({ anna, ...props }) {
 }
 
 function VoiceSynthesisControls({
+  anna, language, onAnnaSpeechAssetReady,
   script,
   updateScript,
   selectedVoiceId,
@@ -2621,7 +2601,16 @@ function VoiceSynthesisControls({
   clearSelectedVoiceProfile,
   t,
 }) {
+  const cloud = useAnnaSpeech({ enabled: import.meta.env?.VITE_ANNA_EDITION === "true", language, script, gain: volume, onAssetReady: onAnnaSpeechAssetReady });
+  const cloudCopy = getAnnaAudioCopy(language);
+  const cloudSelected = Boolean(cloud.selected);
+  const auditionCopy = getAnnaAuditionCopy(language);
+  const generating = cloud.busy || status === "generating";
+  const scriptLimit = cloud.selected?.model.maxChars || 5000;
+  const localUnavailable = Boolean(anna?.enabled && anna.localComputeReason);
   const voiceLanguages = useMemo(() => [...new Set(VOICES.map((voice) => voice.language))], []);
+  const cloudSampleRef = useRef(null);
+  const [cloudSampleFailed, setCloudSampleFailed] = useState(false);
   const voiceSampleRef = useRef(null);
   const previousVoiceSampleIdRef = useRef(selectedVoiceId);
   const cloneSampleUrl = useMemo(
@@ -2632,6 +2621,8 @@ function VoiceSynthesisControls({
   useEffect(() => () => { if (cloneSampleUrl) URL.revokeObjectURL(cloneSampleUrl); }, [cloneSampleUrl]);
 
   const selectAndPlayVoiceSample = (voice, preserveClone = false) => {
+    cloudSampleRef.current?.pause();
+    cloud.select("");
     if (!preserveClone) clearSelectedVoiceProfile();
     if (voice.id !== selectedVoiceId) setSpeed(voice.defaultSpeed ?? 1);
     previousVoiceSampleIdRef.current = voice.id;
@@ -2648,6 +2639,8 @@ function VoiceSynthesisControls({
   };
 
   const selectCloneProfile = (profile) => {
+    cloudSampleRef.current?.pause();
+    cloud.select("");
     flushSync(() => setSelectedVoiceProfileId(profile.id));
     setVolume((current) => Math.abs(current - 1) < 0.001 ? 1.2 : current);
     const player = voiceSampleRef.current;
@@ -2669,13 +2662,13 @@ function VoiceSynthesisControls({
         {t("inputScript")}
       </label>
       <div className="script-box">
-        <textarea id="script-input" value={script} maxLength={5000} onChange={(event) => updateScript(event.target.value)} />
+        <textarea id="script-input" value={script} maxLength={scriptLimit} onChange={(event) => updateScript(event.target.value)} />
         <div className="script-meta">
           <button type="button" onClick={() => updateScript("")}>
             <Trash size={14} />
             {t("clear")}
           </button>
-          <span>{script.length} / 5000</span>
+          <span>{script.length} / {scriptLimit}</span>
         </div>
       </div>
 
@@ -2711,12 +2704,38 @@ function VoiceSynthesisControls({
         </div>
       </div>
 
-      <div className="voice-list">
+      {import.meta.env?.VITE_ANNA_EDITION === "true" && cloud.status && !["loading", "catalogFailed", "empty"].includes(cloud.status) && (cloud.status !== "grant" || cloud.selected) && !cloud.busy && <div className="unified-voice-status" role="status">
+        <span>{cloudCopy[cloud.status]}</span>
+        {["failed", "grant"].includes(cloud.status) && <button className="panel-secondary" type="button" onClick={cloud.retry}>{cloudCopy.retry}</button>}
+      </div>}
+      <audio ref={cloudSampleRef} hidden aria-hidden="true" crossOrigin="anonymous" preload="none"
+        onError={() => setCloudSampleFailed(true)} />
+      <div className="voice-list" aria-busy={generating}>
+        {cloud.voices.filter(voice => voice.sampleUrl && (voiceFilter === "all" || !voice.language || voice.language === voiceFilter || voice.languageCode === language)).map((voice) => (
+          <button className={`voice-card ${voice.key === cloud.selected?.key ? "is-selected" : ""}`} type="button" key={voice.key} disabled={generating || !voice.sampleUrl}
+            onClick={() => {
+              voiceSampleRef.current?.pause();
+              flushSync(() => { clearSelectedVoiceProfile(); cloud.select(voice.key); setCloudSampleFailed(false); });
+              const player = cloudSampleRef.current;
+              if (player) {
+                player.pause();
+                player.src = voice.sampleUrl;
+                player.load();
+                player.play()?.catch(error => {
+                  if (error.name !== "AbortError" && player.src === voice.sampleUrl) setCloudSampleFailed(true);
+                });
+              }
+            }}>
+            <span className="avatar voice-avatar" aria-hidden="true"><img src={`/assets/voice-avatars/anna-${voice.avatar}.png`} alt="" loading="lazy" /></span>
+            <span><strong>{voice.name}</strong><em>{voice.key === cloud.selected?.key && cloudSampleFailed ? auditionCopy.failed : voice.language || cloudCopy.cloud}</em></span>
+          </button>
+        ))}
         {voiceProfiles.map((profile) => (
           <button
-            className={`voice-card clone-voice-card ${profile.id === selectedVoiceProfileId ? "is-selected" : ""}`}
+            className={`voice-card clone-voice-card ${profile.id === selectedVoiceProfileId && !cloudSelected ? "is-selected" : ""}`}
             type="button"
             key={profile.id}
+            disabled={generating}
             onClick={() => selectCloneProfile(profile)}
           >
             <span className="avatar"><Waveform size={17} weight="bold" /></span>
@@ -2728,9 +2747,10 @@ function VoiceSynthesisControls({
         ))}
         {filteredVoices.map((voice) => (
           <button
-            className={`voice-card ${voice.id === selectedVoiceId && !selectedVoiceProfile ? "is-selected" : ""}`}
+            className={`voice-card ${voice.id === selectedVoiceId && !selectedVoiceProfile && !cloudSelected ? "is-selected" : ""}`}
             type="button"
             key={voice.id}
+            disabled={generating}
             onClick={() => selectAndPlayVoiceSample(voice)}
           >
             <span className="avatar voice-avatar" aria-hidden="true">
@@ -2746,6 +2766,7 @@ function VoiceSynthesisControls({
         ))}
       </div>
 
+      {!cloudSelected && <>
       <div className="model-row">
         <span title={selectedVoice.detail}>{selectedVoiceProfile ? `${t("cloneBaseVoice", "基础语言声音")} · ${selectedVoice.name}` : selectedVoice.detail}</span>
         <button
@@ -2760,30 +2781,17 @@ function VoiceSynthesisControls({
         </button>
       </div>
 
-      <div className="voice-sample-preview">
-        <div>
-          <strong>{t("voiceSampleTitle", "音色样音")}</strong>
-          <span>{selectedVoiceProfile
-            ? `${selectedVoiceProfile.name} · ${t("cloneLanguageFlow", "先合成所选语言，再转换为此音色")}`
-            : `${selectedVoice.name} · ${t("voiceSampleHint", "切换音色后试听对应的预生成样音")}`}</span>
-        </div>
-        <audio
-          ref={voiceSampleRef}
-          data-testid="voice-sample-player"
-          data-voice-id={selectedVoiceProfile?.id || selectedVoice.id}
-          controls
-          preload="metadata"
-          src={cloneSampleUrl || selectedVoice.sampleUrl}
-        />
-      </div>
+      <audio ref={voiceSampleRef} hidden aria-hidden="true" preload="metadata"
+        src={cloneSampleUrl || selectedVoice.sampleUrl} />
 
-      <div className="slider-field">
+      </>}
+      {!cloudSelected && <div className="slider-field">
         <div>
           <label htmlFor="speed">{t("speed")}</label>
           <span>{speed.toFixed(2)} x</span>
         </div>
         <input id="speed" type="range" min="0.7" max="1.3" step="0.05" value={selectedVoice.engine === "hojo" ? 1 : speed} disabled={selectedVoice.engine === "hojo"} onChange={(event) => setSpeed(Number(event.target.value))} />
-      </div>
+      </div>}
 
       <div className="slider-field">
         <div>
@@ -2808,16 +2816,16 @@ function VoiceSynthesisControls({
         </div>
       ) : null}
 
+      {!cloudSelected && localUnavailable && <AnnaModelGate anna={anna}><span /></AnnaModelGate>}
       <div className="voice-actions">
-        <button className="generate-button" type="button" disabled={status === "generating" || !script.trim()} onClick={generateVoiceover}>
-          {status === "generating" ? <i className="generate-button-spinner" aria-hidden="true" /> : <Waveform size={18} weight="bold" />}
-          {status === "generating" ? t("generating") : audioBlob ? t("regenerateVoice") : t("generateVoice")}
+        <button className="generate-button" type="button" disabled={!cloud.busy && (generating || !script.trim() || (!cloudSelected && localUnavailable))} onClick={cloud.busy ? cloud.cancel : cloudSelected ? cloud.generate : generateVoiceover}>
+          {generating ? <i className="generate-button-spinner" aria-hidden="true" /> : <Waveform size={18} weight="bold" />}
+          {cloud.busy ? cloudCopy.cancel : generating ? t("generating") : t("generateVoice")}
         </button>
-        <button className="secondary-download" type="button" disabled={!audioBlob} onClick={() => audioBlob && downloadBlob(audioBlob, "ai-voiceover.wav")}>
-          <DownloadSimple size={17} />
-        </button>
+        <button className="secondary-download" type="button" disabled={cloudSelected ? !cloud.result : !audioBlob} onClick={() => cloudSelected ? cloud.result && downloadBlob(cloud.result.blob, `anna-voiceover.${cloud.result.blob.type.includes("wav") ? "wav" : "mp3"}`) : audioBlob && downloadBlob(audioBlob, "ai-voiceover.wav")}><DownloadSimple size={17} /></button>
       </div>
-      {audioBlob && audioUrl ? (
+      {cloudSelected && cloud.result && <div className="generated-voice-result"><strong>{cloudCopy.saved}</strong><audio controls preload="metadata" src={cloud.result.url} /></div>}
+      {!cloudSelected && audioBlob && audioUrl ? (
         <div className="generated-voice-result" aria-live="polite">
           <div><Check size={18} weight="bold" /><span><strong>{t("voiceAddedToTimeline", "已加入配音时间线")}</strong><em>{t("voicePreviewHint", "试听本次已生成的时间线配音")}</em></span></div>
           <audio controls preload="metadata" src={audioUrl} />

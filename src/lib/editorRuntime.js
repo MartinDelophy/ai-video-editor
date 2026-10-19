@@ -1,3 +1,4 @@
+import { getAutoDuckGain } from "./audioDucking.js";
 import { RATIO_OPTIONS } from "../config/editor.js";
 import { applyAudioSpatialEffect, createAudioSpatialGraph, normalizeAudioSpatialAmount, normalizeAudioSpatialEffect } from "./audioSpatialEffects.js";
 import {
@@ -25,7 +26,7 @@ export function getAudioSegmentPreviewVolume(segment, timelineTime) {
   const fadeOut = Math.max(0, Math.min(segment.duration, segment.fadeOut || 0));
   const fadeInGain = fadeIn > 0 ? Math.min(1, localTime / fadeIn) : 1;
   const fadeOutGain = fadeOut > 0 ? Math.min(1, (segment.duration - localTime) / fadeOut) : 1;
-  return volume * Math.max(0, Math.min(fadeInGain, fadeOutGain));
+  return volume * Math.max(0, Math.min(fadeInGain, fadeOutGain)) * getAutoDuckGain(segment,timelineTime);
 }
 
 export function isAudioSegmentAudible(segment) {

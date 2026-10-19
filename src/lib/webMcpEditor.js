@@ -51,7 +51,7 @@ function page(items, input) {
 
 // Expose metadata deliberately, never media bytes, blob URLs, model state, or credentials.
 function properties(clip) {
-  const fields = ["type", "name", "start", "end", "duration", "text", "volume", "fadeIn", "fadeOut", "muted", "playbackRate", "sourceKind", "layer", "lane", "hidden", "sourceAudioDisabled", "sourceAudioUnmapped"];
+  const fields = ["visualSegmentId", "audioSegmentId", "detachedAudioSegmentId", "spatialEffect", "spatialAmount", "x", "y", "scale", "rotation", "opacity", "fontId", "processingRevision", "type", "name", "start", "end", "duration", "text", "volume", "fadeIn", "fadeOut", "muted", "playbackRate", "sourceKind", "layer", "lane", "hidden", "sourceAudioDisabled", "sourceAudioUnmapped"];
   return {
     ...Object.fromEntries(fields.filter((key) => ["string", "boolean", "number"].includes(typeof clip[key])).map((key) => [key, clip[key]])),
     ...browserVisualSettings(clip),
@@ -168,6 +168,14 @@ export function createWebMcpEditorSession(getEditor, { publish = () => {}, publi
         case "timeline_ai_result_frames":
           result = await aiJobs.inspectFrames(input, signal);
           break;
+        case "timeline_voice_catalog": {
+          object(input, []);
+          if (!state.editor.voiceCatalog) fail("AI_UNAVAILABLE");
+          const models = await state.editor.voiceCatalog({ signal });
+          guard(signal);
+          result = { stateToken: capture().stateToken, models: models.slice(0, 50).map(model => ({ id: model.id, name: model.name, preferred: model.preferred, defaultVoice: model.defaultVoice, maxChars: model.maxChars, voices: model.voices.slice(0, 300) })) };
+          break;
+        }
         case "timeline_project_inspect":
           object(input, []);
           result = readProject(state);
@@ -177,7 +185,8 @@ export function createWebMcpEditorSession(getEditor, { publish = () => {}, publi
           if (!TRACKS.includes(input.track)) fail("INVALID_ARGUMENT");
           const track = inspectTrack(state.project, input.track);
           const planning = input.track === "visuals" ? planningClips(state.editor) : [];
-          const entries = track.clips.map((clip, index) => ({ ...clip, ...(planning[index] || {}) }));
+          const entities = browserReviewEntities(state.project)[input.track];
+          const entries = track.clips.map((clip, index) => ({ ...clip, ...entities.find(item => item.id === clip.id), ...(planning[index] || {}) }));
           const { clips: _clips, revision: _revision, ...metadata } = track;
           result = { ...metadata, stateToken: state.stateToken, ...page(entries, input) };
           break;
@@ -255,10 +264,15 @@ export function createWebMcpEditorSession(getEditor, { publish = () => {}, publi
             resolveAiResult: resultId => aiJobs.preview(resultId, state.fingerprint),
           };
           const review = input.operations ? buildBrowserOperationReview(state.project, input, options) : buildBrowserTimelineReview(state.project, input, options);
-          const processedMedia = [...new Set((input.operations || []).filter(operation => operation.type === "visual.replace_media").map(operation => operation.resultId))].map(resultId => {
+          const processedMedia = [...new Set((input.operations || []).filter(operation => ["visual.replace_media", "audio.replace_media"].includes(operation.type)).map(operation => operation.resultId))].map(resultId => {
             const asset = aiJobs.preview(resultId, state.fingerprint).asset;
             return { src: asset.src, name: asset.name, type: asset.type };
           });
+          for (const operation of input.operations || []) {
+            if (operation.type !== "asset.insert") continue;
+            const asset = aiJobs.assets().find(item => item.id === operation.assetId && item.type === "audio");
+            if (asset && !processedMedia.some(item => item.src === asset.src)) processedMedia.push({ src: asset.src, name: asset.name, type: asset.type });
+          }
           pending = { id: makeId(), stateToken: state.stateToken, fingerprint: state.fingerprint, before: review.beforeProject || state.project, review, processedMedia };
           publish({ status: "pending", preview: previewSummary(pending), summary: input.summary || "", processedMedia });
           result = previewSummary(pending);
@@ -392,6 +406,7 @@ export function createWebMcpTools(session, t) {
   }, ["stateToken"]);
   editSchema.oneOf = [{ required: ["clips"] }, { required: ["operations"] }];
   const tools = [
+    ["timeline_voice_catalog", "VoiceCatalog", schema(), true],
     ["timeline_project_inspect", "Project", schema(), true],
     ["timeline_track_inspect", "Track", schema({ track: { type: "string", enum: TRACKS }, ...pagination }, ["track"]), true],
     ["timeline_clip_inspect", "Clip", schema({ clipId: stringSchema }, ["clipId"]), true],

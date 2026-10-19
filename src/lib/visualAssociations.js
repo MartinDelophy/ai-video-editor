@@ -35,3 +35,22 @@ export function reconcileVisualAssociations(project, before, after, deletedIds =
   if (project.captionSegments.length !== captionCount) project.script = project.captionSegments.map(segment => segment.text).join("\n");
   return project;
 }
+
+// A deliberate timed move transfers existing ownership only. A linked group
+// must fit wholly inside one visual; ambiguous placements become independent.
+export function rebindMovedVisualGroup(segments, visuals) {
+  if (!segments.some(segment => segment.visualSegmentId)) return segments;
+  const start = Math.min(...segments.map(segment => Number(segment.start) || 0));
+  const end = Math.max(...segments.map(segment => Number.isFinite(segment.end)
+    ? segment.end : (Number(segment.start) || 0) + (Number(segment.duration) || 0)));
+  let cursor = 0;
+  const owner = visuals.find(visual => {
+    const from = cursor;
+    cursor += Number(visual.duration) || 0;
+    return start >= from - 0.000001 && end <= cursor + 0.000001 && end > start;
+  });
+  return segments.map(segment => {
+    const { visualSegmentId: previous, ...rest } = segment;
+    return owner ? { ...rest, visualSegmentId: owner.id } : previous ? rest : segment;
+  });
+}

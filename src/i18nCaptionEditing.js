@@ -59,3 +59,30 @@ const keywordCopy = {
   id: ['Sorotan kata kunci', 'Warna sorotan', 'Pisahkan kata atau frasa dengan koma atau baris baru. Kosongkan untuk menonaktifkan. Huruf besar/kecil diabaikan.'],
 };
 export const getCaptionKeywordCopy = language => keywordCopy[language] || keywordCopy.en;
+
+const visualLinkCopy = {
+ zh:["关联对应画面","解除画面关联"],en:["Link to matching visual","Unlink visual"],ja:["対応する映像にリンク","映像のリンクを解除"],ko:["해당 화면에 연결","화면 연결 해제"],es:["Vincular al clip correspondiente","Desvincular imagen"],fr:["Lier au plan correspondant","Dissocier le plan"],de:["Mit passendem Bildclip verknüpfen","Bildverknüpfung lösen"],pt:["Vincular ao clipe correspondente","Desvincular imagem"],th:["เชื่อมกับภาพที่ตรงกัน","ยกเลิกการเชื่อมภาพ"],vi:["Liên kết với cảnh tương ứng","Bỏ liên kết cảnh"],ru:["Связать с соответствующим кадром","Отвязать изображение"],it:["Collega alla clip corrispondente","Scollega immagine"],id:["Tautkan ke klip yang sesuai","Lepas tautan gambar"]
+};
+export const getCaptionVisualLinkCopy = language => visualLinkCopy[language] || visualLinkCopy.en;
+
+const selectionHighlightCopy = {
+ zh:["高亮选中文字","清除本段高亮","选中文案中的文字，再点击高亮；仅应用于本字幕段。"],
+ en:["Highlight selection","Clear this caption’s highlights","Select text, then highlight. Applies only to this caption."],
+ ja:["選択文字を強調","この字幕の強調を消去","文字を選択して強調します。この字幕だけに適用されます。"],
+ ko:["선택한 글자 강조","이 자막의 강조 지우기","글자를 선택한 뒤 강조하세요. 이 자막에만 적용됩니다."],
+ es:["Resaltar selección","Borrar resaltado del subtítulo","Selecciona texto y resáltalo. Solo afecta a este subtítulo."],
+ fr:["Surligner la sélection","Effacer le surlignage du sous-titre","Sélectionnez le texte puis surlignez-le. Uniquement pour ce sous-titre."],
+ de:["Auswahl hervorheben","Hervorhebung dieses Untertitels löschen","Text auswählen und hervorheben. Gilt nur für diesen Untertitel."],
+ pt:["Destacar seleção","Limpar destaque desta legenda","Selecione o texto e destaque. Aplica-se apenas a esta legenda."],
+ th:["เน้นข้อความที่เลือก","ล้างการเน้นคำบรรยายนี้","เลือกข้อความแล้วกดเน้น ใช้กับคำบรรยายนี้เท่านั้น"],
+ vi:["Tô nổi bật phần chọn","Xóa tô nổi bật phụ đề này","Chọn văn bản rồi tô nổi bật. Chỉ áp dụng cho phụ đề này."],
+ ru:["Выделить выбранный текст","Убрать выделение в этом субтитре","Выберите текст и выделите его. Только для этого субтитра."],
+ it:["Evidenzia selezione","Cancella evidenziazione del sottotitolo","Seleziona il testo e poi evidenzialo. Solo per questo sottotitolo."],
+ id:["Sorot teks terpilih","Hapus sorotan subtitel ini","Pilih teks lalu sorot. Hanya berlaku untuk subtitel ini."],
+};
+export const getCaptionSelectionHighlightCopy = language => selectionHighlightCopy[language] || selectionHighlightCopy.en;
+
+const highlightToolbarCopy = {
+ zh:["高亮","清除"], en:["Highlight","Clear"], ja:["強調","消去"], ko:["강조","지우기"], es:["Resaltar","Borrar"], fr:["Surligner","Effacer"], de:["Hervorheben","Löschen"], pt:["Destacar","Limpar"], th:["เน้น","ล้าง"], vi:["Tô nổi bật","Xóa"], ru:["Выделить","Убрать"], it:["Evidenzia","Cancella"], id:["Sorot","Hapus"],
+};
+export const getCaptionHighlightToolbarCopy = language => highlightToolbarCopy[language] || highlightToolbarCopy.en;

@@ -1,3 +1,4 @@
+import { getDuckingEnvelope, scheduleDuckingGain } from "./audioDucking.js";
 import { applyBeatShakeTransform } from "./beatShakeEffect.js";
 import { drawGlitch } from "./glitchEffect.js";
 import { composeRepairWithWebCodecs } from "./repairVideoComposition.js";
@@ -1720,6 +1721,7 @@ export async function exportBrowserVideo({
   const audioInputs = [
     ...voiceAudioSegments.map((segment) => ({
       blob: segment.blob,
+      duckingEnvelope: getDuckingEnvelope(segment,{strict:true}),
       volume: segment.muted === true ? 0 : segment.volume ?? 1,
       role: "voice",
       start: Math.max(0, segment.start || 0),
@@ -1738,6 +1740,7 @@ export async function exportBrowserVideo({
     ...(sourceAudioBlob && sourceAudioSegments.length
       ? sourceAudioSegments.map((segment) => ({
           blob: sourceAudioBlob,
+          duckingEnvelope: getDuckingEnvelope(segment,{strict:true}),
           volume: segment.volume ?? sourceAudioVolume,
           role: "source",
           start: Math.max(0, segment.start || 0),
@@ -1752,7 +1755,7 @@ export async function exportBrowserVideo({
         ? [{ blob: sourceAudioBlob, volume: sourceAudioVolume, role: "source", start: Math.max(0, sourceAudioStart || 0), spatialEffect: sourceAudioSpatialEffect, spatialAmount: sourceAudioSpatialAmount }]
         : []),
     ...(musicBlob ? (musicSegments.length ? musicSegments.map((segment) => ({
-      blob: musicBlob, volume: segment.muted === true ? 0 : segment.volume ?? musicVolume, role: "music",
+      blob: musicBlob, duckingEnvelope: getDuckingEnvelope(segment,{strict:true}), volume: segment.muted === true ? 0 : segment.volume ?? musicVolume, role: "music",
       start: Math.max(0, segment.start || 0), sourceOffset: Math.max(0, segment.sourceStart || 0),
       sourceDuration: Math.max(0, segment.sourceDuration || (segment.duration || 0) * normalizeVisualPlaybackRate(segment.playbackRate)),
       playbackRate: normalizeVisualPlaybackRate(segment.playbackRate), outputDuration: Math.max(0, segment.duration || 0),
@@ -1844,7 +1847,9 @@ export async function exportBrowserVideo({
         gain.gain.linearRampToValueAtTime(input.finalGain, audioContext.currentTime + input.start + input.outputDuration);
       }
       source.connect(gain);
-      connectAudioSpatialEffect(audioContext, gain, destination, input.spatialEffect, input.spatialAmount, { smooth: false });
+      const duckGain = audioContext.createGain(); gain.connect(duckGain);
+      scheduleDuckingGain(duckGain.gain,input.duckingEnvelope,rangeStart+input.start,audioContext.currentTime+input.start,input.outputDuration);
+      connectAudioSpatialEffect(audioContext, duckGain, destination, input.spatialEffect, input.spatialAmount, { smooth: false });
       sources.push({
         node: source,
         start: input.start,

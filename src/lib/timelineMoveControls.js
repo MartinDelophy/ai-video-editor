@@ -1,3 +1,4 @@
+import { rebindMovedVisualGroup } from "./visualAssociations.js";
 import { DEFAULT_STICKER_SEGMENT_SECONDS, MAX_TIMELINE_DURATION_SECONDS, MIN_VISUAL_SEGMENT_SECONDS } from "../config/editor.js";
 import { collectTimelineSnapPoints, createTimelineSnapGuide, findClosestTimelineSnap, snapTimelineRange } from "./timelineSnap.js";
 import {
@@ -287,7 +288,8 @@ export function createTimelineMoveControls(d) {
         timelineDuration: duration,
       });
       const snapped = snapTimelineRange(unsnapped, segment.duration, snapPoints, (10 / Math.max(rect.width, 1)) * duration);
-      latest = Math.max(0, Math.min(MAX_TIMELINE_DURATION_SECONDS - segment.duration, snapped.start));
+      const groupFloor = Math.max(0, start - Math.min(start, ...captions.map(caption => caption.start)));
+      latest = Math.max(groupFloor, Math.min(MAX_TIMELINE_DURATION_SECONDS - segment.duration, snapped.start));
       const laneElement = globalThis.document?.elementFromPoint?.(e.clientX, e.clientY)?.closest?.("[data-audio-lane-index]");
       const pointedLane = Number(laneElement?.dataset?.audioLaneIndex);
       latestLane = Number.isInteger(pointedLane) && pointedLane >= 0
@@ -312,6 +314,15 @@ export function createTimelineMoveControls(d) {
     const cancel = () => cleanup(() => applyPosition(start, originalLane));
     const up = () => { cleanup(); if (moved) {
       if (cancelledByPinch) return;
+      if (Math.abs(latest - start) > 0.000001) {
+        const delta = latest - start;
+        const group = rebindMovedVisualGroup([
+          { ...segment, start: latest, lane: latestLane },
+          ...captions.map(caption => ({ ...caption, start: caption.start + delta, end: caption.end + delta })),
+        ], d.visualSegments);
+        d.setAudioSegments(items => items.map(item => item.id === segment.id ? group[0] : item));
+        d.setCaptionSegments(items => items.map(item => group.slice(1).find(caption => caption.id === item.id) || item));
+      }
       d.suppressTimelineClipClickRef.current = segment.id;
       setTimeout(() => { if (d.suppressTimelineClipClickRef.current === segment.id) d.suppressTimelineClipClickRef.current = ""; }, 160);
       d.notify(d.t("audioClipMoved"));
@@ -376,7 +387,11 @@ export function createTimelineMoveControls(d) {
     };
     const cancel = () => cleanup(() => d.setStickerTimelineDrag?.(null));
     const up = () => {
-      const next = d.stickerSegments.map((item) => item.id === segment.id ? { ...item, start: latest, lane: latestLane } : item);
+      const next = d.stickerSegments.map((item) => item.id === segment.id
+        ? moved && Math.abs(latest - start) > 0.000001
+          ? rebindMovedVisualGroup([{ ...item, start: latest, lane: latestLane }], d.visualSegments)[0]
+          : { ...item, start: latest, lane: latestLane }
+        : item);
       cleanup(() => {
         d.setStickerTimelineDrag?.(null);
         if (d.commitStickerSegments) d.commitStickerSegments(next, "已调整贴纸片段位置", segment.id);

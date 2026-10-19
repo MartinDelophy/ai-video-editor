@@ -31,7 +31,7 @@ export function ChatCutMediaPreview({ asset, language, editLabel, onEdit, onClos
     }}>
       <header><div><small>{title}</small><strong title={asset.name}>{asset.name}</strong></div><button type="button" aria-label={close} onClick={onClose}><X size={20} /></button></header>
       <div className="chatcut-preview-stage">{asset.type === "image" ? <img src={asset.src} alt={asset.name} /> : <video src={asset.src} poster={asset.thumbnail} controls playsInline tabIndex={0} />}</div>
-      <footer><span>{asset.width > 0 && asset.height > 0 ? `${asset.width} × ${asset.height}` : ""}</span><a href={asset.src} download={asset.name}><DownloadSimple size={16} />{download}</a><button type="button" className="is-primary" onClick={onEdit}><PencilSimple size={16} />{editLabel}</button></footer>
+      <footer><span>{asset.width > 0 && asset.height > 0 ? `${asset.width} × ${asset.height}` : ""}</span><a href={asset.src} download={asset.name}><DownloadSimple size={16} />{download}</a>{onEdit && <button type="button" className="is-primary" onClick={onEdit}><PencilSimple size={16} />{editLabel}</button>}</footer>
     </section>
   </div>, document.body);
 }

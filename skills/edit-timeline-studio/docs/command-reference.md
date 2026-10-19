@@ -95,3 +95,13 @@ npm run agent -- project.render /absolute/path/render.json
 The initial renderer uses local `ffmpeg`, writes a temporary output, atomically renames it only after encoding succeeds, and verifies the final dimensions, duration, and audio-track presence with `ffprobe`. It renders contiguous image/video Visuals with contain fitting plus portable Voiceover and Music clips into H.264/AAC MP4. Width and height are normalized to even values; defaults come from the project ratio.
 
 The command fails with `UNSUPPORTED_RENDER_FEATURE` instead of silently dropping visible captions, stickers, overlays, transitions, visual effects, or separated source audio. Use the browser renderer for those projects. `project.render` does not run AI generation and is intentionally separate from `project.run`; the editable `.timeline` remains the source of truth.
+
+## Shared scoped styling and ownership
+
+`caption.configure` requires clipId and settings and/or placement. Supported styles are defined by CAPTION_SETTINGS_SCHEMA (including actual font IDs, textAlign, highlightWords/highlightColor, letterSpacing/lineGap, paddingX/paddingY, captionSize, text/background color and backgroundOpacity). Placement uses center-point x/y percentages. `sticker.configure` requires clipId/settings with x/y percentages, scale, rotation and opacity. `audio.configure` requires clipId/settings with approved spatialEffect and spatialAmount.
+
+`timed.move` supports audio, caption and sticker tracks, using clipId and start; active audio-caption pairs move together and explicit visual ownership is reconciled against the final group bounds. `clip.link_visual` takes clipId and visualClipId (null removes ownership). `clip.delete` also supports track:sticker. These use the same reducers as browser review/apply. Each operation still requires its idempotent operation id and the current project revision in the local command plan.
+
+`audio.replace_media` is a browser processing-receipt operation, not an arbitrary file/URL replacement API. Browser-local processing and Anna narration are browser AI tools, not project-file CLI model endpoints. Use the inspected live browser contract for their result receipts and user review.
+
+`audio.configure.settings.autoDuck` supports `{enabled:boolean,strength:"gentle"|"natural"|"strong"}` on ordinary audio clips. Inspect and preview before applying. It enables local speech ducking; wait for analysis in the editor before export. Source and music ducking are UI-scoped.

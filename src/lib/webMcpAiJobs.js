@@ -1,3 +1,7 @@
+import { isAnnaEdition } from "./annaRuntime.js";
+import { AUDIO_PROCESSING_SCHEMA } from "./webMcpOperationSchema.js";
+import { validateCommandSettings } from "./projectCommandEngine.js";
+import { isTimedSegmentLaneLocked } from "./timeline.js";
 import { buildSilenceRemovalReview, canRemovePauses } from "./silenceRemoval.js";
 import { MAX_TIMELINE_DURATION_SECONDS } from "../config/editor.js";
 import { validateAnimationScene } from "./animationScene.js";
@@ -34,7 +38,7 @@ export function createWebMcpAiJobs({ getEditor, capture, guard, publish = () => 
   const assets = () => [...results.values()].flatMap(result => result.assets || (result.asset ? [result.asset] : []));
   const get = resultId => { const result = results.get(resultId); if (!result) fail("AI_RESULT_NOT_FOUND"); return result; };
   const process = async (input, signal) => {
-    if (Object.keys(input).some(key => !["stateToken", "kind", "clipId", "language", "targetLanguage", "regions", "minimum", "keep", "segments", "voiceId"].includes(key)) || !["captions", "watermark", "pauses", "narration"].includes(input.kind) || typeof input.clipId !== "string") fail("INVALID_ARGUMENT");
+    if (Object.keys(input).some(key => !["stateToken", "kind", "clipId", "language", "targetLanguage", "regions", "minimum", "keep", "segments", "voiceId", "settings"].includes(key)) || !["captions", "watermark", "pauses", "narration", "audio-processing"].includes(input.kind) || typeof input.clipId !== "string") fail("INVALID_ARGUMENT");
     guard(signal, true);
     const state = capture();
     if (state.stateToken !== input.stateToken) fail("STALE_STATE");
@@ -48,13 +52,18 @@ export function createWebMcpAiJobs({ getEditor, capture, guard, publish = () => 
     const { key, lock, clip: metadata } = matches[0];
     if (state.project.trackLocks?.[input.kind === "captions" ? "caption" : lock]) fail("BROWSER_EDIT_TRACK_LOCKED");
     const runtime = editor.getRuntimeProject?.() || editor;
-    const clip = (runtime[key] || []).find(item => item.id === input.clipId);
+    const liveClip = (runtime[key] || []).find(item => item.id === input.clipId);
+    const clip = key === "audioSegments" && liveClip ? { ...liveClip, type: "audio" } : liveClip;
     if (!(clip?.blob instanceof Blob) || clip.preparing || clip.reversed || clip.reverse) fail("AI_UNAVAILABLE");
     const language = input.language || editor.language || "zh";
     if (!languages.includes(language) || input.targetLanguage !== undefined && (!languages.includes(input.targetLanguage) || input.targetLanguage === language)) fail("INVALID_ARGUMENT");
+    if (input.kind === "audio-processing") {
+      if (key !== "audioSegments" || isTimedSegmentLaneLocked(state.project.audioSegments, clip.id, state.project.trackLocks || {})) fail("BROWSER_EDIT_TRACK_LOCKED");
+      validateCommandSettings(input.settings, AUDIO_PROCESSING_SCHEMA);
+    } else if (input.settings !== undefined) fail("INVALID_ARGUMENT");
     if (input.kind === "narration") {
-      if (!["zh", "en"].includes(language) || input.targetLanguage !== undefined || clip.type !== "video"
-        || input.voiceId !== undefined && !["zh_f_qinglan", "zh_f_ruoxi"].includes(input.voiceId)
+      if ((!isAnnaEdition && !["zh", "en"].includes(language)) || input.targetLanguage !== undefined || clip.type !== "video"
+        || input.voiceId !== undefined && (typeof input.voiceId !== "string" || input.voiceId.length > 256 || !isAnnaEdition && !["zh_f_qinglan", "zh_f_ruoxi"].includes(input.voiceId))
         || !Array.isArray(input.segments) || !input.segments.length || input.segments.length > 12) fail("INVALID_ARGUMENT");
       let previousEnd = 0;
       for (const segment of input.segments) {
@@ -83,7 +92,7 @@ export function createWebMcpAiJobs({ getEditor, capture, guard, publish = () => 
     publish({ running: true, kind: input.kind, progress: 0 });
     let output;
     try {
-      output = await editor.processAi({ ...input, clip: { ...clip }, timelineStart, language, signal: controller.signal, onProgress: value => publish({ running: true, kind: input.kind, progress: Math.min(100, Math.max(0, Number(value.progress) || 0)) }) });
+      output = await editor.processAi({ ...input, clip: { ...clip, ...(key === "audioSegments" ? { type: "audio" } : {}) }, timelineStart, language, signal: controller.signal, onProgress: value => publish({ running: true, kind: input.kind, progress: Math.min(100, Math.max(0, Number(value.progress) || 0)) }) });
       check(controller.signal); guard(signal);
       if (capture().fingerprint !== state.fingerprint) fail("STALE_STATE");
       let operations;
@@ -97,11 +106,16 @@ export function createWebMcpAiJobs({ getEditor, capture, guard, publish = () => 
           return [{ type: "asset.insert", clipId: audioId, assetId: asset.id, ...((state.project.visualSegments || []).some(item => item.id === clip.id) ? { visualClipId: clip.id } : {}), track: "audio", start: segment.start, duration: asset.duration },
             { type: "caption.add", clipId: `agent-caption-${resultId}-${index}`, text: segment.text, start: segment.start, end: segment.end, ...((state.project.visualSegments || []).some(item => item.id === clip.id) ? { visualClipId: clip.id } : {}) }];
         });
+      } else if (input.kind === "audio-processing") {
+        if (!(output.asset?.blob instanceof Blob) || !output.asset.blob.size || output.asset.type !== "audio" || !number(output.asset.sourceDuration, 0.001, MAX_TIMELINE_DURATION_SECONDS) || Math.abs(output.asset.duration - clip.duration) > 0.001 || Math.abs(output.asset.sourceDuration - (clip.sourceDuration || clip.duration * (clip.playbackRate || 1))) > 0.05) fail("AI_EMPTY_RESULT");
+        operations = [{ type: "audio.replace_media", clipId: clip.id, resultId }];
       } else if (input.kind === "captions") {
         if (!Array.isArray(output.segments) || !output.segments.length || output.segments.length > 500) fail("AI_EMPTY_RESULT");
         operations = output.segments.map((segment, index) => {
           if (!number(segment.start, timelineStart, timelineStart + metadata.duration) || !number(segment.end, segment.start + 0.2, Math.min(MAX_TIMELINE_DURATION_SECONDS, timelineStart + metadata.duration)) || typeof segment.text !== "string" || !segment.text.trim() || segment.text.length > 20000) fail("AI_EMPTY_RESULT");
-          return { type: "caption.add", clipId: `agent-caption-${resultId}-${index}`, text: segment.text, start: segment.start, end: segment.end, ...((state.project.visualSegments || []).some(item => item.id === clip.id) ? { visualClipId: clip.id } : {}) };
+          return { type: "caption.add", clipId: `agent-caption-${resultId}-${index}`, text: segment.text, start: segment.start, end: segment.end,
+            ...(key === "audioSegments" ? { audioClipId: clip.id } : {}),
+            ...((state.project.visualSegments || []).some(item => item.id === (key === "audioSegments" ? metadata.visualSegmentId : clip.id)) ? { visualClipId: key === "audioSegments" ? metadata.visualSegmentId : clip.id } : {}) };
         });
       } else if (input.kind === "pauses") {
         if (!Array.isArray(output.candidates) || output.candidates.length > 500) fail("AI_EMPTY_RESULT");
@@ -114,7 +128,7 @@ export function createWebMcpAiJobs({ getEditor, capture, guard, publish = () => 
         operations = [{ type: "visual.replace_media", clipId: clip.id, resultId }];
       }
       results.set(resultId, { kind: input.kind, fingerprint: state.fingerprint, clipId: clip.id, operations, asset: output.asset, assets: output.assets, review: output.review, candidates: output.candidates, inspected: input.kind !== "watermark" });
-      return { resultId, kind: input.kind, clipId: clip.id, operations, ...(output.candidates ? { cuts: output.candidates.map(cut => ({ start: timelineStart + cut.start, end: timelineStart + cut.end })), removedSeconds: output.candidates.reduce((sum, cut) => sum + cut.end - cut.start, 0), rippleEditing: Boolean(editor.rippleEditing) } : {}), assets: (output.asset ? [output.asset] : []).map(asset => ({ assetId: asset.id, name: asset.name, type: asset.type })), needsVisualInspection: input.kind === "watermark", timing: input.kind === "narration" ? "Clip-relative slots; generated audio and captions use measured speech duration. Video duration unchanged." : input.kind === "pauses" ? "Remove only detected pauses in this inspected main clip; source audio follows, other tracks follow the current ripple mode." : input.kind === "captions" ? "Pause-estimated timeline seconds; review alignment. Singing may not be recognized." : "Original clip timing preserved; processed media source starts at zero.", ...(output.asset ? { asset: { name: output.asset.name, duration: output.asset.duration, width: output.asset.width, height: output.asset.height } } : {}) };
+      return { resultId, kind: input.kind, clipId: clip.id, operations, ...(output.candidates ? { cuts: output.candidates.map(cut => ({ start: timelineStart + cut.start, end: timelineStart + cut.end })), removedSeconds: output.candidates.reduce((sum, cut) => sum + cut.end - cut.start, 0), rippleEditing: Boolean(editor.rippleEditing) } : {}), assets: (output.assets || (output.asset ? [output.asset] : [])).map(asset => ({ assetId: asset.id, name: asset.name, type: asset.type })), needsVisualInspection: input.kind === "watermark", timing: input.kind === "narration" ? "Clip-relative slots; generated audio and captions use measured speech duration. Video duration unchanged." : input.kind === "pauses" ? "Remove only detected pauses in this inspected main clip; source audio follows, other tracks follow the current ripple mode." : input.kind === "captions" ? "Pause-estimated timeline seconds; review alignment. Singing may not be recognized." : "Original clip timing preserved; processed media source starts at zero.", ...(output.asset ? { asset: { name: output.asset.name, duration: output.asset.duration, width: output.asset.width, height: output.asset.height } } : {}) };
     } catch (error) { for (const asset of output?.assets || (output?.asset ? [output.asset] : [])) editor.discardAiAsset?.(asset); throw error; } finally { signal?.removeEventListener("abort", abort); controllers.delete(controller); publish(null); }
   };
   const generateImage = async (input, signal, video = false) => {
@@ -207,7 +221,7 @@ const id = { type: "string", minLength: 1, maxLength: 256 };
 const rect = { type: "object", additionalProperties: false, properties: Object.fromEntries(["x", "y", "width", "height"].map(key => [key, { type: "number", minimum: key === "width" || key === "height" ? 0.015 : 0, maximum: 1 }])), required: ["x", "y", "width", "height"] };
 const time = { type: "number", minimum: 0, maximum: MAX_TIMELINE_DURATION_SECONDS };
 const object = (properties, required) => ({ type: "object", additionalProperties: false, properties, required });
-export const AI_PROCESS_SCHEMA = object({ stateToken: id, clipId: id, kind: { type: "string", enum: ["captions", "watermark", "pauses", "narration"] }, voiceId: { type: "string", enum: ["zh_f_qinglan", "zh_f_ruoxi"] }, segments: { type: "array", minItems: 1, maxItems: 12, items: object({ start: time, end: time, text: { type: "string", minLength: 1, maxLength: 500 } }, ["start", "end", "text"]) }, minimum: { type: "number", minimum: 0.5, maximum: 5 }, keep: { type: "number", minimum: 0.3, maximum: 1 }, language: { type: "string", enum: languages }, targetLanguage: { type: "string", enum: languages }, regions: { type: "array", minItems: 1, maxItems: 20, items: object({ start: time, end: time, selection: rect, keyframes: { type: "array", maxItems: 100, items: object({ time, selection: rect }, ["time", "selection"]) } }, ["start", "end", "selection"]) } }, ["stateToken", "clipId", "kind"]);
+export const AI_PROCESS_SCHEMA = object({ stateToken: id, clipId: id, kind: { type: "string", enum: ["captions", "watermark", "pauses", "narration", "audio-processing"] }, settings: AUDIO_PROCESSING_SCHEMA, voiceId: { type: "string", minLength: 1, maxLength: 256 }, segments: { type: "array", minItems: 1, maxItems: 12, items: object({ start: time, end: time, text: { type: "string", minLength: 1, maxLength: 500 } }, ["start", "end", "text"]) }, minimum: { type: "number", minimum: 0.5, maximum: 5 }, keep: { type: "number", minimum: 0.3, maximum: 1 }, language: { type: "string", enum: languages }, targetLanguage: { type: "string", enum: languages }, regions: { type: "array", minItems: 1, maxItems: 20, items: object({ start: time, end: time, selection: rect, keyframes: { type: "array", maxItems: 100, items: object({ time, selection: rect }, ["time", "selection"]) } }, ["start", "end", "selection"]) } }, ["stateToken", "clipId", "kind"]);
 export const AI_FRAMES_SCHEMA = object({ resultId: id, times: { type: "array", minItems: 1, maxItems: 6, items: time } }, ["resultId", "times"]);
 export const AI_PREVIEW_SCHEMA = object({ stateToken: id, resultId: id, summary: { type: "string", maxLength: 2000 } }, ["stateToken", "resultId"]);
 

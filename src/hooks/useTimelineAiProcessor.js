@@ -40,7 +40,11 @@ export function useTimelineAiProcessor({ imageUrlRefs, voiceBusy = false }) {
     const { generateAnimationAssets } = await import("../lib/renderAnimation.js");
     return generateAnimationAssets(input, src => imageUrlRefs.current.add(src));
   };
+  const voiceCatalog = isAnnaEdition ? async ({ signal } = {}) => {
+    const { loadAnnaTtsCatalog } = await import("../lib/annaAudio.js");
+    return loadAnnaTtsCatalog(signal);
+  } : undefined;
   const discard = asset => { if (asset?.src) { URL.revokeObjectURL(asset.src); imageUrlRefs.current.delete(asset.src); } };
   const release = () => { if (audio.current?.state === "running") void audio.current.suspend().catch(() => {}); };
-  return { generateAnimation, generateImage, generateVideo, prepare, release, process, discard, supports: () => ({ animation: typeof VideoEncoder !== "undefined" && typeof VideoFrame !== "undefined", image: isAnnaEdition, video: isAnnaEdition, narration: Boolean(navigator.gpu) && !voiceBusy, pauses: typeof Worker !== "undefined" && typeof AudioDecoder !== "undefined", captions: supportsFileSpeech(), watermark: typeof VideoDecoder !== "undefined" && typeof OffscreenCanvas !== "undefined" && Boolean(navigator.gpu) }) };
+  return { voiceCatalog, generateAnimation, generateImage, generateVideo, prepare, release, process, discard, supports: () => ({ voices: isAnnaEdition, animation: typeof VideoEncoder !== "undefined" && typeof VideoFrame !== "undefined", image: isAnnaEdition, video: isAnnaEdition, "audio-processing": typeof Worker !== "undefined" && typeof AudioContext !== "undefined", narration: (isAnnaEdition || Boolean(navigator.gpu)) && !voiceBusy, pauses: typeof Worker !== "undefined" && typeof AudioDecoder !== "undefined", captions: supportsFileSpeech(), watermark: typeof VideoDecoder !== "undefined" && typeof OffscreenCanvas !== "undefined" && Boolean(navigator.gpu) }) };
 }

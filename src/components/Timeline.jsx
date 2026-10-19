@@ -313,6 +313,7 @@ export function Timeline({
   setSelectedSegmentId,
   captionTargetDuration,
   sourceAudioVolume,
+  sourceAudioAutoDuck,
   setSourceAudioVolume,
   musicVolume,
   setMusicVolume,
@@ -1000,6 +1001,7 @@ export function Timeline({
     if (!blob) return;
     runMobileClipAction(() => generateCaptionsFromAudioClip({
       blob,
+      clip: { ...selectedMobileAudioSegment, track: selectedMobileClipTrack, ...(selectedMobileClipTrack === "source" && sourceAudioLinked ? { visualSegmentId: selectedMobileAudioSegment.id } : {}) },
       start: selectedMobileAudioSegment.start || 0,
       sourceStart: selectedMobileAudioSegment.sourceStart || 0,
       duration: selectedMobileAudioSegment.duration,
@@ -3533,7 +3535,7 @@ export function Timeline({
                     revealMobileClipActions("source");
                   }}
                 >
-                  <TimelineGain volume={segment.volume ?? sourceAudioVolume} disabled={trackLocks.source || !trackVisibility.source} t={t} onChange={(volume) => setVisualSegments((items) => items.map((item) => item.id === segment.id ? { ...item, sourceAudioVolume: volume } : item))} />
+                  <TimelineGain segment={segment} volume={segment.volume ?? sourceAudioVolume} disabled={trackLocks.source || !trackVisibility.source} t={t} onChange={(volume) => setVisualSegments((items) => items.map((item) => item.id === segment.id ? { ...item, sourceAudioVolume: volume } : item))} />
                   <WaveformStrip timeline volume={segment.volume ?? sourceAudioVolume} peaks={sourceAudioPeaks} sourceStart={segment.sourceStart} sourceDuration={segment.sourceDuration} sourceAudioDuration={sourceAudioDuration} active />
                   <span className="audio-clip-duration" data-compact-duration={formatCompactDuration(segment.duration)}>{formatTime(segment.duration)}</span>
                 </div>
@@ -3560,7 +3562,7 @@ export function Timeline({
                     revealMobileClipActions("source");
                   }}
                 >
-                  <TimelineGain volume={sourceAudioVolume} disabled={trackLocks.source || !trackVisibility.source} t={t} onChange={setSourceAudioVolume} />
+                  <TimelineGain segment={{id:"source-audio",autoDuck:sourceAudioAutoDuck,start:sourceAudioStartPercent / 100 * timelineDuration,duration:sourceAudioDuration}} volume={sourceAudioVolume} disabled={trackLocks.source || !trackVisibility.source} t={t} onChange={setSourceAudioVolume} />
                   <WaveformStrip timeline volume={sourceAudioVolume} peaks={sourceAudioPeaks} active />
                   <span className="audio-clip-duration" data-compact-duration={formatCompactDuration(sourceAudioDuration)}>{formatTime(sourceAudioDuration)}</span>
                 </div>
@@ -3639,7 +3641,7 @@ export function Timeline({
               {renderAssetDropSlot("music")}
               {musicBlob ? (musicSegments.length ? musicSegments : [{ id: "music-audio", start: musicStartPercent / 100 * timelineDuration, duration: musicDuration, peaks: musicPeaks }]).map((segment) => (
                 <div className={`audio-clip is-music ${selectedMusicSegmentId === segment.id ? "is-selected" : ""}`} key={segment.id} data-timeline-segment-track="music" data-timeline-segment-id={segment.id} data-range-selected={isRangeSelected("music", segment.id) || undefined} style={{ width: `${timelineDuration > 0 ? segment.duration / timelineDuration * 100 : 0}%`, left: `${timelineDuration > 0 ? segment.start / timelineDuration * 100 : 0}%` }} onPointerDown={(event) => startMusicMove(event, segment.id)} onContextMenu={(event) => showTrackContextMenu(event, "music", segment.id)} onClick={(event) => { event.stopPropagation(); if (suppressTimelineClipClickRef.current === "music") return void (suppressTimelineClipClickRef.current = ""); setSelectedTrack("music"); activateAudioToolForClipSelection(); clearClipSelections("music"); setSelectedMusicSegmentId?.(segment.id); ensureMobileTimedClipVisible(segment.id); revealMobileClipActions("music"); }}>
-                  <TimelineGain volume={segment.volume ?? musicVolume} disabled={trackLocks.music || !trackVisibility.music} t={t} onChange={(volume) => { if (musicSegments.length) setMusicSegments((items) => items.map((item) => item.id === segment.id ? { ...item, volume } : item)); else setMusicVolume(volume); }} />
+                  <TimelineGain segment={segment} volume={segment.volume ?? musicVolume} disabled={trackLocks.music || !trackVisibility.music} t={t} onChange={(volume) => { if (musicSegments.length) setMusicSegments((items) => items.map((item) => item.id === segment.id ? { ...item, volume } : item)); else setMusicVolume(volume); }} />
                   {(rulerViewport.viewportWidth <= 0 || (
                     segment.start + segment.duration >= rulerVisibleStart - 240 * secondsPerPixel
                     && segment.start <= rulerVisibleEnd + 240 * secondsPerPixel
@@ -3722,7 +3724,7 @@ export function Timeline({
             if (actionId === "audio-voice-color") return <button type="button" key={actionId} onClick={() => openSelectedClipInspector("voice-color")}><Sparkle size={20} weight="fill" /><span>{t("voiceColorTab", "音色")}</span></button>;
             if (actionId === "split") return <button type="button" key={actionId} onClick={() => runMobileClipAction(handleCutTrack)}><Scissors size={20} /><span>{t("mobileClipSplit")}</span></button>;
             if (actionId === "copy") return <button type="button" key={actionId} onClick={() => runMobileClipAction(handleDuplicateTrack)}><CopySimple size={20} /><span>{t("mobileClipCopy")}</span></button>;
-            if (import.meta.env?.VITE_ANNA_EDITION === "true" && ["captions", "separate"].includes(actionId)) return null;
+            if (import.meta.env?.VITE_ANNA_EDITION === "true" && actionId === "separate") return null;
             if (actionId === "captions") return <button type="button" key={actionId} disabled={audioProcessingBusy || !selectedMobileAudioSegment || !generateCaptionsFromAudioClip} onClick={generateSelectedMobileAudioCaptions}><ClosedCaptioning size={20} /><span>{captionGenerationUnavailableLabel || t("mobileClipCaptions")}</span></button>;
             if (actionId === "caption-link") return <button type="button" key={actionId} onClick={toggleSelectedMobileCaptionAudioLink}>{selectedMobileHasLinkedCaption ? <LinkBreak size={20} /> : <LinkSimple size={20} />}<span>{t(selectedMobileHasLinkedCaption ? "captionUnlinkAudio" : "captionLinkAudio")}</span></button>;
             if (actionId === "caption-align") return <button type="button" key={actionId} onClick={alignSelectedMobileCaptionAudio}><ArrowsInLineHorizontal size={20} /><span>{t("captionAlignToAudio")}</span></button>;
@@ -3775,11 +3777,11 @@ export function Timeline({
                 <button type="button" role="menuitem" onClick={() => runContextAction(() => contextAudioHasLinkedCaption ? unlinkAudioCaptions?.(contextAudioSegment.id) : linkAudioToCaption?.(contextAudioSegment.id))}>{contextAudioHasLinkedCaption ? <LinkBreak size={16} /> : <LinkSimple size={16} />}{t(contextAudioHasLinkedCaption ? "captionUnlinkAudio" : "captionLinkAudio")}</button>
                 {contextAudioHasLinkedCaption ? <button type="button" role="menuitem" onClick={() => runContextAction(() => alignAudioCaptions?.(contextAudioSegment.id))}><ArrowsInLineHorizontal size={16} />{t("captionAlignToAudio")}</button> : null}
                 {import.meta.env?.VITE_ANNA_EDITION !== "true" ? <button type="button" role="menuitem" disabled={audioProcessingBusy} onClick={() => runContextAction(() => separateAudioClipVocals?.({ blob: contextAudioSegment.blob, name: contextAudioSegment.name, start: contextAudioSegment.start, sourceStart: contextAudioSegment.sourceStart || 0, duration: contextAudioSegment.duration, segmentId: contextAudioSegment.id, track: "audio" }))}><Waveform size={16} />{t("separateVocalsFromClip")}</button> : null}
-                {import.meta.env?.VITE_ANNA_EDITION !== "true" ? <button type="button" role="menuitem" disabled={audioProcessingBusy || !generateCaptionsFromAudioClip} onClick={() => runContextAction(() => generateCaptionsFromAudioClip?.({ blob: contextAudioSegment.blob, start: contextAudioSegment.start, sourceStart: contextAudioSegment.sourceStart || 0, duration: contextAudioSegment.duration, append: true }))}><ClosedCaptioning size={16} />{t("generateCaptionsFromClip")}{captionGenerationUnavailableLabel ? ` · ${captionGenerationUnavailableLabel}` : ""}</button> : null}
+                {<button type="button" role="menuitem" disabled={audioProcessingBusy || !generateCaptionsFromAudioClip} onClick={() => runContextAction(() => generateCaptionsFromAudioClip?.({ blob: contextAudioSegment.blob, clip: { ...contextAudioSegment, track: "audio" }, start: contextAudioSegment.start, sourceStart: contextAudioSegment.sourceStart || 0, duration: contextAudioSegment.duration, append: true }))}><ClosedCaptioning size={16} />{t("generateCaptionsFromClip")}{captionGenerationUnavailableLabel ? ` · ${captionGenerationUnavailableLabel}` : ""}</button>}
               </> : null}
               {contextMenu.track === "music" && contextMusicSegment && musicBlob ? <>
                 {import.meta.env?.VITE_ANNA_EDITION !== "true" ? <button type="button" role="menuitem" disabled={audioProcessingBusy} onClick={() => runContextAction(() => separateAudioClipVocals?.({ blob: musicBlob, name: t("musicTrack"), start: contextMusicSegment.start, sourceStart: contextMusicSegment.sourceStart || 0, duration: contextMusicSegment.duration, segmentId: contextMusicSegment.id, track: "music" }))}><Waveform size={16} />{t("separateVocalsFromClip")}</button> : null}
-                {import.meta.env?.VITE_ANNA_EDITION !== "true" ? <button type="button" role="menuitem" disabled={audioProcessingBusy || !generateCaptionsFromAudioClip} onClick={() => runContextAction(() => generateCaptionsFromAudioClip?.({ blob: musicBlob, start: contextMusicSegment.start, sourceStart: contextMusicSegment.sourceStart || 0, duration: contextMusicSegment.duration, append: true }))}><ClosedCaptioning size={16} />{t("generateCaptionsFromClip")}{captionGenerationUnavailableLabel ? ` · ${captionGenerationUnavailableLabel}` : ""}</button> : null}
+                {<button type="button" role="menuitem" disabled={audioProcessingBusy || !generateCaptionsFromAudioClip} onClick={() => runContextAction(() => generateCaptionsFromAudioClip?.({ blob: musicBlob, clip: { ...contextMusicSegment, track: "music" }, start: contextMusicSegment.start, sourceStart: contextMusicSegment.sourceStart || 0, duration: contextMusicSegment.duration, append: true }))}><ClosedCaptioning size={16} />{t("generateCaptionsFromClip")}{captionGenerationUnavailableLabel ? ` · ${captionGenerationUnavailableLabel}` : ""}</button>}
               </> : null}
               <button type="button" role="menuitem" onClick={() => runContextAction(handleCutTrack)}><Scissors size={16} />{t("splitAtPlayhead")}</button>
               <button type="button" role="menuitem" onClick={() => runContextAction(handleDuplicateTrack)}><CopySimple size={16} />{t("duplicateClip")}</button>

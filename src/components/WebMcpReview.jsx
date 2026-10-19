@@ -4,6 +4,10 @@ import "./WebMcpReview.css";
 
 const TRACK_LABELS = { visuals: "trackVisuals", overlays: "trackOverlays", audio: "trackAudio", captions: "trackCaptions", stickers: "trackStickers", music: "trackMusic", markers: "trackMarkers" };
 const FIELD_LABELS = {
+  visualSegmentId: "fieldVisualLink", styleOverrides: "fieldStyle", placement: "fieldPosition", captionSize: "fieldFontSize", fontId: "fieldStyle",
+  textAlign: "fieldTextAlign", highlightWords: "fieldHighlightWords", highlightColor: "fieldHighlightColor", letterSpacing: "fieldLetterSpacing", lineGap: "fieldLineGap", paddingX: "fieldPaddingX", paddingY: "fieldPaddingY",
+  textColor: "fieldColor", backgroundColor: "fieldColor", backgroundOpacity: "fieldOpacity", spatialEffect: "fieldStyle", spatialAmount: "fieldOpacity",
+  audioProcessing: "processing_processing", ...Object.fromEntries(["eq", "compressor", "loudness", "limiter", "engine", "strength", "low", "mid", "high", "threshold", "ratio", "attack", "release", "gain", "ceiling"].map(key => [key, `processing_${key}`])),
   colorGrade: "editColor", glitch: "editGlitch", beatShake: "editShake", transition: "editTransition",
   temperature: "editTemperature", tint: "editTint", saturation: "editSaturation", shadows: "editShadows", midtones: "editMidtones", highlights: "editHighlights", offset: "editOffset", hue: "editHue", luminance: "editLuminance",
   intensity: "editIntensity", separation: "editSeparation", frequency: "editFrequency", scanlines: "editScanlines", bpm: "editBpm", decay: "editDecay", direction: "editDirection",
@@ -24,8 +28,11 @@ const TIME_FIELDS = new Set(["time", "start", "end", "rangeEnd", "endTime", "dur
 const SUMMARY_FIELDS = ["type", "text", "note", "notes", "start", "time", "end", "endTime", "duration", "sourceStart", "sourceDuration", "volume", "fadeIn", "fadeOut", "muted", "layer", "lane", "baseTransform", "audioSegmentId", "sourceAudioDisabled", "sourceAudioUnmapped", "color"];
 // Raw media and runtime metadata must never reach a review value. Text, names,
 // and marker notes are deliberately rendered as React text, never as markup.
-const PRIVATE_FIELDS = /^(?:blob|src|url|file|path|archivePath|integrity|archiveMediaId|assetId|originalAssetId|thumbnail.*|poster.*|waveform.*|media.*|cache.*|.*token|.*credential|.*secret)$/i;
+const PRIVATE_FIELDS = /^(?:blob|src|url|file|path|archivePath|integrity|archiveMediaId|assetId|originalAssetId|thumbnail.*|poster.*|waveform.*|media.*|cache.*|processingRevision|.*token|.*credential|.*secret)$/i;
 const ENUM_LABELS = {
+  textAlign: { left: "valueAlignLeft", center: "valueAlignCenter", right: "valueAlignRight" },
+  engine: { off: "processing_off" },
+  spatialEffect: Object.fromEntries(["original", "bedroom", "living-room", "bathroom", "hall", "corridor", "plaza", "valley", "studio", "office", "cafe", "classroom", "theater", "church", "forest", "subway"].map(id => [id, `space_${id}`])),
   type: { video: "mediaVideo", image: "mediaImage", audio: "mediaAudio", marker: "markerPoint", chapter: "markerChapter", range: "markerRange", note: "markerNote" },
   color: { cyan: "colorCyan", amber: "colorAmber", violet: "colorViolet", rose: "colorRose", green: "colorGreen" },
   fitMode: { cover: "fitCover", contain: "fitContain" },
@@ -55,7 +62,7 @@ function ReviewValue({ value, field, t, time, number, depth = 0 }) {
     if (!Number.isFinite(value)) return t("valueEmpty");
     if (TIME_FIELDS.has(field)) return time(value);
     if (field === "lane") return number(value + 1);
-    if (field === "volume" || field === "opacity") return `${number(value * 100)}%`;
+    if (["volume", "opacity", "strength", "spatialAmount", "backgroundOpacity"].includes(field)) return `${number(value * 100)}%`;
     if (field === "playbackRate") return `${number(value)}×`;
     return number(value);
   }
@@ -133,8 +140,8 @@ export function WebMcpReview({ agent, language }) {
       </header>
       <div className="webmcp-review-body">
         {view.processedMedia?.length > 0 && <section className="webmcp-review-section">
-          <h3>{t("toolAiFramesTitle")}</h3>
-          {view.processedMedia.map(media => <video key={media.src} className="webmcp-review-video" controls playsInline preload="metadata" src={media.src} aria-label={media.name} />)}
+          <h3>{t("toolAiPreviewTitle")}</h3>
+          {view.processedMedia.map(media => media.type === "audio" ? <audio key={media.src} className="webmcp-review-audio" controls preload="metadata" src={media.src} aria-label={media.name} /> : <video key={media.src} className="webmcp-review-video" controls playsInline preload="metadata" src={media.src} aria-label={media.name} />)}
         </section>}
         <p className={applied ? "webmcp-review-success" : "webmcp-review-status"} role="status">
           {applied ? <CheckCircle size={16} aria-hidden="true" /> : null}{view.status === "undone" ? getChatCutCopy(language).changeUndone : t(applied ? "applied" : "pending")}

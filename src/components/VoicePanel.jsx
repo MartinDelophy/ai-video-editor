@@ -1,3 +1,8 @@
+import { SpeechEnhancementControls } from "./SpeechEnhancementControls.jsx";
+import { AudioDuckingControls } from "./AudioDuckingControls.jsx";
+import { AutoCaptionAction } from "./AutoCaptionAction.jsx";
+import { normalizeCaptionHighlightRanges, getCaptionKeywordRanges } from "../lib/captionKeywords.js";
+import { getCaptionHighlightToolbarCopy, getCaptionKeywordCopy, getCaptionSelectionHighlightCopy, getCaptionVisualLinkCopy } from "../i18nCaptionEditing.js";
 import { AudioInspectorTabs } from "./AudioInspectorTabs.jsx";
 import { AudioProcessingPanel } from "./AudioProcessingPanel.jsx";
 import { getAudioProcessingCopy } from "../i18nAudioProcessing.js";
@@ -34,6 +39,8 @@ import {
   DownloadSimple,
   Eye,
   EyeSlash,
+  Highlighter,
+  Eraser,
   ImageSquare,
   Info,
   Link,
@@ -568,6 +575,8 @@ function VectorControls({ t, segment, onUpdate }) {
 }
 
 function CaptionContextPanel({
+  language,
+  highlightDisabled,
   t,
   anna,
   captionSegments,
@@ -592,6 +601,32 @@ function CaptionContextPanel({
   audioSegments,
   setCaptionSegments,
 }) {
+  const selectionRef = useRef(null);
+  const [selection, setSelection] = useState(null);
+  const highlightCopy = getCaptionSelectionHighlightCopy(language);
+  const toolbarCopy = getCaptionHighlightToolbarCopy(language);
+  const keywordCopy = getCaptionKeywordCopy(language);
+  const rememberSelection = event => {
+    const { selectionStart: start, selectionEnd: end } = event.currentTarget;
+    const next = { id: selectedCaptionSegment.id, start, end };
+    selectionRef.current = next;
+    setSelection(next);
+  };
+  const patchHighlight = patch => {
+    if (highlightDisabled || !selectedCaptionSegment) return;
+    setCaptionSegments(items => items.map(segment => segment.id === selectedCaptionSegment.id ? patch(segment) : segment));
+  };
+  const highlightSelection = () => {
+    const range = selectionRef.current;
+    if (!range || range.id !== selectedCaptionSegment?.id || range.end <= range.start) return;
+    patchHighlight(segment => ({ ...segment,
+      highlightRanges: normalizeCaptionHighlightRanges([
+        ...(segment.highlightRanges || []),
+        ...getCaptionKeywordRanges(segment.text, segment.styleOverrides?.highlightWords), range,
+      ], segment.text.length),
+      styleOverrides: { ...segment.styleOverrides, highlightWords: "", highlightColor: segment.styleOverrides?.highlightColor || "#ffe066" },
+    }));
+  };
   const srtInputRef = useRef(null);
   const focusNewCaptionRef = useRef(false);
   const [pendingSrt, setPendingSrt] = useState(null);
@@ -696,9 +731,22 @@ function CaptionContextPanel({
         {t("captionScriptLabel", "字幕文案")}
       </label>
       {selectedCaptionSegment ? (
+        <>
         <div className="script-box caption-sync-box">
+          <div className="caption-highlight-actions">
+            <button type="button" disabled={highlightDisabled || selection?.id !== selectedCaptionSegment.id || !(selection.end > selection.start)}
+              onMouseDown={event => event.preventDefault()} onClick={highlightSelection} title={highlightCopy[0]}><Highlighter size={18} /><span>{toolbarCopy[0]}</span></button>
+            <label className="caption-highlight-swatch" title={keywordCopy[1]}><input type="color" aria-label={keywordCopy[1]} disabled={highlightDisabled}
+              value={selectedCaptionSegment.styleOverrides?.highlightColor || "#ffe066"}
+              onChange={event => { const color = event.target.value; patchHighlight(segment => ({ ...segment, styleOverrides: { ...segment.styleOverrides, highlightColor: color } })); }} /><CaretDown size={14} aria-hidden="true" /></label>
+            <span className="caption-toolbar-divider" aria-hidden="true" />
+            <button className="caption-highlight-clear" type="button" title={highlightCopy[1]} disabled={highlightDisabled} onClick={() => patchHighlight(segment => ({ ...segment, highlightRanges: [], styleOverrides: { ...segment.styleOverrides, highlightWords: "" } }))}><Eraser size={18} /><span>{toolbarCopy[1]}</span></button>
+          </div>
+
           <textarea
             id="caption-context-input"
+            onSelect={rememberSelection}
+            disabled={highlightDisabled}
             value={selectedCaptionSegment.text}
             onChange={(event) => updateCaptionSegmentText(selectedCaptionSegment.id, event.target.value)}
           />
@@ -710,19 +758,22 @@ function CaptionContextPanel({
             <span>{selectedCaptionSegment.text.length} / 500</span>
           </div>
         </div>
+        <p className="caption-highlight-hint">{highlightCopy[2]}</p>
+        </>
       ) : (
         <div className="caption-context-empty">
           <ClosedCaptioning size={28} weight="duotone" />
           <strong>{t("noCaptionSegments")}</strong>
           <span>{t("captionEmptyHint", "字幕片段可拖动到字幕轨道，并在这里同步编辑。")}</span>
           <div className="caption-empty-actions">
-            <button className="caption-add-button" type="button" onClick={handleAddCaption}>
+            <button className="caption-add-button" type="button" disabled={highlightDisabled} onClick={handleAddCaption}>
               <Plus size={16} weight="bold" />{t("addCaption")}
             </button>
-            <button className="caption-empty-import" type="button" onClick={() => srtInputRef.current?.click()}>
+            <button className="caption-empty-import" type="button" disabled={highlightDisabled} onClick={() => srtInputRef.current?.click()}>
               <UploadSimple size={15} />{t("importSrt")}
             </button>
           </div>
+
         </div>
       )}
 
@@ -791,38 +842,18 @@ function CaptionContextPanel({
         </button>
       </div>
 
-      {!captionSegments.length && import.meta.env?.VITE_ANNA_EDITION !== "true" ? (
-        <AnnaModelGate anna={anna}><button
-          className="audio-entry-card caption-entry-card"
-          type="button"
-          disabled={!sourceAudioBlob || isGeneratingCaptions}
-          onClick={generateCaptionsFromSourceAudio}
-        >
-          <ClosedCaptioning size={24} weight="duotone" />
-          <span>
-            <strong>{isGeneratingCaptions ? t("autoCaptionsRunning") : t("autoCaptionsTitle")}</strong>
-            <em>{sourceAudioBlob ? t("autoCaptionsDesc") : t("autoCaptionsNeedsSource")}</em>
-          </span>
-          {isGeneratingCaptions ? (
-            <span className="inline-progress" aria-hidden="true">
-              <span style={{ width: `${automaticCaptionProgress}%` }} />
-            </span>
-          ) : null}
-        </button></AnnaModelGate>
+      {!captionSegments.length ? (
+        <AutoCaptionAction language={language} t={t} available={Boolean(sourceAudioBlob)} running={isGeneratingCaptions} progress={automaticCaptionProgress} onStart={generateCaptionsFromSourceAudio} onCancel={generateCaptionsFromSourceAudio.cancel} />
       ) : null}
 
       <div className="caption-context-heading">
         <span><ListBullets size={16} />{t("captionList", "字幕列表")}</span>
-        {captionSegments.length ? (
-          <>
-            <button className="caption-add-inline" type="button" onClick={handleAddCaption}>
+            <button className="caption-add-inline" type="button" disabled={highlightDisabled} onClick={handleAddCaption}>
               <Plus size={14} weight="bold" />{t("addCaption")}
             </button>
-            <button className="caption-import-button" type="button" onClick={() => srtInputRef.current?.click()}>
+            <button className="caption-import-button" type="button" disabled={highlightDisabled} onClick={() => srtInputRef.current?.click()}>
               <UploadSimple size={14} />{t("importSrt")}
             </button>
-          </>
-        ) : null}
         <input
           ref={srtInputRef}
           className="sr-only"
@@ -972,7 +1003,7 @@ function AudioVoiceColorSection({ t, segment, voiceProfiles = [], onAssetReady, 
   </div>;
 }
 
-function AudioClipContextPanel({ t, anna, language, processingDisabled, registerProcessingUrl, segment, updateAudioSegment, toggleAudioSegmentReverse, deleteAudioSegment, downloadBlob, requestedSection = "", voiceProfiles, onVoiceColorAssetReady, onApplyVoiceColor, onRestoreVoiceColor }) {
+function AudioClipContextPanel({ t, anna, language, visualAssociation, processingDisabled, duckingDisabled, registerProcessingUrl, segment, updateAudioSegment, toggleAudioSegmentReverse, deleteAudioSegment, downloadBlob, requestedSection = "", voiceProfiles, onVoiceColorAssetReady, onApplyVoiceColor, onRestoreVoiceColor }) {
   const [activeTab, setActiveTab] = useState("audio");
   const tabBodyRef = useRef(null);
   const isVoiceClip = segment.track === "audio";
@@ -993,6 +1024,7 @@ function AudioClipContextPanel({ t, anna, language, processingDisabled, register
         items={[{id:"audio",label:t("mobileClipAudio")},...(canFade?[{id:"fade",label:t("mobileClipFade")}]:[]),...(canSpatial?[{id:"spatial",label:t("audioSpaceTab")}]:[]),...(canVoiceColor?[{id:"voice-color",label:t("voiceColorTab", "音色")}]:[]),{id:"processing",label:processingCopy.processing}]}
         value={shownTab} onChange={setActiveTab} label={t("audioClipProperties")} previous={processingCopy.previous} next={processingCopy.next}
       /> : null}
+      {visualAssociation && <button className="panel-secondary timed-visual-link" type="button" disabled={visualAssociation.disabled} onClick={visualAssociation.toggle}>{getCaptionVisualLinkCopy(language)[visualAssociation.linked ? 1 : 0]}</button>}
       <div ref={tabBodyRef} className={`audio-context-tab-body${shownTab === "processing" ? " is-processing" : ""}`}>
       {shownTab === "processing" ? <AudioProcessingPanel segment={segment} language={language} disabled={processingDisabled} updateAudioSegment={updateAudioSegment} registerUrl={registerProcessingUrl} /> : null}
       {shownTab === "audio" ? <div className="audio-context-section">
@@ -1014,6 +1046,8 @@ function AudioClipContextPanel({ t, anna, language, processingDisabled, register
           <input aria-label={t("visualSpeed")} type="range" min="0.25" max="4" step="0.05" value={segment.playbackRate ?? 1} onChange={(event) => updateAudioSegment(segment.id, { playbackRate: Number(event.target.value) })} />
         </div> : null}
       </div> : null}
+      {shownTab === "audio" ? <SpeechEnhancementControls segment={segment} language={language} disabled={processingDisabled} updateAudioSegment={updateAudioSegment} registerUrl={registerProcessingUrl} /> : null}
+      {shownTab === "audio" ? <AudioDuckingControls segment={segment} language={language} disabled={duckingDisabled} onChange={patch => updateAudioSegment(segment.id, patch)} /> : null}
       {shownTab === "fade" && canFade ? <div className="audio-context-section audio-fade-section">
         <p>{t("audioFadeHint")}</p>
         <label className="audio-property-slider">
@@ -1049,10 +1083,9 @@ function AudioClipContextPanel({ t, anna, language, processingDisabled, register
       {shownTab === "voice-color" && canVoiceColor ? <AnnaModelGate anna={anna}><AudioVoiceColorSection t={t} segment={segment} voiceProfiles={voiceProfiles} onAssetReady={onVoiceColorAssetReady} onApply={onApplyVoiceColor} onRestore={onRestoreVoiceColor} /></AnnaModelGate> : null}
       {shownTab === "voice-color" && anna?.enabled && anna.localComputeReason && segment.voiceColorOriginalBlob ? <button className="voice-color-restore" type="button" onClick={() => onRestoreVoiceColor?.(segment)}>{t("voiceColorRestoreOriginal", "恢复原始声音")}</button> : null}
       {shownTab === "audio" && !segment.embeddedVideo ? <div className="audio-context-actions">
-        {isVoiceClip ? <button className={`panel-secondary ${segment.reversed ? "is-active" : ""}`} type="button" disabled={segment.reversing} onClick={() => toggleAudioSegmentReverse(segment.id)}>
+        <AudioClipExportControl segment={segment} t={t} downloadBlob={downloadBlob} leadingAction={isVoiceClip ? <button className={`panel-secondary ${segment.reversed ? "is-active" : ""}`} type="button" disabled={segment.reversing} onClick={() => toggleAudioSegmentReverse(segment.id)}>
           {segment.reversing ? t("audioReversing") : segment.reversed ? t("audioReverseRestore") : t("audioReverse")}
-        </button> : null}
-        <AudioClipExportControl segment={segment} t={t} downloadBlob={downloadBlob}>
+        </button> : null}>
           <button className="panel-secondary is-danger" type="button" onClick={() => deleteAudioSegment(segment.id)}><Trash size={15} />{t("deleteAudioClip")}</button>
         </AudioClipExportControl>
       </div> : null}
@@ -1392,6 +1425,7 @@ function CaptionFontSheet({
 
 export function VoicePanel({
   generationAssets = [],
+  captionHighlightDisabled = false,
   t,
   activeTool,
   captionVoiceFocusRequest = 0,
@@ -1473,7 +1507,7 @@ export function VoicePanel({
   selectedTrack,
   selectedAudioSegment,
   selectedTrackAudioSegment,
-  audioProcessingDisabled, registerAudioProcessingUrl,
+  audioProcessingDisabled, audioDuckingDisabled, registerAudioProcessingUrl, onAnnaSpeechAssetReady, captionVisualLinkDisabled, toggleCaptionVisualLink, audioVisualAssociation, stickerVisualAssociation,
   mobileInspectorOrigin = "",
   mobileInspectorSection = "",
   onCloseMobileInspector,
@@ -1799,7 +1833,10 @@ export function VoicePanel({
         {isSmartAutoContext ? anna?.enabled ? <AnnaEditPanel anna={anna} /> : <AutoEditPanel t={t} hasVisual={hasVisual} language={uiLanguage} autoEdit={autoEdit} /> : null}
         {isSmartFrameContext ? <AnnaModelGate anna={anna}><SmartFramePanel t={t} smartFrame={smartFrame} /></AnnaModelGate> : null}
         {isAiMusicContext ? <AnnaModelGate anna={anna}><AiMusicGenerator language={uiLanguage} music={aiMusic} embedded /></AnnaModelGate> : null}
-        {isStickerContext ? <StickerContextPanel t={t} segment={selectedStickerSegment} updateStickerSegment={updateStickerSegment} deleteStickerSegment={deleteStickerSegment} /> : null}
+        {isStickerContext ? <>
+          {stickerVisualAssociation && <button className="panel-secondary timed-visual-link" type="button" disabled={stickerVisualAssociation.disabled} onClick={stickerVisualAssociation.toggle}>{getCaptionVisualLinkCopy(uiLanguage)[stickerVisualAssociation.linked ? 1 : 0]}</button>}
+          <StickerContextPanel t={t} segment={selectedStickerSegment} updateStickerSegment={updateStickerSegment} deleteStickerSegment={deleteStickerSegment} />
+        </> : null}
         {isOverlayContext ? <div className="visual-overlay-inspector">
           {!mobileInspectorSection ? <div className={`sticker-properties-preview ${isVectorOverlay ? "is-vector" : ""}`}>{selectedVisualOverlay.type === "video" ? <video src={selectedVisualOverlay.src} muted playsInline /> : <img src={selectedVisualOverlay.src} alt="" style={isVectorOverlay ? { filter: vectorOverlayAppearance.filter, opacity: vectorOverlayAppearance.opacity, mixBlendMode: vectorOverlayAppearance.cssBlendMode } : undefined} />}</div> : null}
           <VisualEffectsPanel
@@ -1869,7 +1906,11 @@ export function VoicePanel({
           />
         ) : null}
         {isCaptionContext && captionPanelTab === "caption" && mobileInspectorSection !== "font" ? (
+          <>
+          {selectedCaptionSegment && <button className="panel-secondary caption-visual-link" type="button" disabled={captionVisualLinkDisabled} onClick={toggleCaptionVisualLink}>{getCaptionVisualLinkCopy(uiLanguage)[selectedCaptionSegment.visualSegmentId ? 1 : 0]}</button>}
           <CaptionContextPanel
+            language={uiLanguage}
+            highlightDisabled={captionHighlightDisabled}
             anna={anna}
             t={t}
             captionSegments={captionSegments}
@@ -1894,6 +1935,7 @@ export function VoicePanel({
             isGeneratingCaptions={isGeneratingCaptions}
             automaticCaptionProgress={automaticCaptionProgress}
           />
+          </>
         ) : null}
 
         {isCaptionContext && captionPanelTab === "voice" ? (
@@ -1941,10 +1983,12 @@ export function VoicePanel({
 
         {isAvatarContext ? <AnnaModelGate anna={anna}><AvatarContextPanel t={t} hasVisual={hasVisual} visualType={visualType} audioBlob={audioBlob} audioDuration={audioDuration} captionSegments={captionSegments} selectedVoice={selectedVoice} avatarJob={avatarJob} generateAvatarAcceptanceFrame={generateAvatarAcceptanceFrame} /></AnnaModelGate> : null}
 
-        {isAudioClipContext ? <AudioClipContextPanel t={t} anna={anna} language={uiLanguage} processingDisabled={audioProcessingDisabled} registerProcessingUrl={registerAudioProcessingUrl} segment={{ ...audioPropertySegment, id: audioPropertySegment.id || audioPropertySegment.segmentId, track: audioPropertySegment.track || selectedTrack }} updateAudioSegment={selectedTrack === "audio" ? updateAudioSegment : updateSelectedTrackAudioSegment} toggleAudioSegmentReverse={toggleAudioSegmentReverse} deleteAudioSegment={selectedTrack === "audio" ? deleteAudioSegment : deleteSelectedTrackAudioSegment} downloadBlob={downloadBlob} requestedSection={mobileInspectorSection} voiceProfiles={voiceProfiles} onVoiceColorAssetReady={onVoiceColorAssetReady} onApplyVoiceColor={onApplyVoiceColor} onRestoreVoiceColor={onRestoreVoiceColor} /> : null}
+        {isAudioClipContext ? <AudioClipContextPanel t={t} anna={anna} language={uiLanguage} visualAssociation={audioVisualAssociation} processingDisabled={audioProcessingDisabled} duckingDisabled={audioDuckingDisabled} registerProcessingUrl={registerAudioProcessingUrl} segment={{ ...audioPropertySegment, id: audioPropertySegment.id || audioPropertySegment.segmentId, track: audioPropertySegment.track || selectedTrack }} updateAudioSegment={selectedTrack === "audio" ? updateAudioSegment : updateSelectedTrackAudioSegment} toggleAudioSegmentReverse={toggleAudioSegmentReverse} deleteAudioSegment={selectedTrack === "audio" ? deleteAudioSegment : deleteSelectedTrackAudioSegment} downloadBlob={downloadBlob} requestedSection={mobileInspectorSection} voiceProfiles={voiceProfiles} onVoiceColorAssetReady={onVoiceColorAssetReady} onApplyVoiceColor={onApplyVoiceColor} onRestoreVoiceColor={onRestoreVoiceColor} /> : null}
 
         {!isSmartContext && !isPluginsContext && !isEffectsContext && !isCaptionContext && !isAvatarContext && !isAudioClipContext && !isVisualContext && !isStickerContext && !isOverlayContext && voiceTab === "synthesis" ? (
           <VoiceSynthesisPanel
+              language={uiLanguage}
+              onAnnaSpeechAssetReady={onAnnaSpeechAssetReady}
               anna={anna}
             script={script}
             updateScript={updateScript}

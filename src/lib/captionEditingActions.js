@@ -1,3 +1,4 @@
+import { remapCaptionHighlights } from "./captionKeywords.js";
 import { getCaptionScript } from "./timeline.js";
 
 export function setCaptionSegmentPlacement(segments, segmentId, placement) {
@@ -52,7 +53,7 @@ export function createCaptionEditingActions(d) {
     }
     d.setCaptionSegments((items) => {
       const nextSegments = items.map((segment) =>
-        segment.id === segmentId ? { ...segment, text } : segment,
+        segment.id === segmentId ? { ...segment, text, ...(segment.highlightRanges ? { highlightRanges: remapCaptionHighlights(segment.text || "", text, segment.highlightRanges) } : {}) } : segment,
       );
       d.setScript(getCaptionScript(nextSegments));
       return nextSegments;
@@ -251,16 +252,20 @@ export function createCaptionEditingActions(d) {
     }
 
     event.stopPropagation();
-    const disabledSmartAvoidance = disableSmartCaptionAvoidance();
     d.setSelectedTrack("caption");
     if (segmentId) d.setSelectedSegmentId(segmentId);
 
+    const frame = d.previewCanvasRef.current;
+    const rect = frame?.getBoundingClientRect();
+    const captionRect = event.currentTarget?.getBoundingClientRect();
+    if (!rect?.width || !rect?.height || !captionRect) return;
+    const startX = event.clientX, startY = event.clientY;
+    const centerX = ((captionRect.left + captionRect.width / 2 - rect.left) / rect.width) * 100;
+    const centerY = ((captionRect.top + captionRect.height / 2 - rect.top) / rect.height) * 100;
+    let moved = false, disabledSmartAvoidance = false;
     const applyPlacement = (clientX, clientY) => {
-      const frame = d.previewCanvasRef.current;
-      const rect = frame?.getBoundingClientRect();
-      if (!rect) return;
-      const rawX = Math.max(10, Math.min(90, ((clientX - rect.left) / rect.width) * 100));
-      const rawY = Math.max(10, Math.min(90, ((clientY - rect.top) / rect.height) * 100));
+      const rawX = Math.max(10, Math.min(90, centerX + ((clientX - startX) / rect.width) * 100));
+      const rawY = Math.max(10, Math.min(90, centerY + ((clientY - startY) / rect.height) * 100));
       const { x, y, guideX, guideY } = snapCaptionPlacement(
         rawX,
         rawY,
@@ -279,20 +284,30 @@ export function createCaptionEditingActions(d) {
       d.setCaptionPosition("custom");
     };
 
-    applyPlacement(event.clientX, event.clientY);
-    const handlePointerMove = (moveEvent) => applyPlacement(moveEvent.clientX, moveEvent.clientY);
-    const handlePointerUp = () => {
+    const handlePointerMove = (moveEvent) => {
+      if (moveEvent.pointerId !== event.pointerId) return;
+      if (!moved) {
+        if (Math.hypot(moveEvent.clientX - startX, moveEvent.clientY - startY) < 4) return;
+        moved = true;
+        disabledSmartAvoidance = disableSmartCaptionAvoidance();
+      }
+      applyPlacement(moveEvent.clientX, moveEvent.clientY);
+    };
+    const handlePointerUp = (upEvent) => {
+      if (upEvent.pointerId !== event.pointerId) return;
       window.removeEventListener("pointermove", handlePointerMove);
       window.removeEventListener("pointerup", handlePointerUp);
+      window.removeEventListener("pointercancel", handlePointerUp);
       const frame = d.previewCanvasRef.current;
       frame?.removeAttribute("data-caption-guide-x");
       frame?.removeAttribute("data-caption-guide-y");
-      d.notify(disabledSmartAvoidance
+      if (moved) d.notify(disabledSmartAvoidance
         ? "字幕位置已手动调整，智能避让已关闭"
         : "字幕位置已调整");
     };
     window.addEventListener("pointermove", handlePointerMove);
-    window.addEventListener("pointerup", handlePointerUp, { once: true });
+    window.addEventListener("pointerup", handlePointerUp);
+    window.addEventListener("pointercancel", handlePointerUp);
   }
 
   function commitCaptionSegments(nextSegments, message, nextSelectedIndex = 0) {

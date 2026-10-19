@@ -171,3 +171,9 @@ The planning step uses your brief and clip metadata. It does not watch your vide
 - [ ] 待平台修复和上述验收完成后，再将新构建推进到草稿并冻结更高版本；核对 manifest、SemVer、bundle 状态和 `review_candidate_version`，遵守用户等待后再提交的决定。
 
 本轮修复已更新至 r6 ready，截图已上传；没有冻结新版本或再次送审。上面的未勾选项目仍是交付及审核证据缺口；草稿更新成功、SDK 调用返回成功或预览可播放都不能替代这些验收，也不表示已通过商店审核。全部本地 AI 入口继续保留，等待平台提供正式 WASM 支持后再验证和提交。
+
+## 2026-10-18：草稿 156 已提交版本审核
+
+按用户明确授权，将内容哈希 `6816f8ebbe98a4ce3ce5efb9290b7c095fe20d42c37b77488b70302bcfde0159`、bundle ready 的草稿 156 冻结为 `0.1.1-beta.9`（version ID `1441`），随后提交 release review。平台返回 `release_review_state: pending`、`is_latest: false`、`published_at: null`；再次查询确认 `review_candidate_version: 0.1.1-beta.9`。当前线上仍为 `0.1.1-beta.8`，不能将已提审描述为已审核通过或已上线。
+
+候选包含 280 个文件、290,208,399 字节。变更说明涵盖工作流、白模动作/摄像机/剧本同步、加载错误隔离与旧资源兼容，以及两处重复返回箭头移除；同时明确首尾帧视频尚无平台接口、云端生图曾出现 `APP_PROVIDER_ERROR`，不声称完整云端生成端到端验收通过。

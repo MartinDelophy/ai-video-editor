@@ -11,6 +11,8 @@ Turn the user's exact editorial request and media into reversible Timeline Studi
 
 For Anna project-file calls, follow [anna/SKILL.md](anna/SKILL.md). The Executa wraps the same command runner and requires inspection plus an exact diff receipt before creating a new archive. Its initial native distribution is macOS Apple Silicon; it does not expose the current private browser project or browser AI. Keep this distinct from the native browser WebMCP route.
 
+For live ChatCut subtitle styling, keyword highlighting, timed caption/audio/sticker moves and ownership, spatial audio, local denoise/EQ/compression/gain/limiting, and Anna narration, use the registered scoped operations and processing receipts documented in [references/webmcp-integration.md](references/webmcp-integration.md). Inspect and review before apply. Browser Anna narration uses the preferred Anna TTS service; local project-file narration retains the Hojo path.
+
 ## Choose the execution path
 
 When the user is working in an already open Timeline Studio project, prefer its native browser WebMCP tools if the host exposes them. Read [references/webmcp-integration.md](references/webmcp-integration.md): inspect the live state, preview the complete supported edit, review its semantic diff, then apply the returned `previewId`. This route shares the visible editor and differs from the local project-file workflow below. It does not add a remote MCP server or grant permission to upload media.

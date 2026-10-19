@@ -2,12 +2,18 @@ import { readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
 import { build } from "vite";
+import { captureAnnaRuntimeHistory, restoreAnnaRuntimeHistory } from "./anna-runtime-history.mjs";
 
 const projectRoot = fileURLToPath(new URL("../", import.meta.url));
 const bundleRoot = resolve(projectRoot, "anna/bundle");
 const limits = { files: 2000, singleFile: 50 * 1024 ** 2, total: 1024 ** 3 };
 
+const compatibilityRoots = JSON.parse(process.env.ANNA_RUNTIME_COMPAT_BUNDLES || "[]");
+if (!Array.isArray(compatibilityRoots) || compatibilityRoots.some((root) => typeof root !== "string")) throw new Error("Invalid Anna compatibility bundle paths");
+const runtimeHistory = await captureAnnaRuntimeHistory(bundleRoot, compatibilityRoots);
 await build({ root: projectRoot, configFile: resolve(projectRoot, "vite.anna.config.mjs") });
+
+await restoreAnnaRuntimeHistory(bundleRoot, runtimeHistory);
 
 // The Anna package contains the editor, not the independent site's peripheral pages
 // or ignored local model downloads. Keep all shipped browser runtime dependencies.

@@ -336,9 +336,18 @@ const MEDIA_COLLECTIONS = ["visualSegments", "visualOverlaySegments", "audioSegm
 const CLIP_COLLECTIONS = [...MEDIA_COLLECTIONS, "captionSegments"];
 
 export const BROWSER_OPERATION_FIELDS = Object.freeze({
+  "caption.configure": ["clipId", "settings", "placement"],
+  "audio.configure": ["clipId", "settings"],
+  "sticker.configure": ["clipId", "settings"],
+  "timed.move": ["clipId", "track", "start"],
+  "clip.link_visual": ["clipId", "visualClipId"],
+  "clip.delete": ["clipId", "track"],
+  "audio.replace_media": ["clipId", "resultId"],
   "caption.add": ["clipId", "text", "start", "end", "audioClipId", "visualClipId"],
   "caption.update": ["clipId", "text", "start", "end"],
   "caption.delete": ["clipId"],
+  "caption.link_audio": ["clipId", "audioClipId", "align"],
+  "caption.unlink_audio": ["clipId"],
   "clip.set_property": ["clipId", "property", "value"],
   "clip.set_muted": ["clipId", "muted"],
   "marker.add": ["markerId", "markerType", "time", "endTime", "title", "notes", "color"],
@@ -411,7 +420,7 @@ function validateBrowserOperation(operation) {
   const unsupported = Object.keys(operation).filter(field => field !== "type" && !fields.includes(field));
   if (unsupported.length) reject("BROWSER_EDIT_INVALID_PLAN", `unsupported_fields:${unsupported.join(",")}`);
   for (const field of ["clipId", "sourceClipId", "newClipId", "rightClipId", "assetId", "audioClipId", "visualClipId", "markerId"]) {
-    if (Object.hasOwn(operation, field)) assertId(operation[field]);
+    if (Object.hasOwn(operation, field) && !(operation.type === "clip.link_visual" && field === "visualClipId" && operation[field] === null)) assertId(operation[field]);
   }
   if (operation.type.startsWith("marker.")) {
     assertId(operation.markerId);
@@ -535,6 +544,21 @@ export function buildBrowserOperationReview(inputProject, response, options = {}
     if (operation.type.startsWith("caption.")) {
       if (locks.caption) reject("BROWSER_EDIT_TRACK_LOCKED");
       if (operation.type === "caption.add") reserve(operation.clipId);
+    }
+    if (["caption.configure", "audio.configure", "sticker.configure", "timed.move", "clip.link_visual", "clip.delete", "audio.replace_media"].includes(operation.type)) {
+      assertClipUnlocked(next, operation.clipId, locks, originalAudioLanes);
+      const { clip, key } = findProjectClip(next, operation.clipId);
+      const audioId = key === "audioSegments" ? clip.id : key === "captionSegments" ? clip.audioSegmentId : null;
+      if ((["timed.move", "clip.link_visual"].includes(operation.type) || operation.type === "clip.delete" && key === "audioSegments") && audioId) {
+        assertClipUnlocked(next, audioId, locks, originalAudioLanes);
+        for (const caption of next.captionSegments.filter(item => item.audioSegmentId === audioId)) assertClipUnlocked(next, caption.id, locks, originalAudioLanes);
+      }
+      if (operation.type === "audio.replace_media") {
+        const receipt = options.resolveAiResult?.(operation.resultId), asset = receipt?.asset;
+        if (key !== "audioSegments" || receipt?.kind !== "audio-processing" || receipt.clipId !== clip.id || !(asset?.blob instanceof Blob) || asset.type !== "audio") reject("BROWSER_EDIT_INVALID_PLAN");
+        operation = { ...operation, prepared: true, preparedSource: { assetId: asset.id, sourceDuration: asset.sourceDuration, audioProcessing: asset.audioProcessing, processingOriginal: asset.processingOriginal, processingRevision: asset.id } };
+        origins[clip.id] = { kind: "audio-processing", id: asset.id };
+      }
     }
     if (operation.type === "marker.add") reserve(operation.markerId);
     if (operation.type === "visual.replace_media") {
@@ -707,14 +731,21 @@ export function restoreBrowserSegmentMedia(segments = [], originals = [], origin
   return segments.map((clip) => {
     const existing = sourceById.get(clip.id);
     const origin = origins && Object.hasOwn(origins, clip.id) ? origins[clip.id] : null;
-    if (existing && origin && origin.kind !== "replacement") reject("BROWSER_EDIT_STALE_PLAN");
-    const original = origin?.kind === "replacement" ? assetsById.get(origin.id) : existing || (origin?.kind === "clip" ? sourceById.get(origin.id) : origin?.kind === "asset" ? assetsById.get(origin.id) : null);
+    if (existing && origin && !["replacement", "audio-processing"].includes(origin.kind)) reject("BROWSER_EDIT_STALE_PLAN");
+    const original = ["replacement", "audio-processing"].includes(origin?.kind) ? assetsById.get(origin.id) : existing || (origin?.kind === "clip" ? sourceById.get(origin.id) : origin?.kind === "asset" ? assetsById.get(origin.id) : null);
     if (!original) reject("BROWSER_EDIT_STALE_PLAN");
-    if (existing && origin?.kind !== "replacement" && clip.assetId !== undefined && clip.assetId !== existing.assetId) reject("BROWSER_EDIT_STALE_PLAN");
+    if (existing && !["replacement", "audio-processing"].includes(origin?.kind) && clip.assetId !== undefined && clip.assetId !== existing.assetId) reject("BROWSER_EDIT_STALE_PLAN");
     const restored = { ...(existing || (origin?.kind === "clip" ? original : {})), ...clip };
     for (const key of MEDIA_FIELDS) {
       if (Object.hasOwn(original, key)) restored[key] = original[key];
       else delete restored[key];
+    }
+    if (origin?.kind === "audio-processing") {
+      restored.url = original.src;
+      restored.processingOriginalBlob = existing.processingOriginalBlob || existing.blob;
+      restored.processingOriginalPeaks = existing.processingOriginalPeaks || existing.peaks;
+      restored.processingOriginal = original.processingOriginal;
+      restored.originalBlob = null; restored.originalPeaks = null;
     }
     if (origin?.kind === "replacement") {
       restored.assetId = original.id;

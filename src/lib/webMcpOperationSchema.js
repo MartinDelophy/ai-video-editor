@@ -1,3 +1,5 @@
+import { CAPTION_FONT_CATALOG } from "./captionFonts.js";
+import { AUDIO_SPATIAL_EFFECTS } from "./audioSpatialEffects.js";
 import { MAX_TIMELINE_DURATION_SECONDS, MIN_VISUAL_SEGMENT_SECONDS } from "../config/editor.js";
 import { MAX_TIMELINE_MARKER_SECONDS, TIMELINE_MARKER_COLORS, TIMELINE_MARKER_TYPES } from "./timelineMarkers.js";
 
@@ -26,6 +28,23 @@ export const VISUAL_SETTINGS_SCHEMA = objectPatch({
   glitch: objectPatch({ enabled: muted, intensity: number(0, 100), separation: number(0, 100), frequency: number(0.2, 3), duration: number(0.05, 0.8), scanlines: number(0, 100) }),
   beatShake: objectPatch({ enabled: muted, bpm: number(40, 240), intensity: number(0, 100), decay: number(10, 90), offset: number(0, 2), direction: { type: "string", enum: ["zoom", "horizontal", "vertical", "rotation"] } }),
 });
+export const CAPTION_SETTINGS_SCHEMA = objectPatch({
+  textAlign: { type: "string", enum: ["left", "center", "right"] },
+  highlightWords: { type: "string", maxLength: 2000 }, highlightColor: { type: "string", pattern: "^#[0-9a-fA-F]{6}$" },
+  fontId: { type: "string", enum: CAPTION_FONT_CATALOG.map(font => font.id) },
+  letterSpacing: number(0, 12), lineGap: number(0, 32), paddingX: number(0, 52), paddingY: number(0, 32),
+  captionSize: number(8, 120), textColor: { type: "string", pattern: "^#[0-9a-fA-F]{6}$" },
+  backgroundColor: { type: "string", pattern: "^#[0-9a-fA-F]{6}$" }, backgroundOpacity: number(0, 1),
+});
+export const AUDIO_PROCESSING_SCHEMA = objectPatch({
+  speechEnhancement: {type:"string",enum:["gentle","natural","strong"]},
+  engine: { type: "string", enum: ["off", "rnnoise", "deepfilter"] }, strength: number(0, 1),
+  eq: objectPatch({ enabled: muted, low: number(-12, 12), mid: number(-12, 12), high: number(-12, 12) }),
+  compressor: objectPatch({ enabled: muted, threshold: number(-60, 0), ratio: number(1, 12), attack: number(1, 100), release: number(20, 1000) }),
+  loudness: objectPatch({ enabled: muted, gain: number(-18, 18) }), limiter: objectPatch({ enabled: muted, ceiling: number(-12, 0) }),
+});
+export const AUDIO_SETTINGS_SCHEMA = objectPatch({ autoDuck: {type:"object",additionalProperties:false,properties:{enabled:{type:"boolean"},strength:{type:"string",enum:["gentle","natural","strong"]}},required:["enabled","strength"]}, spatialEffect: { type: "string", enum: AUDIO_SPATIAL_EFFECTS.map(effect => effect.id) }, spatialAmount: number(0, 1) });
+export const STICKER_SETTINGS_SCHEMA = objectPatch({ x: number(0, 100), y: number(0, 100), scale: number(0.1, 10), rotation: number(-3600, 3600), opacity: number(0, 1) });
 const marker = {
   markerId: { ...id, maxLength: 160 },
   markerType: { type: "string", enum: [...TIMELINE_MARKER_TYPES] },
@@ -44,8 +63,17 @@ const operation = (type, properties, required) => ({
 // media, filesystem paths, URLs, reducer payloads, or arbitrary JavaScript.
 export const WEB_MCP_OPERATION_SCHEMA = {
   oneOf: [
+    operation("caption.configure", { clipId: id, settings: CAPTION_SETTINGS_SCHEMA, placement: objectPatch({ x: number(0, 100), y: number(0, 100) }) }, ["clipId"]),
+    operation("audio.configure", { clipId: id, settings: AUDIO_SETTINGS_SCHEMA }, ["clipId", "settings"]),
+    operation("sticker.configure", { clipId: id, settings: STICKER_SETTINGS_SCHEMA }, ["clipId", "settings"]),
+    operation("timed.move", { clipId: id, start: time, track: { type: "string", enum: ["audio", "caption", "sticker"] } }, ["clipId", "start"]),
+    operation("clip.link_visual", { clipId: id, visualClipId: { anyOf: [id, { type: "null" }] } }, ["clipId", "visualClipId"]),
+    operation("clip.delete", { clipId: id, track: { type: "string", enum: ["audio", "caption", "sticker"] } }, ["clipId", "track"]),
+    operation("audio.replace_media", { clipId: id, resultId: id }, ["clipId", "resultId"]),
     operation("caption.add", { clipId: id, text: { type: "string", maxLength: 20000 }, start: time, end: time, audioClipId: id, visualClipId: id }, ["clipId", "text", "start", "end"]),
     operation("caption.update", { clipId: id, text: { type: "string", maxLength: 20000 }, start: time, end: time }, ["clipId"]),
+    operation("caption.link_audio", { clipId: id, audioClipId: id, align: muted }, ["clipId"]),
+    operation("caption.unlink_audio", { clipId: id }, ["clipId"]),
     operation("caption.delete", { clipId: id }, ["clipId"]),
     {
       ...operation("clip.set_property", { clipId: id, property: { type: "string", enum: ["volume", "fadeIn", "fadeOut"] }, value: { type: "number", minimum: 0, maximum: 1800 } }, ["clipId", "property", "value"]),

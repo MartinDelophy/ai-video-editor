@@ -123,3 +123,27 @@ export async function processAudioClip(
     if (context.state !== "closed") await context.close().catch(() => {});
   }
 }
+
+// Shared commits for the detailed processor and one-action speech enhancement.
+export function audioProcessingResultPatch(segment, result, url) {
+  return { blob:result.blob, url, sourceStart:0, sourceDuration:result.sourceDuration,
+    peaks:result.peaks, audioProcessing:result.settings,
+    processingOriginalBlob:segment.processingOriginalBlob instanceof Blob ? segment.processingOriginalBlob : segment.blob,
+    processingOriginalPeaks:segment.processingOriginalPeaks || segment.peaks,
+    processingOriginal:{sourceStart:result.originalSourceStart,sourceDuration:result.sourceDuration},
+    processingRevision:crypto.randomUUID(),originalBlob:null,originalPeaks:null,reversed:false };
+}
+export function audioProcessingRestorePatch(segment, url) {
+  return {blob:segment.processingOriginalBlob,url,
+    sourceStart:(segment.processingOriginal?.sourceStart || 0)+(segment.sourceStart || 0),
+    processingOriginalBlob:null,processingOriginal:null,audioProcessing:null,
+    processingRevision:crypto.randomUUID(),peaks:segment.processingOriginalPeaks || [],processingOriginalPeaks:null};
+}
+export function speechEnhancementSettings(strength='natural') {
+  const presets={gentle:[.4,-1,1,1,1.6,2],natural:[.65,-2,2,1.5,2.5,4],strong:[.85,-3,3,2,3,5]};
+  const key=Object.hasOwn(presets,strength)?strength:'natural';
+  const [amount,low,mid,high,ratio,gain]=presets[key];
+  return normalizeAudioProcessing({speechEnhancement:key,engine:'deepfilter',strength:amount,
+    eq:{enabled:true,low,mid,high},compressor:{enabled:true,threshold:-24,ratio,attack:10,release:150},
+    loudness:{enabled:true,gain},limiter:{enabled:true,ceiling:-1}});
+}

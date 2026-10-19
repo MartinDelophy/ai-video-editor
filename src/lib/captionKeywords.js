@@ -27,9 +27,9 @@ export function getCaptionKeywordRanges(text, keywords) {
   }, []);
 }
 
-export function getCaptionLineKeywordRanges(text, lines, keywords) {
+export function getCaptionLineKeywordRanges(text, lines, keywords, selections = []) {
   const source = String(text ?? "");
-  const ranges = getCaptionKeywordRanges(source, keywords);
+  const ranges = normalizeCaptionHighlightRanges([...getCaptionKeywordRanges(source, keywords), ...selections], source.length);
   let cursor = 0;
   return lines.map(line => {
     const start = source.indexOf(line, cursor);
@@ -38,4 +38,35 @@ export function getCaptionLineKeywordRanges(text, lines, keywords) {
     return ranges.filter(range => range.end > start && range.start < cursor)
       .map(range => ({ start: Math.max(0, range.start - start), end: Math.min(line.length, range.end - start) }));
   });
+}
+
+export function normalizeCaptionHighlightRanges(ranges, length) {
+  const sorted = (Array.isArray(ranges) ? ranges : []).map(range => ({
+    start: Math.max(0, Math.min(length, Math.trunc(Number(range.start) || 0))),
+    end: Math.max(0, Math.min(length, Math.trunc(Number(range.end) || 0))),
+  })).filter(range => range.end > range.start).sort((a, b) => a.start - b.start);
+  return sorted.reduce((result, range) => {
+    const previous = result.at(-1);
+    if (previous && range.start <= previous.end) previous.end = Math.max(previous.end, range.end);
+    else result.push({ ...range });
+    return result;
+  }, []);
+}
+
+// Keep character selections attached to their text when surrounding text is edited.
+export function remapCaptionHighlights(before, after, ranges) {
+  let start = 0;
+  while (start < before.length && start < after.length && before[start] === after[start]) start++;
+  let oldEnd = before.length, newEnd = after.length;
+  while (oldEnd > start && newEnd > start && before[oldEnd - 1] === after[newEnd - 1]) { oldEnd--; newEnd--; }
+  const delta = newEnd - oldEnd;
+  return normalizeCaptionHighlightRanges((ranges || []).flatMap(range => {
+    if (range.end <= start) return [range];
+    if (range.start >= oldEnd) return [{ start: range.start + delta, end: range.end + delta }];
+    // Changed text loses highlighting; unchanged portions retain it.
+    return [
+      ...(range.start < start ? [{ start: range.start, end: start }] : []),
+      ...(range.end > oldEnd ? [{ start: newEnd, end: range.end + delta }] : []),
+    ];
+  }), after.length);
 }

@@ -2,66 +2,170 @@ export const WORKFLOW_COPY = {
   "zh": {
     "workflow": "工作流",
     "workflowEmpty": "暂无工作流",
-    "workflowDescription": "将多个剪辑步骤组织成可重复使用的流程。"
+    "workflowDescription": "将多个剪辑步骤组织成可重复使用的流程。",
+    "workflowCanvas": "无限画布",
+    "workflowStoryboard": "故事板",
+    "workflowBlockout": "3D 白模",
+    "workflowLoading": "正在打开工作流…",
+    "workflowLoadFailed": "工作流暂时无法打开",
+    "workflowLoadHelp": "资源可能正在更新或网络中断。可以重试，或返回编辑器继续操作。",
+    "workflowRetry": "重试",
+    "workflowBack": "返回编辑器"
   },
   "en": {
     "workflow": "Workflows",
     "workflowEmpty": "No workflows yet",
-    "workflowDescription": "Organize editing steps into reusable workflows."
+    "workflowDescription": "Organize editing steps into reusable workflows.",
+    "workflowCanvas": "Infinite canvas",
+    "workflowStoryboard": "Storyboard",
+    "workflowBlockout": "3D blockout",
+    "workflowLoading": "Opening workflow…",
+    "workflowLoadFailed": "Workflow could not open",
+    "workflowLoadHelp": "Resources may be updating or the network interrupted. Retry or return to the editor.",
+    "workflowRetry": "Retry",
+    "workflowBack": "Back to editor"
   },
   "ja": {
     "workflow": "ワークフロー",
     "workflowEmpty": "ワークフローはまだありません",
-    "workflowDescription": "編集の手順を再利用できるワークフローにまとめます。"
+    "workflowDescription": "編集の手順を再利用できるワークフローにまとめます。",
+    "workflowCanvas": "無限キャンバス",
+    "workflowStoryboard": "ストーリーボード",
+    "workflowBlockout": "3Dブロックアウト",
+    "workflowLoading": "ワークフローを開いています…",
+    "workflowLoadFailed": "ワークフローを開けません",
+    "workflowLoadHelp": "更新中または通信が中断された可能性があります。再試行するか編集画面に戻れます。",
+    "workflowRetry": "再試行",
+    "workflowBack": "編集画面に戻る"
   },
   "ko": {
     "workflow": "워크플로",
     "workflowEmpty": "아직 워크플로가 없습니다",
-    "workflowDescription": "편집 단계를 재사용 가능한 워크플로로 구성합니다."
+    "workflowDescription": "편집 단계를 재사용 가능한 워크플로로 구성합니다.",
+    "workflowCanvas": "무한 캔버스",
+    "workflowStoryboard": "스토리보드",
+    "workflowBlockout": "3D 블록아웃",
+    "workflowLoading": "워크플로 여는 중…",
+    "workflowLoadFailed": "워크플로를 열 수 없습니다",
+    "workflowLoadHelp": "업데이트 중이거나 연결이 끊겼을 수 있습니다. 다시 시도하거나 편집기로 돌아가세요.",
+    "workflowRetry": "다시 시도",
+    "workflowBack": "편집기로 돌아가기"
   },
   "es": {
     "workflow": "Flujos",
     "workflowEmpty": "Aún no hay flujos",
-    "workflowDescription": "Organiza los pasos de edición en flujos reutilizables."
+    "workflowDescription": "Organiza los pasos de edición en flujos reutilizables.",
+    "workflowCanvas": "Lienzo infinito",
+    "workflowStoryboard": "Guion gráfico",
+    "workflowBlockout": "Bloqueo 3D",
+    "workflowLoading": "Abriendo flujo…",
+    "workflowLoadFailed": "No se pudo abrir el flujo",
+    "workflowLoadHelp": "Puede haber una actualización o una interrupción de red. Reintenta o vuelve al editor.",
+    "workflowRetry": "Reintentar",
+    "workflowBack": "Volver al editor"
   },
   "fr": {
     "workflow": "Workflows",
     "workflowEmpty": "Aucun workflow",
-    "workflowDescription": "Organisez les étapes de montage en workflows réutilisables."
+    "workflowDescription": "Organisez les étapes de montage en workflows réutilisables.",
+    "workflowCanvas": "Canevas infini",
+    "workflowStoryboard": "Storyboard",
+    "workflowBlockout": "Maquette 3D",
+    "workflowLoading": "Ouverture du flux…",
+    "workflowLoadFailed": "Impossible d’ouvrir le flux",
+    "workflowLoadHelp": "Une mise à jour ou une interruption réseau est possible. Réessayez ou revenez à l’éditeur.",
+    "workflowRetry": "Réessayer",
+    "workflowBack": "Retour à l’éditeur"
   },
   "de": {
     "workflow": "Workflows",
     "workflowEmpty": "Noch keine Workflows",
-    "workflowDescription": "Ordne Bearbeitungsschritte zu wiederverwendbaren Workflows."
+    "workflowDescription": "Ordne Bearbeitungsschritte zu wiederverwendbaren Workflows.",
+    "workflowCanvas": "Unendliche Leinwand",
+    "workflowStoryboard": "Storyboard",
+    "workflowBlockout": "3D-Blockout",
+    "workflowLoading": "Workflow wird geöffnet…",
+    "workflowLoadFailed": "Workflow konnte nicht geöffnet werden",
+    "workflowLoadHelp": "Möglicherweise läuft ein Update oder die Verbindung wurde unterbrochen. Erneut versuchen oder zum Editor zurückkehren.",
+    "workflowRetry": "Erneut versuchen",
+    "workflowBack": "Zurück zum Editor"
   },
   "pt": {
     "workflow": "Fluxos",
     "workflowEmpty": "Ainda não há fluxos",
-    "workflowDescription": "Organize etapas de edição em fluxos reutilizáveis."
+    "workflowDescription": "Organize etapas de edição em fluxos reutilizáveis.",
+    "workflowCanvas": "Tela infinita",
+    "workflowStoryboard": "Storyboard",
+    "workflowBlockout": "Maquete 3D",
+    "workflowLoading": "Abrindo fluxo…",
+    "workflowLoadFailed": "Não foi possível abrir o fluxo",
+    "workflowLoadHelp": "Pode haver uma atualização ou interrupção de rede. Tente novamente ou volte ao editor.",
+    "workflowRetry": "Tentar novamente",
+    "workflowBack": "Voltar ao editor"
   },
   "th": {
     "workflow": "เวิร์กโฟลว์",
     "workflowEmpty": "ยังไม่มีเวิร์กโฟลว์",
-    "workflowDescription": "จัดขั้นตอนการตัดต่อเป็นเวิร์กโฟลว์ที่ใช้ซ้ำได้"
+    "workflowDescription": "จัดขั้นตอนการตัดต่อเป็นเวิร์กโฟลว์ที่ใช้ซ้ำได้",
+    "workflowCanvas": "ผืนผ้าใบไม่จำกัด",
+    "workflowStoryboard": "สตอรีบอร์ด",
+    "workflowBlockout": "โมเดลบล็อกเอาต์ 3D",
+    "workflowLoading": "กำลังเปิดเวิร์กโฟลว์…",
+    "workflowLoadFailed": "เปิดเวิร์กโฟลว์ไม่ได้",
+    "workflowLoadHelp": "อาจกำลังอัปเดตหรือเครือข่ายขัดข้อง ลองใหม่หรือกลับไปยังตัวแก้ไขได้",
+    "workflowRetry": "ลองใหม่",
+    "workflowBack": "กลับไปยังตัวแก้ไข"
   },
   "vi": {
     "workflow": "Quy trình",
     "workflowEmpty": "Chưa có quy trình",
-    "workflowDescription": "Sắp xếp các bước chỉnh sửa thành quy trình có thể tái sử dụng."
+    "workflowDescription": "Sắp xếp các bước chỉnh sửa thành quy trình có thể tái sử dụng.",
+    "workflowCanvas": "Không gian vô hạn",
+    "workflowStoryboard": "Bảng phân cảnh",
+    "workflowBlockout": "Mô hình khối 3D",
+    "workflowLoading": "Đang mở quy trình…",
+    "workflowLoadFailed": "Không thể mở quy trình",
+    "workflowLoadHelp": "Tài nguyên có thể đang cập nhật hoặc mạng bị gián đoạn. Thử lại hoặc quay lại trình biên tập.",
+    "workflowRetry": "Thử lại",
+    "workflowBack": "Về trình biên tập"
   },
   "ru": {
     "workflow": "Процессы",
     "workflowEmpty": "Процессов пока нет",
-    "workflowDescription": "Объединяйте шаги монтажа в повторно используемые процессы."
+    "workflowDescription": "Объединяйте шаги монтажа в повторно используемые процессы.",
+    "workflowCanvas": "Бесконечный холст",
+    "workflowStoryboard": "Раскадровка",
+    "workflowBlockout": "3D-макет",
+    "workflowLoading": "Открытие процесса…",
+    "workflowLoadFailed": "Не удалось открыть процесс",
+    "workflowLoadHelp": "Возможно, ресурсы обновляются или соединение прервано. Повторите попытку или вернитесь в редактор.",
+    "workflowRetry": "Повторить",
+    "workflowBack": "В редактор"
   },
   "it": {
     "workflow": "Flussi",
     "workflowEmpty": "Nessun flusso",
-    "workflowDescription": "Organizza le fasi di montaggio in flussi riutilizzabili."
+    "workflowDescription": "Organizza le fasi di montaggio in flussi riutilizzabili.",
+    "workflowCanvas": "Tela infinita",
+    "workflowStoryboard": "Storyboard",
+    "workflowBlockout": "Modello 3D",
+    "workflowLoading": "Apertura del flusso…",
+    "workflowLoadFailed": "Impossibile aprire il flusso",
+    "workflowLoadHelp": "Potrebbe essere in corso un aggiornamento o essersi interrotta la rete. Riprova o torna all’editor.",
+    "workflowRetry": "Riprova",
+    "workflowBack": "Torna all’editor"
   },
   "id": {
     "workflow": "Alur kerja",
     "workflowEmpty": "Belum ada alur kerja",
-    "workflowDescription": "Susun langkah penyuntingan menjadi alur kerja yang dapat digunakan kembali."
+    "workflowDescription": "Susun langkah penyuntingan menjadi alur kerja yang dapat digunakan kembali.",
+    "workflowCanvas": "Kanvas tanpa batas",
+    "workflowStoryboard": "Papan cerita",
+    "workflowBlockout": "Model blok 3D",
+    "workflowLoading": "Membuka alur kerja…",
+    "workflowLoadFailed": "Alur kerja tidak dapat dibuka",
+    "workflowLoadHelp": "Sumber daya mungkin sedang diperbarui atau jaringan terputus. Coba lagi atau kembali ke editor.",
+    "workflowRetry": "Coba lagi",
+    "workflowBack": "Kembali ke editor"
   }
 };

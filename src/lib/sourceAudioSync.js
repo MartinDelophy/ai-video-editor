@@ -66,6 +66,7 @@ export function getLinkedSourceAudioSegments(visualSegments = [], sourceAudioAss
       playbackRate,
       speedCurve: timing.speedCurve,
       volume: segment.sourceAudioVolume,
+      autoDuck: segment.sourceAudioAutoDuck,
     }];
   });
 }

@@ -1,0 +1,412 @@
+.storyboard-workspace {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: flex;
+  flex-direction: column;
+  background: #091219;
+  color: #e7f0f3;
+  font-family: inherit;
+}
+.storyboard-topbar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  height: 60px;
+  flex: 0 0 60px;
+  padding: 0 19px;
+  border-bottom: 1px solid #253341;
+  background: #0b1118;
+  font-size: 14px;
+}
+.storyboard-topbar > strong {
+  white-space: nowrap;
+  font-size: 15px;
+  font-weight: 700;
+}
+.storyboard-topbar button,
+.storyboard-zoom button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #dcebf0;
+  cursor: pointer;
+}
+.storyboard-topbar button {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+}
+.storyboard-topbar button:hover,
+.storyboard-zoom button:hover {
+  background: #1c303b;
+}
+.storyboard-save {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #90a3b4;
+  font-size: 11px;
+  min-width: 0;
+  max-width: 45%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.storyboard-save svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+.storyboard-save.is-saved {
+  color: #63ceba;
+}
+.storyboard-save.is-saveError,
+.storyboard-save.is-conflict {
+  color: #e4bd87;
+}
+.storyboard-layout {
+  display: grid;
+  grid-template-columns: minmax(340px, 28.7%) minmax(0, 1fr);
+  flex: 1;
+  min-height: 0;
+}
+.storyboard-layout > .chatcut {
+  grid-column: 1;
+  grid-row: 1;
+  min-width: 0;
+  width: auto;
+  border-color: #29414c;
+}
+.storyboard-layout .chatcut .chatcut-header {
+  min-height: 64px;
+}
+.storyboard-layout .chatcut .chatcut-composer {
+  border-radius: 18px;
+  padding: 14px;
+  margin: 0 12px 14px;
+}
+.storyboard-layout .chatcut .chatcut-composer textarea {
+  min-height: 88px;
+  height: 88px;
+  font-size: 14px;
+}
+.storyboard-layout .chatcut .chatcut-composer-toolbar {
+  padding-top: 12px;
+}
+.storyboard-layout .chatcut .chatcut-import {
+  font-size: 14px;
+}
+.storyboard-layout .chatcut .chatcut-send > button {
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
+}
+.storyboard-layout .chatcut .chatcut-messages {
+  padding: 20px 18px;
+}
+.storyboard-layout .chatcut .chatcut-message {
+  font-size: 14px;
+}
+.storyboard-model {
+  padding: 8px 18px 12px;
+  border-bottom: 1px solid #ffffff08;
+  flex-shrink: 0;
+}
+.storyboard-model label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #9eb8c6;
+}
+.storyboard-model label > span {
+  flex: 1;
+}
+.storyboard-model select {
+  min-width: 0;
+  max-width: 58%;
+  border: 1px solid #2b4552;
+  border-radius: 7px;
+  padding: 6px 8px;
+  background: #13232c;
+  color: #dfedf0;
+  font: inherit;
+  cursor: pointer;
+}
+.storyboard-model input {
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 8px;
+  padding: 8px;
+  background: #0d171e;
+  color: #e7f0f3;
+  border: 1px solid #2d4958;
+  border-radius: 7px;
+  font-size: 12px;
+}
+.storyboard-model small {
+  display: block;
+  margin-top: 7px;
+  color: #88a6b6;
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+.storyboard-canvas {
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+  touch-action: none;
+  background-color: #08131b;
+  background-image: radial-gradient(circle, #28414e 0.8px, transparent 0.9px);
+  cursor: grab;
+}
+.storyboard-canvas:active {
+  cursor: grabbing;
+}
+.storyboard-world {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: 0 0;
+  width: 1px;
+  height: 1px;
+}
+.storyboard-connections {
+  position: absolute;
+  overflow: visible;
+  pointer-events: none;
+  color: #23d5d5;
+}
+.storyboard-connections > path {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+}
+.storyboard-node {
+  position: absolute;
+  box-sizing: border-box;
+  border: 1px solid #497080;
+  border-radius: 14px;
+  padding: 12px;
+  background: #11232d;
+  box-shadow: 0 4px 12px #0002;
+  cursor: grab;
+  user-select: none;
+}
+.storyboard-node.is-selected {
+  border-color: #33d7cf;
+  box-shadow: 0 0 0 1px #33d7cf;
+}
+.storyboard-node > header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  font-size: 14px;
+  min-height: 24px;
+}
+.storyboard-node > header > svg {
+  color: #42e0df;
+  flex-shrink: 0;
+}
+.storyboard-node > header > strong {
+  font-weight: 600;
+  flex: 1;
+}
+.storyboard-node > small {
+  display: block;
+  margin: -6px 0 10px 28px;
+  color: #9db9c7;
+  font-size: 11px;
+}
+.storyboard-node button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  border: 1px solid #375561;
+  background: #132934;
+  border-radius: 7px;
+  color: #e0edf1;
+  padding: 6px 8px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+}
+.storyboard-node > header button {
+  visibility: hidden;
+  padding: 3px;
+  border: 0;
+  background: transparent;
+}
+.storyboard-node:hover > header button,
+.storyboard-node:focus-within > header button {
+  visibility: visible;
+}
+.storyboard-node > img,
+.storyboard-node > video {
+  display: block;
+  width: 100%;
+  max-height: 380px;
+  object-fit: contain;
+  border-radius: 6px;
+  background: #0b151c;
+}
+.storyboard-node.is-reference > img {
+  height: 218px;
+}
+.storyboard-node.is-character > img,
+.storyboard-node.is-environment > img {
+  max-height: 205px;
+}
+.storyboard-node.is-board > img {
+  min-height: 230px;
+  max-height: 430px;
+  object-fit: contain;
+}
+.storyboard-node footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 10px;
+  color: #9db8c5;
+  font-size: 11px;
+}
+.storyboard-node footer > span {
+  min-width: 0;
+}
+.storyboard-port {
+  position: absolute;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  margin-top: -4px;
+  border-radius: 50%;
+  background: #32ded5;
+}
+.storyboard-port.is-input {
+  left: -5px;
+}
+.storyboard-port.is-output {
+  right: -5px;
+}
+.storyboard-node.is-reference .is-input {
+  display: none;
+}
+.storyboard-zoom {
+  position: absolute;
+  right: 20px;
+  bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px;
+  background: #101e28;
+  border: 1px solid #29424f;
+  border-radius: 12px;
+  color: #d6e6ed;
+  font-size: 13px;
+  cursor: default;
+}
+.storyboard-zoom > span {
+  min-width: 44px;
+  text-align: center;
+}
+.storyboard-zoom > i {
+  height: 20px;
+  border-left: 1px solid #29424f;
+  margin: 0 4px;
+}
+.storyboard-workspace button:focus-visible,
+.storyboard-workspace select:focus-visible,
+.storyboard-model input:focus-visible {
+  outline: 2px solid #23d5c6;
+  outline-offset: 3px;
+}
+@media (max-width: 760px) {
+  .storyboard-topbar {
+    gap: 7px;
+    padding: 0 9px;
+  }
+  .storyboard-topbar > strong {
+    font-size: 13px;
+  }
+  .storyboard-save {
+    font-size: 10px;
+    max-width: 45%;
+  }
+  .storyboard-layout {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(180px, 42%) minmax(0, 1fr);
+  }
+  .storyboard-canvas {
+    grid-row: 1;
+    grid-column: 1;
+    border-bottom: 1px solid #29414c;
+  }
+  .storyboard-layout > .chatcut {
+    grid-row: 2;
+    grid-column: 1;
+  }
+  .storyboard-layout .chatcut .chatcut-header {
+    min-height: 44px;
+    padding: 6px 12px;
+  }
+  .storyboard-model {
+    padding: 5px 12px;
+  }
+  .storyboard-layout .chatcut .chatcut-composer textarea {
+    min-height: 55px;
+    height: 55px;
+  }
+  .storyboard-layout .chatcut .chatcut-composer {
+    margin-bottom: 8px;
+    padding: 9px 12px;
+  }
+  .storyboard-layout .chatcut .chatcut-send > button {
+    width: 38px;
+    height: 38px;
+  }
+  .storyboard-zoom {
+    right: 10px;
+    bottom: 10px;
+  }
+}
+.storyboard-node {
+  display: flex;
+  flex-direction: column;
+}
+.storyboard-node > header,
+.storyboard-node > small,
+.storyboard-node > footer {
+  flex-shrink: 0;
+}
+.storyboard-node > img,
+.storyboard-node > video,
+.storyboard-node.is-board > img,
+.storyboard-node.is-reference > img {
+  min-height: 0;
+  height: auto;
+  flex: 1;
+  object-fit: contain;
+}
+.storyboard-image-model { margin-top:8px; }
+.storyboard-workspace .chatcut :is(.chatcut-asset, .chatcut-reference)[draggable="true"] {
+  cursor: grab;
+}
+.storyboard-workspace .chatcut :is(.chatcut-asset, .chatcut-reference)[draggable="true"]:active {
+  cursor: grabbing;
+}
+.storyboard-node > audio {
+  display: block;
+  width: calc(100% - 24px);
+  margin: 18px 12px;
+}

@@ -1,3 +1,5 @@
+import { usePreviewVideoHandoff } from "../hooks/usePreviewVideoHandoff.js";
+import { getAutoDuckGain } from "../lib/audioDucking.js";
 import { requestLatestVideoFrame } from "../lib/videoFrameSync.js";
 import { useRelightCompare } from "../lib/videoRelighting.js";
 import { applyBeatShakeTransform } from "../lib/beatShakeEffect.js";
@@ -91,7 +93,7 @@ function VisualOverlayMedia({ overlay, src, style, isPlaying, localTime }) {
     const sourceTime = getVisualSourceTime(overlay, localTime);
     video.playbackRate = playbackRate;
     if (Number.isFinite(video.duration) && Math.abs(video.currentTime - sourceTime) > 0.12) video.currentTime = Math.min(sourceTime, Math.max(0, video.duration - 0.01));
-    setTimelineAudioGain(video, overlay.volume ?? 1, overlay.spatialEffect, overlay.spatialAmount);
+    setTimelineAudioGain(video, (overlay.volume ?? 1) * getAutoDuckGain(overlay,(overlay.start||0)+localTime), overlay.spatialEffect, overlay.spatialAmount);
     if (isPlaying) requestTimelineMediaPlay(video);
     else video.pause();
   }, [isPlaying, localTime, overlay, src]);
@@ -202,6 +204,7 @@ export function PreviewStage({
 }) {
   const [overlaySnapGuides, setOverlaySnapGuides] = useState([]);
   const previewImageRef = useRef(null);
+  const handoffCanvasRef = useRef(null);
   const smartBackgroundVideoRef = useRef(null);
   const depthCanvasRef = useRef(null);
   const lastReportedVideoTimeRef = useRef(-Infinity);
@@ -210,6 +213,8 @@ export function PreviewStage({
   const [decodedFrameRevision, setDecodedFrameRevision] = useState(0);
   const [isFocusPreviewOpen, setIsFocusPreviewOpen] = useState(false);
   const [focusPreviewFrameSize, setFocusPreviewFrameSize] = useState({ width: 0, height: 0 });
+  usePreviewVideoHandoff({ canvasRef: handoffCanvasRef, videoRef: previewVideoRef,
+    source: previewVisualSrc, type: previewVisualType, portalOpen: isFocusPreviewOpen });
   const [previewRatioWidth, previewRatioHeight] = String(previewRatio).split("/").map((value) => Number(value.trim()));
   const previewRatioValue = previewRatioWidth > 0 && previewRatioHeight > 0 ? previewRatioWidth / previewRatioHeight : 16 / 9;
   const focusPreviewOrientation = previewRatioValue > 1.1 ? "landscape" : previewRatioValue < 0.9 ? "portrait" : "square";
@@ -761,7 +766,7 @@ export function PreviewStage({
                     video.pause();
                     video.playbackRate = getVisualPlaybackRateAtTime(previewVisualSegment, visualLocalTime);
                     if ("preservesPitch" in video) video.preservesPitch = true;
-                    setTimelineAudioGain(video, previewVisualSegment?.volume ?? 1, previewVisualSegment?.spatialEffect, previewVisualSegment?.spatialAmount);
+                    setTimelineAudioGain(video, (previewVisualSegment?.volume ?? 1) * getAutoDuckGain(previewVisualSegment,currentTime), previewVisualSegment?.spatialEffect, previewVisualSegment?.spatialAmount);
                     syncSmartBackgroundVideo(video);
                     requestLatestVideoFrame(video, Math.max(0, Math.min(sourceTime, maxTime)), {
                       immediate: true,
@@ -788,8 +793,9 @@ export function PreviewStage({
                       lastReportedVideoTimeRef.current = event.currentTarget.currentTime;
                       onPreviewVideoTimeUpdate?.(event.currentTarget.currentTime);
                     }
-                    event.currentTarget.__timelineFramePending = false;
-                    if (latestPlaybackRef.current.isPlaying && latestPlaybackRef.current.trackVisibility.image !== false) requestTimelineMediaPlay(event.currentTarget);
+                    // Decode behind the retained frame, but keep the master clock
+                    // gated until the frame controller confirms presentation.
+                    if (event.currentTarget.__timelineFramePending && latestPlaybackRef.current.isPlaying && latestPlaybackRef.current.trackVisibility.image !== false) requestTimelineMediaPlay(event.currentTarget);
                   }}
                   style={{
                     ...visualTransformStyle, opacity: depthRenderActive ? 0 : visualTransformStyle.opacity, filter: selectedFilterCss, objectFit: activeObjectFit, objectPosition: activeObjectPosition, background: smartContainActive ? "transparent" : undefined,
@@ -803,6 +809,7 @@ export function PreviewStage({
                     maskRepeat: previewVisionMaskUrl ? "no-repeat" : undefined,
                   }}
                 /> : null}
+                <canvas ref={handoffCanvasRef} className="preview-video-handoff" aria-hidden="true" />
                 {depthRenderActive ? <canvas ref={depthCanvasRef} className="cinematic-depth-preview-canvas photo-parallax-preview-canvas" style={visualTransformStyle} /> : null}
                 {showRemasterPreview ? <img
                   className="remaster-preview-frame"

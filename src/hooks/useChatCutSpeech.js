@@ -1,3 +1,5 @@
+import { isAnnaEdition } from "../lib/annaRuntime.js";
+import { useAnnaDictation } from "./useAnnaDictation.js";
 import { useEffect, useRef, useState } from "react";
 
 export const CHATCUT_SPEECH_LANGUAGES = { zh: "zh-CN", en: "en-US", ja: "ja-JP", ko: "ko-KR", es: "es-ES", fr: "fr-FR", de: "de-DE", pt: "pt-BR", th: "th-TH", vi: "vi-VN", ru: "ru-RU", it: "it-IT", id: "id-ID" };
@@ -11,6 +13,7 @@ export function getChatCutSpeechConstructor() {
 
 /** One user-initiated dictation session. Final words enter the draft, never send it. */
 export function useChatCutSpeech({ language, input, setInput }) {
+  const annaSpeech = useAnnaDictation({ language, input, setInput });
   const [supported, setSupported] = useState(() => Boolean(getChatCutSpeechConstructor()));
   const [status, setStatus] = useState("");
   const [interim, setInterim] = useState("");
@@ -90,5 +93,5 @@ export function useChatCutSpeech({ language, input, setInput }) {
       setStatus(error.name === "NotAllowedError" ? "denied" : "error");
     }
   };
-  return { supported, active, status, interim, start, stop };
+  return isAnnaEdition ? annaSpeech : { supported, active, status, interim, start, stop };
 }

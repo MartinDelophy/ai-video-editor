@@ -5,10 +5,11 @@ import { requestAnnaChatCompletion } from "./annaRuntime.js";
 // remains an explicit editor action; never execute model-supplied JavaScript.
 export const CHATCUT_TOOLS = new Set([
   "timeline_animation_generate", "timeline_image_generate", "timeline_video_generate", "timeline_ai_process", "timeline_ai_preview", "timeline_ai_result_frames",
-  "timeline_project_inspect", "timeline_track_inspect", "timeline_clip_inspect",
+  "timeline_ui_inspect", "timeline_ui_navigate", "timeline_ui_control", "timeline_preview_seek",
+  "timeline_voice_catalog", "timeline_project_inspect", "timeline_track_inspect", "timeline_clip_inspect",
   "timeline_transcript_inspect", "timeline_assets_inspect", "timeline_markers_inspect", "timeline_edit_preview",
 ]);
-export async function runAnnaChatCut({ instruction, generationCommand = null, referencedAssets = [], history = [], tools, execute, image, captureFrame, inspectMedia, language, signal, onStage, onAssets, onActivity, autoApply = false, complete = requestAnnaChatCompletion }) {
+export async function runAnnaChatCut({ instruction, generationCommand = null, referencedAssets = [], history = [], tools, execute, image, captureFrame, inspectMedia, language, signal, onStage, onAssets, onActivity, autoApply = false, voice = false, complete = requestAnnaChatCompletion }) {
   const trace = async (name, args, action) => {
     const id = crypto.randomUUID();
     const startedAt = Date.now();
@@ -36,11 +37,12 @@ export async function runAnnaChatCut({ instruction, generationCommand = null, re
   if (captureFrame) catalog.push(currentFrameTool);
   let sampledFrames = 0;
   const assetIds = [];
+  const auditionResults = new Set(), auditionAssets = new Set();
   const messages = [{ role: "user", content: [{ type: "text", text: JSON.stringify({ instruction, generationCommand, referencedAssets, language, history: history.slice(-8).map(({ role, text, edit, assetIds }) => ({ role, text, assetIds, ...(edit ? { previousEdit: { status: edit.status, transactionId: edit.transactionId, rows: edit.preview?.rows, diff: edit.preview?.diff, entities: edit.preview?.entities } } : {}) })), project: initial, image: image ? "One current source-media frame at the reported playhead; excludes editor effects, captions and overlays. Not the whole video." : "No images or audio supplied." }) }, ...(image ? [{ type: "image", data: image, mimeType: "image/jpeg" }] : [])] }];
   for (let step = 0; step < 16; step += 1) {
     check();
     onStage?.("thinking");
-    const reply = await complete({ messages, catalog, language, signal });
+    const reply = await complete({ messages, catalog, language, signal, voice });
     check();
     if (reply.type === "message" && typeof reply.text === "string" && reply.text.length <= 6000) return { text: reply.text, assetIds };
     if (generationCommand === "image" && reply.name === "timeline_animation_generate" || generationCommand === "remotion" && reply.name === "timeline_image_generate") throw new Error("Generation command mismatch");
@@ -79,20 +81,25 @@ export async function runAnnaChatCut({ instruction, generationCommand = null, re
     }
     const result = await execute(reply.name, args, { signal });
     check();
+    if (reply.name === "timeline_ai_process" && result.ok && ["audio-processing", "narration"].includes(args.kind)) {
+      auditionResults.add(result.resultId);
+      for (const operation of result.operations || []) if (operation.assetId) auditionAssets.add(operation.assetId);
+    }
     if (["timeline_animation_generate", "timeline_image_generate", "timeline_video_generate", "timeline_ai_process"].includes(reply.name) && result.ok && result.assets?.length) {
       assetIds.push(...result.assets.map(asset => asset.assetId));
       onAssets?.([...assetIds]);
     }
     if (["timeline_edit_preview", "timeline_ai_preview"].includes(reply.name) && result.ok) {
       const review = { status: "pending", preview: result, summary: args.summary || "" };
-      if (autoApply) {
+      const requiresListening = auditionResults.has(args.resultId) || (args.operations || []).some(operation => operation.type === "audio.replace_media" || auditionAssets.has(operation.assetId));
+      if (autoApply && !requiresListening) {
         check();
         const applied = await execute("timeline_edit_apply", { previewId: result.previewId }, { signal });
         if (!applied?.ok) throw new Error(applied?.error?.message || "Could not apply changes");
         review.status = "applied";
         review.transactionId = applied.transactionId;
       }
-      return { assetIds, preview: true, review, text: args.summary || "" };
+      return { assetIds: requiresListening ? [] : assetIds, preview: true, review, text: args.summary || "" };
     }
     if (result.error?.code === "STALE_STATE") throw new Error(result.error.message);
     const content = reply.name === "timeline_ai_result_frames" && result.ok

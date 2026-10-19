@@ -3,6 +3,7 @@ import { getVisualSpeedCurveTimelineProgress } from "./visualSpeedCurve.js";
 
 // Shared by the inspector and Agent; recognition times are source-relative.
 export async function generateBrowserCaptionSegments(blob, { clip, language, offset = 0, signal, context, translator, onProgress } = {}) {
+  if (clip?.reversed || clip?.reverse) throw Object.assign(new Error("Reversed speech recognition unavailable"), { code: "unsupported" });
   const segments = await transcribeBrowserFile(blob, {
     language, offset: 0, sourceStart: clip ? clip.sourceStart || 0 : 0,
     sourceDuration: clip ? clip.sourceDuration || clip.duration * (clip.playbackRate || 1) : undefined,
@@ -13,6 +14,8 @@ export async function generateBrowserCaptionSegments(blob, { clip, language, off
     : time / (clip.playbackRate || 1);
   for (const segment of segments) {
     if (clip?.type === "video" && (clip.clipId || clip.id)) segment.visualSegmentId = clip.clipId || clip.id;
+    if (clip?.visualSegmentId) segment.visualSegmentId = clip.visualSegmentId;
+    if (clip?.type === "audio" || clip?.track === "audio") segment.audioSegmentId = clip.clipId || clip.segmentId || clip.id;
     segment.start = offset + Math.max(0, mapTime(segment.start));
     segment.end = offset + Math.min(clip?.duration ?? Infinity, mapTime(segment.end));
   }

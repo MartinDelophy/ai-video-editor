@@ -1,3 +1,5 @@
+import { isAnnaEdition } from "./annaRuntime.js";
+import { getAnnaCaptionServiceCopy } from "../i18nAnnaTranscription.js";
 import { AUTOMATIC_CAPTION_MODEL_ID, AUTOMATIC_CAPTION_MODEL_LABEL } from "../config/models.js";
 import { makeId } from "./timeline.js";
 import { configureAnnaTransformers } from "./annaWasmRuntime.js";
@@ -752,8 +754,22 @@ function resetAsrWorker() {
 
 export async function transcribeAudioToCaptionSegments(
   blob,
-  { onProgress, preferredLanguage = "zh", timelineOffset = 0 } = {},
+  { onProgress, preferredLanguage = "zh", timelineOffset = 0, signal } = {},
 ) {
+  // One edition boundary protects every caller, including future UI and Agent entry points.
+  // Anna failures must never silently download or fall back to local Whisper.
+  if (isAnnaEdition) {
+    const { generateBrowserCaptionSegments } = await import("./browserCaptionGeneration.js");
+    const segments = await generateBrowserCaptionSegments(blob, {
+      language: preferredLanguage, offset: timelineOffset, signal,
+      onProgress: value => onProgress?.({ progress: Math.round(value * 100), phase: getAnnaCaptionServiceCopy(preferredLanguage) }),
+    });
+    return {
+      segments, text: segments.map(segment => segment.text).join("\n"),
+      duration: Math.max(0, ...segments.map(segment => segment.end - timelineOffset)),
+      language: preferredLanguage, languageDetected: false,
+    };
+  }
   onProgress?.({ progress: 5, phase: "解码原声音频" });
   const { audio, duration } = await decodeAudioForAsr(blob);
   if (!audio.length || !duration) {

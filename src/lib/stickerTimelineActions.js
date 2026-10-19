@@ -3,7 +3,7 @@ import {
   MAX_TIMELINE_DURATION_SECONDS,
   MIN_VISUAL_SEGMENT_SECONDS,
 } from "../config/editor.js";
-import { createStickerSegment } from "./timeline.js";
+import { createStickerSegment, getVisualSegmentTimeline } from "./timeline.js";
 
 export function createStickerTimelineActions(d) {
   function getTimelineTimeFromDropPercent(percent = 0) {
@@ -65,6 +65,8 @@ export function createStickerTimelineActions(d) {
       startTime,
       DEFAULT_STICKER_SEGMENT_SECONDS,
     );
+    const owner = getVisualSegmentTimeline(d.visualSegments || []).find(range => startTime >= range.start && startTime < range.end && range.end - startTime >= MIN_VISUAL_SEGMENT_SECONDS);
+    if (owner) { nextSegment.visualSegmentId = owner.id; nextSegment.duration = Math.min(nextSegment.duration, owner.end - startTime); }
     commitStickerSegments(
       [...d.stickerSegments, nextSegment],
       d.t?.("stickerAddedToTrack") ?? "贴纸已添加到贴纸轨",

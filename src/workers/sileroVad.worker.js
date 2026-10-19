@@ -14,13 +14,49 @@ self.onmessage = async ({ data }) => {
   const { id, type } = data;
   try {
     if (type === "init") {
-      const { response } = await fetchFirstAvailableModel(sileroModelUrls(data.language));
-      const bytes = await response.arrayBuffer();
-      const digest = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)), (byte) => byte.toString(16).padStart(2, "0")).join("");
-      if (digest !== SILERO_MODEL_SHA256) throw new Error("Model checksum mismatch");
-      self.postMessage({ id, type: "phase", phase: "pauseStarting" });
-      session = await ort.InferenceSession.create(bytes, { executionProviders: ["wasm"], graphOptimizationLevel: "all" });
-      state = new Float32Array(256); context = new Float32Array(64);
+      if (!session) {
+        const { response } = await fetchFirstAvailableModel(sileroModelUrls(data.language));
+        const total = Number(response.headers.get("content-length"));
+        const reader = response.body?.getReader();
+        let bytes;
+        if (reader) {
+          const chunks = [];
+          let received = 0;
+          while (true) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            chunks.push(value);
+            received += value.byteLength;
+            if (total > 0)
+              self.postMessage({
+                id,
+                type: "progress",
+                phase: "pauseDownloading",
+                progress: Math.min(1, received / total),
+              });
+          }
+          const joined = new Uint8Array(received);
+          let offset = 0;
+          for (const chunk of chunks) {
+            joined.set(chunk, offset);
+            offset += chunk.byteLength;
+          }
+          bytes = joined.buffer;
+        } else bytes = await response.arrayBuffer();
+        const digest = Array.from(
+          new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)),
+          (byte) => byte.toString(16).padStart(2, "0"),
+        ).join("");
+        if (digest !== SILERO_MODEL_SHA256) throw new Error("Model checksum mismatch");
+        self.postMessage({ id, type: "phase", phase: "pauseStarting" });
+        session = await ort.InferenceSession.create(bytes, {
+          executionProviders: ["wasm"],
+          graphOptimizationLevel: "all",
+        });
+      }
+      // A new clip resets recurrent state while retaining the validated model.
+      state = new Float32Array(256);
+      context = new Float32Array(64);
       self.postMessage({ id, type: "done" });
       return;
     }
@@ -30,7 +66,8 @@ self.onmessage = async ({ data }) => {
     const probabilities = new Float32Array(count);
     for (let i = 0; i < count; i++) {
       const input = new Float32Array(576);
-      input.set(context); input.set(pcm.subarray(i * 512, (i + 1) * 512), 64);
+      input.set(context);
+      input.set(pcm.subarray(i * 512, (i + 1) * 512), 64);
       const feeds = {
         input: new ort.Tensor("float32", input, [1, 576]),
         state: new ort.Tensor("float32", state, [2, 1, 128]),
@@ -52,6 +89,10 @@ self.onmessage = async ({ data }) => {
     }
     self.postMessage({ id, type: "done", probabilities }, [probabilities.buffer]);
   } catch {
-    self.postMessage({ id, type: "error", code: type === "init" ? "pauseModelFailed" : "pauseFailed" });
+    self.postMessage({
+      id,
+      type: "error",
+      code: type === "init" ? "pauseModelFailed" : "pauseFailed",
+    });
   }
 };

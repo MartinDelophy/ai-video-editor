@@ -182,6 +182,7 @@ export function resolveCaptionStyleForSegment(captionStyle = {}, segment = null)
   return {
     ...captionStyle,
     ...overrides,
+    highlightRanges: segment?.highlightRanges || [],
     fontId: overrides.fontId || legacyFontId || captionStyle?.fontId || DEFAULT_CAPTION_FONT_ID,
   };
 }

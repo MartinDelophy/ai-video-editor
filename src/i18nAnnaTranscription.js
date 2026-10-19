@@ -30,3 +30,31 @@ it:'Trascrizione Anna non completata. Controlla autorizzazione, modello, CU e re
 id:'Transkripsi Anna belum selesai. Periksa izin aplikasi, model, CU dan jaringan. Subtitle lama tetap tersimpan; bagian yang dikirim mungkin tetap ditagih.',
 };
 export const getAnnaTranscriptionError = language => errors[language] || errors.en;
+
+const captionServiceCopy = {
+ zh:"加载 Anna ASR 模型，识别后写入字幕轨", en:"Load the Anna ASR model, then transcribe to the caption track",
+ ja:"Anna ASR モデルを読み込み、認識後に字幕トラックへ書き込みます", ko:"Anna ASR 모델을 불러와 인식 후 자막 트랙에 작성합니다",
+ es:"Carga el modelo Anna ASR y escribe la transcripción en la pista de subtítulos", fr:"Charge le modèle Anna ASR, puis écrit la transcription dans la piste de sous-titres",
+ de:"Anna-ASR-Modell laden und die Erkennung in die Untertitelspur schreiben", pt:"Carrega o modelo Anna ASR e grava a transcrição na faixa de legendas",
+ th:"โหลดโมเดล Anna ASR แล้วเขียนผลการรู้จำลงแทร็กคำบรรยาย", vi:"Tải mô hình Anna ASR rồi ghi kết quả nhận dạng vào phụ đề",
+ ru:"Загрузка модели Anna ASR и запись распознанного текста в дорожку субтитров", it:"Carica il modello Anna ASR e scrive il testo riconosciuto nella traccia sottotitoli",
+ id:"Muat model Anna ASR, lalu tulis hasil pengenalan ke trek subtitel",
+};
+export const getAnnaCaptionServiceCopy = language => captionServiceCopy[language] || captionServiceCopy.en;
+
+const captionJobCopy = {
+ zh:['正在识别字幕','准备音频…','写入字幕轨…','停止等待','已停止等待'],
+ en:['Recognizing captions','Preparing audio…','Writing captions…','Stop waiting','Stopped waiting'],
+ ja:['字幕を認識中','音声を準備中…','字幕を書き込み中…','待機を停止','待機を停止しました'],
+ ko:['자막 인식 중','오디오 준비 중…','자막 작성 중…','대기 중지','대기를 중지했습니다'],
+ es:['Reconociendo subtítulos','Preparando audio…','Escribiendo subtítulos…','Dejar de esperar','Espera detenida'],
+ fr:['Reconnaissance en cours','Préparation audio…','Écriture des sous-titres…','Arrêter l’attente','Attente arrêtée'],
+ de:['Untertitel werden erkannt','Audio vorbereiten…','Untertitel schreiben…','Warten beenden','Warten beendet'],
+ pt:['Reconhecendo legendas','Preparando áudio…','Gravando legendas…','Parar de esperar','Espera encerrada'],
+ th:['กำลังรู้จำคำบรรยาย','กำลังเตรียมเสียง…','กำลังเขียนคำบรรยาย…','หยุดรอ','หยุดรอแล้ว'],
+ vi:['Đang nhận dạng phụ đề','Đang chuẩn bị âm thanh…','Đang ghi phụ đề…','Dừng chờ','Đã dừng chờ'],
+ ru:['Распознавание субтитров','Подготовка аудио…','Запись субтитров…','Прекратить ожидание','Ожидание прекращено'],
+ it:['Riconoscimento sottotitoli','Preparazione audio…','Scrittura sottotitoli…','Interrompi attesa','Attesa interrotta'],
+ id:['Mengenali subtitel','Menyiapkan audio…','Menulis subtitel…','Berhenti menunggu','Berhenti menunggu'],
+};
+export const getCaptionJobCopy = language => captionJobCopy[language] || captionJobCopy.en;

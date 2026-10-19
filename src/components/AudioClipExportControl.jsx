@@ -4,7 +4,7 @@ import { isExportAbortError, throwIfExportAborted } from "../lib/exportCancellat
 import { sanitizeExportFileName } from "../lib/exportSettings.js";
 import { ExportSelect } from "./ExportSelect.jsx";
 
-export function AudioClipExportControl({ segment, t, downloadBlob, children }) {
+export function AudioClipExportControl({ segment, t, downloadBlob, leadingAction, children }) {
   const [format, setFormat] = useState("wav");
   const [bitrate, setBitrate] = useState(192_000);
   const [job, setJob] = useState(null);
@@ -61,7 +61,8 @@ export function AudioClipExportControl({ segment, t, downloadBlob, children }) {
       {[128_000, 192_000, 256_000, 320_000].map((value) => <option key={value} value={value}>{value / 1000} kbps</option>)}
     </ExportSelect> : null}
     <p className="audio-clip-export-hint">{t("audioExportClipHint")}</p>
-    <div className="audio-context-actions">
+    <div className={`audio-context-actions ${leadingAction ? "has-three-actions" : ""}`}>
+      {leadingAction}
       <button className="panel-secondary" type="button" disabled={!segment.blob || segment.reversing || !(segment.duration > 0)} onClick={running ? () => controllerRef.current?.abort() : runExport}>
         {t(running ? "audioExportCancel" : "downloadAudioClip")}
       </button>

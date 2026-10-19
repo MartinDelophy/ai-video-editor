@@ -1,9 +1,9 @@
-import { reconcileVisualAssociations } from "./visualAssociations.js";
+import { reconcileVisualAssociations, rebindMovedVisualGroup } from "./visualAssociations.js";
 import { normalizeVisualTransform } from "./visualEffects.js";
 import { normalizeColorGrade } from "./colorGrade.js";
 import { normalizeGlitch } from "./glitchEffect.js";
 import { normalizeBeatShake } from "./beatShakeEffect.js";
-import { VISUAL_SETTINGS_SCHEMA } from "./webMcpOperationSchema.js";
+import { VISUAL_SETTINGS_SCHEMA, CAPTION_SETTINGS_SCHEMA, AUDIO_SETTINGS_SCHEMA, STICKER_SETTINGS_SCHEMA } from "./webMcpOperationSchema.js";
 import { MAX_TIMELINE_MARKER_SECONDS, TIMELINE_MARKER_COLORS, TIMELINE_MARKER_TYPES, normalizeTimelineMarkers } from "./timelineMarkers.js";
 import { getCaptionTimeline, getTimedSegmentsEnd } from "./timeline.js";
 
@@ -69,18 +69,55 @@ function commandState(project) {
   };
 }
 
+function timedGroup(project, clipId) {
+  const match = findClipMatch(project, clipId);
+  if (!["audio", "captions", "stickers"].includes(match.track)) throw Object.assign(new Error("Unsupported timed clip"), { code: "UNSUPPORTED_TRACK" });
+  const audioId = match.track === "audio" ? clipId : match.track === "captions" ? match.clip.audioSegmentId : null;
+  const audio = audioId && (project.audioSegments || []).find(clip => clip.id === audioId);
+  const captions = audio ? (project.captionSegments || []).filter(clip => clip.audioSegmentId === audio.id) : [];
+  return audio ? [audio, ...captions] : [match.clip];
+}
+function replaceTimedGroup(project, group) {
+  const byId = new Map(group.map(clip => [clip.id, clip]));
+  for (const key of ["audioSegments", "captionSegments", "stickerSegments"]) project[key] = (project[key] || []).map(clip => byId.get(clip.id) || clip);
+}
 function moveTimed(project, operation) {
-  if (operation.track !== "audio") {
-    throw Object.assign(new Error(`Unsupported timed track: ${operation.track}`), { code: "UNSUPPORTED_TRACK" });
+  const { track, clip } = findClipMatch(project, operation.clipId);
+  if (operation.track && ({ caption: "captions", sticker: "stickers" }[operation.track] || operation.track) !== track) throw Object.assign(new Error("Mismatched timed track"), { code: "UNSUPPORTED_TRACK" });
+  const delta = finiteNonNegative(operation.start, "start") - (Number(clip.start) || 0);
+  if (!delta) return;
+  const group = timedGroup(project, clip.id).map(item => ({ ...item, start: finiteNonNegative((item.start || 0) + delta, "start"), ...(Number.isFinite(item.end) ? { end: finiteNonNegative(item.end + delta, "end") } : {}) }));
+  if (group.some(item => (Number.isFinite(item.end) ? item.end : item.start + item.duration) > 86400)) throw Object.assign(new Error("Timed range exceeds project limit"), { code: "INVALID_RANGE" });
+  replaceTimedGroup(project, rebindMovedVisualGroup(group, project.visualSegments || []));
+}
+function linkVisual(project, operation) {
+  const group = timedGroup(project, operation.clipId);
+  if (operation.visualClipId === null) {
+    replaceTimedGroup(project, group.map(({ visualSegmentId: _previous, ...clip }) => clip)); return;
   }
-  const segment = findById(project.audioSegments, operation.clipId, "Audio clip");
-  const nextStart = finiteNonNegative(operation.start, "start");
-  const previousStart = Number(segment.start) || 0;
-  segment.start = nextStart;
-  const delta = nextStart - previousStart;
-  project.captionSegments = (project.captionSegments || []).map((caption) => caption.audioSegmentId === segment.id
-    ? { ...caption, start: finiteNonNegative((Number(caption.start) || 0) + delta, "caption start"), end: finiteNonNegative((Number(caption.end) || 0) + delta, "caption end") }
-    : caption);
+  const owner = findById(project.visualSegments, operation.visualClipId, "Visual clip");
+  let start = 0;
+  for (const clip of project.visualSegments) { if (clip.id === owner.id) break; start += clip.duration; }
+  if (group.some(clip => clip.start < start - 0.000001 || (Number.isFinite(clip.end) ? clip.end : clip.start + clip.duration) > start + owner.duration + 0.000001)) throw Object.assign(new Error("Linked group must fit inside the visual"), { code: "INVALID_RANGE" });
+  replaceTimedGroup(project, group.map(clip => ({ ...clip, visualSegmentId: owner.id })));
+}
+function configureCaption(project, operation) {
+  const clip = findById(project.captionSegments, operation.clipId, "Caption clip");
+  if (!operation.settings && !operation.placement) throw Object.assign(new Error("Caption patch is empty"), { code: "INVALID_ARGUMENT" });
+  if (operation.settings) { validateCommandSettings(operation.settings, CAPTION_SETTINGS_SCHEMA); clip.styleOverrides = { ...clip.styleOverrides, ...operation.settings }; }
+  if (operation.placement) { validateCommandSettings(operation.placement, { type: "object", properties: { x: { type: "number", minimum: 0, maximum: 100 }, y: { type: "number", minimum: 0, maximum: 100 } } }); clip.placement = { ...clip.placement, ...operation.placement }; }
+}
+function configureTimed(project, operation) {
+  const { track, clip } = findClipMatch(project, operation.clipId);
+  const expected = operation.type === "audio.configure" ? "audio" : "stickers";
+  if (track !== expected) throw Object.assign(new Error("Unsupported clip settings"), { code: "UNSUPPORTED_TRACK" });
+  validateCommandSettings(operation.settings, expected === "audio" ? AUDIO_SETTINGS_SCHEMA : STICKER_SETTINGS_SCHEMA);
+  Object.assign(clip, operation.settings);
+}
+function replaceAudioMedia(project, operation) {
+  const clip = findById(project.audioSegments, operation.clipId, "Audio clip");
+  if (!operation.prepared || !operation.preparedSource) throw Object.assign(new Error("Processing receipt required"), { code: "INVALID_ARGUMENT" });
+  Object.assign(clip, operation.preparedSource, { sourceStart: 0, reversed: false });
 }
 
 function resizeTimed(project, operation) {
@@ -398,17 +435,18 @@ function addOverlay(project, operation) {
 }
 
 // Validate the same public contract for CLI, MCP and browser callers.
-function validateSettings(value, schema) {
+export function validateCommandSettings(value, schema) {
   const invalid = () => { throw Object.assign(new Error("Invalid visual settings"), { code: "INVALID_ARGUMENT" }); };
   if (schema.type === "object") {
     if (!value || typeof value !== "object" || Array.isArray(value) || !Object.keys(value).length) invalid();
     for (const [key, child] of Object.entries(value)) {
       if (!Object.hasOwn(schema.properties, key)) invalid();
-      validateSettings(child, schema.properties[key]);
+      validateCommandSettings(child, schema.properties[key]);
     }
   } else if (schema.type === "number") {
     if (typeof value !== "number" || !Number.isFinite(value) || value < schema.minimum || value > schema.maximum) invalid();
-  } else if (typeof value !== schema.type || schema.enum && !schema.enum.includes(value)) invalid();
+  } else if (typeof value !== schema.type || schema.enum && !schema.enum.includes(value)
+    || schema.type === "string" && (schema.maxLength && value.length > schema.maxLength || schema.pattern && !new RegExp(schema.pattern).test(value))) invalid();
 }
 function replaceVisualMedia(project, operation) {
   const { track, clip } = findClipMatch(project, operation.clipId);
@@ -429,7 +467,7 @@ function replaceVisualMedia(project, operation) {
 function configureVisual(project, operation) {
   const { track, clip } = findClipMatch(project, operation.clipId);
   if (!["visuals", "overlays"].includes(track)) throw Object.assign(new Error("Visual settings require a visual clip"), { code: "UNSUPPORTED_TRACK" });
-  validateSettings(operation.settings, VISUAL_SETTINGS_SCHEMA);
+  validateCommandSettings(operation.settings, VISUAL_SETTINGS_SCHEMA);
   for (const [key, patch] of Object.entries(operation.settings)) {
     let merged = { ...clip[key], ...patch };
     if (key === "colorGrade") {
@@ -501,7 +539,7 @@ function addCaption(project, operation) {
 }
 
 function deleteClip(project, operation) {
-  const collections = { caption: "captionSegments", audio: "audioSegments" };
+  const collections = { caption: "captionSegments", audio: "audioSegments", sticker: "stickerSegments" };
   const key = collections[operation.track];
   if (!key) throw Object.assign(new Error(`Unsupported clip track: ${operation.track}`), { code: "UNSUPPORTED_TRACK" });
   if (operation.track === "caption") project.captionSegments = materializeProjectCaptionTimings(project).captionSegments;
@@ -509,7 +547,7 @@ function deleteClip(project, operation) {
   project[key] = project[key].filter((item) => item.id !== operation.clipId);
   if (operation.track === "caption") {
     project.script = project.captionSegments.map((item) => item.text).join("\n");
-  } else {
+  } else if (operation.track === "audio") {
     project.captionSegments = (project.captionSegments || []).map((caption) => (
       caption.audioSegmentId === operation.clipId || caption.detachedAudioSegmentId === operation.clipId
         ? { ...caption, audioSegmentId: "", detachedAudioSegmentId: "" }
@@ -535,6 +573,7 @@ function linkCaption(project, operation) {
     caption.start = Number(audio.start) || 0;
     caption.end = caption.start + finiteNonNegative(audio.duration, "audio duration");
   }
+  replaceTimedGroup(project, rebindMovedVisualGroup(timedGroup(project, caption.id), project.visualSegments || []));
 }
 
 function findClipMatch(project, clipId) {
@@ -737,6 +776,11 @@ const reducers = {
   "asset.import": importAsset,
   "asset.insert": insertPreparedAsset,
   "timed.move": moveTimed,
+  "clip.link_visual": linkVisual,
+  "caption.configure": configureCaption,
+  "audio.configure": configureTimed,
+  "sticker.configure": configureTimed,
+  "audio.replace_media": replaceAudioMedia,
   "timed.resize": resizeTimed,
   "visual.trim": trimVisual,
   "visual.split": splitVisual,

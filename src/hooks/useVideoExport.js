@@ -1,3 +1,4 @@
+import { getDuckingCopy } from "../i18nAudioDucking.js";
 import { useCallback } from "react";
 import { ensureCaptionFontLoaded } from "../lib/captionFonts.js";
 import { isExportAbortError, throwIfExportAborted } from "../lib/exportCancellation.js";
@@ -183,7 +184,7 @@ export function useVideoExport(d) {
           : embeddedVideoAudio.blob
         : null;
       const exportSourceAudioSegments = d.sourceAudioBlob
-        ? d.sourceAudioLinked ? d.linkedSourceAudioSegments : []
+        ? d.sourceAudioLinked ? d.linkedSourceAudioSegments : [{id:"source-audio",start:d.sourceAudioStart,duration:d.sourceAudioDuration,autoDuck:d.sourceAudioAutoDuck}]
         : embeddedVideoAudio.segments;
       const exportedVisualSegments = d.renderedVisualSegments.map((segment) => {
         const record = d.visionRecords[getVisionKey(segment)];
@@ -371,11 +372,12 @@ export function useVideoExport(d) {
         return { status: "canceled", actualPipeline };
       } else {
         const errorCode = isAnnaEdition && error?.code === "ANNA_SOURCE_AUDIO_UNAVAILABLE" ? error.code : "";
-        const message = errorCode ? createAnnaTranslator(d.language)("sourceAudioUnavailable")
-          : error instanceof Error ? error.message : localize("exportFailed");
+        const duckingError = ["DUCKING_NOT_READY","DUCKING_FAILED"].includes(error?.code) ? getDuckingCopy(d.language)[error.code === "DUCKING_FAILED" ? "error" : "analyzing"] : "";
+        const message = duckingError || (errorCode ? createAnnaTranslator(d.language)("sourceAudioUnavailable")
+          : error instanceof Error ? error.message : localize("exportFailed"));
         const copy = EXPORT_FAILURE_COPY[d.language] || EXPORT_FAILURE_COPY.en;
-        const displayMessage = errorCode ? message
-          : getExportFailureMessage(error, audioOnly ? { ...copy, generic: localize("audioExportFailed") } : copy, localize);
+        const displayMessage = duckingError || (errorCode ? message
+          : getExportFailureMessage(error, audioOnly ? { ...copy, generic: localize("audioExportFailed") } : copy, localize));
         d.setExportError({ message: displayMessage, settings: requestedSettings, phase: lastPhase, percent: lastProgress });
         console.error(error); d.setStatus("error"); d.setStatusText(displayMessage); d.setExportPhase(localize("exportFailed"));
         if (errorCode) notify(message);

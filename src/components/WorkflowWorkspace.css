@@ -1,0 +1,13 @@
+.workflow-load-state { position:fixed; inset:0; z-index:905; display:grid; place-items:center; padding:24px; background:rgba(9,15,20,.94); color:#dce7ec; }
+.workflow-load-state > div { display:flex; flex-direction:column; align-items:center; gap:16px; max-width:420px; text-align:center; }
+.workflow-load-state svg { color:#58ddd2; flex-shrink:0; }
+.workflow-load-state strong { font-size:16px; }
+.workflow-load-state p { margin:0; color:#9db1bd; font-size:13px; line-height:1.7; }
+.workflow-load-state nav { display:flex; justify-content:center; flex-wrap:wrap; gap:10px; margin-top:6px; }
+.workflow-load-state button { display:inline-flex; align-items:center; gap:7px; min-height:38px; padding:8px 13px; border:1px solid #344a55; border-radius:9px; color:#dce7ec; background:#192830; font:inherit; font-size:13px; cursor:pointer; }
+.workflow-load-state .workflow-load-retry { background:#27d8c8; border-color:#27d8c8; color:#052927; }
+.workflow-load-state .workflow-load-retry svg { color:inherit; }
+.workflow-load-state button:focus-visible { outline:2px solid #58ddd2; outline-offset:3px; }
+.workflow-load-spinner { animation:workflow-loading 1s linear infinite; }
+@keyframes workflow-loading { to { transform:rotate(360deg); } }
+@media(prefers-reduced-motion:reduce) { .workflow-load-spinner { animation:none; } }

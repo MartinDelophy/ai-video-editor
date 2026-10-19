@@ -36,6 +36,7 @@ export function Topbar({
   setCompactRail,
   lastSaved,
   annaSession,
+  voiceCall,
   undo,
   redo,
   ratio,
@@ -222,6 +223,7 @@ export function Topbar({
       </div>
 
       <div className="topbar-actions">
+        {voiceCall}
         <nav className="topbar-community-links" aria-label={t("communityLinks", "社区链接")}>
           <a
             href={COMMUNITY_LINKS.github}

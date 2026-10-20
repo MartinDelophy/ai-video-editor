@@ -1,0 +1,33 @@
+{
+  "payload": {
+    "ratioId": "16:9", "captionsEnabled": true, "captionPlacement": {"x": 50, "y": 90},
+    "trackVisibility": {}, "userAssets": [], "fitMode": "contain",
+    "visualSegments": [
+      {"id": "v1", "type": "video", "duration": 2, "sourceStart": 1, "sourceDuration": 4, "playbackRate": 2, "volume": 0.8, "width": 1280, "height": 720, "mediaBindings": {"src": {"kind": "media", "entityId": "video", "blobId": "video"}}, "transition": {"id": "fade", "duration": 0.5}},
+      {"id": "v2", "type": "image", "duration": 1, "width": 800, "height": 600, "mediaBindings": {"blob": {"kind": "media", "entityId": "photo", "blobId": "photo"}}}
+    ],
+    "visualOverlaySegments": [
+      {"id": "o1", "type": "image", "start": 0.25, "duration": 1, "width": 800, "height": 600, "mediaBindings": {"src": {"kind": "media", "entityId": "photo", "blobId": "photo"}}}
+    ],
+    "audioSegments": [
+      {"id": "a1", "start": 0.5, "duration": 2, "sourceStart": 1, "playbackRate": 1.5, "volume": 0.4, "mediaBindings": {"blob": {"kind": "media", "entityId": "audio", "blobId": "audio"}}}
+    ],
+    "musicSegments": [{"id": "m1", "start": 1, "duration": 2, "volume": 0.25}],
+    "musicRef": {"kind": "media", "entityId": "audio", "blobId": "audio"},
+    "musicVolume": 0.6,
+    "sourceAudioRef": {"kind": "media", "entityId": "audio", "blobId": "audio"},
+    "sourceAudioLinked": false, "sourceAudioStart": 0, "sourceAudioDuration": 3, "sourceAudioVolume": 0.3,
+    "captionSegments": [
+      {"id": "c1", "text": "你好 🌏", "start": 0.5, "end": 1.5},
+      {"id": "c2", "text": "第二句", "start": 2, "end": 3}
+    ],
+    "stickerSegments": [{"id": "s1", "stickerId": "trend-flame", "start": 0, "duration": 1, "x": 82, "y": 20, "scale": 1.2, "rotation": 15, "opacity": 0.8}],
+    "timelineMarkers": [{"id": "mark1", "time": 1}]
+  },
+  "media": {
+    "video": {"path": "/synthetic/video.mp4", "kind": "video", "durationSeconds": 10, "mimeType": "video/mp4"},
+    "photo": {"path": "/synthetic/photo.png", "kind": "image", "durationSeconds": 0, "mimeType": "image/png"},
+    "audio": {"path": "/synthetic/audio.wav", "kind": "audio", "durationSeconds": 10, "mimeType": "audio/wav"},
+    "sticker": {"path": "/synthetic/trend-flame.png", "kind": "image", "durationSeconds": 0, "mimeType": "image/png", "width": 512, "height": 512}
+  }
+}

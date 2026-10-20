@@ -1,0 +1,16 @@
+Auto-cut Jianying draft exporter
+
+Templates and serialization field layouts are derived from pyJianYingDraft
+(Copyright 2024 GuanYixuan, Apache License 2.0), as vendored/adapted by
+luoluoluo22/jianying-editor-skill at commit
+32c56928ded4f9e2c2b80e099dc7abb793d2c30b.
+Source: https://github.com/luoluoluo22/jianying-editor-skill
+Upstream: https://github.com/GuanYixuan/pyJianYingDraft
+
+Auto-cut changes: TypeScript timeline mapping, serialization, authenticated
+host orchestration and non-overwriting output. The four template assets retain
+upstream bytes. See LICENSE for the upstream Apache License 2.0.
+
+The Python reference under scripts/verify-jianying-draft/vendor is development
+only and is not imported by the host. Jianying compatibility is best effort;
+the field-level synthetic oracle does not establish application acceptance.

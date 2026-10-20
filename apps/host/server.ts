@@ -16,6 +16,7 @@ import { importMetadata } from "./storage/assets.ts";
 import { z } from "zod";
 import { mediaRange } from "./storage/media.ts";
 import type { Readable } from "node:stream";
+import { registerJianyingRoutes } from "./jianying-routes.ts";
 
 const text = { type: "string", minLength: 1, maxLength: 256 };
 const object = (properties: Record<string, unknown>, required = Object.keys(properties)) => ({
@@ -162,6 +163,7 @@ export async function startHost(options: {
     } else requestSessions.set(request, sessions.authenticate(request.headers.authorization));
   });
 
+  registerJianyingRoutes(app, projects, options.dist, pageFor, success, errorEnvelope);
   app.get("/healthz", { schema: { querystring: emptyQuery, response: {
     200: object({ status: { const: "ready" }, protocolVersion: { const: 1 } }),
     503: object({ status: { const: "not_ready" }, protocolVersion: { const: 1 } }),

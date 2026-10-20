@@ -1,0 +1,309 @@
+import os
+import json
+import subprocess
+import uuid
+try:
+    import pymediainfo
+except ImportError:
+    pymediainfo = None
+
+from typing import Optional, Literal
+from typing import Dict, Any
+
+
+def _probe_media(path: str) -> Dict[str, Any]:
+    """Probe media with ffprobe when pymediainfo/libmediainfo is unavailable."""
+    cmd = [
+        "ffprobe",
+        "-v",
+        "error",
+        "-show_entries",
+        "format=duration",
+        "-show_streams",
+        "-of",
+        "json",
+        path,
+    ]
+    res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=15)
+    if res.returncode != 0:
+        raise ValueError(res.stderr.strip() or f"ffprobe failed for {path}")
+    return json.loads(res.stdout or "{}")
+
+
+def _duration_us(value: Any, fallback: Optional[int] = None) -> int:
+    try:
+        if value is not None:
+            return int(float(value) * 1_000_000)
+    except (TypeError, ValueError):
+        pass
+    return int(fallback or 10_000_000)
+
+class CropSettings:
+    """素材的裁剪设置, 各属性均在0-1之间, 注意素材的坐标原点在左上角"""
+
+    upper_left_x: float
+    upper_left_y: float
+    upper_right_x: float
+    upper_right_y: float
+    lower_left_x: float
+    lower_left_y: float
+    lower_right_x: float
+    lower_right_y: float
+
+    def __init__(self, *, upper_left_x: float = 0.0, upper_left_y: float = 0.0,
+                 upper_right_x: float = 1.0, upper_right_y: float = 0.0,
+                 lower_left_x: float = 0.0, lower_left_y: float = 1.0,
+                 lower_right_x: float = 1.0, lower_right_y: float = 1.0):
+        """初始化裁剪设置, 默认参数表示不裁剪"""
+        self.upper_left_x = upper_left_x
+        self.upper_left_y = upper_left_y
+        self.upper_right_x = upper_right_x
+        self.upper_right_y = upper_right_y
+        self.lower_left_x = lower_left_x
+        self.lower_left_y = lower_left_y
+        self.lower_right_x = lower_right_x
+        self.lower_right_y = lower_right_y
+
+    def export_json(self) -> Dict[str, Any]:
+        return {
+            "upper_left_x": self.upper_left_x,
+            "upper_left_y": self.upper_left_y,
+            "upper_right_x": self.upper_right_x,
+            "upper_right_y": self.upper_right_y,
+            "lower_left_x": self.lower_left_x,
+            "lower_left_y": self.lower_left_y,
+            "lower_right_x": self.lower_right_x,
+            "lower_right_y": self.lower_right_y
+        }
+
+class VideoMaterial:
+    """本地视频素材（视频或图片）, 一份素材可以在多个片段中使用"""
+
+    material_id: str
+    """素材全局id, 自动生成"""
+    local_material_id: str
+    """素材本地id, 意义暂不明确"""
+    material_name: str
+    """素材名称"""
+    path: str
+    """素材文件路径"""
+    duration: int
+    """素材时长, 单位为微秒"""
+    height: int
+    """素材高度"""
+    width: int
+    """素材宽度"""
+    crop_settings: CropSettings
+    """素材裁剪设置"""
+    material_type: Literal["video", "photo"]
+    """素材类型: 视频或图片"""
+
+    def __init__(self, path: str, material_name: Optional[str] = None, crop_settings: CropSettings = CropSettings(), duration: Optional[int] = None):
+        """从指定位置加载视频（或图片）素材
+        Args:
+            duration (`int`, optional): 某些格式(如webm)解析可能会失败, 此时可手动传入时长(us)
+        """
+        path = os.path.abspath(path)
+        postfix = os.path.splitext(path)[1]
+        if not os.path.exists(path):
+            raise FileNotFoundError(f"找不到 {path}")
+
+        self.material_name = material_name if material_name else os.path.basename(path)
+        self.material_id = uuid.uuid4().hex
+        self.path = path
+        self.crop_settings = crop_settings
+        # 剪映 v5.9+ 需要非空的本地素材登记 id；用文件名 stem 保证与素材文件一一对应，
+        # 且与 _stage_local_asset 复制的副本文件名（md5(源路径)）保持一致。
+        self.local_material_id = os.path.splitext(os.path.basename(self.path))[0]
+
+        if not pymediainfo or not pymediainfo.MediaInfo.can_parse():
+            probed = _probe_media(path)
+            streams = probed.get("streams", [])
+            video_stream = next((s for s in streams if s.get("codec_type") == "video"), None)
+            image_exts = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tif", ".tiff"}
+            if video_stream:
+                self.material_type = "video"
+                self.duration = _duration_us(
+                    video_stream.get("duration") or probed.get("format", {}).get("duration"),
+                    duration,
+                )
+                self.width = int(video_stream.get("width") or 1920)
+                self.height = int(video_stream.get("height") or 1080)
+                return
+            if postfix.lower() in image_exts:
+                self.material_type = "photo"
+                self.duration = duration or 10800000000
+                self.width = int((video_stream or {}).get("width") or 1920)
+                self.height = int((video_stream or {}).get("height") or 1080)
+                return
+            if duration is not None:
+                self.material_type = "video"
+                self.duration = duration
+                self.width, self.height = 1920, 1080
+                return
+            raise ValueError(f"输入的素材文件 {path} 没有视频轨道或图片轨道")
+
+        try:
+            info: pymediainfo.MediaInfo = \
+                pymediainfo.MediaInfo.parse(path, mediainfo_options={"File_TestContinuousFileNames": "0"})  # type: ignore
+            
+            # 有视频轨道的视为视频素材
+            if len(info.video_tracks):
+                self.material_type = "video"
+                parsed_duration = info.video_tracks[0].duration
+                
+                if parsed_duration:
+                    self.duration = int(parsed_duration * 1e3)
+                else:
+                    # 如果解析出来是 None (WebM 常见情况)
+                    if duration is not None:
+                        self.duration = duration
+                    else:
+                        # 既无法解析又没传参数，只能给个默认值防止崩
+                        self.duration = 10 * 1000 * 1000 # 10s default
+                        
+                self.width, self.height = info.video_tracks[0].width, info.video_tracks[0].height 
+            
+            # gif文件使用imageio库获取长度
+            elif postfix.lower() == ".gif":
+                import imageio
+                gif = imageio.get_reader(path)
+
+                self.material_type = "video"
+                self.duration = int(round(gif.get_meta_data()['duration'] * gif.get_length() * 1e3))
+                # Fix potential variable name error in original code (info.image_tracks usage in gif block)
+                # Assuming gif assumes image track presence or width/height availability
+                # Keeping original logic structure but ensuring safety
+                self.width, self.height = 1920, 1080 # Default fallback if imageio fails
+                if len(info.image_tracks):
+                     self.width, self.height = info.image_tracks[0].width, info.image_tracks[0].height
+                gif.close()
+
+            elif len(info.image_tracks):
+                self.material_type = "photo"
+                self.duration = 10800000000  # 相当于3h
+                self.width, self.height = info.image_tracks[0].width, info.image_tracks[0].height 
+            else:
+                 # Fallback for WebM or other formats if pymediainfo detect no tracks but file exists
+                if duration is not None:
+                    self.material_type = "video"
+                    self.duration = duration
+                    self.width, self.height = 1920, 1080
+                else:
+                    raise ValueError(f"输入的素材文件 {path} 没有视频轨道或图片轨道")
+
+        except Exception as e:
+            # Global Fallback
+            if duration is not None:
+                 self.material_type = "video"
+                 self.duration = duration
+                 self.width, self.height = 1920, 1080
+            else:
+                raise e
+
+    def export_json(self) -> Dict[str, Any]:
+        video_material_json = {
+            "audio_fade": None,
+            "category_id": "",
+            "category_name": "local",
+            "check_flag": 63487,
+            "crop": self.crop_settings.export_json(),
+            "crop_ratio": "free",
+            "crop_scale": 1.0,
+            "duration": self.duration,
+            "height": self.height,
+            "id": self.material_id,
+            "local_material_id": self.local_material_id,
+            "material_id": self.material_id,
+            "material_name": self.material_name,
+            "media_path": "",
+            "path": self.path,
+            "type": self.material_type,
+            "video_algorithm": {
+                "algorithms": [],
+                "complement_frame_config": None,
+                "deflicker": None,
+                "gameplay_configs": [],
+                "motion_blur_config": None,
+                "noise_reduction": None,
+                "path": "",
+                "quality_enhance": None,
+                "time_range": None
+            },
+            "source_platform": 0,
+            "team_id": "",
+            "width": self.width
+        }
+        return video_material_json
+
+class AudioMaterial:
+    """本地音频素材"""
+
+    material_id: str
+    """素材全局id, 自动生成"""
+    material_name: str
+    """素材名称"""
+    path: str
+    """素材文件路径"""
+
+    duration: int
+    """素材时长, 单位为微秒"""
+
+    def __init__(self, path: str, material_name: Optional[str] = None):
+        """从指定位置加载音频素材, 注意视频文件不应该作为音频素材使用
+
+        Args:
+            path (`str`): 素材文件路径, 支持mp3, wav等常见音频文件.
+            material_name (`str`, optional): 素材名称, 如果不指定, 默认使用文件名作为素材名称.
+
+        Raises:
+            `FileNotFoundError`: 素材文件不存在.
+            `ValueError`: 不支持的素材文件类型.
+        """
+        path = os.path.abspath(path)
+        if not os.path.exists(path):
+            raise FileNotFoundError(f"找不到 {path}")
+
+        self.material_name = material_name if material_name else os.path.basename(path)
+        self.material_id = uuid.uuid4().hex
+        self.path = path
+        self.local_material_id = os.path.splitext(os.path.basename(self.path))[0]
+
+        if not pymediainfo or not pymediainfo.MediaInfo.can_parse():
+            probed = _probe_media(path)
+            streams = probed.get("streams", [])
+            if any(s.get("codec_type") == "video" for s in streams):
+                raise ValueError("音频素材不应包含视频轨道")
+            audio_stream = next((s for s in streams if s.get("codec_type") == "audio"), None)
+            if not audio_stream:
+                raise ValueError(f"给定的素材文件 {path} 没有音频轨道")
+            self.duration = _duration_us(
+                audio_stream.get("duration") or probed.get("format", {}).get("duration")
+            )
+            return
+        info: pymediainfo.MediaInfo = pymediainfo.MediaInfo.parse(path)  # type: ignore
+        if len(info.video_tracks):
+            raise ValueError("音频素材不应包含视频轨道")
+        if not len(info.audio_tracks):
+            raise ValueError(f"给定的素材文件 {path} 没有音频轨道")
+        self.duration = int(info.audio_tracks[0].duration * 1e3)  # type: ignore
+
+    def export_json(self) -> Dict[str, Any]:
+        return {
+            "app_id": 0,
+            "category_id": "",
+            "category_name": "local",
+            "check_flag": 3,
+            "copyright_limit_type": "none",
+            "duration": self.duration,
+            "effect_id": "",
+            "formula_id": "",
+            "id": self.material_id,
+            "local_material_id": self.local_material_id,
+            "music_id": self.material_id,
+            "name": self.material_name,
+            "path": self.path,
+            "source_platform": 0,
+            "type": "extract_music",
+            "wave_points": []
+        }

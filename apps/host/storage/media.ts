@@ -3,11 +3,11 @@ import { Readable } from "node:stream";
 import { HostError } from "../sessions.ts";
 import { StorageIOError, type ProjectFiles } from "./files.ts";
 
-export async function inspectMedia(files: ProjectFiles, path: string, sizeBytes: number) {
+export async function inspectMedia(files: ProjectFiles, path: string, sizeBytes: number, includeDuration = false) {
   const chunks: Buffer[] = [];
   for await (const chunk of files.stream(path, 0, Math.min(sizeBytes, 64))) chunks.push(chunk);
   const header = Buffer.concat(chunks);
-  const image = (mimeType: string, extension: string) => ({ kind: "image" as const, mimeType, extension });
+  const image = (mimeType: string, extension: string) => ({ kind: "image" as const, mimeType, extension, durationSeconds: 0 });
   if (header.length >= 33 && header.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])) && header.toString("ascii", 12, 16) === "IHDR") return image("image/png", "png");
   if (header.length >= 4 && header[0] === 255 && header[1] === 216 && header[2] === 255) return image("image/jpeg", "jpg");
   if (header.length >= 13 && ["GIF87a", "GIF89a"].includes(header.toString("ascii", 0, 6))) return image("image/gif", "gif");
@@ -35,7 +35,9 @@ export async function inspectMedia(files: ProjectFiles, path: string, sizeBytes:
       "audio/ogg": "ogg", "video/ogg": "ogv", "audio/flac": "flac", "audio/aac": "aac", "video/quicktime": "mov" };
     const extension = extensions[mimeType];
     if (!extension) throw new Error("Unsupported media container.");
-    return { kind: video ? "video" as const : "audio" as const, mimeType, extension };
+    const durationSeconds = includeDuration ? await input.computeDuration() : null;
+    if (includeDuration && (!Number.isFinite(durationSeconds) || durationSeconds! <= 0)) throw new Error("Invalid media duration.");
+    return { kind: video ? "video" as const : "audio" as const, mimeType, extension, durationSeconds };
   } catch (error) {
     if (error instanceof StorageIOError) throw error;
     if (timedOut) throw new HostError("MEDIA_PROBE_TIMEOUT", 503, "Media inspection timed out; retry the operation.");

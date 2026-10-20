@@ -1,0 +1,123 @@
+.workflow-project-menu {
+  position: relative;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+:is(.storyboard-topbar, .nc-topbar) .workflow-project-menu button {
+  width: auto;
+  height: auto;
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 11px;
+  color: #d9e7ed;
+  background: #16242d;
+  border: 1px solid #304653;
+  border-radius: 9px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.workflow-project-menu button:hover:not(:disabled) {
+  background: #203842;
+  border-color: #4c827f;
+}
+.workflow-project-menu button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+.workflow-project-menu button:focus-visible {
+  outline: 2px solid #24dacb;
+  outline-offset: 2px;
+}
+.workflow-project-menu > section {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 9px);
+  z-index: 100;
+  width: min(380px, calc(100vw - 32px));
+  max-height: min(75vh, 640px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: #48616e transparent;
+  padding: 15px;
+  background: #10202a;
+  color: #d9e7ed;
+  border: 1px solid #35515e;
+  border-radius: 13px;
+  box-shadow: 0 16px 48px #0008;
+}
+.workflow-project-menu header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.workflow-project-menu p {
+  color: #91aab8;
+  font-size: 12px;
+  line-height: 1.6;
+  white-space: normal;
+  margin: 10px 0;
+}
+.workflow-project-menu nav {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.workflow-project-menu nav button {
+  justify-content: flex-start;
+  min-height: 40px;
+  text-align: left;
+}
+.workflow-project-menu [role="status"] {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+  margin-top: 10px;
+  font-size: 12px;
+}
+.workflow-project-list {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin-top: 14px;
+  border-top: 1px solid #304653;
+  padding-top: 12px;
+  font-size: 12px;
+}
+.workflow-project-list > button {
+  text-align: left;
+}
+.workflow-project-menu .workflow-project-list [aria-current="true"] {
+  border-color: #26cfc4;
+  color: #65e7db;
+}
+.workflow-project-list article {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.workflow-project-list article > span {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 11px;
+}
+.workflow-project-list small {
+  display: block;
+  color: #8da7b4;
+  margin-top: 4px;
+}
+.workflow-project-list article button {
+  flex-shrink: 0;
+  font-size: 11px;
+  padding: 7px;
+}
+@media (max-width: 760px) {
+  .workflow-project-menu > section {
+    position: fixed;
+    right: 12px;
+    top: 70px;
+  }
+}

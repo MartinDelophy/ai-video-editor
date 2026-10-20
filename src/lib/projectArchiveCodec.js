@@ -13,15 +13,25 @@ export function readArchiveBlobBuffer(blob) {
 }
 
 /** Keep only one compressed chunk and the current inflater on the JS heap. */
-export async function unpackProjectArchive(file, { onProgress } = {}) {
+export async function unpackProjectArchive(
+  file,
+  { onProgress, maxBytes = Infinity, maxFiles = Infinity } = {},
+) {
+  if (file.size > maxBytes) throw new Error("ARCHIVE_LIMIT");
+  let totalBytes = 0,
+    entryCount = 0;
   let lastProgressAt = 0;
   let lastProgressPercent = -1;
   const reportProgress = (loaded) => {
     if (!onProgress) return;
     const now = performance.now();
-    const percent = file.size > 0 ? Math.floor(loaded / file.size * 100) : 0;
-    if (loaded > 0 && loaded < file.size
-      && (percent === lastProgressPercent || now - lastProgressAt < 100)) return;
+    const percent = file.size > 0 ? Math.floor((loaded / file.size) * 100) : 0;
+    if (
+      loaded > 0 &&
+      loaded < file.size &&
+      (percent === lastProgressPercent || now - lastProgressAt < 100)
+    )
+      return;
     lastProgressAt = now;
     lastProgressPercent = percent;
     onProgress({ phase: "archive", loaded, total: file.size });
@@ -29,11 +39,15 @@ export async function unpackProjectArchive(file, { onProgress } = {}) {
   reportProgress(0);
   // Streaming readers can finish all local entries in a truncated archive.
   // Retain the old central-directory completeness check before accepting it.
-  const tail = new DataView(await readArchiveBlobBuffer(file.slice(Math.max(0, file.size - 65558))));
+  const tail = new DataView(
+    await readArchiveBlobBuffer(file.slice(Math.max(0, file.size - 65558))),
+  );
   let directoryFound = false;
   for (let offset = tail.byteLength - 22; offset >= 0; offset -= 1) {
-    if (tail.getUint32(offset, true) === 0x06054b50
-      && offset + 22 + tail.getUint16(offset + 20, true) <= tail.byteLength) {
+    if (
+      tail.getUint32(offset, true) === 0x06054b50 &&
+      offset + 22 + tail.getUint16(offset + 20, true) <= tail.byteLength
+    ) {
       directoryFound = true;
       break;
     }
@@ -43,13 +57,28 @@ export async function unpackProjectArchive(file, { onProgress } = {}) {
   let archiveError = null;
   let pendingFiles = 0;
   const unzip = new Unzip((entry) => {
+    if (++entryCount > maxFiles || entry.originalSize > maxBytes || files.has(entry.name)) {
+      archiveError = new Error("ARCHIVE_LIMIT");
+      return;
+    }
     const parts = [];
     pendingFiles += 1;
     entry.ondata = (error, chunk, final) => {
-      if (error) { archiveError = error; return; }
+      if (error) {
+        archiveError = error;
+        return;
+      }
       // Blob parts release the inflater's typed arrays between input chunks;
       // assembling the completed file shares these immutable backing stores.
-      if (chunk?.length) parts.push(new Blob([chunk]));
+      if (chunk?.length) {
+        totalBytes += chunk.length;
+        if (totalBytes > maxBytes) {
+          archiveError = new Error("ARCHIVE_LIMIT");
+          entry.terminate();
+          return;
+        }
+        parts.push(new Blob([chunk]));
+      }
       if (final) {
         files.set(entry.name, new Blob(parts));
         parts.length = 0;
@@ -61,7 +90,10 @@ export async function unpackProjectArchive(file, { onProgress } = {}) {
   unzip.register(UnzipInflate);
   for (let offset = 0; offset < file.size; offset += ARCHIVE_CHUNK_BYTES) {
     const end = Math.min(file.size, offset + ARCHIVE_CHUNK_BYTES);
-    unzip.push(new Uint8Array(await readArchiveBlobBuffer(file.slice(offset, end))), end === file.size);
+    unzip.push(
+      new Uint8Array(await readArchiveBlobBuffer(file.slice(offset, end))),
+      end === file.size,
+    );
     if (archiveError) throw archiveError;
     // Report bytes only after they have actually been read and decompressed.
     reportProgress(end);
@@ -70,7 +102,8 @@ export async function unpackProjectArchive(file, { onProgress } = {}) {
   const metadata = files.get("project.json");
   if (!metadata) throw new Error("缺少 project.json");
   const payload = JSON.parse(new TextDecoder().decode(await readArchiveBlobBuffer(metadata)));
-  if (payload?.format !== "timeline-studio-archive" || !payload.project) throw new Error("无效工程包");
+  if (payload?.format !== "timeline-studio-archive" || !payload.project)
+    throw new Error("无效工程包");
   const mediaBlobs = new Map();
   const getBlob = (entry) => {
     if (!entry?.path || !files.has(entry.path)) return null;
@@ -83,8 +116,19 @@ export async function unpackProjectArchive(file, { onProgress } = {}) {
   };
   return {
     payload,
-    visualMedia: new Map((payload.media?.visuals || []).map((entry) => [entry.id, { ...entry, blob: getBlob(entry) }])),
-    audioSegmentMedia: new Map((payload.media?.audioSegments || []).map((entry) => [entry.id, { ...entry, blob: getBlob(entry), originalBlob: getBlob({ path: entry.originalPath, type: entry.originalType }) }])),
+    visualMedia: new Map(
+      (payload.media?.visuals || []).map((entry) => [entry.id, { ...entry, blob: getBlob(entry) }]),
+    ),
+    audioSegmentMedia: new Map(
+      (payload.media?.audioSegments || []).map((entry) => [
+        entry.id,
+        {
+          ...entry,
+          blob: getBlob(entry),
+          originalBlob: getBlob({ path: entry.originalPath, type: entry.originalType }),
+        },
+      ]),
+    ),
     audio: getBlob(payload.media?.audio),
     sourceAudio: getBlob(payload.media?.sourceAudio),
     music: getBlob(payload.media?.music),

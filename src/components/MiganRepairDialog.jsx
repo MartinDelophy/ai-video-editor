@@ -30,6 +30,8 @@ export function MiganRepairDialog({ repair, segment, t, onApplied }) {
   const videoRef = useRef(null);
   const resultVideoRef = useRef(null);
   const dragRef = useRef(null);
+  const previewEndedRef = useRef(false);
+  const playbackRequestRef = useRef(0);
   const [currentTime, setCurrentTime] = useState(0);
   const [compare, setCompare] = useState(62);
   const [mode, setMode] = useState("move");
@@ -41,13 +43,23 @@ export function MiganRepairDialog({ repair, segment, t, onApplied }) {
   const mediaRatio = Math.max(0.2, Math.min(5, (Number(segment?.width) || 16) / (Number(segment?.height) || 9)));
 
   useEffect(() => {
-    if (!repair?.dialogOpen) return undefined;
+    previewEndedRef.current = false;
+    playbackRequestRef.current++;
+    setIsPreviewPlaying(false);
+    setCurrentTime(0);
+    const requests = playbackRequestRef;
+    return () => { requests.current++; };
+  }, [repair?.dialogOpen, segment?.id, segment?.src]);
+
+  const dialogOpen = repair?.dialogOpen, jobRunning = repair?.job?.running, closeDialog = repair?.closeDialog;
+  useEffect(() => {
+    if (!dialogOpen) return undefined;
     const onKeyDown = (event) => {
-      if (event.key === "Escape" && !repair.job.running) repair.closeDialog();
+      if (event.key === "Escape" && !jobRunning) closeDialog();
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [repair?.dialogOpen, repair?.job?.running]);
+  }, [dialogOpen, jobRunning, closeDialog]);
 
   useEffect(() => {
     if (!repair?.dialogOpen || !isVideo || !videoRef.current) return;
@@ -201,9 +213,21 @@ export function MiganRepairDialog({ repair, segment, t, onApplied }) {
     if (applied) onApplied?.();
   };
 
+  const finishVideoPlayback = () => {
+    previewEndedRef.current = true;
+    playbackRequestRef.current++;
+    videoRef.current?.pause();
+    resultVideoRef.current?.pause();
+    setIsPreviewPlaying(false);
+    // The final native timeupdate may arrive after `paused` becomes true.
+    // Set the dialog clock explicitly instead of retaining its penultimate frame.
+    setCurrentTime(duration);
+  };
+
   const toggleVideoPlayback = async () => {
     const source = videoRef.current;
     if (!source) return;
+    const request = ++playbackRequestRef.current;
     if (!source.paused) {
       source.pause();
       resultVideoRef.current?.pause();
@@ -213,7 +237,9 @@ export function MiganRepairDialog({ repair, segment, t, onApplied }) {
     setFollowProcessing(false);
     const rate = Math.max(0.25, Number(segment?.playbackRate) || 1);
     const sourceStart = Math.max(0, Number(segment?.sourceStart) || 0);
-    const playTime = currentTime >= duration - 0.04 ? 0 : currentTime;
+    const finished = previewEndedRef.current || source.ended || resultVideoRef.current?.ended;
+    const playTime = finished || currentTime >= duration - 0.04 ? 0 : currentTime;
+    previewEndedRef.current = false;
     if (playTime !== currentTime) setCurrentTime(playTime);
     source.currentTime = sourceStart + playTime * rate;
     source.playbackRate = rate;
@@ -222,13 +248,16 @@ export function MiganRepairDialog({ repair, segment, t, onApplied }) {
       resultVideoRef.current.playbackRate = rate;
     }
     const [played] = await Promise.allSettled([source.play(), resultVideoRef.current?.play()]);
-    setIsPreviewPlaying(played.status === "fulfilled");
+    if (request === playbackRequestRef.current)
+      setIsPreviewPlaying(played.status === "fulfilled" && !source.paused && !source.ended);
   };
 
   const showFramePreview = Boolean(repair.preview?.url) && (!isVideo || (!isPreviewPlaying
     && (repair.preview.type !== "video-progress" || followProcessing)));
   const hasComparison = Boolean(isVideo ? (repair.clipPreview?.url || showFramePreview) : showFramePreview);
   const seekPreview = (time) => {
+    playbackRequestRef.current++;
+    previewEndedRef.current = false;
     setFollowProcessing(false);
     videoRef.current?.pause();
     resultVideoRef.current?.pause();
@@ -292,20 +321,25 @@ export function MiganRepairDialog({ repair, segment, t, onApplied }) {
                   const rate = Math.max(0.25, Number(segment?.playbackRate) || 1);
                   const localTime = (event.currentTarget.currentTime - sourceStart) / rate;
                   if (localTime >= duration) {
-                    event.currentTarget.pause();
-                    resultVideoRef.current?.pause();
+                    finishVideoPlayback();
+                    return;
                   }
                   setCurrentTime(clamp(localTime, 0, duration));
                   const result = resultVideoRef.current;
                   if (result && Math.abs(result.currentTime - localTime * rate) > 0.06) result.currentTime = localTime * rate;
                 }}
-                onPause={() => { setIsPreviewPlaying(false); resultVideoRef.current?.pause(); }}
-                onEnded={() => { setIsPreviewPlaying(false); resultVideoRef.current?.pause(); }}
+                onPause={(event) => {
+                  if (!event.currentTarget.paused) return;
+                  playbackRequestRef.current++;
+                  setIsPreviewPlaying(false);
+                  resultVideoRef.current?.pause();
+                }}
+                onEnded={finishVideoPlayback}
               /> : <img src={segment.src} alt={segment.name || ""} />}
               {hasComparison ? (
                 <div className="repair-compare-result" style={{ clipPath: `inset(0 0 0 ${compare}%)` }}>
                   {isVideo && repair.clipPreview?.url && !showFramePreview
-                    ? <video ref={resultVideoRef} src={repair.clipPreview.url} muted playsInline preload="auto" onLoadedData={(event) => {
+                    ? <video ref={resultVideoRef} src={repair.clipPreview.url} muted playsInline preload="auto" onEnded={finishVideoPlayback} onLoadedData={(event) => {
                       event.currentTarget.currentTime = Math.max(0, (videoRef.current?.currentTime || 0) - (Number(segment.sourceStart) || 0));
                       event.currentTarget.playbackRate = Math.max(0.25, Number(segment.playbackRate) || 1);
                       if (videoRef.current && !videoRef.current.paused) event.currentTarget.play().catch(() => {});

@@ -2,11 +2,13 @@ import { packProjectArchive, unpackProjectArchive } from "../lib/projectArchiveC
 
 self.onmessage = async ({ data }) => {
   try {
-    const result = data.operation === "pack"
-      ? await packProjectArchive(data.input)
-      : await unpackProjectArchive(data.input, {
-          onProgress: (progress) => self.postMessage({ type: "progress", progress }),
-        });
+    const result =
+      data.operation === "pack"
+        ? await packProjectArchive(data.input)
+        : await unpackProjectArchive(data.input, {
+            ...data.limits,
+            onProgress: (progress) => self.postMessage({ type: "progress", progress }),
+          });
     self.postMessage({ result });
   } catch (error) {
     self.postMessage({ error: error instanceof Error ? error.message : String(error) });

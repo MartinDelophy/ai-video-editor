@@ -7,7 +7,12 @@ export const PROJECT_ARCHIVE_VERSION = 3;
 const PROJECT_FILE = "project.json";
 
 export function resolveProjectVisualMedia(visualMedia, segment) {
-  return visualMedia.get(segment?.id) || visualMedia.get(segment?.archiveMediaId) || visualMedia.get(segment?.assetId) || null;
+  return (
+    visualMedia.get(segment?.id) ||
+    visualMedia.get(segment?.archiveMediaId) ||
+    visualMedia.get(segment?.assetId) ||
+    null
+  );
 }
 
 function readWithFileReader(file, mode) {
@@ -24,13 +29,18 @@ export async function readProjectFileAsText(file) {
   return typeof file?.text === "function" ? file.text() : readWithFileReader(file, "text");
 }
 
-function runArchiveOperation(operation, input, { onProgress } = {}) {
-  const fallback = () => operation === "pack" ? packProjectArchive(input) : unpackProjectArchive(input, { onProgress });
+export function runArchiveOperation(operation, input, { onProgress, limits } = {}) {
+  const fallback = () =>
+    operation === "pack"
+      ? packProjectArchive(input)
+      : unpackProjectArchive(input, { onProgress, ...limits });
   if (typeof Worker === "undefined") return fallback();
   return new Promise((resolve, reject) => {
     let worker;
     try {
-      worker = new Worker(new URL("../workers/project-archive.worker.js", import.meta.url), { type: "module" });
+      worker = new Worker(new URL("../workers/project-archive.worker.js", import.meta.url), {
+        type: "module",
+      });
       worker.onmessage = ({ data }) => {
         if (data.type === "progress") {
           onProgress?.(data.progress);
@@ -47,7 +57,7 @@ function runArchiveOperation(operation, input, { onProgress } = {}) {
       };
       // Files/Blobs are immutable and structured-cloned without copying all
       // media bytes onto the UI thread before the worker can start.
-      worker.postMessage({ operation, input });
+      worker.postMessage({ operation, input, limits });
     } catch {
       worker?.terminate();
       fallback().then(resolve, reject);
@@ -58,15 +68,28 @@ function runArchiveOperation(operation, input, { onProgress } = {}) {
 function extensionFor(blob, fallback = "bin") {
   const type = blob?.type || "";
   const known = {
-    "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/gif": "gif",
-    "video/mp4": "mp4", "video/webm": "webm", "video/quicktime": "mov",
-    "audio/mpeg": "mp3", "audio/wav": "wav", "audio/x-wav": "wav", "audio/ogg": "ogg", "audio/webm": "webm",
+    "image/jpeg": "jpg",
+    "image/png": "png",
+    "image/webp": "webp",
+    "image/gif": "gif",
+    "video/mp4": "mp4",
+    "video/webm": "webm",
+    "video/quicktime": "mov",
+    "audio/mpeg": "mp3",
+    "audio/wav": "wav",
+    "audio/x-wav": "wav",
+    "audio/ogg": "ogg",
+    "audio/webm": "webm",
   };
   return known[type] || fallback;
 }
 
 function safeName(name, fallback) {
-  return String(name || fallback).replace(/[^a-zA-Z0-9._-]+/g, "-").slice(0, 96) || fallback;
+  return (
+    String(name || fallback)
+      .replace(/[^a-zA-Z0-9._-]+/g, "-")
+      .slice(0, 96) || fallback
+  );
 }
 
 async function blobForSource(source, blob) {
@@ -78,7 +101,14 @@ async function blobForSource(source, blob) {
 }
 
 /** Create a portable .timeline archive with media binaries and project metadata. */
-export async function createProjectArchive({ project, visualSegments = [], audioSegments = [], audio, sourceAudio, music }) {
+export async function createProjectArchive({
+  project,
+  visualSegments = [],
+  audioSegments = [],
+  audio,
+  sourceAudio,
+  music,
+}) {
   const files = {};
   const media = { visuals: [], audioSegments: [], audio: null, sourceAudio: null, music: null };
 
@@ -89,7 +119,13 @@ export async function createProjectArchive({ project, visualSegments = [], audio
     if (!blob) continue;
     const path = `media/visuals/${String(index + 1).padStart(3, "0")}-${safeName(segment.name, "visual")}.${extensionFor(blob, segment.type === "video" ? "mp4" : "png")}`;
     files[path] = blob;
-    media.visuals.push({ id: segment.id, path, name: segment.name || "素材", type: blob.type, size: blob.size });
+    media.visuals.push({
+      id: segment.id,
+      path,
+      name: segment.name || "素材",
+      type: blob.type,
+      size: blob.size,
+    });
   }
 
   for (let index = 0; index < audioSegments.length; index += 1) {
@@ -99,9 +135,19 @@ export async function createProjectArchive({ project, visualSegments = [], audio
     const path = `media/audio/voice-${String(index + 1).padStart(3, "0")}-${safeName(segment.name, "voiceover")}.${extensionFor(blob, "wav")}`;
     files[path] = blob;
     const original = segment.processingOriginalBlob;
-    const originalPath = original instanceof Blob ? `media/audio/original-${String(index + 1).padStart(3, "0")}.${extensionFor(original, "wav")}` : null;
+    const originalPath =
+      original instanceof Blob
+        ? `media/audio/original-${String(index + 1).padStart(3, "0")}.${extensionFor(original, "wav")}`
+        : null;
     if (originalPath) files[originalPath] = original;
-    media.audioSegments.push({ id: segment.id, path, name: segment.name || "配音", type: blob.type, size: blob.size, ...(originalPath ? { originalPath, originalType: original.type } : {}) });
+    media.audioSegments.push({
+      id: segment.id,
+      path,
+      name: segment.name || "配音",
+      type: blob.type,
+      size: blob.size,
+      ...(originalPath ? { originalPath, originalType: original.type } : {}),
+    });
   }
 
   for (const [key, track] of Object.entries({ audio, sourceAudio, music })) {
@@ -133,6 +179,9 @@ export async function createProjectArchive({ project, visualSegments = [], audio
 export async function readProjectArchive(file, { onProgress } = {}) {
   const archive = await runArchiveOperation("unpack", file, { onProgress });
   const { payload } = archive;
-  payload.project = { ...payload.project, timelineMarkers: normalizeTimelineMarkers(payload.project.timelineMarkers) };
+  payload.project = {
+    ...payload.project,
+    timelineMarkers: normalizeTimelineMarkers(payload.project.timelineMarkers),
+  };
   return archive;
 }

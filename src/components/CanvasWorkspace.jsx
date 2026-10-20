@@ -1,3 +1,5 @@
+import { WorkflowProjectMenu } from "./WorkflowProjectMenu.jsx";
+import { useCanvasGestures } from "../hooks/useCanvasGestures.js";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ArrowLeft,
@@ -69,7 +71,8 @@ const ICONS = {
 };
 const size = (n) => ({
   width: ["image", "video"].includes(n.kind) ? 300 : 230,
-  height: (["image", "video"].includes(n.kind) ? 300 : 245) +
+  height:
+    (["image", "video"].includes(n.kind) ? 300 : 245) +
     CANVAS_NODE_TYPES[n.kind].inputs.length * 34,
 });
 const noOp = () => {};
@@ -105,6 +108,7 @@ const persistedAsset = ({
 export function CanvasWorkspace({
   language,
   projectId,
+  workflowProject,
   assets,
   generationPlugins,
   onCommitAssets,
@@ -365,11 +369,12 @@ export function CanvasWorkspace({
     const tick = dirty.current,
       snapshot = graph,
       key = storageKey;
-    const ids = new Set(
-      snapshot.nodes
+    const ids = new Set([
+      ...(snapshot.attachmentIds || []),
+      ...snapshot.nodes
         .flatMap((n) => [n.assetId, ...n.results.flatMap((r) => r.assetIds || [])])
         .filter(Boolean),
-    );
+    ]);
     const records = library.current
       .filter((a) => ids.has(a.id) && a.blob instanceof Blob)
       .map(persistedAsset);
@@ -425,14 +430,8 @@ export function CanvasWorkspace({
       }
     };
     window.addEventListener("keydown", listener);
-    const el = area.current;
-    const wheel = (e) => {
-      if (e.ctrlKey || e.metaKey) e.preventDefault();
-    };
-    el?.addEventListener("wheel", wheel, { passive: false });
     return () => {
       window.removeEventListener("keydown", listener);
-      el?.removeEventListener("wheel", wheel);
     };
   }, []);
   useEffect(() => {
@@ -887,8 +886,9 @@ export function CanvasWorkspace({
       setNotice(c.changed);
     }
   };
-  const zoom = (f) => {
+  const zoom = (f, point) => {
     const rect = area.current.getBoundingClientRect();
+    const anchor = point || { x: rect.width / 2, y: rect.height / 2 };
     update((g) => {
       const s = Math.max(0.2, Math.min(2, g.view.scale * f)),
         ratio = s / g.view.scale;
@@ -896,12 +896,19 @@ export function CanvasWorkspace({
         ...g,
         view: {
           scale: s,
-          x: rect.width / 2 - (rect.width / 2 - g.view.x) * ratio,
-          y: rect.height / 2 - (rect.height / 2 - g.view.y) * ratio,
+          x: anchor.x - (anchor.x - g.view.x) * ratio,
+          y: anchor.y - (anchor.y - g.view.y) * ratio,
         },
       };
     }, false);
   };
+  useCanvasGestures(area, {
+    enabled: ready,
+    controls: ".nc-picker, .nc-node-menu, .nc-modal, textarea, input, select, video, audio",
+    onZoom: zoom,
+    onPan: (x, y) =>
+      update((g) => ({ ...g, view: { ...g.view, x: g.view.x - x, y: g.view.y - y } }), false),
+  });
   const fit = () => {
     const graph = latest.current;
     if (!graph.nodes.length) return;
@@ -1115,6 +1122,25 @@ export function CanvasWorkspace({
           {c[saveStatus] || c.ready}
         </span>
         <div className="nc-spacer" />
+        <WorkflowProjectMenu
+          kind="canvas"
+          language={language}
+          projects={workflowProject}
+          disabled={!ready || busy || chatBusy || Boolean(proposal)}
+          beforeSwitch={async () => {
+            await saveQueue.current;
+            if (dirty.current !== stored.current) throw new Error("UNSAVED_PROJECT");
+          }}
+          getSnapshot={async () => {
+            await saveQueue.current;
+            return {
+              name: c.title,
+              state: structuredClone(latest.current),
+              assets: [...library.current],
+            };
+          }}
+        />
+
         {btn(ArrowUUpLeft, c.undo, undo, !history.length || !ready)}
         {btn(ArrowUUpRight, c.redo, redo, !future.length || !ready)}
         {btn(SidebarSimple, c.chat, () => setChatOpen((v) => !v))}
@@ -1344,23 +1370,6 @@ export function CanvasWorkspace({
           setLinkPreview(null);
           setConnecting(null);
           drag.current = null;
-        }}
-        onWheel={(e) => {
-          // Floating controls keep their native scrolling, including at the ends.
-          if (
-            e.target instanceof Element &&
-            e.target.closest(".nc-picker, .nc-node-menu, .nc-modal")
-          ) return;
-          if (!ready) return;
-          if (e.ctrlKey || e.metaKey) zoom(Math.exp(-e.deltaY * 0.002));
-          else
-            update(
-              (g) => ({
-                ...g,
-                view: { ...g.view, x: g.view.x - e.deltaX, y: g.view.y - e.deltaY },
-              }),
-              false,
-            );
         }}
       >
         <div className="nc-toolbar" onPointerDown={(e) => e.stopPropagation()}>

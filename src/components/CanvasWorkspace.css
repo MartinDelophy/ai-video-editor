@@ -204,6 +204,7 @@
   background-image: radial-gradient(#304452 1px, transparent 1px);
   background-size: 24px 24px;
   touch-action: none;
+  overscroll-behavior: contain;
   cursor: grab;
 }
 .nc-canvas:active {

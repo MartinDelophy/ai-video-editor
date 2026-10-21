@@ -1,3 +1,4 @@
+import { WorkflowContextMenu } from "./WorkflowContextMenu.jsx";
 import { WorkflowProjectMenu } from "./WorkflowProjectMenu.jsx";
 import { useCanvasGestures } from "../hooks/useCanvasGestures.js";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -149,6 +150,10 @@ export function CanvasWorkspace({
     owned = useRef(new Map()),
     callbacks = useRef({ onCommitAssets }),
     area = useRef(null),
+    world = useRef(null),
+    zoomLabel = useRef(null),
+    liveView = useRef(null),
+    pickerPosition = useRef(null),
     root = useRef(null),
     fileInput = useRef(null),
     chatInput = useRef(null),
@@ -168,7 +173,8 @@ export function CanvasWorkspace({
     mounted = useRef(true),
     urlRefs = useRef(new Set()),
     snapshotVersion = useRef(0);
-  latest.current = graph;
+  const displayView = liveView.current || graph.view;
+  latest.current = liveView.current ? { ...graph, view: liveView.current } : graph;
   callbacks.current = { onCommitAssets };
   library.current = [
     ...assets,
@@ -342,6 +348,7 @@ export function CanvasWorkspace({
   }, []);
   useEffect(() => {
     const token = ++loadToken.current;
+    liveView.current = null;
     setReady(false);
     setSaveStatus("loading");
     activeKey.current = null;
@@ -365,7 +372,7 @@ export function CanvasWorkspace({
     };
   }, [projectId, restore]);
   useEffect(() => {
-    if (!ready || !storageKey || dirty.current === stored.current) return;
+    if (!ready || !storageKey || liveView.current || dirty.current === stored.current) return;
     const tick = dirty.current,
       snapshot = graph,
       key = storageKey;
@@ -403,7 +410,7 @@ export function CanvasWorkspace({
           }
           revision.current = receipt.revision;
           stored.current = tick;
-          if (dirty.current === tick) setSaveStatus("saved");
+          if (dirty.current === tick && !liveView.current) setSaveStatus("saved");
         })
         .catch(() => {
           if (activeKey.current === key) setSaveStatus("saveError");
@@ -448,18 +455,6 @@ export function CanvasWorkspace({
     document.addEventListener("pointerdown", dismiss, true);
     return () => document.removeEventListener("pointerdown", dismiss, true);
   }, [picker, linkPreview?.menu]);
-  useEffect(() => {
-    if (!nodeMenu) return;
-    const dismiss = (event) => {
-      if (
-        event.target instanceof Element &&
-        !event.target.closest(".nc-node-menu, .nc-node-menu-trigger")
-      )
-        setNodeMenu(null);
-    };
-    document.addEventListener("pointerdown", dismiss, true);
-    return () => document.removeEventListener("pointerdown", dismiss, true);
-  }, [nodeMenu]);
   const undo = () => {
     if (!history.length) return;
     setFuture((f) => [latest.current, ...f]);
@@ -480,10 +475,11 @@ export function CanvasWorkspace({
     const anchor = latest.current.nodes.find((item) => item.id === selected);
     const n = createCanvasNode(
       kind,
-      anchor
+      pickerPosition.current || (anchor
         ? { x: anchor.x + size(anchor).width + 100, y: anchor.y }
-        : { x: 40 + (count % 3) * 340, y: 180 + Math.floor(count / 3) * 310 },
+        : { x: 40 + (count % 3) * 340, y: 180 + Math.floor(count / 3) * 310 }),
     );
+    pickerPosition.current = null;
     n.params.provider = isAnnaEdition ? "anna" : GENERATION_PROVIDERS[0]?.id;
     update((g) => ({ ...g, nodes: [...g.nodes, n] }));
     setSelected(n.id);
@@ -905,9 +901,22 @@ export function CanvasWorkspace({
   useCanvasGestures(area, {
     enabled: ready,
     controls: ".nc-picker, .nc-node-menu, .nc-modal, textarea, input, select, video, audio",
-    onZoom: zoom,
-    onPan: (x, y) =>
-      update((g) => ({ ...g, view: { ...g.view, x: g.view.x - x, y: g.view.y - y } }), false),
+    getView: () => latest.current.view,
+    onView: view => {
+      if (!liveView.current) setSaveStatus("saving");
+      liveView.current = view;
+      latest.current = { ...latest.current, view };
+      if (world.current) {
+        world.current.style.willChange = "transform";
+        world.current.style.transform = `translate(${view.x}px,${view.y}px) scale(${view.scale})`;
+      }
+      if (zoomLabel.current) zoomLabel.current.textContent = `${Math.round(view.scale * 100)}%`;
+    },
+    onCommit: view => {
+      if (world.current) world.current.style.willChange = "";
+      liveView.current = null;
+      update(current => ({ ...current, view }), false);
+    },
   });
   const fit = () => {
     const graph = latest.current;
@@ -929,6 +938,18 @@ export function CanvasWorkspace({
       }),
       false,
     );
+  };
+  const closeNodeMenu = useCallback(() => setNodeMenu(null), []);
+  const openContextMenu = (event, current) => {
+    if (event.target.closest("input,textarea,select,[contenteditable=true]")) return;
+    event.preventDefault(); event.stopPropagation();
+    if (!ready) return;
+    drag.current = null; linkDrag.current = null;
+    setPicker(false); setConnecting(null); setLinkPreview(null);
+    setSelected(current?.id || null);
+    const rect = area.current.getBoundingClientRect(), view = latest.current.view;
+    setNodeMenu({ id: current?.id, x: event.clientX, y: event.clientY,
+      point: { x: (event.clientX - rect.left - view.x) / view.scale, y: (event.clientY - rect.top - view.y) / view.scale } });
   };
   const start = (e, n) => {
     if (!ready || e.button !== 0 || e.target.closest("button,input,textarea,select,video,audio"))
@@ -1362,6 +1383,7 @@ export function CanvasWorkspace({
       <main
         ref={area}
         className="nc-canvas"
+        onContextMenu={event => openContextMenu(event, null)}
         onPointerDown={(e) => start(e, null)}
         onPointerMove={move}
         onPointerUp={end}
@@ -1376,7 +1398,7 @@ export function CanvasWorkspace({
           <button
             className="nc-add"
             aria-label={c.add}
-            onClick={() => setPicker((v) => !v)}
+            onClick={() => { pickerPosition.current = null; setPicker((v) => !v); }}
             disabled={!ready}
           >
             <Plus size={23} />
@@ -1422,14 +1444,14 @@ export function CanvasWorkspace({
                 65,
                 Math.min(
                   area.current.clientWidth - 250,
-                  linkPreview.x * graph.view.scale + graph.view.x,
+                  linkPreview.x * displayView.scale + displayView.x,
                 ),
               ),
               top: Math.max(
                 12,
                 Math.min(
                   area.current.clientHeight - 330,
-                  linkPreview.y * graph.view.scale + graph.view.y,
+                  linkPreview.y * displayView.scale + displayView.y,
                 ),
               ),
             }}
@@ -1497,9 +1519,10 @@ export function CanvasWorkspace({
           </div>
         )}
         <div
+          ref={world}
           className="nc-world"
           style={{
-            transform: `translate(${graph.view.x}px,${graph.view.y}px) scale(${graph.view.scale})`,
+            transform: `translate(${displayView.x}px,${displayView.y}px) scale(${displayView.scale})`,
           }}
         >
           <svg className="nc-edges" width="1" height="1" aria-hidden="true">
@@ -1558,6 +1581,7 @@ export function CanvasWorkspace({
             return (
               <article
                 key={n.id}
+                onContextMenu={event => openContextMenu(event, n)}
                 className={`nc-node nc-node-${n.kind} ${selected === n.id ? "is-selected" : ""}`}
                 style={{ left: n.x, top: n.y, width: s.width, minHeight: s.height }}
                 onPointerDown={(e) => {
@@ -1729,7 +1753,7 @@ export function CanvasWorkspace({
           </button>
           <div>
             {btn(Minus, c.zoomOut, () => zoom(1 / 1.15))}
-            <span>{Math.round(graph.view.scale * 100)}%</span>
+            <span ref={zoomLabel}>{Math.round(displayView.scale * 100)}%</span>
             {btn(Plus, c.zoomIn, () => zoom(1.15))}
             {btn(FrameCorners, c.fit, fit)}
           </div>
@@ -2087,67 +2111,28 @@ export function CanvasWorkspace({
           {notice}
         </div>
       )}
-      {nodeMenu &&
-        (() => {
-          const current = graph.nodes.find((n) => n.id === nodeMenu.id);
-          if (!current) return null;
-          const media = sourceAsset(current);
-          return (
-            <div
-              className="nc-node-menu"
-              role="menu"
-              aria-label={c.nodeActions}
-              style={{ left: nodeMenu.x, top: nodeMenu.y }}
-              onPointerDown={(e) => e.stopPropagation()}
-            >
-              <button
-                type="button"
-                role="menuitem"
-                onClick={() => {
-                  setSelected(current.id);
-                  setInspector(true);
-                  setNodeMenu(null);
-                }}
-              >
-                <Plug size={17} />
-                {c.parameters}
-              </button>
-              <button
-                type="button"
-                role="menuitem"
-                disabled={!media}
-                onClick={() => {
-                  setPreview(media);
-                  setNodeMenu(null);
-                }}
-              >
-                <FrameCorners size={17} />
-                {c.results}
-              </button>
-              <button
-                type="button"
-                role="menuitem"
-                disabled={!media}
-                onClick={() => {
-                  download(media);
-                  setNodeMenu(null);
-                }}
-              >
-                <DownloadSimple size={17} />
-                {c.download}
-              </button>
-              <button
-                type="button"
-                role="menuitem"
-                className="is-danger"
-                onClick={() => removeNode(current.id)}
-              >
-                <Trash size={17} />
-                {c.remove}
-              </button>
-            </div>
-          );
-        })()}
+      {nodeMenu && <WorkflowContextMenu x={nodeMenu.x} y={nodeMenu.y} label={c.nodeActions} outsideIgnore=".nc-node-menu-trigger" onClose={closeNodeMenu} items={(() => {
+        const current = graph.nodes.find(item => item.id === nodeMenu.id);
+        if (!current) return [
+          { label: c.add, icon: Plus, action: () => { pickerPosition.current = nodeMenu.point; setSearch(""); setPicker(true); } },
+          { label: c.fit, icon: FrameCorners, action: fit },
+          { label: c.undo, icon: ArrowUUpLeft, disabled: !history.length, action: undo },
+          { label: c.redo, icon: ArrowUUpRight, disabled: !future.length, action: redo }
+        ];
+        const media = sourceAsset(current);
+        const items = [
+          { label: c.parameters, icon: Plug, action: () => { setSelected(current.id); setInspector(true); } },
+          { label: c.results, icon: FrameCorners, disabled: !media, action: () => setPreview(media) },
+          { label: c.download, icon: DownloadSimple, disabled: !media, action: () => download(media) }
+        ];
+        if (Object.values(CANVAS_NODE_TYPES).some(definition => definition.inputs.some(port => port.types.includes(canvasOutputType(current)))))
+          items.push({ label: c.nextNode, icon: Plus, action: () => {
+            setConnecting(current.id);
+            setLinkPreview({ from: current.id, x: current.x + size(current).width + 100, y: current.y + 70, menu: true });
+          } });
+        items.push({ label: c.remove, icon: Trash, danger: true, action: () => removeNode(current.id) });
+        return items;
+      })()} />}
       {inputChoice && node && (
         <div className="nc-modal-backdrop" onClick={() => setInputChoice(null)}>
           <section className="nc-modal" onClick={(e) => e.stopPropagation()}>

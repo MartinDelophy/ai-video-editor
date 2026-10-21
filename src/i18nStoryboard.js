@@ -823,10 +823,21 @@ const mediaFlowRows = {
     "Lanjutkan status video",
   ],
 };
+const contextRows = {
+ zh: ["预览素材", "下载素材"], en: ["Preview media", "Download media"],
+ ja: ["素材をプレビュー", "素材をダウンロード"], ko: ["미디어 미리보기", "미디어 다운로드"],
+ es: ["Vista previa", "Descargar archivo"], fr: ["Aperçu du média", "Télécharger le média"],
+ de: ["Medienvorschau", "Medium herunterladen"], pt: ["Prévia da mídia", "Baixar mídia"],
+ th: ["ดูตัวอย่างสื่อ", "ดาวน์โหลดสื่อ"], vi: ["Xem trước nội dung", "Tải nội dung"],
+ ru: ["Просмотр медиа", "Скачать медиа"], it: ["Anteprima contenuto", "Scarica contenuto"],
+ id: ["Pratinjau media", "Unduh media"]
+};
 export function getStoryboardCopy(language) {
   const row = rows[language] || rows.en;
   const media = mediaFlowRows[language] || mediaFlowRows.en;
   return {
+    previewMedia: (contextRows[language] || contextRows.en)[0],
+    downloadMedia: (contextRows[language] || contextRows.en)[1],
     image: media[0],
     panel: media[1],
     selectPanel: media[2],

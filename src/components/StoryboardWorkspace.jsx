@@ -1,8 +1,12 @@
+import { WorkflowContextMenu } from "./WorkflowContextMenu.jsx";
 import { WorkflowProjectMenu } from "./WorkflowProjectMenu.jsx";
 import { useCanvasGestures } from "../hooks/useCanvasGestures.js";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ArrowLeft,
+  DownloadSimple,
+  Trash,
+  Eye,
   FilmStrip,
   ImageSquare,
   User,
@@ -95,6 +99,7 @@ export function StoryboardWorkspace({
     [status, setStatus] = useState("draft"),
     [models, setModels] = useState([]),
     [preview, setPreview] = useState(null),
+    [contextMenu, setContextMenu] = useState(null),
     [selected, setSelected] = useState(null),
     [connection, setConnection] = useState(null),
     [runningNode, setRunningNode] = useState(null),
@@ -115,13 +120,17 @@ export function StoryboardWorkspace({
     promptInputs = useRef(new Map()),
     importTarget = useRef(null),
     canvas = useRef(null),
+    world = useRef(null),
+    zoomLabel = useRef(null),
+    liveView = useRef(null),
     root = useRef(null),
     owned = useRef(new Map()),
     loadedKey = useRef(null),
     saveChain = useRef(Promise.resolve()),
     revisions = useRef(new Map()),
     latestSaves = useRef(new Map());
-  latest.current = state;
+  const displayView = liveView.current || state.view;
+  latest.current = liveView.current ? { ...state, view: liveView.current } : state;
   callbacks.current = { onCommitAssets };
   library.current = [
     ...assets.filter((asset) => asset.kind !== "storyboard-default-reference"),
@@ -145,6 +154,7 @@ export function StoryboardWorkspace({
   useEffect(() => {
     if (!sessionId) return;
     const token = ++generation.current;
+    liveView.current = null;
     setReady(false);
     setStatus("loading");
     setKey(null);
@@ -152,6 +162,7 @@ export function StoryboardWorkspace({
     connectionDrag.current = null;
     setConnection(null);
     setMention(null);
+    setContextMenu(null);
     setRunningNode(null);
     importTarget.current = null;
     latest.current = initial();
@@ -219,7 +230,7 @@ export function StoryboardWorkspace({
     };
   }, [projectId, sessionId]);
   useEffect(() => {
-    if (!ready || !key || dirty.current === stored.current) return;
+    if (!ready || !key || liveView.current || dirty.current === stored.current) return;
     const tick = dirty.current,
       snapshot = state,
       storageKey = key;
@@ -260,7 +271,7 @@ export function StoryboardWorkspace({
         }
         revision.current = saved.revision;
         stored.current = tick;
-        if (dirty.current === tick) setStatus("saved");
+        if (dirty.current === tick && !liveView.current) setStatus("saved");
       })
       .catch(() => {
         if (loadedKey.current === storageKey) setStatus("saveError");
@@ -742,17 +753,27 @@ export function StoryboardWorkspace({
   };
   useCanvasGestures(canvas, {
     enabled: ready,
-    controls:
-      ".storyboard-next, .storyboard-mentions, .storyboard-dependencies, textarea, input, select, video, audio",
-    onZoom: zoom,
-    onPan: (x, y) =>
-      update({
-        view: {
-          ...latest.current.view,
-          x: latest.current.view.x - x,
-          y: latest.current.view.y - y,
-        },
-      }),
+    controls: ".storyboard-next, .storyboard-mentions, .storyboard-dependencies, textarea, input, select, video, audio",
+    getView: () => latest.current.view,
+    onView: view => {
+      if (!liveView.current) setStatus("draft");
+      liveView.current = view;
+      latest.current = { ...latest.current, view };
+      if (world.current) {
+        world.current.style.willChange = "transform";
+        world.current.style.transform = `translate(${view.x}px,${view.y}px) scale(${view.scale})`;
+      }
+      if (canvas.current) {
+        canvas.current.style.backgroundPosition = `${view.x}px ${view.y}px`;
+        canvas.current.style.backgroundSize = `${24 * view.scale}px ${24 * view.scale}px`;
+      }
+      if (zoomLabel.current) zoomLabel.current.textContent = `${Math.round(view.scale * 100)}%`;
+    },
+    onCommit: view => {
+      if (world.current) world.current.style.willChange = "";
+      liveView.current = null;
+      update(current => ({ ...current, view }));
+    },
   });
   const canLink = (from, to) => storyboardCanLink(latest.current.nodes, from, to, library.current);
   const link = (from, to) => {
@@ -816,8 +837,26 @@ export function StoryboardWorkspace({
       window.removeEventListener("blur", cancelConnection);
     };
   }, []);
+  const closeContextMenu = useCallback(() => setContextMenu(null), []);
+  const removeNode = id => {
+    update(current => ({ ...current, nodes: current.nodes.filter(item => item.id !== id)
+      .map(item => ({ ...item, parentIds: item.parentIds.filter(parent => parent !== id) })) }));
+    setSelected(null);
+    setConnection(null);
+  };
+  const openContextMenu = (event, node) => {
+    if (event.target.closest("textarea,input,select,[contenteditable=true]")) return;
+    event.preventDefault(); event.stopPropagation();
+    if (!ready) return;
+    drag.current = null; connectionDrag.current = null; setConnection(null); setMention(null);
+    setSelected(node?.id || null);
+    const rect = canvas.current.getBoundingClientRect(), view = latest.current.view;
+    setContextMenu({ x: event.clientX, y: event.clientY, nodeId: node?.id,
+      point: { x: (event.clientX - rect.left - view.x) / view.scale, y: (event.clientY - rect.top - view.y) / view.scale } });
+  };
   const start = (event, node) => {
     if (!ready || event.button !== 0 || event.target.closest("button,video")) return;
+    setContextMenu(null);
     setConnection(null);
     if (node) setSelected(node.id);
     else setSelected(null);
@@ -950,6 +989,7 @@ export function StoryboardWorkspace({
         <div
           className="storyboard-canvas"
           ref={canvas}
+          onContextMenu={event => openContextMenu(event, null)}
           onDragOver={(event) => {
             if (
               !ready ||
@@ -976,8 +1016,8 @@ export function StoryboardWorkspace({
             });
           }}
           style={{
-            backgroundPosition: `${state.view.x}px ${state.view.y}px`,
-            backgroundSize: `${24 * state.view.scale}px ${24 * state.view.scale}px`,
+            backgroundPosition: `${displayView.x}px ${displayView.y}px`,
+            backgroundSize: `${24 * displayView.scale}px ${24 * displayView.scale}px`,
           }}
           onPointerDown={(event) => start(event, null)}
           onPointerMove={(event) => {
@@ -1009,9 +1049,10 @@ export function StoryboardWorkspace({
           }}
         >
           <div
+            ref={world}
             className="storyboard-world"
             style={{
-              transform: `translate(${state.view.x}px,${state.view.y}px) scale(${state.view.scale})`,
+              transform: `translate(${displayView.x}px,${displayView.y}px) scale(${displayView.scale})`,
             }}
           >
             <svg className="storyboard-connections" width="1" height="1" aria-hidden="true">
@@ -1073,6 +1114,7 @@ export function StoryboardWorkspace({
                 <article
                   className={`storyboard-node is-${node.kind}${selected === node.id ? " is-selected" : ""}`}
                   key={node.id}
+                  onContextMenu={event => openContextMenu(event, node)}
                   style={{ left: node.x, top: node.y, width: size.width, height: size.height }}
                   onPointerDown={(event) => {
                     event.stopPropagation();
@@ -1111,17 +1153,7 @@ export function StoryboardWorkspace({
                     <strong>{c[node.kind]}</strong>
                     <button
                       aria-label={c.remove}
-                      onClick={() =>
-                        update((current) => ({
-                          ...current,
-                          nodes: current.nodes
-                            .filter((item) => item.id !== node.id)
-                            .map((item) => ({
-                              ...item,
-                              parentIds: item.parentIds.filter((id) => id !== node.id),
-                            })),
-                        }))
-                      }
+                      onClick={() => removeNode(node.id)}
                     >
                       <X size={15} />
                     </button>
@@ -1425,14 +1457,14 @@ export function StoryboardWorkspace({
                   12,
                   Math.min(
                     canvas.current.clientWidth - 250,
-                    connection.x * state.view.scale + state.view.x,
+                    connection.x * displayView.scale + displayView.x,
                   ),
                 ),
                 top: Math.max(
                   12,
                   Math.min(
                     canvas.current.clientHeight - 240,
-                    connection.y * state.view.scale + state.view.y,
+                    connection.y * displayView.scale + displayView.y,
                   ),
                 ),
               }}
@@ -1512,7 +1544,7 @@ export function StoryboardWorkspace({
             <button aria-label={c.zoomOut} onClick={() => zoom(1 / 1.15)}>
               <Minus />
             </button>
-            <span>{Math.round(state.view.scale * 100)}%</span>
+            <span ref={zoomLabel}>{Math.round(displayView.scale * 100)}%</span>
             <button aria-label={c.zoomIn} onClick={() => zoom(1.15)}>
               <Plus />
             </button>
@@ -1523,6 +1555,26 @@ export function StoryboardWorkspace({
           </div>
         </div>
       </div>
+      {contextMenu && <WorkflowContextMenu x={contextMenu.x} y={contextMenu.y} label={c.title} onClose={closeContextMenu} items={(() => {
+        const node = state.nodes.find(item => item.id === contextMenu.nodeId);
+        const asset = node && getAsset(node.assetId);
+        const create = () => setConnection({ ...(node ? { from: node.id } : {}), ...contextMenu.point, menu: true });
+        if (!node) return [
+          { label: c.nextNode, icon: Plus, action: create },
+          { label: c.fit, icon: CornersOut, action: fit }
+        ];
+        const items = [
+          { label: c.previewMedia, icon: Eye, disabled: !asset?.src, action: () => setPreview(asset) },
+          { label: c.downloadMedia, icon: DownloadSimple, disabled: !asset?.src, action: () => {
+            const link = document.createElement("a"); link.href = asset.originalSrc || asset.src;
+            link.download = asset.name || "media"; document.body.append(link); link.click(); link.remove();
+          } }
+        ];
+        if (STORYBOARD_GENERATORS.some(kind => STORYBOARD_INPUTS[kind].includes(node.kind)) && !["audio", "video"].includes(asset?.type))
+          items.push({ label: c.nextNode, icon: Plus, action: create });
+        items.push({ label: c.remove, icon: Trash, danger: true, disabled: agentBusy || runningNode === node.id, action: () => removeNode(node.id) });
+        return items;
+      })()} />}
       {preview && (
         <ChatCutMediaPreview asset={preview} language={language} onClose={() => setPreview(null)} />
       )}

@@ -10,9 +10,22 @@ const labels = {
   ru: ["Просмотр медиа", "Закрыть", "Скачать"], it: ["Anteprima contenuto", "Chiudi", "Scarica"],
   id: ["Pratinjau media", "Tutup", "Unduh"],
 };
-export function ChatCutMediaPreview({ asset, language, editLabel, onEdit, onClose }) {
+export function ChatCutMediaPreview({ asset, language, editLabel, onEdit, onClose, autoPlay = false }) {
   const [title, close, download] = labels[language] || labels.en;
   const dialog = useRef(null);
+  const video = useRef(null);
+  useEffect(() => {
+    const player = video.current;
+    if (!autoPlay || !player) return;
+    let cancelled = false;
+    // Try with sound first; browsers may only allow asynchronous playback muted.
+    player.play().catch(() => {
+      if (cancelled) return;
+      player.muted = true;
+      player.play().catch(() => {});
+    });
+    return () => { cancelled = true; player.pause(); };
+  }, [autoPlay, asset.src]);
   useEffect(() => {
     const previous = document.activeElement;
     dialog.current?.querySelector("button")?.focus({ preventScroll: true });
@@ -30,7 +43,7 @@ export function ChatCutMediaPreview({ asset, language, editLabel, onEdit, onClos
       }
     }}>
       <header><div><small>{title}</small><strong title={asset.name}>{asset.name}</strong></div><button type="button" aria-label={close} onClick={onClose}><X size={20} /></button></header>
-      <div className="chatcut-preview-stage">{asset.type === "image" ? <img src={asset.src} alt={asset.name} /> : <video src={asset.src} poster={asset.thumbnail} controls playsInline tabIndex={0} />}</div>
+      <div className="chatcut-preview-stage">{asset.type === "image" ? <img src={asset.src} alt={asset.name} /> : <video ref={video} src={asset.src} poster={asset.thumbnail} controls playsInline tabIndex={0} />}</div>
       <footer><span>{asset.width > 0 && asset.height > 0 ? `${asset.width} × ${asset.height}` : ""}</span><a href={asset.src} download={asset.name}><DownloadSimple size={16} />{download}</a>{onEdit && <button type="button" className="is-primary" onClick={onEdit}><PencilSimple size={16} />{editLabel}</button>}</footer>
     </section>
   </div>, document.body);

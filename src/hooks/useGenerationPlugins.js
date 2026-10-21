@@ -9,6 +9,9 @@ export function useGenerationPlugins({ imageUrlRefs, notify, setActiveTool, setM
   const connectionAttemptsRef = useRef({});
   const connectionControllersRef = useRef({});
   const activeJobRef = useRef(null);
+  const previewedVideoJobsRef = useRef(new Set());
+  const [generatedVideoPreview, setGeneratedVideoPreview] = useState(null);
+  const closeGeneratedVideoPreview = useCallback(() => setGeneratedVideoPreview(null), []);
   const [selectedPluginId, setSelectedPluginId] = useState(GENERATION_PROVIDERS[0].id);
   const [connections, setConnections] = useState(() => createInitialConnections(GENERATION_PROVIDERS));
   const [annaVideoJobId, setAnnaVideoJobId] = useState("");
@@ -143,6 +146,14 @@ export function useGenerationPlugins({ imageUrlRefs, notify, setActiveTool, setM
       });
       if (!mountedRef.current || activeJobRef.current?.controller !== controller) return;
       setJob({ state: "complete", providerId, progress: 100, message: "saved", assetId: committed.selectedAssetId });
+      if (providerId === "anna" && request.mode === "text-to-video" && request.previewOnComplete) {
+        const preview = committed.assets.find(asset => asset.id === committed.selectedAssetId && asset.type === "video");
+        const receipt = result.jobId || request.providerOptions?.jobId || committed.selectedAssetId;
+        if (preview && !previewedVideoJobsRef.current.has(receipt)) {
+          previewedVideoJobsRef.current.add(receipt);
+          setGeneratedVideoPreview(preview);
+        }
+      }
       return committed;
     } catch (error) {
       if (error?.name !== "AbortError" && mountedRef.current && activeJobRef.current?.controller === controller) {
@@ -171,6 +182,7 @@ export function useGenerationPlugins({ imageUrlRefs, notify, setActiveTool, setM
 
   return {
     annaVideoJobId, annaVideoRequest, annaVideoDraft, setAnnaVideoDraft,
+    generatedVideoPreview, closeGeneratedVideoPreview,
     selectedPluginId,
     setSelectedPluginId,
     connections,

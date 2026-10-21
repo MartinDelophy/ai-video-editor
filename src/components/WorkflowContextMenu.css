@@ -1,0 +1,6 @@
+.workflow-context-menu{position:fixed;z-index:1800;min-width:190px;max-width:calc(100vw - 16px);padding:5px;border:1px solid #30464f;border-radius:12px;background:#132027;color:#e0ecef;box-shadow:0 10px 36px #0007}
+.workflow-context-menu button{display:flex;align-items:center;gap:10px;width:100%;min-height:36px;padding:8px 10px;border:0;border-radius:7px;background:transparent;color:inherit;font:inherit;font-size:13px;text-align:start;cursor:pointer;transform:none}
+.workflow-context-menu button:hover,.workflow-context-menu button:focus-visible{outline:none;background:#214047;color:#7dece1}
+.workflow-context-menu button.is-danger{margin-top:4px;border-top:1px solid #ffffff12;border-radius:0 0 7px 7px;color:#f58e91}
+.workflow-context-menu button:disabled{opacity:.4;cursor:not-allowed}
+.workflow-context-menu button svg{flex-shrink:0}

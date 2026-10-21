@@ -157,5 +157,5 @@ export async function commitGenerationOutputs(outputs, {
   const selectedId = assets.at(-1)?.id || "";
   if (selectedId) setSelectedLibraryAssetId(selectedId);
   notify?.("生成结果已加入 My assets");
-  return { assetIds: assets.map((asset) => asset.id), selectedAssetId: selectedId };
+  return { assetIds: assets.map((asset) => asset.id), selectedAssetId: selectedId, assets };
 }

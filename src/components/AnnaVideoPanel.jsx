@@ -98,7 +98,7 @@ export function AnnaVideoPanel({ language, plugins, assets = [] }) {
     try {
       setError("");
       const connection = await plugins.connectProvider("anna");
-      if (mounted.current && connection?.state === "connected") await plugins.generateProvider("anna", { mode: "text-to-video", prompt, durationSec, resolution: resolution || undefined, aspectRatio: ratio, referenceAssets: reference ? [reference] : [], providerOptions: resume ? { jobId } : {} }, connection);
+      if (mounted.current && connection?.state === "connected") await plugins.generateProvider("anna", { mode: "text-to-video", previewOnComplete: true, prompt, durationSec, resolution: resolution || undefined, aspectRatio: ratio, referenceAssets: reference ? [reference] : [], providerOptions: resume ? { jobId } : {} }, connection);
     } catch { if (mounted.current) setError(c.error); }
   };
   const media = assets.filter(a => ["image", "video"].includes(a.type) && a.blob instanceof Blob && (a.name || "").toLowerCase().includes(search.toLowerCase()));

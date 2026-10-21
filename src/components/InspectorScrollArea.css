@@ -1,0 +1,10 @@
+.voice-panel > .voice-tab-body.inspector-scroll-area{position:relative;display:flex;min-height:0;overflow:hidden;padding:0;scrollbar-gutter:auto}
+.inspector-scroll-viewport{flex:1;min-width:0;min-height:0;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none;padding:0 16px 16px 0}
+.inspector-scroll-viewport::-webkit-scrollbar{display:none}
+.inspector-scroll-rail{position:absolute;inset:2px 0 8px auto;width:10px;background:rgba(137,163,174,.09);border-radius:999px;touch-action:none;cursor:pointer}
+.inspector-scroll-thumb{position:absolute;left:2px;right:2px;border-radius:999px;background:rgba(143,170,181,.6);cursor:grab}
+.inspector-scroll-rail:hover .inspector-scroll-thumb,.inspector-scroll-rail:focus-visible .inspector-scroll-thumb{background:#61c9c0}
+.inspector-scroll-rail:active .inspector-scroll-thumb{cursor:grabbing}
+.inspector-scroll-rail:focus-visible{outline:2px solid #28dccc;outline-offset:1px}
+/* The viewport is the single scroll owner; nested tool panels must grow naturally. */
+.inspector-scroll-viewport .anna-video-panel{display:grid;flex:none;height:auto;max-height:none;overflow:visible}

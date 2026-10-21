@@ -62,3 +62,9 @@ Video submits one real reference blob through the existing Anna first-frame API,
 ## Canvas trackpad ownership, 2026-10-19
 
 Infinite Canvas and Storyboard share `useCanvasGestures`. Non-passive canvas-local capture listeners cancel native wheel zoom/pan defaults before handling Chromium Ctrl+wheel pinch or WebKit gesture events. Plain two-axis wheel pans the canvas; zoom preserves the world point under the pointer, while explicit zoom buttons retain their centered behavior. WebKit's accompanying wheel events are suppressed during its gesture sequence so it is not applied twice. Control surfaces retain ordinary native scrolling and do not forward pinch to browser zoom. Canvas overscroll containment prevents scroll chaining. Listeners are removed on unmount; there is no document-wide browser-zoom lock. Touchscreen two-pointer manipulation is not added by this trackpad fix.
+
+## Context menus (2026-10-20)
+
+Right-click a node to preview or download its media, open compatible downstream-node choices, or remove the node and its incoming references from other nodes. Missing media actions are disabled; removal is disabled for the running node or while the agent is editing. Right-click empty canvas to create a node at that world-space location or fit all nodes. Menus clamp to the viewport, support arrow keys and Escape, and dismiss on outside pointer input, scrolling, resize or window blur. Text inputs retain the browser’s editing menu. No generation is triggered by opening a menu.
+
+Infinite Canvas uses the same accessible context-menu component. Node right-click and the existing ellipsis trigger share parameter, result-preview, download, compatible downstream-creation and removal actions. Empty canvas offers add-at-pointer, fit, undo and redo. Existing graph validation, generation cancellation and undo history remain authoritative.

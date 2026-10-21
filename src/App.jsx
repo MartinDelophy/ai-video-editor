@@ -1,3 +1,4 @@
+import { ChatCutMediaPreview } from "./components/ChatCutMediaPreview.jsx";
 import { WorkflowWorkspace } from "./components/WorkflowWorkspace.jsx";
 import { useAudioDucking } from "./hooks/useAudioDucking.js";
 import { normalizeAutoDuck } from "./lib/audioDucking.js";
@@ -1667,6 +1668,10 @@ export function App() {
       }
       handleFiles(files);
     }}>
+      {generationPlugins.generatedVideoPreview && <ChatCutMediaPreview
+        asset={generationPlugins.generatedVideoPreview} language={activeLanguage}
+        autoPlay onClose={generationPlugins.closeGeneratedVideoPreview}
+      />}
       {activeTool === "workflow" && ["canvas", "storyboard", "blockout"].includes(smartMode) && <WorkflowWorkspace
         key={`${smartMode}:${anna.session?.state?.projectId || "local"}`}
         kind={smartMode} language={activeLanguage} projectId={anna.session?.state?.projectId || "local"}

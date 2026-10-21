@@ -14,7 +14,13 @@ self.onmessage = async ({ data }) => {
   const { id, type } = data;
   try {
     if (type === "init") {
-      const { response } = await fetchFirstAvailableModel(sileroModelUrls(data.language));
+      let response;
+      if (data.localModelUrl) {
+        const url = new URL(data.localModelUrl, self.location.origin);
+        if (url.origin !== self.location.origin || !url.pathname.startsWith("/local-components/silero/")) throw new Error("Invalid local model URL");
+        response = await fetch(url, { cache: "no-store", credentials: "omit" });
+        if (!response.ok) throw new Error("Local speech detector is unavailable");
+      } else ({ response } = await fetchFirstAvailableModel(sileroModelUrls(data.language)));
       const bytes = await response.arrayBuffer();
       const digest = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)), (byte) => byte.toString(16).padStart(2, "0")).join("");
       if (digest !== SILERO_MODEL_SHA256) throw new Error("Model checksum mismatch");

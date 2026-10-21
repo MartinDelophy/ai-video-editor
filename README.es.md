@@ -31,11 +31,11 @@ El usuario será el único responsable de cualquier consecuencia legal derivada 
 
 ## Novedades del proyecto
 
+- **2026-10-21** — Integrados análisis de escenas, planes revisables, resúmenes con evidencia y búsqueda visual offline opcional (#112–#115). Los entornos offline se preparan por separado. [#112–#115](docs/material-analysis.md).
+- **2026-10-21** — Exportación de borradores editables de Jianying mediante el host local y CLI, con fotogramas clave e informe de compatibilidad; para Jianying Pro 11.6.0 de China en macOS.
 - **2026-10-20** — Se añadió un servidor local opcional para macOS con guardado duradero, renovación de sesiones y recuperación de permisos de escritura. Se mantiene el editor web. [Configuración y límites](docs/local-host.md).
 - **2026-10-19** — Se corrigió la reproducción repetida de la vista comparativa de eliminación de marcas de agua con IA.
 - **2026-10-17** — Corregidos los vínculos de subtítulos, audio y pegatinas al moverlos entre clips, con eliminación y movimiento sincronizados; evitados saltos al seleccionar subtítulos y simplificado el resumen de audio. Cada subtítulo permite resaltar texto seleccionado, elegir color y borrar su resaltado.
-- **2026-10-17** — Procesamiento local de audio con RNNoise, DeepFilterNet3, ecualización, compresión, ganancia y limitador; escucha previa, aplicación y restauración del original. Mejoras en el panel de audio original, alineación y resaltado de subtítulos, fuentes multilingües, edición vinculada y reproducción entre clips.
-- **2026-10-13** — El análisis de iluminación y la conversión de profundidad reutilizan la canalización del navegador mediante preparación, inicio, consulta y cancelación de WebMCP. Los parámetros de luz usan comandos compartidos revisables y reversibles; los vídeos generados por el agente permanecen en Mis recursos hasta una inserción revisada por separado. El Skill explica el flujo y los límites de la CLI local.
 Consulta el [Roadmap](ROADMAP.md) para el trabajo planificado, [Releases](https://github.com/MartinDelophy/ai-video-editor/releases) para los cambios publicados e [Issues](https://github.com/MartinDelophy/ai-video-editor/issues) para tareas y errores.
 
 ## ¿Qué puede producir?

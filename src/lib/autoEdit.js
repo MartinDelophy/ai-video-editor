@@ -192,7 +192,7 @@ async function canvasBlob(canvas) {
   return new Promise((resolve, reject) => canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error("Frame encoding failed")), "image/jpeg", 0.82));
 }
 
-function createFlowWorkerClient() {
+export function createFlowWorkerClient() {
   const worker = new Worker(new URL("../workers/auto-edit.worker.js", import.meta.url), { type: "module" });
   const pending = new Map();
   let requestId = 0;

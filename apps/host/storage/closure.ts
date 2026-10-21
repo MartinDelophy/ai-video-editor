@@ -4,6 +4,12 @@ import type { ProjectFiles } from "./files.ts";
 import { assetRecord } from "./assets.ts";
 import { snapshotRecord, validateSnapshot } from "./snapshots.ts";
 import { tombstoneRecord } from "./trash.ts";
+import { analysisReferences, verifyAnalysisObject } from "./analysis-closure.ts";
+import { semanticReferences, verifySemanticObject } from "./semantic-closure.ts";
+import { classificationRecord, scriptRecord, scriptDigest } from "./script-records.ts";
+import { validateScriptSources } from "./scripts.ts";
+import { planningTaskRecord } from "./planning-records.ts";
+import { executionRecord, executionDigest, executionReferences, validateExecutionBasis } from "./execution-plans.ts";
 import { encodeId, referenceKey, sha256, type Manifest, type ObjectRecord, type ObjectReference } from "./records.ts";
 
 const resultRecord = z.strictObject({ schemaVersion: z.literal(1), projectId: z.string(), resultId: z.string(), revision: z.literal(1),
@@ -35,6 +41,40 @@ export async function verifyProjectClosure(files: ProjectFiles, manifest: Manife
   const tasks = new Map<string, z.infer<typeof taskRecord>>();
   const deletedAssets = new Set<string>();
   for (const object of manifest.objects) {
+    if (object.kind === "plan") {
+      const item = executionRecord.parse(await read(object));
+      if (item.projectId !== manifest.projectId || item.planId !== object.entityId || item.revision !== object.revision ||
+          object.blobId !== undefined || object.path !== `data/plans/${encodeId(item.planId)}/${item.revision}.json` ||
+          item.digest !== executionDigest(item.content) || executionReferences(item).some(ref => !objects.has(referenceKey(ref)))) throw invalid();
+      await validateExecutionBasis(files, manifest, item.content, false);
+      continue;
+    }
+    if (object.kind === "analysis") {
+      const parsed = classificationRecord.safeParse(await read(object));
+      if (parsed.success) {
+        const item = parsed.data;
+        if (item.projectId !== manifest.projectId || item.analysisId !== object.entityId || item.revision !== object.revision ||
+            object.path !== `data/analyses/${encodeId(item.analysisId)}/${item.revision}.json` || object.blobId !== undefined ||
+            item.sources.some(source => ![source.assetRef, source.mediaRef, ...(source.analysisRef ? [source.analysisRef] : [])].every(ref => objects.has(referenceKey(ref))))) throw invalid();
+        continue;
+      }
+    }
+    if (object.kind === "task") {
+      const parsed = planningTaskRecord.safeParse(await read(object));
+      if (parsed.success) {
+        const item = parsed.data;
+        if (item.projectId !== manifest.projectId || item.taskId !== object.entityId || item.revision !== object.revision ||
+            object.path !== `data/tasks/${encodeId(item.taskId)}/${item.revision}.json` || object.blobId !== undefined ||
+            (item.previousRef && !objects.has(referenceKey(item.previousRef))) || (item.scriptRef && !objects.has(referenceKey(item.scriptRef)))) throw invalid();
+        await validateScriptSources(files, manifest, item.basis);
+        if (item.output) await validateScriptSources(files, manifest, item.output);
+        continue;
+      }
+    }
+    if (["analysis", "task", "result"].includes(object.kind) &&
+        await verifySemanticObject(object, await read(object), manifest, read)) continue;
+    if (["analysis", "task", "result"].includes(object.kind) &&
+        await verifyAnalysisObject(object, await read(object), manifest, read)) continue;
     if (object.kind === "media") {
       const prefix = object.blobId ? `media/${encodeId(object.entityId)}/${encodeId(object.blobId)}.` : "";
       if (!object.blobId || object.revision !== undefined || !object.sizeBytes ||
@@ -72,6 +112,20 @@ export async function verifyProjectClosure(files: ProjectFiles, manifest: Manife
           object.blobId !== undefined || object.path !== `data/editor-snapshots/${encodeId(object.entityId)}.json` ||
           (object.entityId === manifest.editorSnapshotId && snapshot.editorSequence !== manifest.editorSequence)) throw invalid();
       validateSnapshot(snapshot, manifest);
+    } else if (object.kind === "script") {
+      const item = scriptRecord.parse(await read(object));
+      if (item.projectId !== manifest.projectId || item.scriptId !== object.entityId || item.revision !== object.revision ||
+          object.blobId !== undefined || object.path !== `data/scripts/${encodeId(item.scriptId)}/${item.revision}.json` ||
+          item.digest !== scriptDigest(item.draft) ||
+          (item.confirmed && (item.confirmed.revision !== item.revision || item.confirmed.digest !== item.digest)) ||
+          (item.revision === 1 ? item.previousRef !== null : !item.previousRef || item.previousRef.entityId !== item.scriptId ||
+            item.previousRef.revision !== item.revision - 1 || !objects.has(referenceKey(item.previousRef)))) throw invalid();
+      await validateScriptSources(files, manifest, item.draft);
+      const classificationObject = objects.get(referenceKey(item.classificationRef));
+      if (!classificationObject) throw invalid();
+      const classification = classificationRecord.parse(await read(classificationObject));
+      if (JSON.stringify(classification.items) !== JSON.stringify(item.draft.content.classifications) ||
+          JSON.stringify(classification.sources) !== JSON.stringify(item.draft.sources)) throw invalid();
     } else if (object.kind === "result") {
       const parsed = resultRecord.safeParse(await read(object));
       if (!parsed.success) throw invalid();
@@ -125,13 +179,37 @@ export async function retainProjectClosure(files: ProjectFiles, manifest: Manife
       pending.push(asset);
       continue;
     }
-    if (!["asset", "editor-snapshot", "trash", "result", "task"].includes(object.kind)) {
+    if (!["asset", "analysis", "script", "plan", "editor-snapshot", "trash", "result", "task"].includes(object.kind)) {
       pending.push(...manifest.objects);
       continue;
     }
     const bytes = await files.read(object.path);
     if (bytes.length !== object.sizeBytes || sha256(bytes) !== object.sha256) throw new HostError("PROJECT_INVALID", 409, "Project metadata is damaged.");
     const value = JSON.parse(bytes.toString("utf8"));
+    if (object.kind === "plan") { pending.push(...executionReferences(executionRecord.parse(value))); continue; }
+    if (object.kind === "analysis" && value.format === "script-classification") {
+      for (const source of classificationRecord.parse(value).sources) pending.push(source.assetRef, source.mediaRef, ...(source.analysisRef ? [source.analysisRef] : []));
+      continue;
+    }
+    if (object.kind === "task" && value.format === "script-planning-task") {
+      const item = planningTaskRecord.parse(value);
+      if (item.previousRef) pending.push(item.previousRef);
+      if (item.scriptRef) pending.push(item.scriptRef);
+      for (const source of [...item.basis.sources, ...(item.output?.sources ?? [])]) pending.push(source.assetRef, source.mediaRef, ...(source.analysisRef ? [source.analysisRef] : []));
+      continue;
+    }
+    if (object.kind === "script") {
+      const item = scriptRecord.parse(value);
+      pending.push(item.classificationRef);
+      if (item.previousRef) pending.push(item.previousRef);
+      for (const source of item.draft.sources) pending.push(source.assetRef, source.mediaRef, ...(source.analysisRef ? [source.analysisRef] : []));
+      continue;
+    }
+    const semanticRefs = semanticReferences(object, value);
+    if (semanticRefs) { pending.push(...semanticRefs); continue; }
+    const analysisRefs = analysisReferences(object, value);
+    if (analysisRefs) { pending.push(...analysisRefs); continue; }
+    if (object.kind === "analysis") { pending.push(...manifest.objects); continue; }
     if (object.kind === "asset") pending.push(assetRecord.parse(value).mediaRef);
     else if (object.kind === "editor-snapshot") pending.push(...snapshotRecord.parse(value).refs);
     else if (object.kind === "trash") {

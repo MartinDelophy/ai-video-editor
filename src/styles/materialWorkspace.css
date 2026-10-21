@@ -1,0 +1,23 @@
+.material-workspace { width: min(900px, 94vw); max-height: 88dvh; box-sizing: border-box; overflow: auto; padding: 20px; color: var(--text, #e5edf5); background: var(--panel, #151b24); border: 1px solid #64748b70; border-radius: 16px; box-shadow: 0 20px 80px #0009; }
+.material-workspace::backdrop { background: #0009; }
+.material-workspace header, .material-workspace nav, .material-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.material-workspace header { justify-content: space-between; }
+.material-workspace h2 { margin: 0; font-size: 19px; }
+.material-workspace h3 { font-size: 15px; margin-top: 18px; }
+.material-workspace button { min-height: 32px; font-size: 12px; cursor: pointer; padding: 6px 10px; color: inherit; background: #64748b25; border: 1px solid #64748b70; border-radius: 7px; }
+.material-workspace button:disabled { cursor: not-allowed; opacity: .5; }
+.material-workspace button[aria-pressed="true"] { border-color: #54d4ed; color: #54d4ed; background: #54d4ed18; }
+.material-workspace section:not([hidden]) { display: grid; gap: 10px; padding-block: 15px; }
+.material-workspace label { display: grid; gap: 5px; font-size: 12px; min-width: 0; }
+.material-workspace input, .material-workspace select, .material-workspace textarea { width: 100%; min-width: 0; box-sizing: border-box; padding: 8px; font: inherit; color: inherit; background: #080d1580; border: 1px solid #64748b70; border-radius: 7px; }
+.material-workspace textarea { min-height: 75px; resize: vertical; }
+.material-workspace fieldset { min-width: 0; border: 1px solid #64748b50; border-radius: 8px; display: grid; gap: 8px; }
+.material-workspace p { line-height: 1.5; margin-block: 5px; overflow-wrap: anywhere; }
+.material-workspace [role="alert"] { color: #ffb3a7; }
+.material-workspace [role="status"] { color: #82dbeb; }
+.material-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.material-preview { position: sticky; bottom: 0; background: #151b24; padding: 8px; border: 1px solid #64748b60; border-radius: 10px; }
+.material-preview video { display: block; max-height: 220px; width: 100%; background: #000; }
+.material-workspace details { padding: 8px; border-bottom: 1px solid #64748b40; }
+.material-workspace pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+@media (max-width: 600px) { .material-workspace { padding: 12px; } .material-columns { grid-template-columns: 1fr; } .material-preview video { max-height: 160px; } }

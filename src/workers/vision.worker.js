@@ -78,10 +78,20 @@ function getTransformers() {
   return transformersPromise;
 }
 
-async function getDetector(requestId) {
+async function getDetector(requestId, localModelRoot) {
   if (!detectorPromise) {
     detectorPromise = (async () => {
-      const { pipeline } = await getTransformers();
+      const { pipeline, env } = await getTransformers();
+      if (localModelRoot) {
+        const root = new URL(localModelRoot, self.location.origin);
+        if (root.origin !== self.location.origin || root.pathname !== "/local-components/yolos/") throw new Error("Invalid local detector source.");
+        env.allowRemoteModels = false; env.allowLocalModels = true; env.useBrowserCache = false; env.localModelPath = root.href;
+        const [{ default: mjs }, { default: wasm }] = await Promise.all([
+          import("../../node_modules/@huggingface/transformers/node_modules/onnxruntime-web/dist/ort-wasm-simd-threaded.jsep.mjs?url"),
+          import("../../node_modules/@huggingface/transformers/node_modules/onnxruntime-web/dist/ort-wasm-simd-threaded.jsep.wasm?url"),
+        ]);
+        env.backends.onnx.wasm.wasmPaths = { mjs, wasm };
+      }
       const createPipeline = (device, dtype) => pipeline("object-detection", YOLOS_TINY_MODEL_ID, {
           device,
           dtype,
@@ -93,7 +103,7 @@ async function getDetector(requestId) {
             label: `${YOLOS_TINY_MODEL_LABEL} · ${device === "webgpu" ? "WebGPU" : "WASM"}`,
           }),
         });
-      if (self.navigator?.gpu) {
+      if (self.navigator?.gpu && !localModelRoot) {
         try {
           postProgress(requestId, 5, `正在初始化 ${YOLOS_TINY_MODEL_LABEL} WebGPU`);
           const detector = await createPipeline("webgpu", "fp16");
@@ -262,6 +272,7 @@ async function analyzeVisual(message) {
     preferredLabels = ["person"],
     targetBox = null,
     skipDetection = false,
+    localModelRoot,
   } = message;
 
   if (!(imageBlob instanceof Blob) || imageBlob.size <= 0) {
@@ -282,7 +293,7 @@ async function analyzeVisual(message) {
 
   let detections = [];
   if (!skipDetection || !targetBox) {
-    const detector = await getDetector(requestId);
+    const detector = await getDetector(requestId, localModelRoot);
     postProgress(requestId, 52, `使用 ${YOLOS_TINY_MODEL_LABEL} 识别主体`);
     const rawDetections = await detector(image, {
       threshold: Math.max(0.01, Math.min(0.99, Number(threshold) || 0.35)),

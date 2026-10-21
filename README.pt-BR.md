@@ -31,11 +31,11 @@ O usuário é o único responsável por quaisquer consequências legais decorren
 
 ## Novidades do projeto
 
+- **2026-10-21** — Integradas análise de cenas, planos revisáveis, resumos com evidências e busca visual offline opcional (#112–#115). Os ambientes offline precisam de preparação separada. [#112–#115](docs/material-analysis.md).
+- **2026-10-21** — Exportação de rascunhos editáveis do Jianying pelo host local e CLI, com quadros-chave de transformação e relatório de compatibilidade; para Jianying Pro chinês 11.6.0 no macOS.
 - **2026-10-20** — Adicionado host local opcional para macOS com salvamento durável, renovação de sessões e recuperação de permissões de escrita. O editor web continua disponível. [Configuração e limites](docs/local-host.md).
 - **2026-10-19** — Corrigida a reprodução após o fim da prévia comparativa de remoção de marca-d’água por IA.
 - **2026-10-17** — Corrigidos os vínculos de legendas, áudio e adesivos ao mover entre clipes, com exclusão e movimento sincronizados; evitados saltos ao selecionar legendas e simplificado o resumo de áudio. Cada legenda permite destacar texto selecionado, escolher a cor e limpar o destaque.
-- **2026-10-17** — Processamento local de áudio com RNNoise, DeepFilterNet3, equalização, compressão, ganho e limitador; prévia, aplicação e restauração do original. Melhorias no painel de áudio original, alinhamento e destaque de legendas, fontes multilíngues, edição vinculada e reprodução entre clipes.
-- **2026-10-13** — A análise de iluminação e a conversão de profundidade reutilizam o fluxo do navegador com preparação, início, consulta e cancelamento pelo WebMCP. Parâmetros de luz usam comandos compartilhados revisáveis e reversíveis; vídeos do agente ficam em Meus recursos até uma inserção revisada separadamente. O Skill documenta o fluxo e os limites da CLI local.
 Consulte o [Roadmap](ROADMAP.md) para o trabalho planejado, [Releases](https://github.com/MartinDelophy/ai-video-editor/releases) para mudanças publicadas e [Issues](https://github.com/MartinDelophy/ai-video-editor/issues) para tarefas e erros.
 
 ## O que ele pode produzir?

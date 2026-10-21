@@ -64,9 +64,10 @@ export const WEB_MCP_OPERATION_SCHEMA = {
     operation("project.set_fit", { fitMode: { type: "string", enum: ["contain", "cover"] } }, ["fitMode"]),
     {
       ...operation("clip.set_property", { clipId: id, property: { type: "string", enum: ["volume", "fadeIn", "fadeOut"] }, value: { type: "number", minimum: 0, maximum: 1800 } }, ["clipId", "property", "value"]),
-      allOf: [{ if: { properties: { property: { const: "volume" } } }, then: { properties: { value: { maximum: 4 } } } }],
+      allOf: [{ if: { properties: { property: { const: "volume" } } }, then: { properties: { value: { type: "number", maximum: 4 } } } }],
     },
     operation("clip.set_relight", { clipId: id, enabled: { type: "boolean" }, quality: { type: "string", enum: ["fast", "balanced", "quality"] }, light: { type: "object", additionalProperties: false, minProperties: 1, properties: RELIGHT_PROPERTY_SCHEMA } }, ["clipId"]),
+    operation("clip.set_speed", { clipId: id, speed: { type: "number", minimum: 0.25, maximum: 4 } }, ["clipId", "speed"]),
     operation("clip.set_muted", { clipId: id, muted }, ["clipId", "muted"]),
     operation("marker.add", marker, ["markerId", "time"]),
     operation("marker.update", marker, ["markerId"]),

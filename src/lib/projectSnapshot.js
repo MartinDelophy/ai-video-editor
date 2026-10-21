@@ -87,6 +87,7 @@ export async function serializeProjectSnapshot(captured, { registerMedia, editor
             : key === "src" || key === "url" || (key === "previewSrc" && (item === value.src || item === value.url)) ? "blob" : null;
         const source = blobField && value[blobField] instanceof Blob ? value[blobField] : item;
         bindings[key] = await register(source, value.name || path, `${path}.${key}`);
+        if (source !== item && typeof item === "string") registrations.set(item, Promise.resolve(bindings[key]));
       } else result[key] = await walk(item, `${path}.${key}`, depth + 1);
     }
     if (Object.keys(bindings).length) result.mediaBindings = bindings;

@@ -11,7 +11,7 @@ export async function buildStorage(directory) {
   if (process.platform !== "darwin") throw new Error("Native project storage is not yet available on this platform.");
   const target = join(directory, "timeline-studio-storage");
   await execute("/usr/bin/clang", ["-std=c11", "-O2", "-Wall", "-Wextra", "-Werror",
-    fileURLToPath(new URL("../native/macos/storage.c", import.meta.url)), "-o", target], { timeout: 60_000 });
+    fileURLToPath(new URL("../native/macos/storage.c", import.meta.url)), "-framework", "Security", "-framework", "CoreFoundation", "-o", target], { timeout: 60_000 });
   return target;
 }
 

@@ -78,8 +78,10 @@ work for [issue #111](https://github.com/MartinDelophy/ai-video-editor/issues/11
 The original author is retained on the imported commits: `45fa628`, `20de196`,
 `8fa3b52`, `181d1a9`, `145063f`, and `c7cee6d` (adapted from the corresponding Auto-cut commits). Compatibility changes retain the
 current editor's audio remux path and use the Timeline Studio identity.
-Scene segmentation, execution plans, semantic summaries and visual search
-(#112–#115) are excluded.
+Saved material analysis, reviewed execution plans, transcript semantic review and
+optional offline visual search (#112–#115) are integrated through the existing
+project and command contracts. See [setup, evidence and limits](material-analysis.md).
+Offline detector/search runtime artifacts must be prepared separately.
 
 Validation uses `npm run check` (including the host TypeScript project) and
 `npm run build:storage`. Session, stream-expiry, lease, retry, real native save /

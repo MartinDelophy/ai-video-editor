@@ -1,3 +1,6 @@
+import { useMaterialAnalysis } from "./useMaterialAnalysis.js";
+import { useScriptReview } from "./useScriptReview.js";
+import { projectMediaUrl } from "../lib/projectSnapshot.js";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { hostText, hostErrorText } from "../i18nHost.js";
 import { createProjectSaveQueue } from "../lib/projectSaveQueue.js";
@@ -5,13 +8,13 @@ import { waitForHostMediaController } from "../lib/serviceWorker.js";
 
 const PROJECT_BINDING_KEY = "timeline-studio.project-binding";
 
-export function useCompleteProject({ hostSession, captureCompleteProject, prepareCompleteProject, handleNewProject, isEditorBusy, notify, language, handleImportProject, projectFileInputRef }) {
+export function useCompleteProject({ hostSession, captureCompleteProject, prepareCompleteProject, handleNewProject, isEditorBusy, isAnalysisBusy, notify, language, handleImportProject, projectFileInputRef }) {
   const ht = (key) => hostText(language, key);
   const [state, setState] = useState({ status: "unbound", name: "", pending: 0, lastSaved: null, error: "" });
   const binding = useRef(null);
   const creating = useRef(false);
   const latest = useRef({ captureCompleteProject, prepareCompleteProject, handleNewProject, isEditorBusy, notify, language, handleImportProject, projectFileInputRef });
-  latest.current = { captureCompleteProject, prepareCompleteProject, handleNewProject, isEditorBusy, notify };
+  latest.current = { captureCompleteProject, prepareCompleteProject, handleNewProject, isEditorBusy, isAnalysisBusy, notify };
   const operationVersion = useRef(0);
   const recoveryAttempt = useRef(null);
   const identities = useRef({ blobs: new WeakMap(), next: 0 });
@@ -126,6 +129,7 @@ export function useCompleteProject({ hostSession, captureCompleteProject, prepar
   const open = async (resumeProjectId = null) => {
     if (!hostSession || creating.current) return;
     const previous = binding.current;
+    if (analysis.running || analysis.unresolved || analysis.pendingSave || scriptReview.saving) { latest.current.notify(ht("wait")); return; }
     if ((pendingCapture.current || (previous?.queue?.busy() && !(previous.conflict && previous.queue.canAbandonUnsubmitted()))) || latest.current.isEditorBusy?.()) {
       latest.current.notify(ht("wait")); return;
     }
@@ -221,6 +225,7 @@ export function useCompleteProject({ hostSession, captureCompleteProject, prepar
     if (creating.current) return;
     const current = binding.current;
     if (closeCurrent && !current) return;
+    if (analysis.running || analysis.unresolved || analysis.pendingSave || scriptReview.saving) { latest.current.notify(ht("wait")); return; }
     if ((pendingCapture.current || (current?.queue?.busy() && !(current.conflict && current.queue.canAbandonUnsubmitted()))) || latest.current.isEditorBusy?.()) {
       latest.current.notify(ht("wait")); return;
     }
@@ -340,8 +345,35 @@ export function useCompleteProject({ hostSession, captureCompleteProject, prepar
     };
   }, [acquire, hostSession]);
 
-  return hostSession ? { ...state,
-    canClose: () => !creating.current && !pendingCapture.current && (!binding.current?.queue?.busy() ||
+  const getAnalysisContext = async () => {
+    const current = binding.current;
+    if (!current || creating.current) throw new Error("Open or save a complete project first.");
+    if (!current.lease || Date.parse(current.lease.expiresAt) <= Date.now()) await acquire(current);
+    if (binding.current !== current) throw new Error("Project changed.");
+    return { projectId: current.project.projectId, editorSessionId: current.lease.editorSessionId };
+  };
+  const analysis = useMaterialAnalysis({ hostSession, language, getContext: getAnalysisContext, isEditorBusy: () => latest.current.isAnalysisBusy?.() });
+  const scriptReview = useScriptReview({ hostSession, getContext: getAnalysisContext });
+  const execution = {
+    context: getAnalysisContext,
+    async request(path, body, key) {
+      const context = await getAnalysisContext();
+      return hostSession.request(`/api/v1/projects/${encodeURIComponent(context.projectId)}/${path}`,
+        body === undefined ? undefined : { ...body, editorSessionId: context.editorSessionId }, key, { signal: AbortSignal.timeout(300_000) });
+    },
+    async registerMedia(asset) {
+      await getAnalysisContext();
+      const current = binding.current;
+      if (!current?.queue) throw new Error("Save the complete project first.");
+      const source = asset.projectMedia?.projectId === current.project.projectId && asset.projectMedia.bindings?.blob
+        ? projectMediaUrl(current.project.projectId, asset.projectMedia.bindings.blob) : asset.blob || asset.src;
+      const ref = await current.queue.registerMedia(source, asset.name, "execution-result", AbortSignal.timeout(300_000));
+      if (binding.current !== current) throw new Error("Project changed.");
+      return ref;
+    },
+  };
+  return hostSession ? { ...state, analysis, scriptReview, execution,
+    canClose: () => !analysis.running && !analysis.unresolved && !analysis.pendingSave && !scriptReview.saving && !creating.current && !pendingCapture.current && (!binding.current?.queue?.busy() ||
       Boolean(binding.current.conflict && binding.current.queue.canAbandonUnsubmitted())),
     importPortable: (file) => {
       if (projectFileInputRef.current) projectFileInputRef.current.value = "";
@@ -349,5 +381,5 @@ export function useCompleteProject({ hostSession, captureCompleteProject, prepar
       return handleImportProject(file);
     }, error: binding.current?.conflict ? hostErrorText(language, { code: "PROJECT_REVISION_CONFLICT" }) : state.error ? hostErrorText(language, { code: state.errorCode }) : "", save, open, projectId: binding.current?.project.projectId,
     newProject: () => resetProject(), closeProject: () => resetProject(true),
-    busy: () => creating.current || pendingCapture.current || Boolean(binding.current?.queue?.busy()) } : null;
+    busy: () => analysis.running || analysis.unresolved || Boolean(analysis.pendingSave) || scriptReview.saving || creating.current || pendingCapture.current || Boolean(binding.current?.queue?.busy()) } : null;
 }

@@ -42,11 +42,11 @@ Users are solely responsible for any legal liability arising from violations of 
 
 ## Project updates
 
+- **2026-10-21** — Integrated saved source-scene analysis, reviewed execution plans, evidence-linked transcript summaries and optional offline visual search (#112–#115). Offline runtimes require separate preparation. [#112–#115](docs/material-analysis.md).
+- **2026-10-21** — Added editable Jianying Pro draft export through the local host and CLI, including transform keyframes and compatibility reports; targets domestic Jianying Pro 11.6.0 on macOS.
 - **2026-10-20** — Added an optional macOS local host with durable project saving, active-session renewal and recoverable write leases. The browser editor remains available. [Setup and limits](docs/local-host.md).
 - **2026-10-19** — Fixed replay after the AI watermark-removal comparison preview reaches the end.
 - **2026-10-17** — Fixed caption, audio and sticker ownership when moving between visual clips, synchronized deletion and movement, prevented caption selection jumps, and simplified the audio overview. Caption text selections can now be highlighted independently per segment, with a dedicated color and clear action.
-- **2026-10-17** — Added browser-local audio processing with RNNoise and DeepFilterNet3, EQ, compression, gain and limiting, preview/apply and original recovery. Improved source-audio inspectors, caption alignment and keyword highlighting, multilingual fonts, linked-track edits and video boundary playback.
-- **2026-10-13** — Agent relighting and depth-video conversion now reuse the production browser pipeline through WebMCP prepare/start/inspect/cancel. Lighting parameters use shared reviewed, undoable commands; generated depth videos stay in My assets until a separate reviewed insertion. The editing Skill documents the complete workflow and local CLI limits.
 See the public [Roadmap](ROADMAP.md) for planned work, [Releases](https://github.com/MartinDelophy/ai-video-editor/releases) for shipped changes, and [Issues](https://github.com/MartinDelophy/ai-video-editor/issues) for focused tasks and bugs.
 
 ## What can it produce?

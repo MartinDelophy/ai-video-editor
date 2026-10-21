@@ -512,7 +512,9 @@ function addCaption(project, operation) {
   const end = finiteNonNegative(operation.end, "end");
   requireCaptionRange(start, end);
   let audioSegmentId = "";
+  if (operation.audioClipId && operation.visualClipId) invalidArgument("A caption cannot bind both audio and visual clips.");
   if (operation.audioClipId) audioSegmentId = findById(project.audioSegments, operation.audioClipId, "Audio clip").id;
+  const visualSegmentId = operation.visualClipId ? findById(project.visualSegments, operation.visualClipId, "Visual clip").id : "";
   const previousCaption = [...captions]
     .sort((left, right) => (Number(left.start) || 0) - (Number(right.start) || 0))
     .filter((caption) => (Number(caption.start) || 0) <= start)
@@ -524,7 +526,7 @@ function addCaption(project, operation) {
     end,
     fontId: operation.fontId || previousCaption?.fontId || project.captionStyle?.fontId || "default",
     ...(audioSegmentId ? { audioSegmentId } : {}),
-    ...(operation.visualClipId ? { visualSegmentId: findById(project.visualSegments, operation.visualClipId, "Visual clip").id } : {}),
+    ...(visualSegmentId ? { visualSegmentId } : {}),
   }].sort((left, right) => (Number(left.start) || 0) - (Number(right.start) || 0));
   project.script = project.captionSegments.map((item) => item.text).join("\n");
   project.captionsEnabled = true;
@@ -690,6 +692,7 @@ function setClipSpeed(project, operation) {
   const speed = finitePositive(operation.speed, "speed");
   if (speed < 0.25 || speed > 4) throw Object.assign(new Error("speed must be between 0.25 and 4"), { code: "INVALID_ARGUMENT" });
   const clip = match.clip;
+  if (clip.speedCurve?.enabled || clip.reversed || clip.reverse) throw Object.assign(new Error("Complex timing requires its original editor"), { code: "UNSUPPORTED_TIMING" });
   const previousDuration = finitePositive(Number(clip.duration), "clip duration");
   const previousRate = visualPlaybackRate(clip);
   const sourceDuration = Math.max(0.001, Number(clip.sourceDuration) || previousDuration * previousRate);
@@ -702,10 +705,17 @@ function setClipSpeed(project, operation) {
     clip.keyframes = clip.keyframes.map((frame) => ({ ...frame, time: Math.max(0, Number(frame.time) || 0) * timeScale }));
   }
   if (match.track === "audio") {
-    const clipEnd = (Number(clip.start) || 0) + duration;
-    project.captionSegments = (project.captionSegments || []).map((caption) => caption.audioSegmentId === clip.id
-      ? { ...caption, end: Math.max(Number(caption.start) || 0, Math.min(Number(caption.end) || 0, clipEnd)) }
-      : caption);
+    const origin = Number(clip.start) || 0, scale = duration / previousDuration;
+    project.captionSegments = (project.captionSegments || []).map(caption => {
+      if (caption.audioSegmentId !== clip.id) return caption;
+      const start = origin + (Number(caption.start) - origin) * scale;
+      const end = origin + (Number(caption.end) - origin) * scale;
+      requireCaptionRange(start, end);
+      return { ...caption, start, end, ...(Array.isArray(caption.words) ? {
+        words: caption.words.map(word => ({ ...word, start: origin + (word.start - origin) * scale, end: origin + (word.end - origin) * scale })),
+      } : {}) };
+    });
+    project.audioDuration = getTimedSegmentsEnd(project.audioSegments);
   }
 }
 

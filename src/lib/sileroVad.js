@@ -1,6 +1,6 @@
 // Decode only bounded source windows. Neither the complete movie nor its full
 // decoded audio is copied into memory; the inference worker owns recurrent state.
-export async function analyzeVideoPauses(clip, { language, signal, onProgress }) {
+export async function analyzeVideoPauses(clip, { language, signal, onProgress, localModelUrl }) {
   const worker = new Worker(new URL("../workers/sileroVad.worker.js", import.meta.url), { type: "module" });
   let serial = 0;
   let input;
@@ -37,7 +37,7 @@ export async function analyzeVideoPauses(clip, { language, signal, onProgress })
   try {
     signal.throwIfAborted();
     onProgress(0, "pauseDownloading");
-    await call({ type: "init", language }, (_value, phase) => onProgress(0, phase));
+    await call({ type: "init", language, localModelUrl }, (_value, phase) => onProgress(0, phase));
     const { Input, BlobSource, UrlSource, ALL_FORMATS, AudioBufferSink } = await import("mediabunny");
     input = new Input({ source: clip.blob instanceof Blob ? new BlobSource(clip.blob) : new UrlSource(clip.src), formats: ALL_FORMATS });
     const track = await input.getPrimaryAudioTrack();

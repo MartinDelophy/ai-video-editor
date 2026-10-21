@@ -2,6 +2,7 @@ import { browserProjectFingerprint, supportsBrowserTrim } from "./browserEditPla
 import { materializeProjectCaptionTimings } from "./projectCommandEngine.js";
 import { isTimedSegmentLaneLocked } from "./timeline.js";
 import { MIN_VISUAL_SEGMENT_SECONDS } from "../config/editor.js";
+import { SILERO_SPEECH_SEGMENTATION } from "../config/sileroVad.js";
 
 const EPS = 0.000001;
 const fail = (code) => { throw Object.assign(new Error(code), { code }); };
@@ -14,23 +15,27 @@ export function canRemovePauses(clip, previous) {
 
 // VAD probabilities describe the original source clock. Convert to the clip's
 // constant-speed timeline only once; curves are explicitly excluded by the gate.
-export function findPauseCandidates(probabilities, clip, { minimum = 0.8, keep = 0.5 } = {}) {
-  const step = 512 / 16000 / (Number(clip.playbackRate) || 1);
-  const duration = Number(clip.duration);
+export function findSpeechRanges(probabilities, duration, step = 512 / 16000) {
   const speech = [];
   let start = null;
   let quietStart = null;
   for (let i = 0; i < probabilities.length; i++) {
     const time = Math.min(duration, i * step);
-    if (probabilities[i] >= 0.5) { start ??= time; quietStart = null; }
-    else if (start !== null && probabilities[i] < 0.35) {
+    if (probabilities[i] >= SILERO_SPEECH_SEGMENTATION.threshold) { start ??= time; quietStart = null; }
+    else if (start !== null && probabilities[i] < SILERO_SPEECH_SEGMENTATION.negativeThreshold) {
       quietStart ??= time;
-      if (time - quietStart >= 0.16) {
+      if (time - quietStart >= SILERO_SPEECH_SEGMENTATION.minimumSilenceSeconds) {
         speech.push({ start, end: quietStart }); start = null; quietStart = null;
       }
     }
   }
   if (start !== null) speech.push({ start, end: quietStart ?? duration });
+  return speech;
+}
+
+export function findPauseCandidates(probabilities, clip, { minimum = 0.8, keep = 0.5 } = {}) {
+  const duration = Number(clip.duration);
+  const speech = findSpeechRanges(probabilities, duration, 512 / 16000 / (Number(clip.playbackRate) || 1));
   // Entirely non-speech footage is not evidence of a removable speaking pause.
   if (!speech.some((range) => range.end - range.start >= 0.1)) return [];
   const gaps = [];

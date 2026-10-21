@@ -412,6 +412,7 @@ self.addEventListener("fetch", (event) => {
     return;
   }
   if (url.origin === self.location.origin && (url.pathname === "/healthz" ||
+      url.pathname.startsWith("/local-components/") ||
       url.pathname === "/api" || url.pathname.startsWith("/api/") ||
       url.pathname === "/internal" || url.pathname.startsWith("/internal/"))) return;
   if (event.request.mode === "navigate") {

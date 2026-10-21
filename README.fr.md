@@ -31,11 +31,11 @@ L’utilisateur assume seul toute responsabilité juridique découlant du non-re
 
 ## Actualités du projet
 
+- **2026-10-21** — Intégration des scènes sources, plans vérifiables, résumés étayés et recherche visuelle hors ligne facultative (#112–#115). Les environnements hors ligne se préparent séparément. [#112–#115](docs/material-analysis.md).
+- **2026-10-21** — Export de brouillons Jianying modifiables via l’hôte local et la CLI, avec images clés de transformation et rapport de compatibilité ; cible : Jianying Pro chinois 11.6.0 sur macOS.
 - **2026-10-20** — Ajout d’un hôte local facultatif pour macOS avec sauvegarde durable, renouvellement des sessions et récupération des baux d’écriture. L’éditeur web reste disponible. [Configuration et limites](docs/local-host.md).
 - **2026-10-19** — Correction de la relecture après la fin de l’aperçu comparatif de suppression de filigrane par IA.
 - **2026-10-17** — Correction des liens des sous-titres, sons et autocollants déplacés entre plans, avec suppression et déplacement synchronisés ; sélection des sous-titres sans saut et aperçu audio simplifié. Chaque sous-titre permet de surligner une sélection, choisir sa couleur et effacer le surlignage.
-- **2026-10-17** — Traitement audio local avec RNNoise, DeepFilterNet3, égalisation, compression, gain et limiteur ; écoute, application et restauration de l’original. Amélioration du panneau audio source, de l’alignement et du surlignage des sous-titres, des polices multilingues, des pistes liées et des transitions de lecture.
-- **2026-10-13** — L’analyse d’éclairage et la conversion en vidéo de profondeur réutilisent le pipeline du navigateur via préparation, lancement, suivi et annulation WebMCP. Les paramètres de lumière passent par des commandes partagées vérifiables et annulables ; les vidéos de l’Agent restent dans Mes ressources avant une insertion vérifiée séparément. Le Skill décrit le parcours et les limites de la CLI locale.
 Consultez la [Roadmap](ROADMAP.md) pour les travaux prévus, les [Releases](https://github.com/MartinDelophy/ai-video-editor/releases) pour les changements publiés et les [Issues](https://github.com/MartinDelophy/ai-video-editor/issues) pour les tâches et anomalies.
 
 ## Que peut-il produire ?

@@ -352,6 +352,7 @@ export const BROWSER_OPERATION_FIELDS = Object.freeze({
   "project.set_ratio": ["ratio"],
   "project.set_fit": ["fitMode"],
   "clip.set_property": ["clipId", "property", "value"],
+  "clip.set_speed": ["clipId", "speed"],
   "clip.set_muted": ["clipId", "muted"],
   "clip.set_relight": ["clipId", "enabled", "quality", "light"],
   "marker.add": ["markerId", "markerType", "time", "endTime", "title", "notes", "color"],
@@ -558,6 +559,7 @@ export function buildBrowserOperationReview(inputProject, response, options = {}
     validateBrowserOperation(value);
     let operation = { ...value };
     const beforeVisuals = next.visualSegments;
+    const beforeLinkedCaptions = next.captionSegments.filter(caption => caption.visualSegmentId);
     const durationBefore = beforeVisuals.reduce((sum, clip) => sum + Number(clip.duration), 0);
     let boundary;
     const sourceIndex = beforeVisuals.findIndex((clip) => clip.id === operation.clipId);
@@ -617,10 +619,23 @@ export function buildBrowserOperationReview(inputProject, response, options = {}
         if (operation.property !== "volume" && operation.value > clip.duration) reject("BROWSER_EDIT_INVALID_PLAN");
       }
     }
+    if (operation.type === "clip.set_speed") {
+      assertClipUnlocked(next, operation.clipId, locks, originalAudioLanes);
+      const { key, clip } = findProjectClip(next, operation.clipId);
+      if (clip.speedCurve?.enabled || clip.reversed || clip.reverse || clip.keyframes?.length ||
+          Object.values(clip.propertyKeyframes || {}).some(frames => frames?.length)) reject("BROWSER_EDIT_COMPLEX_TIMING");
+      if (!["audioSegments", "musicSegments", "visualSegments", "visualOverlaySegments"].includes(key) ||
+          key.startsWith("visual") && clip.type !== "video") reject("BROWSER_EDIT_INVALID_PLAN");
+      if (key === "audioSegments" && locks.caption && next.captionSegments.some(caption => caption.audioSegmentId === clip.id)) reject("BROWSER_EDIT_TRACK_LOCKED");
+      if (key === "visualSegments") {
+        if (hasTransition(clip) || hasTransition(beforeVisuals[sourceIndex - 1])) reject("BROWSER_EDIT_COMPLEX_TIMING");
+        boundary = clipStart + clip.duration;
+      }
+    }
     if (operation.type === "visual.split" || operation.type === "visual.trim") {
       const clip = beforeVisuals[sourceIndex];
       const live = restoreBrowserProjectMedia(next, initialRuntime, origins, options.assets).visualSegments.find((item) => item.id === operation.clipId);
-      assertPlainVisual(clip); assertPlainVisual(live);
+      assertPlainVisual({ ...clip, playbackRate: 1 }); assertPlainVisual({ ...live, playbackRate: 1 });
       if (hasTransition(beforeVisuals[sourceIndex - 1])) reject("BROWSER_EDIT_COMPLEX_TIMING");
       if (operation.type === "visual.split") {
         validTime(operation.at, MIN_VISUAL_SEGMENT_SECONDS);
@@ -628,7 +643,7 @@ export function buildBrowserOperationReview(inputProject, response, options = {}
         reserve(operation.rightClipId); inherit(operation.rightClipId, operation.clipId);
         focusTime = clipStart + operation.at;
       } else {
-        if (clip.type !== "video" || operation.sourceOut - operation.sourceIn < MIN_VISUAL_SEGMENT_SECONDS) reject("BROWSER_EDIT_INVALID_PLAN");
+        if (clip.type !== "video" || (operation.sourceOut - operation.sourceIn) / (Number(clip.playbackRate) || 1) < MIN_VISUAL_SEGMENT_SECONDS) reject("BROWSER_EDIT_INVALID_PLAN");
         boundary = clipStart + clip.duration;
       }
     }
@@ -702,6 +717,31 @@ export function buildBrowserOperationReview(inputProject, response, options = {}
     commands.push(operation);
     const durationAfter = next.visualSegments.reduce((sum, clip) => sum + Number(clip.duration), 0);
     if (boundary !== undefined) applyBrowserRipple(next, boundary, durationAfter - durationBefore, options, originalAudioLanes, locks);
+    if (beforeLinkedCaptions.length && (operation.type.startsWith("visual.") || operation.type === "clip.set_speed" ||
+        operation.type === "asset.insert" && operation.track === "visuals")) {
+      let beforeStart = 0, afterStart = 0;
+      const beforeMap = new Map(beforeVisuals.map(clip => { const value = { clip, start: beforeStart }; beforeStart += clip.duration; return [clip.id, value]; }));
+      const afterMap = new Map(next.visualSegments.map(clip => { const value = { clip, start: afterStart }; afterStart += clip.duration; return [clip.id, value]; }));
+      for (const caption of beforeLinkedCaptions) {
+        const before = beforeMap.get(caption.visualSegmentId), after = afterMap.get(caption.visualSegmentId);
+        if (!before) reject("BROWSER_EDIT_INVALID_PLAN");
+        if (operation.type === "visual.split" && caption.visualSegmentId === operation.clipId && caption.end > before.start + operation.at) reject("BROWSER_EDIT_COMPLEX_TIMING");
+        const currentCaption = next.captionSegments.find(item => item.id === caption.id);
+        if (!currentCaption) continue;
+        const oldRate = Number(before.clip.playbackRate) || 1, newRate = Number(after?.clip.playbackRate) || 1;
+        const mapTime = time => after.start + ((time - before.start) * oldRate + (Number(before.clip.sourceStart) || 0) - (Number(after.clip.sourceStart) || 0)) / newRate;
+        const start = after ? Math.max(after.start, mapTime(caption.start)) : 0;
+        const end = after ? Math.min(after.start + after.clip.duration, mapTime(caption.end)) : 0;
+        if (locks.caption && (!after || start !== caption.start || end !== caption.end)) reject("BROWSER_EDIT_TRACK_LOCKED");
+        if (!after || end <= start) { next.captionSegments = next.captionSegments.filter(item => item.id !== caption.id); continue; }
+        if (end - start < 0.2 - TIME_EPSILON) reject("BROWSER_EDIT_COMPLEX_TIMING");
+        Object.assign(currentCaption, { start, end });
+        if (Array.isArray(caption.words)) currentCaption.words = caption.words.flatMap(word => {
+          const wordStart = Math.max(start, mapTime(word.start)), wordEnd = Math.min(end, mapTime(word.end));
+          return wordEnd > wordStart ? [{ ...word, start: wordStart, end: wordEnd }] : [];
+        });
+      }
+    }
     if (durationAfter > MAX_TIMELINE_DURATION_SECONDS || next.visualSegments.some((clip) => clip.duration < MIN_VISUAL_SEGMENT_SECONDS)
       || projectDuration(next, { ...options, hasMusic: options.hasMusic || Boolean(musicAssetId) }) > MAX_TIMELINE_DURATION_SECONDS) reject("BROWSER_EDIT_INVALID_PLAN");
     assertLockedSourceUnchanged(original, next, options);

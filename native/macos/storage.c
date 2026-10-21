@@ -8,6 +8,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <CommonCrypto/CommonDigest.h>
+#include <Security/Security.h>
 
 static void fail(void) {
   int code = errno ? errno : EINVAL;
@@ -186,7 +187,74 @@ static void remove_verified(int source, const char *name, const char *size_text,
 }
 #pragma clang diagnostic pop
 
+static int credential(const char *operation, const char *account) {
+  require(strlen(account) == 64 && strspn(account, "0123456789abcdef") == 64);
+  CFStringRef identity = CFStringCreateWithCString(NULL, account, kCFStringEncodingUTF8);
+  require(identity != NULL);
+  const void *keys[] = { kSecClass, kSecAttrService, kSecAttrAccount };
+  const void *values[] = { kSecClassGenericPassword, CFSTR("TimelineStudio.planning"), identity };
+  CFMutableDictionaryRef query = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+  require(query != NULL);
+  for (size_t i = 0; i < 3; i++) CFDictionarySetValue(query, keys[i], values[i]);
+  OSStatus status;
+  if (!strcmp(operation, "credential-put")) {
+    unsigned char secret[16385];
+    size_t length = 0;
+    for (;;) {
+      require(length < sizeof(secret));
+      ssize_t count = read(STDIN_FILENO, secret + length, sizeof(secret) - length);
+      if (count < 0) { if (errno == EINTR) continue; fail(); }
+      if (!count) break;
+      length += (size_t)count;
+    }
+    require(length > 0 && length <= 16384);
+    CFDataRef data = CFDataCreate(NULL, secret, (CFIndex)length);
+    volatile unsigned char *wipe = secret;
+    for (size_t i = 0; i < sizeof(secret); i++) wipe[i] = 0;
+    require(data != NULL);
+    const void *updateKeys[] = { kSecValueData };
+    const void *updateValues[] = { data };
+    CFDictionaryRef update = CFDictionaryCreate(NULL, updateKeys, updateValues, 1, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    require(update != NULL);
+    status = SecItemUpdate(query, update);
+    if (status == errSecItemNotFound) {
+      CFDictionarySetValue(query, kSecValueData, data);
+      status = SecItemAdd(query, NULL);
+    }
+    CFRelease(update); CFRelease(data);
+  } else {
+    require(!strcmp(operation, "credential-get") || !strcmp(operation, "credential-status"));
+    CFDictionarySetValue(query, kSecMatchLimit, kSecMatchLimitOne);
+    CFDictionarySetValue(query, !strcmp(operation, "credential-get") ? kSecReturnData : kSecReturnAttributes, kCFBooleanTrue);
+    CFTypeRef result = NULL;
+    status = SecItemCopyMatching(query, &result);
+    if (status == errSecSuccess) {
+      if (!strcmp(operation, "credential-get")) {
+        require(result && CFGetTypeID(result) == CFDataGetTypeID());
+        CFDataRef data = (CFDataRef)result;
+        CFIndex length = CFDataGetLength(data);
+        require(length > 0 && length <= 16384);
+        size_t offset = 0;
+        while (offset < (size_t)length) {
+          ssize_t count = write(STDOUT_FILENO, CFDataGetBytePtr(data) + offset, (size_t)length - offset);
+          if (count < 0) { if (errno == EINTR) continue; fail(); }
+          require(count > 0); offset += (size_t)count;
+        }
+      } else puts("true");
+    } else if (status == errSecItemNotFound && !strcmp(operation, "credential-status")) {
+      puts("false"); status = errSecSuccess;
+    }
+    if (result) CFRelease(result);
+  }
+  CFRelease(query); CFRelease(identity);
+  if (status != errSecSuccess) { fprintf(stderr, "{\"keychainStatus\":%d}\n", (int)status); return 1; }
+  return 0;
+}
+
 int main(int argc, char **argv) {
+  if (argc == 3 && (!strcmp(argv[1], "credential-put") || !strcmp(argv[1], "credential-get") || !strcmp(argv[1], "credential-status"))) {
+    return credential(argv[1], argv[2]);
+  }
   require(argc == 4 || argc == 5 || argc == 6 || argc == 7);
   const char *operation = argv[1];
   require(argv[2][0] == '/');

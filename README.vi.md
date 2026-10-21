@@ -31,11 +31,11 @@ Người dùng tự chịu mọi trách nhiệm pháp lý phát sinh từ việc
 
 ## Cập nhật dự án
 
+- **2026-10-21** — Tích hợp phân tích cảnh, kế hoạch có thể duyệt, tóm tắt kèm bằng chứng và tìm kiếm hình ảnh ngoại tuyến tùy chọn (#112–#115). Cần chuẩn bị riêng môi trường ngoại tuyến. [#112–#115](docs/material-analysis.md).
+- **2026-10-21** — Xuất bản nháp Jianying có thể chỉnh sửa qua host cục bộ và CLI, gồm khung hình chính biến đổi và báo cáo tương thích; dành cho Jianying Pro Trung Quốc 11.6.0 trên macOS.
 - **2026-10-20** — Thêm máy chủ cục bộ tùy chọn cho macOS với lưu dự án bền vững, gia hạn phiên và khôi phục quyền ghi. Vẫn giữ trình chỉnh sửa trên trình duyệt. [Thiết lập và giới hạn](docs/local-host.md).
 - **2026-10-19** — Đã sửa lỗi không thể phát lại khi bản xem trước so sánh xóa hình mờ AI kết thúc.
 - **2026-10-17** — Sửa liên kết phụ đề, âm thanh và nhãn dán khi chuyển giữa các cảnh, đồng bộ xóa và di chuyển; tránh nhảy vị trí khi chọn phụ đề và tinh gọn tổng quan âm thanh. Có thể tô nổi bật văn bản đã chọn riêng cho từng phụ đề, chọn màu và xóa phần tô.
-- **2026-10-17** — Thêm xử lý âm thanh trong trình duyệt với RNNoise, DeepFilterNet3, EQ, nén, độ lợi và giới hạn; nghe thử, áp dụng và khôi phục bản gốc. Cải thiện bảng âm thanh gốc, căn chỉnh và tô sáng từ khóa phụ đề, phông chữ đa ngôn ngữ, chỉnh sửa liên kết và phát tại ranh giới clip.
-- **2026-10-13** — Phân tích ánh sáng và chuyển đổi video độ sâu dùng lại quy trình trình duyệt qua chuẩn bị, bắt đầu, kiểm tra và hủy WebMCP. Thông số ánh sáng dùng lệnh chung có xem xét và hoàn tác; video của Agent nằm trong Tài sản của tôi cho đến khi chèn qua bước xem xét riêng. Skill ghi rõ quy trình và giới hạn CLI cục bộ.
 Xem [Roadmap](ROADMAP.md) cho công việc dự kiến, [Releases](https://github.com/MartinDelophy/ai-video-editor/releases) cho thay đổi đã phát hành và [Issues](https://github.com/MartinDelophy/ai-video-editor/issues) cho nhiệm vụ và lỗi.
 
 ## Có thể tạo ra những gì?

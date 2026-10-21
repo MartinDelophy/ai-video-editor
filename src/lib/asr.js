@@ -329,7 +329,7 @@ function getAsrWorker() {
   return asrWorker;
 }
 
-function transcribeAudioInWorker(audio, { onProgress, preferredLanguage, signal, requireWorker = false }) {
+function transcribeAudioInWorker(audio, { onProgress, preferredLanguage, signal, requireWorker = false, localModelRoot }) {
   throwIfAborted(signal);
   if (shouldSkipAsrWorker && !requireWorker) {
     return Promise.reject(new Error("本轮已停用自动字幕 Worker。"));
@@ -365,6 +365,7 @@ function transcribeAudioInWorker(audio, { onProgress, preferredLanguage, signal,
         modelId: AUTOMATIC_CAPTION_MODEL_ID,
         audioBuffer: transferableAudio.buffer,
         preferredLanguage,
+        localModelRoot,
       },
       [transferableAudio.buffer],
     );
@@ -507,4 +508,14 @@ export async function transcribeAudioToCaptionSegments(blob, options = {}) {
   } finally {
     transcriptionActive = false;
   }
+}
+
+// Material analysis owns decoding and source coordinates, including empty speech results.
+export async function transcribeSourcePcm(audio, { signal, onProgress, preferredLanguage, localModelRoot }) {
+  if (transcriptionActive) throw Object.assign(new Error("EDITOR_BUSY"), { code: "EDITOR_BUSY" });
+  if (!(audio instanceof Float32Array) || !audio.length || !localModelRoot) throw new Error("本地分析输入尚未准备好。");
+  transcriptionActive = true;
+  try {
+    return await transcribeAudioInWorker(audio, { signal, onProgress, preferredLanguage, localModelRoot, requireWorker: true });
+  } finally { transcriptionActive = false; }
 }

@@ -130,24 +130,46 @@ function getPreferredInferenceDevice() {
   return "wasm";
 }
 
-async function createTranscriber(requestId, device) {
+async function createTranscriber(requestId, device, localModelRoot) {
   const { env, pipeline } = await import("@huggingface/transformers");
   // The app's service worker is the single cache owner for large model files.
   // A second Transformers Cache Storage copy can exhaust the site quota after
   // other local AI workflows have already downloaded their models.
   env.useBrowserCache = false;
-  return pipeline("automatic-speech-recognition", AUTOMATIC_CAPTION_MODEL_ID, {
+  env.allowRemoteModels = !localModelRoot;
+  env.allowLocalModels = Boolean(localModelRoot);
+  if (localModelRoot) {
+    const root = new URL(localModelRoot, self.location.origin);
+    if (root.origin !== self.location.origin || root.pathname !== "/local-components/whisper/") throw new Error("Invalid local model source.");
+    env.localModelPath = root.href;
+    const [{ default: mjs }, { default: wasm }] = await Promise.all([
+      import("../../node_modules/@huggingface/transformers/node_modules/onnxruntime-web/dist/ort-wasm-simd-threaded.jsep.mjs?url"),
+      import("../../node_modules/@huggingface/transformers/node_modules/onnxruntime-web/dist/ort-wasm-simd-threaded.jsep.wasm?url"),
+    ]);
+    env.backends.onnx.wasm.wasmPaths = { mjs, wasm };
+  }
+  const transcriber = await pipeline("automatic-speech-recognition", AUTOMATIC_CAPTION_MODEL_ID, {
     dtype: "q8",
     revision: AUTOMATIC_CAPTION_MODEL_REVISION,
     device,
     progress_callback: createModelLoadProgressCallback(requestId),
   });
+  if (localModelRoot) {
+    // Transformers.js 3.8.1 crops encoder attention using pre-encoder frame counts.
+    // Whisper downsamples those frames by two; exclude padded audio from alignment.
+    const extractTokenTimestamps = transcriber.model._extract_token_timestamps.bind(transcriber.model);
+    transcriber.model._extract_token_timestamps = (outputs, heads, frames, precision) =>
+      extractTokenTimestamps(outputs, heads, frames == null ? frames : Math.floor(frames / 2), precision);
+  }
+  return transcriber;
 }
 
-async function getTranscriber(requestId) {
-  if (!transcriberState || transcriberState.modelId !== AUTOMATIC_CAPTION_MODEL_ID) {
+async function getTranscriber(requestId, localModelRoot) {
+  if (!transcriberState || transcriberState.modelId !== AUTOMATIC_CAPTION_MODEL_ID || transcriberState.localModelRoot !== localModelRoot) {
+    if (transcriberState) await (await transcriberState.promise).dispose();
     transcriberState = {
       modelId: AUTOMATIC_CAPTION_MODEL_ID,
+      localModelRoot,
       promise: (async () => {
         const preferredDevice = getPreferredInferenceDevice();
         try {
@@ -156,14 +178,14 @@ async function getTranscriber(requestId) {
             7,
             preferredDevice === "webgpu" ? "在 Worker 中初始化 WebGPU ONNX" : "在 Worker 中初始化 WASM ONNX",
           );
-          return await createTranscriber(requestId, preferredDevice);
+          return await createTranscriber(requestId, preferredDevice, localModelRoot);
         } catch (error) {
           if (preferredDevice !== "webgpu") {
             throw error;
           }
           console.warn("Whisper WebGPU initialization failed, falling back to WASM.", error);
           postProgress(requestId, 7, "WebGPU 初始化失败，切换 WASM Worker");
-          return createTranscriber(requestId, "wasm");
+          return createTranscriber(requestId, "wasm", localModelRoot);
         }
       })(),
     };
@@ -225,6 +247,7 @@ function serializeTimestamp(timestamp) {
   }
 
   return timestamp.map((value) => {
+    if (value === null || value === undefined) return null;
     const normalized = Number(value);
     return Number.isFinite(normalized) ? normalized : null;
   });
@@ -242,7 +265,7 @@ function serializeOutput(output) {
   };
 }
 
-async function transcribe({ requestId, audioBuffer, preferredLanguage, modelId }) {
+async function transcribe({ requestId, audioBuffer, preferredLanguage, modelId, localModelRoot }) {
   if (modelId && modelId !== AUTOMATIC_CAPTION_MODEL_ID) {
     throw new Error("自动字幕模型版本已更新，请刷新后重新生成。");
   }
@@ -252,7 +275,7 @@ async function transcribe({ requestId, audioBuffer, preferredLanguage, modelId }
     throw new Error("没有检测到可识别的音频。");
   }
 
-  const transcriber = await getTranscriber(requestId);
+  const transcriber = await getTranscriber(requestId, localModelRoot);
   const languageResult = await detectWhisperLanguage(transcriber, audio, preferredLanguage, requestId);
   const languageLabel = WHISPER_LANGUAGE_NAMES[languageResult.language] ?? languageResult.language.toUpperCase();
   postProgress(

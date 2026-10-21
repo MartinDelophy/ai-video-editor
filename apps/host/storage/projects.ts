@@ -1,3 +1,8 @@
+import { prepareAnalysis } from "./analyses.ts";
+import { prepareScript } from "./scripts.ts";
+import { preparePlanningTask } from "./planning-tasks.ts";
+import { prepareExecutionPlan } from "./execution-plans.ts";
+import { prepareSemanticAnalysis } from "./semantic-analyses.ts";
 import { randomUUID } from "node:crypto";
 import { basename, join } from "node:path";
 import type { Readable } from "node:stream";
@@ -40,7 +45,7 @@ export function createProjects(instanceId: string, executable: string) {
         idempotencyKey: recovery.key, request: recovery.choice, editorSnapshotId: null, editorSequence: null }, prepareRecovery(files, projectId)) : null;
       for (const save of commits.pending()) {
         if (!["queued", "writing"].includes(commits.get(save.saveId).status)) continue;
-        const prepare = save.route === "project-recovery" ? prepareRecovery(files, projectId) : save.route === "editor-snapshots" ? prepareSnapshot(files, projectId) :
+        const prepare = save.route === "material-analysis" ? prepareAnalysis(files, projectId) : save.route === "review-script" ? prepareScript(files, projectId) : save.route === "script-planning" ? preparePlanningTask(files, projectId) : save.route === "execution-plan" ? prepareExecutionPlan(files, projectId) : save.route === "semantic-analysis" ? prepareSemanticAnalysis(files, projectId) : save.route === "project-recovery" ? prepareRecovery(files, projectId) : save.route === "editor-snapshots" ? prepareSnapshot(files, projectId) :
           ["asset-imports", "result-registrations"].includes(save.route) ? prepareAsset(files, projectId) : null;
         if (!prepare) { commits.stopWrites(); break; }
         await commits.resume(save.saveId, prepare);
@@ -324,6 +329,7 @@ export function createProjects(instanceId: string, executable: string) {
       return { taskId: receipt.taskId, stepId: receipt.stepId, saveId: accepted.save.saveId, replayed: accepted.replayed };
     },
     get,
+    opened(page: PageSession) { return [...projects.values()].filter(project => project.pages.has(page.pageSessionId)); },
     editors,
     busy() { return pendingOperations > 0 || importing.size > 0 || [...projects.values()].some(project => project.commits.state().pending > 0 || project.commits.state().blocked); },
     async close() {

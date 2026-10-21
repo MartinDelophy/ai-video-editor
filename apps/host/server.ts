@@ -1,3 +1,19 @@
+import { analysisTaskRecord } from "./storage/analysis-records.ts";
+import { semanticTaskRecord } from "./storage/semantic-records.ts";
+import { createAnalysisService } from "./analysis-service.ts";
+import { registerAnalysisRoutes } from "./analysis-routes.ts";
+import { createAnalysisResources } from "./whisper-resources.ts";
+import { createSceneDetectRunner } from "./scene-detect-runner.ts";
+import { registerScriptRoutes } from "./script-routes.ts";
+import { registerExecutionRoutes } from "./execution-routes.ts";
+import { createPlanningConfig } from "./planning-config.ts";
+import { createPlanningService } from "./planning-service.ts";
+import { registerPlanningRoutes } from "./planning-routes.ts";
+import { createSemanticService } from "./semantic-service.ts";
+import { registerSemanticRoutes } from "./semantic-routes.ts";
+import { createVisualSearchRunner } from "./visual-search-runner.ts";
+import { createVisualSearchService } from "./visual-search-service.ts";
+import { registerVisualSearchRoutes } from "./visual-search-routes.ts";
 import Fastify, { type FastifyReply, type FastifyRequest } from "fastify";
 import fastifyStatic from "@fastify/static";
 import { timingSafeEqual } from "node:crypto";
@@ -54,6 +70,9 @@ const assetSchema = object({ schemaVersion: { const: 1 }, projectId: text, asset
   name: { type: "string", minLength: 1, maxLength: 1024 }, kind: { enum: ["image", "video", "audio"] }, mimeType: text,
   sizeBytes: sequenceSchema, sha256: { type: "string", minLength: 64, maxLength: 64 },
   mediaRef: object({ kind: { const: "media" }, entityId: text, blobId: text }) });
+const analysisReceipt = object({ saveId: text, saveStatus: { enum: ["queued", "writing", "succeeded", "failed"] },
+  replayed: { type: "boolean" }, taskId: nullableText, analysisId: nullableText,
+  error: { anyOf: [object({ code: text, message: { type: "string", maxLength: 1024 } }), { type: "null" }] } });
 
 export async function startHost(options: {
   instanceId: string; proof: string; dist: string; storageExecutable?: string; machineDirectory?: string;
@@ -68,6 +87,16 @@ export async function startHost(options: {
   const events = createEvents(options.instanceId);
   const lifecycle = createLifecycle(options.instanceId);
   const projects = createProjects(options.instanceId, options.storageExecutable ?? join(dirname(options.dist), "timeline-studio-storage"));
+  const whisper = createAnalysisResources(options.machineDirectory, "whisper-small-q8");
+  const yolos = createAnalysisResources(options.machineDirectory, "yolos-tiny-q8");
+  const silero = createAnalysisResources(options.machineDirectory, "silero-vad");
+  const scene = createSceneDetectRunner(process.env.TIMELINE_STUDIO_SCENE_COMPONENT);
+  const analyses = createAnalysisService(projects, { speech: whisper, detection: yolos, segmentation: silero, scene });
+  const planningConfig = createPlanningConfig(options.machineDirectory, options.storageExecutable ?? join(dirname(options.dist), "timeline-studio-storage"));
+  const planning = createPlanningService(projects, planningConfig);
+  const semantics = createSemanticService(projects);
+  const visualSearchRunner = createVisualSearchRunner(process.env.TIMELINE_STUDIO_VISUAL_SEARCH_COMPONENT);
+  const visualSearch = createVisualSearchService(projects, visualSearchRunner, options.machineDirectory);
   const selections = createFileSelections();
   app.addContentTypeParser("application/octet-stream", (_request, payload, done) => done(null, payload));
   const requestSessions = new WeakMap<FastifyRequest, PageSession>();
@@ -97,6 +126,8 @@ export async function startHost(options: {
       events.publish("application.stopping");
       events.close();
       sessions.clear();
+      await analyses.close(); await planning.close(); await semantics.close(); await visualSearch.close();
+      await whisper.close(); await yolos.close(); await silero.close();
       await app.close();
       await projects.close();
       selections.clear();
@@ -163,6 +194,13 @@ export async function startHost(options: {
     } else requestSessions.set(request, sessions.authenticate(request.headers.authorization));
   });
 
+  app.get("/api/v1/components/scene-detect", { schema: { querystring: emptyQuery, response: responses(object({ state: { enum: ["missing", "verified"] }, toolId: text, revision: text })) } }, async request => { pageFor(request); return success(request, await scene.status()); });
+  registerAnalysisRoutes(app, analyses, { speech: whisper, detection: yolos, segmentation: silero }, pageFor, success, errorEnvelope);
+  registerScriptRoutes(app, projects, pageFor, success, errorEnvelope);
+  registerExecutionRoutes(app, projects, pageFor, success, errorEnvelope);
+  registerPlanningRoutes(app, planningConfig, planning, pageFor, success, errorEnvelope);
+  registerSemanticRoutes(app, semantics, pageFor, success, errorEnvelope);
+  registerVisualSearchRoutes(app, visualSearch, pageFor, success, errorEnvelope);
   registerJianyingRoutes(app, projects, options.dist, pageFor, success, errorEnvelope);
   app.get("/healthz", { schema: { querystring: emptyQuery, response: {
     200: object({ status: { const: "ready" }, protocolVersion: { const: 1 } }),
@@ -306,24 +344,30 @@ export async function startHost(options: {
     return reply.send(files.stream(media.path, range.start, range.length));
   });
   app.get<{ Params: { taskId: string } }>("/api/v1/tasks/:taskId", {
-    schema: { params: object({ taskId: text }), querystring: emptyQuery, response: responses(object({ taskId: text, projectId: text,
+    schema: { params: object({ taskId: text }), querystring: emptyQuery, response: responses({ anyOf: [z.toJSONSchema(analysisTaskRecord, { target: "draft-7" }), z.toJSONSchema(semanticTaskRecord, { target: "draft-7" }), object({ taskId: text, projectId: text,
       status: { enum: ["queued", "running", "succeeded", "failed"] }, saveId: text, stepId: text, attemptId: text,
-      resultId: nullableText, assetId: nullableText, error: { anyOf: [object({ code: text, message: { type: "string", maxLength: 1024 } }), { type: "null" }] } })) },
-  }, async request => success(request, projects.task(pageFor(request), request.params.taskId)));
+      resultId: nullableText, assetId: nullableText, error: { anyOf: [object({ code: text, message: { type: "string", maxLength: 1024 } }), { type: "null" }] } })] }) },
+  }, async request => success(request, await analyses.findTask(pageFor(request), request.params.taskId) ?? await semantics.findTask(pageFor(request), request.params.taskId) ?? projects.task(pageFor(request), request.params.taskId)));
   app.get<{ Params: { resultId: string } }>("/api/v1/results/:resultId", {
     schema: { params: object({ resultId: text }), querystring: emptyQuery,
-      response: responses(object({ resultId: text, projectId: text, taskId: text, attemptId: text,
+      response: responses({ anyOf: [object({ resultId: text, projectId: text, taskId: text, attemptId: text,
+        registration: { enum: ["staged", "registered"] }, saveId: text, saveStatus: { enum: ["queued", "writing", "succeeded", "failed"] },
+        analysisRef: object({ kind: { const: "analysis" }, entityId: text, revision: { type: "integer", minimum: 1 } }),
+        error: { anyOf: [object({ code: text, message: { type: "string", maxLength: 1024 } }), { type: "null" }] } }), object({ resultId: text, projectId: text, taskId: text, attemptId: text,
         registration: { enum: ["staged", "registered"] }, saveId: text, saveStatus: { enum: ["queued", "writing", "succeeded", "failed"] },
         artifacts: { type: "array", items: object({ artifactId: text, mediaRef: object({ kind: { const: "media" }, entityId: text, blobId: text }) }) },
-        error: { anyOf: [object({ code: text, message: { type: "string", maxLength: 1024 } }), { type: "null" }] } })) },
-  }, async request => success(request, projects.result(pageFor(request), request.params.resultId)));
+        error: { anyOf: [object({ code: text, message: { type: "string", maxLength: 1024 } }), { type: "null" }] } })] }) },
+  }, async request => success(request, await analyses.findResult(pageFor(request), request.params.resultId) ?? await semantics.findResult(pageFor(request), request.params.resultId) ?? projects.result(pageFor(request), request.params.resultId)));
   app.post<{ Params: { resultId: string }; Body: { editorSessionId: string; expectedSaveId: string } }>("/api/v1/results/:resultId/registration-retries", {
     schema: { params: object({ resultId: text }), querystring: emptyQuery, body: object({ editorSessionId: text, expectedSaveId: text }),
-      response: { 202: object({ ok: { const: true }, data: object({ taskId: text, stepId: text, saveId: text, replayed: { type: "boolean" } }), meta }), "4xx": errorEnvelope, "5xx": errorEnvelope } },
+      response: { 202: object({ ok: { const: true }, data: { anyOf: [analysisReceipt, object({ taskId: text, stepId: text, saveId: text, replayed: { type: "boolean" } })] }, meta }), "4xx": errorEnvelope, "5xx": errorEnvelope } },
   }, async (request, reply) => {
     const key = request.headers["idempotency-key"];
     if (typeof key !== "string" || !key.length || key.length > 128) throw new HostError("INVALID_ARGUMENT", 400, "Idempotency-Key is required.");
-    const result = await projects.retryRegistration(pageFor(request), request.params.resultId, request.body.editorSessionId, request.body.expectedSaveId, key);
+    const analysis = await analyses.findResult(pageFor(request), request.params.resultId);
+    const semantic = analysis ? null : await semantics.findResult(pageFor(request), request.params.resultId);
+    const result = analysis ? await analyses.retrySave(pageFor(request), analysis.projectId, request.body.editorSessionId, request.body.expectedSaveId, key, request.params.resultId) : semantic ? await semantics.retrySave(pageFor(request), semantic.projectId, request.body.editorSessionId, request.body.expectedSaveId, key, request.params.resultId) :
+      await projects.retryRegistration(pageFor(request), request.params.resultId, request.body.editorSessionId, request.body.expectedSaveId, key);
     reply.code(202);
     return success(request, result);
   });
@@ -376,7 +420,7 @@ export async function startHost(options: {
   }, async (request) => {
     const key = request.headers["idempotency-key"];
     if (typeof key !== "string" || !key.length || key.length > 128) throw new HostError("INVALID_ARGUMENT", 400, "Idempotency-Key is required.");
-    if (projects.busy() || selections.busy()) throw new HostError("TASKS_DRAINING", 409, "Wait for project operations to finish before stopping.");
+    if (projects.busy() || analyses.busy() || semantics.busy() || planning.busy() || visualSearch.busy() || selections.busy()) throw new HostError("TASKS_DRAINING", 409, "Wait for project operations to finish before stopping.");
     return success(request, lifecycle.exit(pageFor(request), request.body, key));
   });
 

@@ -135,6 +135,7 @@ export function createProjectSaveQueue({ hostSession, projectId, getEditorSessio
   }
 
   return {
+    registerMedia,
     getSnapshot: () => snapshot,
     subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); },
     enqueue(captured) {

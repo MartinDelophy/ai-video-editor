@@ -279,7 +279,7 @@ export function Topbar({
         </nav>
         <button className="preview-button" type="button" title={`${t("shortcutPlayPause")} · Space`} onClick={(event) => { handlePlayToggle(); releasePointerActivatedFocus(event); }}>
           {isPlaying ? <Pause size={16} weight="fill" /> : <Play size={16} weight="fill" />}
-          {t("preview")}
+          <span>{t("preview")}</span>
         </button>
         <div className="menu-anchor" ref={exportAnchorRef}>
           <button

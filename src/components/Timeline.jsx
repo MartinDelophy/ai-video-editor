@@ -3018,7 +3018,7 @@ export function Timeline({
         <div className="timeline-segment-tools">
           <button className="timeline-play-button" type="button" disabled={!canPreview} onClick={(event) => { handlePlayToggle(); releasePointerActivatedFocus(event); }}>
             {isPlaying ? <Pause size={17} weight="fill" /> : <Play size={17} weight="fill" />}
-            {isPlaying ? t("pause") : t("play")}
+            <span>{isPlaying ? t("pause") : t("play")}</span>
             <kbd>Space</kbd>
           </button>
           <button type="button" onClick={handleAddSegment}>

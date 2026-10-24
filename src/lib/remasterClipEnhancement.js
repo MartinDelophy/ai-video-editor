@@ -107,7 +107,7 @@ async function decodeAudioRange(input, start, duration, signal, AudioBufferSink)
   return output;
 }
 
-async function enhanceRemasterClipWebCodecs({ segment, frameRate = 0, maxLongEdge = 960, strength = 1, signal, onProgress }) {
+async function enhanceRemasterClipWebCodecs({ segment, frameRate = 0, maxLongEdge = 960, strength = 1, signal, onProgress, frameEnhancer = enhanceRemasterFrame, preserveResolution = false, requireSourceAudio = false }) {
   if (typeof VideoDecoder === "undefined" || typeof VideoEncoder === "undefined") throw new Error("当前浏览器不支持 WebCodecs");
   const [{ ALL_FORMATS, AudioBufferSink, AudioBufferSource, BlobSource, BufferTarget, CanvasSink, CanvasSource, Input, Mp4OutputFormat, Output }, { registerAacEncoder }] = await Promise.all([
     import("mediabunny"),
@@ -133,7 +133,7 @@ async function enhanceRemasterClipWebCodecs({ segment, frameRate = 0, maxLongEdg
     const safeFrameRate = Math.max(1, Math.min(60, Number(frameRate) > 0 ? Number(frameRate) : sourceFrameRate));
     const totalFrames = Math.max(1, Math.ceil(sourceDuration * safeFrameRate));
     const frameDuration = 1 / safeFrameRate;
-    const size = getInferenceSize(displayWidth, displayHeight, maxLongEdge);
+    const size = preserveResolution ? { width: displayWidth, height: displayHeight } : getInferenceSize(displayWidth, displayHeight, maxLongEdge);
     const timestamps = Array.from({ length: totalFrames }, (_, index) => Math.min(sourceStart + sourceDuration - 0.000001, sourceStart + index * frameDuration));
     const sink = new CanvasSink(track, {
       width: size.width,
@@ -160,6 +160,9 @@ async function enhanceRemasterClipWebCodecs({ segment, frameRate = 0, maxLongEdg
     });
     output.addVideoTrack(videoSource, { frameRate: safeFrameRate });
     const audioBuffer = await audioPromise;
+    if (requireSourceAudio && !audioBuffer && await input.getPrimaryAudioTrack()) {
+      throw new Error("Source audio could not be decoded; use the audio-preserving fallback");
+    }
     let audioSource = null;
     if (audioBuffer) {
       audioSource = new AudioBufferSource({ codec: "aac", bitrate: 192_000 });
@@ -180,7 +183,7 @@ async function enhanceRemasterClipWebCodecs({ segment, frameRate = 0, maxLongEdg
         if (decoded.done || !decoded.value?.canvas) throw new Error(`无法解码第 ${index + 1} 帧`);
         const bitmap = await createImageBitmap(decoded.value.canvas);
         nextDecoded = iterator.next();
-        const result = await enhanceRemasterFrame({
+        const result = await frameEnhancer({
           bitmap,
           maxLongEdge,
           strength,
@@ -236,7 +239,7 @@ async function enhanceRemasterClipWebCodecs({ segment, frameRate = 0, maxLongEdg
   }
 }
 
-async function enhanceRemasterClipLegacy({ segment, videoElement = null, frameRate = 12, maxLongEdge = 960, strength = 1, signal, onProgress }) {
+async function enhanceRemasterClipLegacy({ segment, videoElement = null, frameRate = 12, maxLongEdge = 960, strength = 1, signal, onProgress, frameEnhancer = enhanceRemasterFrame }) {
   if (!segment?.src || segment.type !== "video") throw new Error("请选择一个视频片段");
   throwIfAborted(signal);
   onProgress?.({ progress: 1, phaseKey: "remasterPhaseReadClip", frameIndex: 0, totalFrames: 0 });
@@ -254,7 +257,7 @@ async function enhanceRemasterClipLegacy({ segment, videoElement = null, frameRa
     availableDuration,
     Number(segment.sourceDuration) || Number(segment.duration) || availableDuration,
   ));
-  const safeFrameRate = Math.max(1, Math.min(60, Math.round(Number(frameRate) || 30)));
+  const safeFrameRate = Math.max(1, Math.min(60, Number(frameRate) || 30));
   const totalFrames = Math.max(1, Math.ceil(sourceDuration * safeFrameRate));
   let outputSize = null;
   let backend = "";
@@ -271,7 +274,7 @@ async function enhanceRemasterClipLegacy({ segment, videoElement = null, frameRa
         throwIfAborted(signal);
         await seekVideo(video, sourceStart + index / safeFrameRate, signal);
         const bitmap = await createImageBitmap(video);
-        const result = await enhanceRemasterFrame({
+        const result = await frameEnhancer({
           bitmap,
           maxLongEdge,
           strength,

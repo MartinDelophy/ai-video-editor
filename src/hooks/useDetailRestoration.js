@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 
-import { restoreNanoVsrImage, restoreNanoVsrVideo } from "../lib/nanovsr.js";
+import { restoreDetailImage, restoreDetailVideo } from "../lib/hdDetailRestoration.js";
+import { DEFAULT_DETAIL_SETTINGS, normalizeDetailSettings } from "../lib/detailEnhancement.js";
 
 function makeName(segment) {
   const base = String(segment?.name || segment?.type || "media").replace(/\.[^.]+$/, "");
-  return `${base}-nanovsr-4x.${segment?.type === "video" ? "mp4" : "png"}`;
+  return `${base}-detail-enhanced.${segment?.type === "video" ? "mp4" : "png"}`;
 }
 
 const EMPTY_JOB = {
@@ -16,7 +17,7 @@ const EMPTY_JOB = {
   backend: "",
 };
 
-export function useNanoVsrRestoration({
+export function useDetailRestoration({
   selectedSegment,
   imageUrlRefs,
   setVisualSegments,
@@ -26,10 +27,11 @@ export function useNanoVsrRestoration({
 }) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [result, setResult] = useState(null);
+  const [settings, setSettings] = useState(DEFAULT_DETAIL_SETTINGS);
   const [job, setJob] = useState(EMPTY_JOB);
   const resultRef = useRef(null);
   const controllerRef = useRef(null);
-  const savedEnhancement = selectedSegment?.enhancement?.mode === "nanovsr-644k"
+  const savedEnhancement = ["nanovsr-644k", "detail-enhancement"].includes(selectedSegment?.enhancement?.mode)
     ? selectedSegment.enhancement
     : null;
   const sourceSegment = savedEnhancement?.original?.src
@@ -44,9 +46,11 @@ export function useNanoVsrRestoration({
 
   useEffect(() => {
     controllerRef.current?.abort();
+    controllerRef.current = null;
     setDialogOpen(false);
     clearResult();
     setJob(EMPTY_JOB);
+    setSettings(DEFAULT_DETAIL_SETTINGS);
   }, [selectedSegment?.id]);
 
   useEffect(() => () => {
@@ -55,6 +59,7 @@ export function useNanoVsrRestoration({
   }, []);
 
   const openDialog = () => {
+    setSettings(normalizeDetailSettings(resultRef.current?.settings ?? savedEnhancement?.settings));
     if (!selectedSegment || !["image", "video"].includes(selectedSegment.type)) {
       notify(t("hdRestoreSelectMedia"));
       return;
@@ -68,7 +73,8 @@ export function useNanoVsrRestoration({
         url,
         ownedUrl,
         type: selectedSegment.type,
-        backend: savedEnhancement.backend || "webgpu",
+        backend: savedEnhancement.backend || "local",
+        settings: normalizeDetailSettings(savedEnhancement.settings),
         frameRate: savedEnhancement.frameRate,
         totalFrames: savedEnhancement.totalFrames,
       };
@@ -83,33 +89,38 @@ export function useNanoVsrRestoration({
   };
 
   const run = async () => {
-    if (!selectedSegment || job.running) return false;
+    if (!selectedSegment || controllerRef.current) return false;
     clearResult();
     const controller = new AbortController();
     controllerRef.current = controller;
     setJob({ ...EMPTY_JOB, running: true, progress: 1, phaseKey: "hdRestorePhasePrepare", startedAt: Date.now() });
     try {
-      const restore = selectedSegment.type === "video" ? restoreNanoVsrVideo : restoreNanoVsrImage;
+      const restore = selectedSegment.type === "video" ? restoreDetailVideo : restoreDetailImage;
       const nextResult = await restore({
         segment: sourceSegment,
         signal: controller.signal,
-        frameRate: 12,
-        onProgress: (message) => setJob((current) => ({
+        settings: normalizeDetailSettings(settings),
+        onProgress: (message) => {
+          if (controller.signal.aborted || controllerRef.current !== controller) return;
+          setJob((current) => ({
           ...current,
           ...message,
           running: true,
           progress: message.progress ?? Math.round((message.value || 0) * 100),
-          backend: message.backend || current.backend || "webgpu",
-        })),
+          backend: message.backend || current.backend || "local",
+        }));
+        },
       });
       const url = URL.createObjectURL(nextResult.blob);
-      const next = { ...nextResult, url, ownedUrl: true };
+      if (controller.signal.aborted) { URL.revokeObjectURL(url); return false; }
+      const next = { ...nextResult, settings: normalizeDetailSettings(settings), url, ownedUrl: true };
       resultRef.current = next;
       setResult(next);
-      setJob((current) => ({ ...current, running: false, progress: 100, phaseKey: "hdRestorePhaseReady", backend: "webgpu" }));
+      setJob((current) => ({ ...current, running: false, progress: 100, phaseKey: "hdRestorePhaseReady", backend: nextResult.backend || "cpu" }));
       notify(t("hdRestorePreviewReady"));
       return true;
     } catch (error) {
+      if (controllerRef.current !== controller) return false;
       if (error?.name === "AbortError") notify(t("hdRestoreCanceled"));
       else notify(`${t("hdRestoreFailed")}：${error instanceof Error ? error.message : String(error)}`);
       setJob((current) => ({ ...current, running: false }));
@@ -121,12 +132,12 @@ export function useNanoVsrRestoration({
 
   const apply = () => {
     const restored = resultRef.current;
-    if (!restored || !selectedSegment) return false;
+    if (!restored?.blob || !selectedSegment || job.running || JSON.stringify(restored.settings) !== JSON.stringify(normalizeDetailSettings(settings))) return false;
     const url = URL.createObjectURL(restored.blob);
     imageUrlRefs.current.add(url);
     const isVideo = selectedSegment.type === "video";
     const asset = {
-      id: `nanovsr-${crypto.randomUUID?.() ?? Date.now()}`,
+      id: `detail-${crypto.randomUUID?.() ?? Date.now()}`,
       type: selectedSegment.type,
       src: url,
       blob: restored.blob,
@@ -164,11 +175,12 @@ export function useNanoVsrRestoration({
         ...item,
         ...processed,
         enhancement: {
-          mode: "nanovsr-644k",
+          mode: "detail-enhancement",
+          settings: restored.settings,
           enabled: true,
           original,
           processed,
-          backend: restored.backend || "webgpu",
+          backend: restored.backend || "local",
           frameRate: restored.frameRate,
           totalFrames: restored.totalFrames,
         },
@@ -188,6 +200,9 @@ export function useNanoVsrRestoration({
 
   return {
     dialogOpen,
+    settings,
+    setSettings,
+    settingsDirty: Boolean(result && JSON.stringify(result.settings) !== JSON.stringify(normalizeDetailSettings(settings))),
     sourceSegment,
     result,
     job,

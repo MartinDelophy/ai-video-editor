@@ -14,7 +14,7 @@ import { AssetDragPreview, ExportProgressOverlay } from "./components/EditorOver
 import { EditorSidebar } from "./components/EditorSidebar.jsx";
 import { FirstVisualGuide } from "./components/FirstVisualGuide.jsx";
 import { MiganRepairDialog } from "./components/MiganRepairDialog.jsx";
-import { NanoVsrRestorationDialog } from "./components/NanoVsrRestorationDialog.jsx";
+import { DetailRestorationDialog } from "./components/DetailRestorationDialog.jsx";
 import { SmartDenoiseDialog } from "./components/SmartDenoiseDialog.jsx";
 import { WebMcpReview, WebMcpAiStatus } from "./components/WebMcpReview.jsx";
 import ProjectImportOverlay from "./components/ProjectImportOverlay.jsx";
@@ -83,7 +83,7 @@ import { createTranslator, getStoredLanguage, translateOptionName } from "./i18n
 import { decodeWaveform, downloadBlob } from "./lib/media.js";
 import { useAiMusicGeneration } from "./hooks/useAiMusicGeneration.js";
 import { useMiganRepair } from "./hooks/useMiganRepair.js";
-import { useNanoVsrRestoration } from "./hooks/useNanoVsrRestoration.js";
+import { useDetailRestoration } from "./hooks/useDetailRestoration.js";
 import { useSmartDenoise } from "./hooks/useSmartDenoise.js";
 import { useGenerationPlugins } from "./hooks/useGenerationPlugins.js";
 import { getVisualAssetPayload, getVisualSegmentTimeline, getImageThumbnailCount, getVisualSegmentsTotal, normalizeTimedSegmentIds } from "./lib/timeline.js";
@@ -449,7 +449,7 @@ export function App({ hostSession = null }) {
       if (change.photoParallax) return { ...item, photoParallax: normalizePhotoParallax(change.photoParallax) };
       if (change.vectorPatch && (item.kind === "vector" || item.vectorBody)) return { ...item, ...change.vectorPatch };
       if (typeof change.enhancementEnabled === "boolean" && item.enhancement) {
-        if (["remaster-drunet-full", "nanovsr-644k", "smart-denoise-drunet"].includes(item.enhancement.mode)) {
+        if (["remaster-drunet-full", "nanovsr-644k", "detail-enhancement", "smart-denoise-drunet"].includes(item.enhancement.mode)) {
           const source = change.enhancementEnabled ? item.enhancement.processed : item.enhancement.original;
           if (!source?.src) return item;
           return {
@@ -545,7 +545,7 @@ export function App({ hostSession = null }) {
     notify,
     t,
   });
-  const hdRestoration = useNanoVsrRestoration({
+  const hdRestoration = useDetailRestoration({
     selectedSegment: selectedVisualSegment,
     imageUrlRefs,
     setVisualSegments,
@@ -2144,7 +2144,7 @@ export function App({ hostSession = null }) {
         t={t}
         onApplied={() => changeMobilePanel("")}
       />
-      <NanoVsrRestorationDialog
+      <DetailRestorationDialog
         restoration={hdRestoration}
         segment={hdRestoration.sourceSegment || selectedVisualSegment}
         t={t}

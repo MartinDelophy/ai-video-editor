@@ -31,11 +31,11 @@ Người dùng tự chịu mọi trách nhiệm pháp lý phát sinh từ việc
 
 ## Cập nhật dự án
 
+- **2026-10-24** — Thay khôi phục HD bằng tăng tương phản cục bộ và đường viền không cần mô hình, giữ độ phân giải gốc, có so sánh và lưu thông số. Sửa âm thanh khi so sánh và nội dung trạng thái. Truyền khung hình trực tiếp và tái sử dụng bộ đệm mà không đổi bộ lọc. Cải thiện hình ảnh bằng WebGPU, ưu tiên GPU hiệu năng cao, dự phòng CPU và hiển thị bộ xử lý thực tế.
 - **2026-10-21** — Tích hợp phân tích cảnh, kế hoạch có thể duyệt, tóm tắt kèm bằng chứng và tìm kiếm hình ảnh ngoại tuyến tùy chọn (#112–#115). Cần chuẩn bị riêng môi trường ngoại tuyến. [#112–#115](docs/material-analysis.md).
 - **2026-10-21** — Xuất bản nháp Jianying có thể chỉnh sửa qua host cục bộ và CLI, gồm khung hình chính biến đổi và báo cáo tương thích; dành cho Jianying Pro Trung Quốc 11.6.0 trên macOS.
 - **2026-10-20** — Thêm máy chủ cục bộ tùy chọn cho macOS với lưu dự án bền vững, gia hạn phiên và khôi phục quyền ghi. Vẫn giữ trình chỉnh sửa trên trình duyệt. [Thiết lập và giới hạn](docs/local-host.md).
 - **2026-10-19** — Đã sửa lỗi không thể phát lại khi bản xem trước so sánh xóa hình mờ AI kết thúc.
-- **2026-10-17** — Sửa liên kết phụ đề, âm thanh và nhãn dán khi chuyển giữa các cảnh, đồng bộ xóa và di chuyển; tránh nhảy vị trí khi chọn phụ đề và tinh gọn tổng quan âm thanh. Có thể tô nổi bật văn bản đã chọn riêng cho từng phụ đề, chọn màu và xóa phần tô.
 Xem [Roadmap](ROADMAP.md) cho công việc dự kiến, [Releases](https://github.com/MartinDelophy/ai-video-editor/releases) cho thay đổi đã phát hành và [Issues](https://github.com/MartinDelophy/ai-video-editor/issues) cho nhiệm vụ và lỗi.
 
 ## Có thể tạo ra những gì?

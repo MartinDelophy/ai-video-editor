@@ -12792,3 +12792,10 @@ canvas.relight-position { width:100%; height:auto; display:block; }
 .caption-highlight-actions label { display:flex; align-items:center; gap:6px; margin-left:auto; font-size:12px; color:#93a4ad; }
 .caption-highlight-actions input[type=color] { width:32px; height:30px; padding:3px; border:1px solid #29464d; border-radius:7px; background:#0c181d; }
 .caption-highlight-actions small { flex-basis:100%; color:#93a4ad; font-size:11px; line-height:1.5; }
+
+.detail-enhancement-controls label { display: grid; gap: 8px; min-width: 0; }
+.detail-enhancement-controls label > span { display: flex; justify-content: space-between; gap: 12px; font-size: 12px; color: #c5d2d6; }
+.detail-enhancement-controls output { font-variant-numeric: tabular-nums; }
+.detail-enhancement-controls input { width: 100%; accent-color: #39d5ee; }
+.detail-enhancement-controls button { font-size: 12px; cursor: pointer; }
+.detail-enhancement-controls button:disabled { cursor: not-allowed; }

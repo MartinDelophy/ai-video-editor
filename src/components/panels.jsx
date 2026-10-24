@@ -2271,11 +2271,11 @@ export function VisualEffectsPanel({
             <article className="repair-capability is-available">
               <span><Scan size={18} weight="duotone" /></span>
               <div><strong>{t("repairHdCapability")}</strong><small>{t("repairHdCapabilityHint")}</small></div>
-              <button className="panel-primary" type="button" onClick={hdRestoration?.openDialog}>{segment?.enhancement?.mode === "nanovsr-644k" ? t("repairEditAgain") : t("repairOpenEditor")}</button>
+              <button className="panel-primary" type="button" onClick={hdRestoration?.openDialog}>{["nanovsr-644k", "detail-enhancement"].includes(segment?.enhancement?.mode) ? t("repairEditAgain") : t("repairOpenEditor")}</button>
             </article>
           </div>
           {segment?.repair ? <label className="switch-row repair-result-toggle"><input type="checkbox" checked={segment.repair.enabled !== false} onChange={(event) => onChange?.({ repairEnabled: event.target.checked })} />{t("repairUseResult")}</label> : null}
-          {segment?.enhancement?.mode === "nanovsr-644k" ? <label className="switch-row repair-result-toggle"><input type="checkbox" checked={segment.enhancement.enabled !== false} onChange={(event) => onChange?.({ enhancementEnabled: event.target.checked })} />{t("hdRestoreUseResult")}</label> : null}
+          {["nanovsr-644k", "detail-enhancement"].includes(segment?.enhancement?.mode) ? <label className="switch-row repair-result-toggle"><input type="checkbox" checked={segment.enhancement.enabled !== false} onChange={(event) => onChange?.({ enhancementEnabled: event.target.checked })} />{t("hdRestoreUseResult")}</label> : null}
           {segment?.enhancement?.mode === "smart-denoise-drunet" ? <label className="switch-row repair-result-toggle"><input type="checkbox" checked={segment.enhancement.enabled !== false} onChange={(event) => onChange?.({ enhancementEnabled: event.target.checked })} />{t("denoiseUseResult")}</label> : null}
         </section> : null}
         </div>

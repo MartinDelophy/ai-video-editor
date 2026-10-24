@@ -42,11 +42,11 @@ Users are solely responsible for any legal liability arising from violations of 
 
 ## Project updates
 
+- **2026-10-24** — Replaced model-based HD restoration with adjustable local contrast and edge enhancement at original resolution, with before/after comparison and saved settings. Comparison playback uses one audible source stream, and enhancement status copy is consistent. Direct frame transfer and reusable buffers now avoid per-frame PNG round trips while keeping the enhancement algorithm unchanged. Detail enhancement now runs luminance, blur and edge processing on WebGPU, prefers a high-performance GPU, and falls back to the CPU when unavailable; the workspace shows the actual backend.
 - **2026-10-21** — Integrated saved source-scene analysis, reviewed execution plans, evidence-linked transcript summaries and optional offline visual search (#112–#115). Offline runtimes require separate preparation. [#112–#115](docs/material-analysis.md).
 - **2026-10-21** — Added editable Jianying Pro draft export through the local host and CLI, including transform keyframes and compatibility reports; targets domestic Jianying Pro 11.6.0 on macOS.
 - **2026-10-20** — Added an optional macOS local host with durable project saving, active-session renewal and recoverable write leases. The browser editor remains available. [Setup and limits](docs/local-host.md).
 - **2026-10-19** — Fixed replay after the AI watermark-removal comparison preview reaches the end.
-- **2026-10-17** — Fixed caption, audio and sticker ownership when moving between visual clips, synchronized deletion and movement, prevented caption selection jumps, and simplified the audio overview. Caption text selections can now be highlighted independently per segment, with a dedicated color and clear action.
 See the public [Roadmap](ROADMAP.md) for planned work, [Releases](https://github.com/MartinDelophy/ai-video-editor/releases) for shipped changes, and [Issues](https://github.com/MartinDelophy/ai-video-editor/issues) for focused tasks and bugs.
 
 ## What can it produce?

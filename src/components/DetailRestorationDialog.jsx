@@ -10,7 +10,7 @@ function formatSeconds(value) {
   return `${Math.max(0, Number(value) || 0).toFixed(2)}s`;
 }
 
-export function NanoVsrRestorationDialog({ restoration, segment, t, onApplied }) {
+export function DetailRestorationDialog({ restoration, segment, t, onApplied }) {
   const stageRef = useRef(null);
   const sourceVideoRef = useRef(null);
   const resultVideoRef = useRef(null);
@@ -23,6 +23,9 @@ export function NanoVsrRestorationDialog({ restoration, segment, t, onApplied })
   const mediaRatio = Math.max(0.2, Math.min(5, (Number(segment?.width) || 16) / (Number(segment?.height) || 9)));
   const result = restoration?.result;
   restorationRef.current = restoration;
+  const activeBackend = restoration?.job?.running ? restoration.job.backend : result?.backend;
+  const phaseLabel = String(t(restoration?.job?.phaseKey || "", restoration?.job?.phaseKey || ""))
+    .replace(/\{(\w+)\}/g, (match, key) => restoration?.job?.phaseParams?.[key] ?? match);
 
   useEffect(() => {
     if (!restoration?.dialogOpen) return undefined;
@@ -45,6 +48,15 @@ export function NanoVsrRestorationDialog({ restoration, segment, t, onApplied })
       restored.currentTime = currentTime * playbackRate;
     }
   }, [currentTime, isVideo, restoration?.dialogOpen, result?.url, segment?.playbackRate, segment?.sourceStart]);
+
+  useEffect(() => {
+    if (!restoration?.dialogOpen) return undefined;
+    setCurrentTime(0);
+    setPlaying(false);
+    const source = sourceVideoRef.current;
+    const restored = resultVideoRef.current;
+    return () => { source?.pause(); restored?.pause(); };
+  }, [restoration?.dialogOpen, segment?.id]);
 
   if (!restoration?.dialogOpen || !segment) return null;
 
@@ -74,13 +86,21 @@ export function NanoVsrRestorationDialog({ restoration, segment, t, onApplied })
       return;
     }
     const rate = Math.max(0.25, Number(segment?.playbackRate) || 1);
+    const sourceStart = Math.max(0, Number(segment?.sourceStart) || 0);
+    const restart = currentTime >= duration - 0.04 || source.ended;
+    const time = restart ? 0 : currentTime;
+    if (restart) setCurrentTime(0);
+    source.currentTime = sourceStart + time * rate;
+    // Image-only processing: use exactly one original audio stream for both views.
+    source.muted = false;
+    source.volume = 1;
     source.playbackRate = rate;
     if (resultVideoRef.current) {
-      resultVideoRef.current.currentTime = currentTime * rate;
+      resultVideoRef.current.currentTime = time * rate;
       resultVideoRef.current.playbackRate = rate;
     }
     await Promise.allSettled([source.play(), resultVideoRef.current?.play()]);
-    setPlaying(true);
+    setPlaying(!source.paused);
   };
 
   const apply = () => {
@@ -95,7 +115,7 @@ export function NanoVsrRestorationDialog({ restoration, segment, t, onApplied })
             <span className="repair-dialog-icon"><Scan size={20} weight="duotone" /></span>
             <span>
               <strong id="hd-restoration-title">{t("hdRestoreDialogTitle")}</strong>
-              <small>{isVideo ? t("hdRestoreVideoMode") : t("hdRestoreImageMode")} · NanoVSR 644K · WebGPU</small>
+              <small>{isVideo ? t("hdRestoreVideoMode") : t("hdRestoreImageMode")}</small>
             </span>
           </div>
           <button type="button" aria-label={t("close")} disabled={restoration.job.running} onClick={restoration.closeDialog}><X size={20} /></button>
@@ -104,8 +124,8 @@ export function NanoVsrRestorationDialog({ restoration, segment, t, onApplied })
         <div className="repair-dialog-body">
           <main className="repair-dialog-workspace">
             <div className="repair-dialog-toolbar">
-              <div className="hd-restoration-model-chip"><Sparkle size={14} weight="fill" /><span>4× Super Resolution</span></div>
-              <span>{t("hdRestoreLocalOnly")}</span>
+              <div className="hd-restoration-model-chip"><Sparkle size={14} weight="fill" /><span>{t("detailEnhancementTitle")}</span></div>
+              <span>{t("hdRestoreLocalOnly")}{activeBackend === "webgpu" ? " · WebGPU" : activeBackend === "cpu" ? " · CPU" : ""}</span>
             </div>
 
             <div ref={stageRef} className="repair-dialog-stage hd-restoration-stage" style={{ "--repair-media-ratio": mediaRatio }}>
@@ -113,21 +133,27 @@ export function NanoVsrRestorationDialog({ restoration, segment, t, onApplied })
                 <video
                   ref={sourceVideoRef}
                   src={segment.src}
-                  muted
                   playsInline
                   preload="auto"
                   onTimeUpdate={(event) => {
                     if (event.currentTarget.paused) return;
                     const sourceStart = Math.max(0, Number(segment?.sourceStart) || 0);
                     const rate = Math.max(0.25, Number(segment?.playbackRate) || 1);
-                    setCurrentTime(clamp((event.currentTarget.currentTime - sourceStart) / rate, 0, duration));
+                    const time = (event.currentTarget.currentTime - sourceStart) / rate;
+                    setCurrentTime(clamp(time, 0, duration));
+                    if (time >= duration) {
+                      event.currentTarget.pause();
+                      resultVideoRef.current?.pause();
+                      setPlaying(false);
+                      return;
+                    }
                     const restored = resultVideoRef.current;
                     if (restored && Math.abs(restored.currentTime - (event.currentTarget.currentTime - sourceStart)) > 0.08) {
                       restored.currentTime = Math.max(0, event.currentTarget.currentTime - sourceStart);
                     }
                   }}
-                  onPause={() => setPlaying(false)}
-                  onEnded={() => setPlaying(false)}
+                  onPause={() => { resultVideoRef.current?.pause(); setPlaying(false); }}
+                  onEnded={() => { resultVideoRef.current?.pause(); setPlaying(false); }}
                 />
               ) : <img src={segment.src} alt={segment.name || ""} />}
 
@@ -147,7 +173,7 @@ export function NanoVsrRestorationDialog({ restoration, segment, t, onApplied })
                 <strong>{t("hdRestoreReadyTitle")}</strong>
                 <span>{t("hdRestoreReadyHint")}</span>
               </div> : null}
-              {restoration.job.running ? <div className="hd-restoration-processing"><i /><strong>{t(restoration.job.phaseKey, restoration.job.phaseKey)}</strong><span>{restoration.job.totalFrames > 0
+              {restoration.job.running ? <div className="hd-restoration-processing"><i /><strong>{phaseLabel}</strong><span>{restoration.job.totalFrames > 0
                 ? t("hdRestoreFramesProgress").replace("{current}", String(restoration.job.frameIndex || 0)).replace("{total}", String(restoration.job.totalFrames))
                 : `${Math.round(restoration.job.progress || 0)}%`}</span></div> : null}
             </div>
@@ -164,15 +190,17 @@ export function NanoVsrRestorationDialog({ restoration, segment, t, onApplied })
           <aside className="repair-dialog-inspector hd-restoration-inspector">
             <section>
               <span className="hd-restoration-section-label">{t("hdRestoreCapability")}</span>
-              <h3>{t("hdRestore4xTitle")}</h3>
-              <p>{t("hdRestore4xHint")}</p>
+              <h3>{t("detailEnhancementTitle")}</h3>
+              <p>{t("detailEnhancementHint")}</p>
             </section>
-            <dl>
-              <div><dt>{t("hdRestoreModel")}</dt><dd>NanoVSR 644K</dd></div>
-              <div><dt>{t("hdRestoreBackend")}</dt><dd>WebGPU</dd></div>
-              <div><dt>{t("hdRestoreScale")}</dt><dd>4×</dd></div>
-              {isVideo ? <div><dt>{t("hdRestoreFrameRate")}</dt><dd>12 fps</dd></div> : null}
-            </dl>
+            <section className="detail-enhancement-controls">
+              {["depth", "edges"].map((key) => <label key={key}>
+                <span>{t(key === "depth" ? "detailDepth" : "detailEdges")}<output>{restoration.settings[key]}%</output></span>
+                <input type="range" min="0" max="100" step="1" value={restoration.settings[key]} disabled={restoration.job.running} onChange={(event) => restoration.setSettings((current) => ({ ...current, [key]: Number(event.target.value) }))} />
+              </label>)}
+              <button type="button" className="panel-secondary" disabled={restoration.job.running} onClick={() => restoration.setSettings({ depth: 0, edges: 0 })}>{t("detailReset")}</button>
+              <p aria-live="polite">{t(restoration.settingsDirty ? "detailSettingsChanged" : "detailRegenerateHint")}</p>
+            </section>
             <div className="hd-restoration-privacy"><Check size={14} weight="bold" /><span>{t("hdRestorePrivacy")}</span></div>
             <p className="repair-dialog-hint">{isVideo ? t("hdRestoreVideoHint") : t("hdRestoreImageHint")}</p>
           </aside>
@@ -181,7 +209,7 @@ export function NanoVsrRestorationDialog({ restoration, segment, t, onApplied })
         <footer className="repair-dialog-footer">
           <div className="repair-dialog-progress" aria-live="polite">
             {restoration.job.progress > 0 ? <>
-              <span>{t(restoration.job.phaseKey, restoration.job.phaseKey)} · {Math.round(restoration.job.progress)}%{restoration.job.totalFrames > 0
+              <span>{phaseLabel} · {Math.round(restoration.job.progress)}%{restoration.job.totalFrames > 0
                 ? ` · ${t("hdRestoreFramesProgress").replace("{current}", String(restoration.job.frameIndex || 0)).replace("{total}", String(restoration.job.totalFrames))}`
                 : ""}</span>
               <i><b style={{ width: `${clamp(restoration.job.progress, 0, 100)}%` }} /></i>
@@ -193,7 +221,7 @@ export function NanoVsrRestorationDialog({ restoration, segment, t, onApplied })
               : <>
                 <button type="button" className="panel-secondary" onClick={restoration.closeDialog}>{t("repairCancel")}</button>
                 <button type="button" className="panel-secondary" onClick={restoration.run}>{result ? t("hdRestoreRunAgain") : t("hdRestoreStart")}</button>
-                <button type="button" className="panel-primary" disabled={!result} onClick={apply}><Check size={16} />{t("hdRestoreApply")}</button>
+                <button type="button" className="panel-primary" disabled={!result || restoration.settingsDirty} onClick={apply}><Check size={16} />{t("hdRestoreApply")}</button>
               </>}
           </div>
         </footer>

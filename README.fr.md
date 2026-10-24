@@ -31,11 +31,11 @@ L’utilisateur assume seul toute responsabilité juridique découlant du non-re
 
 ## Actualités du projet
 
+- **2026-10-24** — La restauration HD utilise désormais un contraste local et des contours réglables sans modèle, à résolution d’origine, avec comparaison et réglages enregistrés. Son de comparaison et textes d’état corrigés. Transfert direct des images et réutilisation des tampons sans modifier le filtre. Amélioration d’image via WebGPU avec préférence pour un GPU performant, repli CPU et affichage du moteur utilisé.
 - **2026-10-21** — Intégration des scènes sources, plans vérifiables, résumés étayés et recherche visuelle hors ligne facultative (#112–#115). Les environnements hors ligne se préparent séparément. [#112–#115](docs/material-analysis.md).
 - **2026-10-21** — Export de brouillons Jianying modifiables via l’hôte local et la CLI, avec images clés de transformation et rapport de compatibilité ; cible : Jianying Pro chinois 11.6.0 sur macOS.
 - **2026-10-20** — Ajout d’un hôte local facultatif pour macOS avec sauvegarde durable, renouvellement des sessions et récupération des baux d’écriture. L’éditeur web reste disponible. [Configuration et limites](docs/local-host.md).
 - **2026-10-19** — Correction de la relecture après la fin de l’aperçu comparatif de suppression de filigrane par IA.
-- **2026-10-17** — Correction des liens des sous-titres, sons et autocollants déplacés entre plans, avec suppression et déplacement synchronisés ; sélection des sous-titres sans saut et aperçu audio simplifié. Chaque sous-titre permet de surligner une sélection, choisir sa couleur et effacer le surlignage.
 Consultez la [Roadmap](ROADMAP.md) pour les travaux prévus, les [Releases](https://github.com/MartinDelophy/ai-video-editor/releases) pour les changements publiés et les [Issues](https://github.com/MartinDelophy/ai-video-editor/issues) pour les tâches et anomalies.
 
 ## Que peut-il produire ?

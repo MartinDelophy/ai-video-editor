@@ -1,6 +1,6 @@
 # Timeline Studio generation plugin development
 
-This document is the source-of-truth contract for adding image and video generation providers to Timeline Studio. It is written so that a coding agent can implement a provider without rediscovering the product boundary or copying another provider blindly.
+This document is the source-of-truth contract for adding image, video and music generation providers to Timeline Studio. It is written so that a coding agent can implement a provider without rediscovering the product boundary or copying another provider blindly.
 
 ## Current status
 
@@ -300,3 +300,7 @@ Anna-only `anna` adapter uses the platform `image.generate` and `image.edit` Hos
 Reference: https://anna.partners/developers/reference/host-api-image.md (verified 2026-10-02). The synchronous RPC has no remote cancellation/progress endpoint; stopping aborts local waiting/downloads and suppresses late commits, but does not promise to stop cloud computation or billing. The UI uses indeterminate progress and explains this account quota boundary before generation.
 
 Anna image editing also accepts an optional PNG mask: white selects editable pixels, black preserves them, at source-image dimensions. The ChatCut image editor creates this mask from brush strokes or rectangular annotations. The adapter uploads the source and mask, forwards mask_url, and composites provider output only inside the mask before host-owned My assets commit. The selected provider must support mask editing; unsupported/error responses never fall back to a whole-image edit. Local temporary-browser checks verified brush/rectangle coordinates and preservation of unselected pixels with a mocked remote response; successful masked Anna cloud inference is not yet verified. UI copy is direct in all 13 interface languages.
+
+## Anna music
+
+The registered Anna connector also accepts `text-to-music` and downloaded `audio` outputs. Its isolated transport is `providers/anna/music.js`; Smart exposes its catalog-driven inspector. Audio commits use the shared host with decoded waveform/duration and `kind: music`. See [Anna music generation](anna-music-generation.md) for grants, idempotency and recovery boundaries.

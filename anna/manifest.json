@@ -103,6 +103,12 @@
         "transcribe",
         "speak",
         "session"
+      ],
+      "music": [
+        "generate",
+        "getJob",
+        "cancelJob",
+        "listJobs"
       ]
     },
     "csp_overrides": {

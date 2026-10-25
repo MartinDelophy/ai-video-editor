@@ -1,3 +1,4 @@
+import { getAnnaMusicCopy } from "../i18nAnnaMusic.js";
 import { AutoCaptionAction } from "./AutoCaptionAction.jsx";
 import { useAnnaSpeech } from "../hooks/useAnnaSpeech.js";
 import { getAnnaAudioCopy, getAnnaAuditionCopy } from "../i18nAnnaAudio.js";
@@ -1488,6 +1489,7 @@ export function ToolPanel(props) {
         }}><MagicWand size={24} weight="duotone" /><strong>{t("annaVideoWatermark")}</strong><span>{t("repairWatermarkCapabilityHint")}</span></button>
         <button className={smartMode === "remove-pauses" ? "is-active" : ""} type="button" role="tab" aria-selected={smartMode === "remove-pauses"} onClick={() => { setSmartMode("remove-pauses"); if (window.matchMedia?.(COMPACT_WORKSPACE_QUERY).matches) openMobileInspector?.(); }}><Scissors size={24} weight="duotone" /><strong>{t("pauseTitle")}</strong><span>{t("pauseHint")}</span></button>
         {supportsFileSpeech() && <button className={smartMode === "browser-captions" ? "is-active" : ""} type="button" role="tab" aria-selected={smartMode === "browser-captions"} onClick={() => { setSmartMode("browser-captions"); if (window.matchMedia?.(COMPACT_WORKSPACE_QUERY).matches) openMobileInspector?.(); }}><ClosedCaptioning size={24} weight="duotone" /><strong>{getBrowserCaptionCopy(uiLanguage).title}</strong><span>{getBrowserCaptionCopy(uiLanguage).hint}</span></button>}
+        <button type="button" role="tab" aria-selected={smartMode === "anna-music"} className={`anna-music-card ${smartMode === "anna-music" ? "is-active" : ""}`} onClick={() => { setSmartMode("anna-music"); if (window.matchMedia?.(COMPACT_WORKSPACE_QUERY).matches) openMobileInspector?.(); }}><MusicNote size={24} weight="duotone"/><strong>{getAnnaMusicCopy(uiLanguage).title}</strong><span>{getAnnaMusicCopy(uiLanguage).hint}</span></button>
       </div>
     </div>;
     const aiCopy = AI_MUSIC_COPY[uiLanguage] || AI_MUSIC_COPY.en;

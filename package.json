@@ -35,7 +35,7 @@
     "build:anna:executa": "node scripts/build-anna-executa.mjs"
   },
   "dependencies": {
-    "@anna-ai/app-runtime": "0.21.0",
+    "@anna-ai/app-runtime": "0.26.0",
     "@diffusionstudio/piper-wasm": "1.0.0",
     "@diffusionstudio/vits-web": "^1.0.3",
     "@ffmpeg/core": "^0.12.10",

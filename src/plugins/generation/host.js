@@ -1,3 +1,4 @@
+import { decodeWaveform } from "../../lib/media.js";
 function imageExtensionForMime(mime) {
   if (mime === "image/jpeg") return "jpg";
   if (mime === "image/webp") return "webp";
@@ -105,8 +106,17 @@ export async function commitGenerationOutputs(outputs, {
     if (!(output.blob instanceof Blob) || output.blob.size === 0) {
       throw new Error(`The provider did not return downloadable bytes for ${output.fileName || "an output"}.`);
     }
-    const id = crypto.randomUUID();
-    if (output.type === "video") {
+    const id = output.type === "audio" && output.provenance?.jobId ? `anna-music-${output.provenance.jobId}` : crypto.randomUUID();
+    if (output.type === "audio") {
+      const decoded = await decodeWaveform(output.blob, 96);
+      if (!Number.isFinite(decoded.duration) || decoded.duration <= 0) throw new Error("invalid_result");
+      const src = URL.createObjectURL(output.blob);
+      imageUrlRefs.current.add(src);
+      assets.push({ id, type: "audio", kind: "music", name: output.fileName,
+        src, previewSrc: src, blob: output.blob, duration: decoded.duration, peaks: decoded.peaks,
+        meta: `${decoded.duration.toFixed(1)}s`, provider: output.providerLabel,
+        generated: true, prompt: output.prompt, generation: output.provenance });
+    } else if (output.type === "video") {
       const info = output.width && output.height ? output : { ...output, ...(await inspectVideoBlob(output.blob)) };
       const src = URL.createObjectURL(output.blob);
       imageUrlRefs.current.add(src);
@@ -153,7 +163,7 @@ export async function commitGenerationOutputs(outputs, {
     for (const asset of assets) { URL.revokeObjectURL(asset.src); imageUrlRefs.current.delete(asset.src); }
     throw new DOMException("Cancelled", "AbortError");
   }
-  setUserAssets((items) => [...assets.slice().reverse(), ...items]);
+  setUserAssets((items) => [...assets.slice().reverse().filter(asset => asset.type !== "audio" || !items.some(item => item.id === asset.id)), ...items]);
   const selectedId = assets.at(-1)?.id || "";
   if (selectedId) setSelectedLibraryAssetId(selectedId);
   notify?.("生成结果已加入 My assets");

@@ -1,11 +1,13 @@
+import { generateAnnaMusicOutput } from "./music.js";
 import { preserveUnmaskedImage } from "../../../../lib/imageEditMask.js";
 import { connectAnna, generateAnnaVideo, generateAnnaImage, editAnnaImage } from "../../../../lib/annaRuntime.js";
 import { normalizeImageBlob } from "../../host.js";
 const check = signal => { if (signal?.aborted) throw new DOMException("Cancelled", "AbortError"); };
 export function createAnnaAdapter() {
   return {
-    async connect({ signal }) { await connectAnna({ signal }); return { state: "connected", capabilities: ["text-to-image", "image-to-image", "text-to-video", "image-to-video"] }; },
+    async connect({ signal }) { await connectAnna({ signal }); return { state: "connected", capabilities: ["text-to-music", "text-to-image", "image-to-image", "text-to-video", "image-to-video"] }; },
     async generate({ request, signal }) {
+      if (request.mode === "text-to-music") return generateAnnaMusicOutput(request, signal);
       if (request.mode === "text-to-video") {
         if (typeof request.prompt !== "string" || !request.prompt.trim() || request.prompt.length > 4000) throw new Error("invalid_request");
         const view = await generateAnnaVideo({ resolution: request.resolution, durationSec: request.durationSec, prompt: request.prompt, aspectRatio: request.aspectRatio, referenceBlob: request.referenceAssets?.[0]?.blob, jobId: request.providerOptions?.jobId, onJob: request.onJob, signal });

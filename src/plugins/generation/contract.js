@@ -1,6 +1,7 @@
 export const GENERATION_PROVIDER_SCHEMA_VERSION = 1;
 
 export const GENERATION_CAPABILITIES = new Set([
+  "text-to-music",
   "text-to-image",
   "image-to-image",
   "text-to-video",

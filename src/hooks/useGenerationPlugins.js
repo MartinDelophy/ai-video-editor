@@ -1,3 +1,4 @@
+import { useAnnaMusic } from "./useAnnaMusic.js";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getGenerationAdapter } from "../plugins/generation/adapters.js";
 import { createIdleGenerationJob, createInitialConnections } from "../plugins/generation/contract.js";
@@ -5,6 +6,7 @@ import { commitGenerationOutputs } from "../plugins/generation/host.js";
 import { GENERATION_PROVIDERS, getGenerationProvider } from "../plugins/generation/registry.js";
 
 export function useGenerationPlugins({ imageUrlRefs, notify, setActiveTool, setMediaTab, setSelectedLibraryAssetId, setUserAssets }) {
+  const annaMusic = useAnnaMusic({ imageUrlRefs, setSelectedLibraryAssetId, setUserAssets });
   const mountedRef = useRef(true);
   const connectionAttemptsRef = useRef({});
   const connectionControllersRef = useRef({});
@@ -181,6 +183,7 @@ export function useGenerationPlugins({ imageUrlRefs, notify, setActiveTool, setM
   }, [job.assetId, setActiveTool, setMediaTab, setSelectedLibraryAssetId]);
 
   return {
+    annaMusic,
     annaVideoJobId, annaVideoRequest, annaVideoDraft, setAnnaVideoDraft,
     generatedVideoPreview, closeGeneratedVideoPreview,
     selectedPluginId,

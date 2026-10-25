@@ -912,3 +912,18 @@ export async function transcribeAnnaAudio(blob, language, { signal } = {}) {
   if (typeof response?.text !== "string") throw new AnnaRuntimeError("invalid_plan");
   return response.text.trim();
 }
+
+
+/** Official music surface: no automatic submission retries. */
+export function annaMusicCall(method, args, options) {
+  if (!["generate", "getJob", "cancelJob", "listJobs"].includes(method)) throw new AnnaRuntimeError("invalid_request");
+  return hostCall("music", method, args, options);
+}
+export function getAnnaMusicCatalog(options) { return hostCall("llm", "catalog", { serviceType: "music_gen" }, options); }
+export async function readAnnaMusicPending() {
+  try { return (await hostCall("storage", "get", { key: "timeline-studio/music-pending-v1", scope: "app" }))?.value || null; }
+  catch (error) { if (error.code === "not_found") return null; throw error; }
+}
+export function writeAnnaMusicPending(value) {
+  return hostCall("storage", "set", { key: "timeline-studio/music-pending-v1", scope: "app", value });
+}

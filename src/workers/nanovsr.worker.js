@@ -39,6 +39,7 @@ async function loadModel(requestId, mode, modelSourcePreference) {
     progress(requestId, 0.34, "hdRestorePhaseModelCached");
     return cached.arrayBuffer();
   }
+  progress(requestId, 0.04, "hdRestorePhaseDownload");
   const { response } = await fetchFirstAvailableModel(mirroredModelFileUrls({
     repository: "timeline-studio-onnx-models",
     revision: MODEL_REVISION,
@@ -46,7 +47,7 @@ async function loadModel(requestId, mode, modelSourcePreference) {
     preference: modelSourcePreference,
   }));
   const total = Number(response.headers.get("content-length")) || 0;
-  if (!response.body || !total) {
+  if (!response.body) {
     const buffer = await response.arrayBuffer();
     await cache.put(cacheKey, new Response(buffer));
     return buffer;
@@ -59,7 +60,8 @@ async function loadModel(requestId, mode, modelSourcePreference) {
     if (done) break;
     chunks.push(value);
     received += value.byteLength;
-    progress(requestId, 0.05 + (received / total) * 0.3, "hdRestorePhaseDownload");
+    progress(requestId, total ? 0.05 + (received / total) * 0.3 : 0.05,
+      "hdRestorePhaseDownload", { downloadedBytes: received });
   }
   const bytes = new Uint8Array(received);
   let offset = 0;

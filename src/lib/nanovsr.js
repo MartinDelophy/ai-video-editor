@@ -1,8 +1,6 @@
 import { encodePngFrameSequence } from "./media.js";
-import { getModelSourcePreference } from "./modelSources.js";
-
-let worker = null;
-const pending = new Map();
+import { enhanceNanoVsrBitmaps } from "./nanovsrWorkerClient.js";
+export { enhanceNanoVsrBitmaps, disposeNanoVsrWorker } from "./nanovsrWorkerClient.js";
 
 function abortError() {
   const error = new Error("NanoVSR restoration canceled");
@@ -10,61 +8,12 @@ function abortError() {
   return error;
 }
 
-function getWorker() {
-  if (worker) return worker;
-  worker = new Worker(new URL("../workers/nanovsr.worker.js", import.meta.url), { type: "module" });
-  worker.addEventListener("message", (event) => {
-    const message = event.data ?? {};
-    const request = pending.get(message.requestId);
-    if (!request) return;
-    if (message.type === "progress") {
-      request.onProgress?.(message);
-      return;
-    }
-    pending.delete(message.requestId);
-    request.signal?.removeEventListener("abort", request.abort);
-    if (message.type === "result") request.resolve(message.result);
-    else request.reject(new Error(message.error || "NanoVSR restoration failed"));
-  });
-  worker.addEventListener("error", (event) => {
-    const error = new Error(event.message || "NanoVSR worker failed");
-    pending.forEach((request) => request.reject(error));
-    pending.clear();
-    worker?.terminate();
-    worker = null;
-  });
-  return worker;
-}
-
-export function enhanceNanoVsrBitmaps({ bitmaps, outputCount = bitmaps.length, signal, onProgress }) {
-  const requestId = `nanovsr-${crypto.randomUUID?.() ?? Date.now()}`;
-  return new Promise((resolve, reject) => {
-    const activeWorker = getWorker();
-    const abort = () => {
-      pending.delete(requestId);
-      activeWorker.postMessage({ type: "cancel", requestId });
-      reject(abortError());
-    };
-    if (signal?.aborted) {
-      bitmaps.forEach((bitmap) => bitmap.close?.());
-      abort();
-      return;
-    }
-    signal?.addEventListener("abort", abort, { once: true });
-    pending.set(requestId, { resolve, reject, onProgress, signal, abort });
-    activeWorker.postMessage({
-      type: "enhance",
-      requestId,
-      bitmaps,
-      outputCount,
-      modelSourcePreference: getModelSourcePreference(),
-    }, bitmaps);
-  });
-}
-
 function waitFor(video, eventName, signal) {
   return new Promise((resolve, reject) => {
+    if (signal?.aborted) { reject(abortError()); return; }
+    const timer = setTimeout(() => { cleanup(); reject(new DOMException("Video frame timed out", "TimeoutError")); }, 15_000);
     const cleanup = () => {
+      clearTimeout(timer);
       video.removeEventListener(eventName, ready);
       video.removeEventListener("error", failed);
       signal?.removeEventListener("abort", aborted);
@@ -99,14 +48,14 @@ async function seek(video, time, signal) {
   await waiting;
 }
 
-async function sourceBlobForSegment(segment) {
+async function sourceBlobForSegment(segment, signal) {
   if (segment.blob instanceof Blob) return segment.blob;
-  const response = await fetch(segment.src);
+  const response = await fetch(segment.src, { signal });
   return response.ok ? response.blob() : null;
 }
 
 export async function restoreNanoVsrImage({ segment, signal, onProgress }) {
-  const response = await fetch(segment.src);
+  const response = await fetch(segment.src, { signal });
   if (!response.ok) throw new Error(`Could not read image (HTTP ${response.status})`);
   const bitmap = await createImageBitmap(await response.blob());
   const result = await enhanceNanoVsrBitmaps({
@@ -132,7 +81,7 @@ export async function restoreNanoVsrVideo({
   ));
   const safeRate = Math.max(1, Math.min(15, Math.round(frameRate)));
   const totalFrames = Math.max(1, Math.ceil(sourceDuration * safeRate));
-  const sourceBlob = await sourceBlobForSegment(segment);
+  const sourceBlob = await sourceBlobForSegment(segment, signal);
   let groupStart = -1;
   let groupResults = [];
   let outputMeta = null;
@@ -198,12 +147,3 @@ export async function restoreNanoVsrVideo({
     video.load();
   }
 }
-
-export function disposeNanoVsrWorker() {
-  worker?.terminate();
-  worker = null;
-  pending.forEach((request) => request.reject(new Error("NanoVSR worker closed")));
-  pending.clear();
-}
-
-if (import.meta.hot) import.meta.hot.dispose(disposeNanoVsrWorker);

@@ -44,6 +44,7 @@ export function useNanoVsrRestoration({
 
   useEffect(() => {
     controllerRef.current?.abort();
+    controllerRef.current = null;
     setDialogOpen(false);
     clearResult();
     setJob(EMPTY_JOB);
@@ -83,7 +84,7 @@ export function useNanoVsrRestoration({
   };
 
   const run = async () => {
-    if (!selectedSegment || job.running) return false;
+    if (!selectedSegment || controllerRef.current) return false;
     clearResult();
     const controller = new AbortController();
     controllerRef.current = controller;
@@ -94,14 +95,18 @@ export function useNanoVsrRestoration({
         segment: sourceSegment,
         signal: controller.signal,
         frameRate: 12,
-        onProgress: (message) => setJob((current) => ({
+        onProgress: (message) => {
+          if (controller.signal.aborted || controllerRef.current !== controller) return;
+          setJob((current) => ({
           ...current,
           ...message,
           running: true,
           progress: message.progress ?? Math.round((message.value || 0) * 100),
           backend: message.backend || current.backend || "webgpu",
-        })),
+          }));
+        },
       });
+      if (controller.signal.aborted || controllerRef.current !== controller) return false;
       const url = URL.createObjectURL(nextResult.blob);
       const next = { ...nextResult, url, ownedUrl: true };
       resultRef.current = next;
@@ -110,8 +115,9 @@ export function useNanoVsrRestoration({
       notify(t("hdRestorePreviewReady"));
       return true;
     } catch (error) {
+      if (controllerRef.current !== controller) return false;
       if (error?.name === "AbortError") notify(t("hdRestoreCanceled"));
-      else notify(`${t("hdRestoreFailed")}：${error instanceof Error ? error.message : String(error)}`);
+      else notify(`${t("hdRestoreFailed")}：${error?.name === "TimeoutError" ? t("hdRestoreWorkerTimeout") : error instanceof Error ? error.message : String(error)}`);
       setJob((current) => ({ ...current, running: false }));
       return false;
     } finally {

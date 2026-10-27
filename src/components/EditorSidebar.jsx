@@ -142,8 +142,6 @@ export function EditorSidebar({ model: d }) {
             selectedCaptionSegment={d.selectedCaptionSegment}
             selectedSegmentId={d.selectedSegmentId}
             setSelectedSegmentId={d.setSelectedSegmentId}
-            setSelectedAudioSegmentId={d.setSelectedAudioSegmentId}
-            setSelectedTrack={d.setSelectedTrack}
             updateCaptionSegmentText={d.updateCaptionSegmentText}
             toggleCaptionSegmentHidden={d.toggleCaptionSegmentHidden}
             deleteCaptionSegment={d.deleteCaptionSegment}
@@ -196,6 +194,7 @@ export function EditorSidebar({ model: d }) {
             analyzeCurrentVisual={d.analyzeCurrentVisual}
             analyzeEffectVisual={d.analyzeEffectVisual}
             openAvatarPanel={d.openAvatarPanel}
+            openVoiceSynthesis={d.openVoiceSynthesis}
             smartMode={d.smartMode}
             setSmartMode={d.setSmartMode}
             openMobileInspector={() => d.setMobilePanel?.("inspector")}
@@ -206,7 +205,6 @@ export function EditorSidebar({ model: d }) {
             setMusicVolume={d.setMusicVolume}
             clearMusicTrack={d.clearMusicTrack}
             selectedVoice={d.selectedVoice}
-            setVoiceTab={d.setVoiceTab}
             downloadBlob={d.downloadBlob}
             notify={d.notify}
             t={d.t}

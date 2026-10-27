@@ -1051,8 +1051,6 @@ export function ToolPanel(props) {
     selectedCaptionSegment,
     selectedSegmentId,
     setSelectedSegmentId,
-    setSelectedAudioSegmentId,
-    setSelectedTrack,
     updateCaptionSegmentText,
     toggleCaptionSegmentHidden,
     deleteCaptionSegment,
@@ -1104,6 +1102,7 @@ export function ToolPanel(props) {
     analyzeCurrentVisual,
     analyzeEffectVisual,
     openAvatarPanel,
+    openVoiceSynthesis,
     smartMode,
     setSmartMode,
     openMobileInspector,
@@ -1114,7 +1113,6 @@ export function ToolPanel(props) {
     setMusicVolume,
     clearMusicTrack,
     selectedVoice,
-    setVoiceTab,
     downloadBlob,
     notify,
     t,
@@ -1454,12 +1452,7 @@ export function ToolPanel(props) {
         </div> : <button
           className="audio-entry-card"
           type="button"
-          onClick={() => {
-            setSelectedAudioSegmentId?.("");
-            setSelectedTrack?.("");
-            setVoiceTab("synthesis");
-            notify("已打开 AI 配音");
-          }}
+          onClick={openVoiceSynthesis}
         >
           <MicrophoneStage size={24} weight="duotone" />
           <span>

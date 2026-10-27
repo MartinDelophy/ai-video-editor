@@ -1671,6 +1671,14 @@ export function App({ hostSession = null }) {
           libraryType, libraryQuery, setLibraryQuery, selectLibraryType, libraryStatus, libraryError, libraryProvider,
           assetDownloadStates, prefetchLibraryAsset,
           notify, openAvatarPanel, previewVisionAnalysis, previewVisionKey, smartMode, setSmartMode,
+          openVoiceSynthesis: () => {
+            setSelectedAudioSegmentId("");
+            setSelectedTrack("");
+            setVoiceTab("synthesis");
+            setMobilePanelOrigin("");
+            setMobileInspectorSection("");
+            if (window.matchMedia?.(COMPACT_WORKSPACE_QUERY).matches) changeMobilePanel("inspector");
+          },
           previewVisionOptions, previewVisualSrc, previewVisualType, progress, script,
           seekTo, segments, selectTool, selectedCaptionSegment, selectedFilterId,
           selectedLibraryAssetId, selectedSegmentId, selectedStickerId, selectedTransitionId,

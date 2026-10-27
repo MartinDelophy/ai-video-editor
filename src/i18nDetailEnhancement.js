@@ -26,7 +26,9 @@ export const DETAIL_ENHANCEMENT_COPY = {
     "hdRestoreFailed": "画质增强失败",
     "hdRestoreCanceled": "画质增强已取消，原片保持不变",
     "hdRestorePhasePrepare": "正在准备画质增强",
-    "hdRestorePhaseRender": "正在生成增强画面"
+    "hdRestorePhaseRender": "正在生成增强画面",
+    "hdRestorePhaseCpuFallback": "GPU 暂无响应，正在改用 CPU 继续处理",
+    "hdRestoreWorkerTimeout": "单帧处理超时，请重试或缩短片段。原素材未改变。"
   },
   "en": {
     "detailEnhancementTitle": "Image quality enhancement",
@@ -55,7 +57,9 @@ export const DETAIL_ENHANCEMENT_COPY = {
     "hdRestoreFailed": "Image quality enhancement failed",
     "hdRestoreCanceled": "Enhancement canceled; the original is unchanged",
     "hdRestorePhasePrepare": "Preparing image quality enhancement",
-    "hdRestorePhaseRender": "Rendering enhanced frames"
+    "hdRestorePhaseRender": "Rendering enhanced frames",
+    "hdRestorePhaseCpuFallback": "GPU is not responding; continuing on CPU",
+    "hdRestoreWorkerTimeout": "Frame processing timed out. Retry or shorten the clip. The original is unchanged."
   },
   "ja": {
     "detailEnhancementTitle": "画質強調",
@@ -84,7 +88,9 @@ export const DETAIL_ENHANCEMENT_COPY = {
     "hdRestoreFailed": "画質強調に失敗",
     "hdRestoreCanceled": "補正をキャンセルしました。元の素材は保持されています",
     "hdRestorePhasePrepare": "画質強調を準備中",
-    "hdRestorePhaseRender": "補正フレームを生成中"
+    "hdRestorePhaseRender": "補正フレームを生成中",
+    "hdRestorePhaseCpuFallback": "GPU が応答しないため CPU で処理を続行中",
+    "hdRestoreWorkerTimeout": "フレーム処理がタイムアウトしました。再試行するかクリップを短くしてください。元の素材は変更されていません。"
   },
   "ko": {
     "detailEnhancementTitle": "화질 향상",
@@ -113,7 +119,9 @@ export const DETAIL_ENHANCEMENT_COPY = {
     "hdRestoreFailed": "화질 향상 실패",
     "hdRestoreCanceled": "보정을 취소했습니다. 원본은 유지됩니다",
     "hdRestorePhasePrepare": "화질 향상 준비 중",
-    "hdRestorePhaseRender": "보정 프레임 생성 중"
+    "hdRestorePhaseRender": "보정 프레임 생성 중",
+    "hdRestorePhaseCpuFallback": "GPU가 응답하지 않아 CPU로 처리 계속 중",
+    "hdRestoreWorkerTimeout": "프레임 처리 시간이 초과되었습니다. 다시 시도하거나 클립을 줄이세요. 원본은 변경되지 않았습니다."
   },
   "es": {
     "detailEnhancementTitle": "Mejora de calidad de imagen",
@@ -142,7 +150,9 @@ export const DETAIL_ENHANCEMENT_COPY = {
     "hdRestoreFailed": "Error de mejora de calidad de imagen",
     "hdRestoreCanceled": "Mejora cancelada; el original no ha cambiado",
     "hdRestorePhasePrepare": "Preparando mejora de calidad de imagen",
-    "hdRestorePhaseRender": "Generando fotogramas mejorados"
+    "hdRestorePhaseRender": "Generando fotogramas mejorados",
+    "hdRestorePhaseCpuFallback": "La GPU no responde; continuando con la CPU",
+    "hdRestoreWorkerTimeout": "Se agotó el tiempo de procesamiento del fotograma. Reintenta o acorta el clip. El original no ha cambiado."
   },
   "fr": {
     "detailEnhancementTitle": "Amélioration de la qualité d’image",
@@ -171,7 +181,9 @@ export const DETAIL_ENHANCEMENT_COPY = {
     "hdRestoreFailed": "Échec de l’amélioration de la qualité d’image",
     "hdRestoreCanceled": "Amélioration annulée ; l’original est conservé",
     "hdRestorePhasePrepare": "Préparation de l’amélioration de la qualité d’image",
-    "hdRestorePhaseRender": "Création des images améliorées"
+    "hdRestorePhaseRender": "Création des images améliorées",
+    "hdRestorePhaseCpuFallback": "Le GPU ne répond pas ; poursuite sur le CPU",
+    "hdRestoreWorkerTimeout": "Le traitement de l’image a expiré. Réessayez ou raccourcissez le clip. L’original reste inchangé."
   },
   "de": {
     "detailEnhancementTitle": "Bildverbesserung",
@@ -200,7 +212,9 @@ export const DETAIL_ENHANCEMENT_COPY = {
     "hdRestoreFailed": "Bildverbesserung fehlgeschlagen",
     "hdRestoreCanceled": "Verbesserung abgebrochen; Original bleibt erhalten",
     "hdRestorePhasePrepare": "Bildverbesserung wird vorbereitet",
-    "hdRestorePhaseRender": "Verbesserte Einzelbilder werden erzeugt"
+    "hdRestorePhaseRender": "Verbesserte Einzelbilder werden erzeugt",
+    "hdRestorePhaseCpuFallback": "GPU reagiert nicht; Verarbeitung mit CPU wird fortgesetzt",
+    "hdRestoreWorkerTimeout": "Zeitüberschreitung bei der Bildverarbeitung. Erneut versuchen oder Clip kürzen. Das Original bleibt unverändert."
   },
   "pt": {
     "detailEnhancementTitle": "Melhoria de qualidade da imagem",
@@ -229,7 +243,9 @@ export const DETAIL_ENHANCEMENT_COPY = {
     "hdRestoreFailed": "Falha na melhoria de qualidade da imagem",
     "hdRestoreCanceled": "Melhoria cancelada; o original foi preservado",
     "hdRestorePhasePrepare": "Preparando melhoria de qualidade da imagem",
-    "hdRestorePhaseRender": "Gerando quadros melhorados"
+    "hdRestorePhaseRender": "Gerando quadros melhorados",
+    "hdRestorePhaseCpuFallback": "A GPU não responde; continuando na CPU",
+    "hdRestoreWorkerTimeout": "O processamento do quadro excedeu o tempo limite. Tente novamente ou encurte o clipe. O original permanece intacto."
   },
   "th": {
     "detailEnhancementTitle": "ปรับปรุงคุณภาพภาพ",
@@ -258,7 +274,9 @@ export const DETAIL_ENHANCEMENT_COPY = {
     "hdRestoreFailed": "ปรับปรุงคุณภาพภาพไม่สำเร็จ",
     "hdRestoreCanceled": "ยกเลิกแล้ว โดยเก็บต้นฉบับไว้",
     "hdRestorePhasePrepare": "กำลังเตรียมปรับปรุงคุณภาพภาพ",
-    "hdRestorePhaseRender": "กำลังสร้างเฟรมที่ปรับปรุงแล้ว"
+    "hdRestorePhaseRender": "กำลังสร้างเฟรมที่ปรับปรุงแล้ว",
+    "hdRestorePhaseCpuFallback": "GPU ไม่ตอบสนอง กำลังประมวลผลต่อด้วย CPU",
+    "hdRestoreWorkerTimeout": "การประมวลผลเฟรมหมดเวลา โปรดลองอีกครั้งหรือตัดคลิปให้สั้นลง ต้นฉบับไม่เปลี่ยนแปลง"
   },
   "vi": {
     "detailEnhancementTitle": "Cải thiện chất lượng hình ảnh",
@@ -287,7 +305,9 @@ export const DETAIL_ENHANCEMENT_COPY = {
     "hdRestoreFailed": "Cải thiện chất lượng hình ảnh thất bại",
     "hdRestoreCanceled": "Đã hủy; giữ nguyên bản gốc",
     "hdRestorePhasePrepare": "Đang chuẩn bị cải thiện chất lượng hình ảnh",
-    "hdRestorePhaseRender": "Đang tạo khung hình đã cải thiện"
+    "hdRestorePhaseRender": "Đang tạo khung hình đã cải thiện",
+    "hdRestorePhaseCpuFallback": "GPU không phản hồi; tiếp tục xử lý bằng CPU",
+    "hdRestoreWorkerTimeout": "Xử lý khung hình đã hết thời gian. Hãy thử lại hoặc rút ngắn đoạn phim. Bản gốc không thay đổi."
   },
   "ru": {
     "detailEnhancementTitle": "Улучшение качества изображения",
@@ -316,7 +336,9 @@ export const DETAIL_ENHANCEMENT_COPY = {
     "hdRestoreFailed": "Ошибка улучшения качества изображения",
     "hdRestoreCanceled": "Улучшение отменено; оригинал сохранён",
     "hdRestorePhasePrepare": "Подготовка улучшения качества изображения",
-    "hdRestorePhaseRender": "Создание улучшенных кадров"
+    "hdRestorePhaseRender": "Создание улучшенных кадров",
+    "hdRestorePhaseCpuFallback": "GPU не отвечает; обработка продолжается на CPU",
+    "hdRestoreWorkerTimeout": "Время обработки кадра истекло. Повторите попытку или сократите клип. Оригинал не изменён."
   },
   "it": {
     "detailEnhancementTitle": "Miglioramento della qualità dell’immagine",
@@ -345,7 +367,9 @@ export const DETAIL_ENHANCEMENT_COPY = {
     "hdRestoreFailed": "Miglioramento della qualità dell’immagine non riuscito",
     "hdRestoreCanceled": "Miglioramento annullato; originale conservato",
     "hdRestorePhasePrepare": "Preparazione del miglioramento della qualità dell’immagine",
-    "hdRestorePhaseRender": "Generazione dei fotogrammi migliorati"
+    "hdRestorePhaseRender": "Generazione dei fotogrammi migliorati",
+    "hdRestorePhaseCpuFallback": "La GPU non risponde; elaborazione continua sulla CPU",
+    "hdRestoreWorkerTimeout": "Tempo di elaborazione del fotogramma scaduto. Riprova o accorcia la clip. L’originale non è cambiato."
   },
   "id": {
     "detailEnhancementTitle": "Peningkatan kualitas gambar",
@@ -374,6 +398,8 @@ export const DETAIL_ENHANCEMENT_COPY = {
     "hdRestoreFailed": "Peningkatan kualitas gambar gagal",
     "hdRestoreCanceled": "Peningkatan dibatalkan; sumber asli dipertahankan",
     "hdRestorePhasePrepare": "Menyiapkan peningkatan kualitas gambar",
-    "hdRestorePhaseRender": "Membuat bingkai yang ditingkatkan"
+    "hdRestorePhaseRender": "Membuat bingkai yang ditingkatkan",
+    "hdRestorePhaseCpuFallback": "GPU tidak merespons; melanjutkan dengan CPU",
+    "hdRestoreWorkerTimeout": "Pemrosesan bingkai kehabisan waktu. Coba lagi atau pendekkan klip. Sumber asli tidak berubah."
   }
 };

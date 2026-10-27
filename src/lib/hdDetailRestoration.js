@@ -1,35 +1,10 @@
+import { createDetailProcessor } from "./detailEnhancementProcessor.js";
 import { enhanceRemasterClip } from "./remasterClipEnhancement.js";
 
 function abortError() { return new DOMException("Detail enhancement canceled", "AbortError"); }
 
-// One worker per restoration job. Termination cancels pixel work immediately.
-function createProcessor(signal) {
-  const worker = new Worker(new URL("../workers/detailEnhancement.worker.js", import.meta.url), { type: "module" });
-  let rejectActive = null;
-  const abort = () => { worker.terminate(); rejectActive?.(abortError()); };
-  signal?.addEventListener("abort", abort, { once: true });
-  return {
-    async frame({ bitmap, settings, outputType = "blob" }) {
-      if (signal?.aborted) { bitmap.close(); throw abortError(); }
-      return new Promise((resolve, reject) => {
-        rejectActive = reject;
-        const requestId = crypto.randomUUID();
-        worker.onmessage = ({ data }) => {
-          if (data.requestId !== requestId) return;
-          rejectActive = null;
-          if (data.error) reject(new Error(data.error));
-          else resolve(data.result);
-        };
-        worker.onerror = (event) => { rejectActive = null; reject(new Error(event.message)); };
-        worker.postMessage({ requestId, bitmap, settings, outputType }, [bitmap]);
-      });
-    },
-    dispose() { signal?.removeEventListener("abort", abort); worker.terminate(); },
-  };
-}
-
-export async function restoreDetailImage({ segment, settings, signal }) {
-  const processor = createProcessor(signal);
+export async function restoreDetailImage({ segment, settings, signal, onProgress }) {
+  const processor = createDetailProcessor(signal, onProgress);
   try {
     const response = await fetch(segment.src, { signal });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -38,7 +13,7 @@ export async function restoreDetailImage({ segment, settings, signal }) {
 }
 
 export async function restoreDetailVideo({ segment, settings, signal, onProgress }) {
-  const processor = createProcessor(signal);
+  const processor = createDetailProcessor(signal, onProgress);
   try {
     const response = segment.blob instanceof Blob ? null : await fetch(segment.src, { signal });
     if (response && !response.ok) throw new Error(`HTTP ${response.status}`);

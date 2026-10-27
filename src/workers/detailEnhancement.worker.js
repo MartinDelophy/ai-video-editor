@@ -7,7 +7,8 @@ const workspace = {};
 let gpuPromise = null;
 let gpuDisabled = false;
 
-async function renderFrame(bitmap, settings) {
+async function renderFrame(bitmap, settings, forceCpu) {
+  if (forceCpu) gpuDisabled = true;
   if (!gpuDisabled) {
     let gpu;
     try {
@@ -30,9 +31,9 @@ async function renderFrame(bitmap, settings) {
   return { canvas, backend: "cpu" };
 }
 
-self.addEventListener("message", async ({ data: { requestId, bitmap, settings, outputType } }) => {
+self.addEventListener("message", async ({ data: { requestId, bitmap, settings, outputType, forceCpu } }) => {
   try {
-    const rendered = await renderFrame(bitmap, settings);
+    const rendered = await renderFrame(bitmap, settings, forceCpu);
     bitmap.close();
     const output = rendered.canvas;
     const meta = { width: output.width, height: output.height, backend: rendered.backend };

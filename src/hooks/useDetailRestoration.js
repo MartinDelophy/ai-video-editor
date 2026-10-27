@@ -106,7 +106,7 @@ export function useDetailRestoration({
           ...current,
           ...message,
           running: true,
-          progress: message.progress ?? Math.round((message.value || 0) * 100),
+          progress: message.progress ?? (message.value == null ? current.progress : Math.round(message.value * 100)),
           backend: message.backend || current.backend || "local",
         }));
         },
@@ -122,7 +122,7 @@ export function useDetailRestoration({
     } catch (error) {
       if (controllerRef.current !== controller) return false;
       if (error?.name === "AbortError") notify(t("hdRestoreCanceled"));
-      else notify(`${t("hdRestoreFailed")}：${error instanceof Error ? error.message : String(error)}`);
+      else notify(`${t("hdRestoreFailed")}：${error?.name === "TimeoutError" ? t("hdRestoreWorkerTimeout") : error instanceof Error ? error.message : String(error)}`);
       setJob((current) => ({ ...current, running: false }));
       return false;
     } finally {

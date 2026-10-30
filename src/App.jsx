@@ -108,6 +108,7 @@ import { getMobileClipPanelOrigin } from "./lib/mobileClipActions.js";
 import { getVisualPropertyTabIds } from "./lib/visualPropertyTabs.js";
 import { applyTimelineRipple } from "./lib/timelineRipple.js";
 import { COMPACT_WORKSPACE_QUERY } from "./config/editor.js";
+import { alignPreviewSegment, alignedOverlayStart, capturePreviewFrame, moveAlignedOverlay, previewTimingFingerprint } from "./lib/previewAlignment.js";
 
 export function App({ hostSession = null }) {
   const [uiLanguage, setUiLanguage] = useState(() => getStoredLanguage());
@@ -138,6 +139,7 @@ export function App({ hostSession = null }) {
   const [selectedMusicSegmentId, setSelectedMusicSegmentId] = useState("");
   const [stickerTimelineDrag, setStickerTimelineDrag] = useState(null);
   const [canvasVisualTarget, setCanvasVisualTarget] = useState("");
+  const [previewFrameReference, setPreviewFrameReference] = useState(null);
   const [showFirstVisualGuide, setShowFirstVisualGuide] = useState(false);
   const firstVisualGuideShownRef = useRef(false);
   const timelineImportRestoreRef = useRef(false);
@@ -385,6 +387,14 @@ export function App({ hostSession = null }) {
   const effectProgress = visionJob.key === effectVisionKey ? visionJob.progress : (effectAnalysis?.complete ? 100 : 0);
   const effectPhase = visionJob.key === effectVisionKey ? visionJob.phase : "";
   const selectedVisualRange = visualTimeline[selectedVisualSegmentIndex] ?? previewVisualRange;
+  const previewReferenceSegment = previewFrameReference?.track === "image"
+    ? visualSegments.find(item => item.id === previewFrameReference.id)
+    : visualOverlaySegments.find(item => item.id === previewFrameReference?.id);
+  const previewReferenceStart = previewFrameReference?.track === "image"
+    ? visualTimeline.find(item => item.id === previewReferenceSegment?.id)?.start : previewReferenceSegment?.start;
+  const validPreviewFrameReference = previewReferenceSegment && previewFrameReference.fingerprint === previewTimingFingerprint(previewReferenceSegment, previewReferenceStart)
+    ? previewFrameReference : null;
+
   const [visualAnimationPreview, setVisualAnimationPreview] = useState(null);
   const [visualCanvasEditMode, setVisualCanvasEditMode] = useState("transform");
   useEffect(() => {
@@ -1697,6 +1707,37 @@ export function App({ hostSession = null }) {
         }} />
 
         <PreviewStage
+          alignmentMainRange={previewVisualSegment?.type === "video" ? previewVisualRange : null}
+          alignmentLocks={trackLocks}
+          alignmentReference={validPreviewFrameReference}
+          onPreviewAlignment={({ track, segment: target, time, frame, box, action }) => {
+            const segment = (track === "image" ? visualSegments : visualOverlaySegments).find(item => item.id === target.id);
+            if (!segment) return;
+            const start = track === "image" ? visualTimeline.find(item => item.id === segment.id)?.start : segment.start;
+            if (action === "mark") {
+              setPreviewFrameReference(capturePreviewFrame(segment, track, start, time));
+              notify(t("previewReferenceSaved"));
+              return;
+            }
+            if (trackLocks[track]) return;
+            if (["start", "end", "playhead", "reference"].includes(action)) {
+              if (track !== "overlay") return;
+              const nextStart = alignedOverlayStart(action, segment, previewVisualSegment?.type === "video" ? previewVisualRange : null, time, validPreviewFrameReference);
+              if (nextStart == null || Math.abs(nextStart - segment.start) < 1e-7) return;
+              checkpointHistory();
+              setVisualOverlaySegments(items => moveAlignedOverlay(items, segment.id, nextStart));
+              seekTo(action === "reference" ? validPreviewFrameReference.time : Math.max(nextStart, Math.min(time, nextStart + segment.duration - 0.001)));
+            } else {
+              const changeFit = track === "image" && ["fit", "fill"].includes(action);
+              const nextFit = action === "fit" ? "contain" : "cover";
+              const aligned = alignPreviewSegment(segment, Math.max(0, time - start), action, frame,
+                changeFit ? { x: 0, y: 0, width: frame.width, height: frame.height } : box);
+              if (JSON.stringify(aligned) === JSON.stringify(segment) && (!changeFit || fitMode === nextFit)) return;
+              checkpointHistory();
+              if (changeFit) setFitMode(nextFit);
+              (track === "image" ? setVisualSegments : setVisualOverlaySegments)(items => items.map(item => item.id === segment.id ? aligned : item));
+            }
+          }}
           t={t}
           previewShellRef={previewShellRef}
           previewCanvasRef={previewCanvasRef}

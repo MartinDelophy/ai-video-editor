@@ -26,6 +26,7 @@ import { resolveCaptionSizeForSegment } from "../lib/captionStyles.js";
 import { resolveCaptionSegmentPlacement } from "../lib/captionLayout.js";
 import { CaptionOverlay } from "./CaptionOverlay.jsx";
 import { IconButton } from "./ui.jsx";
+import { PreviewContextMenu } from "./PreviewContextMenu.jsx";
 import { getVisualOverlayPixelBox, resolveVisualOverlayTransform, snapVisualOverlayTransform } from "../lib/visualOverlayTimeline.js";
 import { getAnchoredResize } from "../lib/anchoredResize.js";
 import { getVisualFitRect } from "../lib/visualGeometry.js";
@@ -202,7 +203,12 @@ export function PreviewStage({
   visualOverlayMaskEditable = false,
   onUpdateVisualOverlayMask,
   onReorderVisualOverlay,
+  alignmentMainRange,
+  alignmentLocks = {},
+  alignmentReference,
+  onPreviewAlignment,
 }) {
+  const [contextMenu, setContextMenu] = useState(null);
   const [overlaySnapGuides, setOverlaySnapGuides] = useState([]);
   const previewImageRef = useRef(null);
   const smartBackgroundVideoRef = useRef(null);
@@ -423,6 +429,7 @@ export function PreviewStage({
     window.addEventListener("pointermove", move); window.addEventListener("pointerup", end, { once: true });
   };
   const startVisualTransform = (event, mode) => {
+    if (event.button !== 0) return;
     if (!visualTransformEditable || !onUpdateVisualTransform) return;
     const frame = previewCanvasRef.current;
     if (!frame) return;
@@ -459,6 +466,7 @@ export function PreviewStage({
     window.addEventListener("pointermove", move); window.addEventListener("pointerup", end, { once: true });
   };
   const startOverlayTransform = (event, mode, overlay) => {
+    if (event.button !== 0) return;
     if (!overlay || !onUpdateVisualOverlay) return;
     const frame = previewCanvasRef.current;
     if (!frame) return;
@@ -603,6 +611,33 @@ export function PreviewStage({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isFocusPreviewOpen]);
 
+  useEffect(() => { setContextMenu(null); }, [currentTime, previewVisualSegment?.id, isFocusPreviewOpen]);
+  const openContextMenu = event => {
+    let hit = event.target.closest?.("[data-preview-clip-id]");
+    // The main picture's selection frame can cover an overlay. Resolve the
+    // visible overlay beneath that frame before opening its clip menu.
+    if (event.type === "contextmenu" && hit?.dataset.previewTrack === "image") {
+      const overlayHit = document.elementsFromPoint(event.clientX, event.clientY)
+        .map(element => element.closest?.('[data-preview-track="overlay"]'))
+        .find(Boolean);
+      if (overlayHit) hit = overlayHit;
+    }
+    if (!hit || !onPreviewAlignment) return;
+    const track = hit.dataset.previewTrack;
+    const segment = track === "overlay" ? visualOverlays.find(item => item.id === hit.dataset.previewClipId) : previewVisualSegment;
+    if (!segment) return;
+    event.preventDefault(); event.stopPropagation();
+    if (isPlaying) handlePlayToggle();
+    if (track === "overlay") onSelectVisualOverlay?.(segment.id); else onSelectVisual?.();
+    const rect = hit.getBoundingClientRect();
+    const frame = { width: frameWidth, height: frameHeight };
+    const contained = track === "overlay" ? getVisualOverlayPixelBox(segment, frame) : transformBox;
+    setContextMenu({ track, segment, time: currentTime, frame,
+      box: { x: track === "overlay" ? (frameWidth - contained.width) / 2 : contained.x,
+        y: track === "overlay" ? (frameHeight - contained.height) / 2 : contained.y, width: contained.width, height: contained.height },
+      x: Number.isFinite(event.clientX) ? event.clientX : rect.left + rect.width / 2,
+      y: Number.isFinite(event.clientY) ? event.clientY : rect.top + rect.height / 2 });
+  };
   const previewStage = (
     <section
       className={`preview-stage ${isFocusPreviewOpen ? `is-focus-preview is-focus-${focusPreviewOrientation}` : ""}`}
@@ -666,6 +701,8 @@ export function PreviewStage({
               backgroundRemoved ? "has-background-removed" : ""
             } ${smartCropActive ? "has-smart-crop" : ""}`}
             data-hidden-label={t("imageHidden")}
+            onContextMenu={openContextMenu}
+            onKeyDown={event => { if (event.key === "ContextMenu" || (event.shiftKey && event.key === "F10")) openContextMenu(event); }}
             style={activePreviewFrameStyle}
             onPointerDown={(event) => {
               if (event.target === event.currentTarget) onDeselectVisuals?.();
@@ -674,7 +711,7 @@ export function PreviewStage({
             <div className="caption-canvas-guide is-vertical" aria-hidden="true" />
             <div className="caption-canvas-guide is-horizontal" aria-hidden="true" />
             {renderedVisualSrc && trackVisibility.image && subjectEffectActive ? (
-              <div className={`subject-effect-preview is-background-${normalizedSubjectEffect.background.mode}`} aria-hidden="true">
+              <div className={`subject-effect-preview is-background-${normalizedSubjectEffect.background.mode}`} data-preview-track="image" data-preview-clip-id={previewVisualSegment?.id} aria-hidden="true">
                 {replacesBackground ? <div
                   className="subject-effect-background"
                   style={normalizedSubjectEffect.background.visible === false
@@ -705,9 +742,12 @@ export function PreviewStage({
             {renderedVisualSrc && trackVisibility.image ? (
               <div
                 className={`visual-media-layer ${visualTransformEditable ? "is-transform-editable" : ""} ${replacesBackground ? "is-subject-sync-source" : ""}`}
+                data-preview-track="image" data-preview-clip-id={previewVisualSegment?.id}
+                tabIndex={0} aria-haspopup="menu" aria-label={previewVisualSegment?.name || t("previewMenuTitle")}
                 style={visualMaskStyle}
                 aria-hidden={replacesBackground ? "true" : undefined}
                 onPointerDown={(event) => {
+                  if (event.button !== 0) return;
                   if (replacesBackground) return;
                   event.stopPropagation();
                   onSelectVisual?.();
@@ -813,7 +853,7 @@ export function PreviewStage({
             ) : null}
             {renderedVisualSrc && trackVisibility.image ? <ClickRippleOverlay effect={visualEffects?.clickRipple} time={visualLocalTime} /> : null}
             {renderedVisualSrc && trackVisibility.image && visualTransformEditable && !visualMaskEditable ? (
-              <div className="visual-transform-box" style={visualTransformBoxStyle} onPointerDown={(event) => startVisualTransform(event, "move")}>
+              <div className="visual-transform-box" data-preview-track="image" data-preview-clip-id={previewVisualSegment?.id} style={visualTransformBoxStyle} onPointerDown={(event) => startVisualTransform(event, "move")}>
                 <button className="visual-transform-rotate" type="button" aria-label={t("visualRotation", "旋转")} onPointerDown={(event) => startVisualTransform(event, "rotate")} />
                 {['nw', 'ne', 'sw', 'se'].map((corner) => <button key={corner} className={`visual-transform-handle is-${corner}`} type="button" aria-label={t("visualScale", "缩放")} onPointerDown={(event) => startVisualTransform(event, `scale-${corner}`)} />)}
               </div>
@@ -897,7 +937,7 @@ export function PreviewStage({
                 rotation: animatedTransform.rotation,
               });
               return <Fragment key={overlay.id}>
-                <div className="visual-overlay-layer" style={style} onPointerDown={(event) => startOverlayTransform(event, "move", overlay)}>
+                <div className="visual-overlay-layer" data-preview-track="overlay" data-preview-clip-id={overlay.id} tabIndex={0} aria-haspopup="menu" aria-label={overlay.name || t("previewMenuTitle")} style={style} onPointerDown={(event) => startOverlayTransform(event, "move", overlay)}>
                   {overlaySubjectActive ? <SubjectMaterialFilterDefs effect={overlaySubjectEffect} filterId={overlaySubjectFilterId} /> : null}
                   {overlaySubjectActive
                     && overlaySubjectEffect.background.visible !== false
@@ -938,6 +978,7 @@ export function PreviewStage({
                 </div>
                 {selected && !isPlaying ? <div
                   className="visual-overlay-layer visual-overlay-controls is-selected"
+                  data-preview-track="overlay" data-preview-clip-id={overlay.id}
                   style={{ left: style.left, top: style.top, width: style.width, height: style.height, transform: style.transform }}
                 >
                   {selected && !isPlaying && hasOverlayMask && visualOverlayMaskEditable ? <div
@@ -1101,11 +1142,14 @@ export function PreviewStage({
       </div>
     </section>
   );
+  const alignmentMenu = contextMenu ? <PreviewContextMenu menu={contextMenu} locked={Boolean(alignmentLocks[contextMenu.track])}
+    mainRange={alignmentMainRange} reference={alignmentReference} t={t} onAction={onPreviewAlignment} onClose={() => setContextMenu(null)} /> : null;
   if (isFocusPreviewOpen && typeof document !== "undefined") {
     return createPortal(<>
       <button className="focus-preview-backdrop" type="button" aria-label={t("closeFocusPreview", "关闭大画布预览")} onClick={() => setIsFocusPreviewOpen(false)} />
       {previewStage}
+      {alignmentMenu}
     </>, document.body);
   }
-  return previewStage;
+  return <>{previewStage}{alignmentMenu}</>;
 }

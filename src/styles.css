@@ -12799,3 +12799,17 @@ canvas.relight-position { width:100%; height:auto; display:block; }
 .detail-enhancement-controls input { width: 100%; accent-color: #39d5ee; }
 .detail-enhancement-controls button { font-size: 12px; cursor: pointer; }
 .detail-enhancement-controls button:disabled { cursor: not-allowed; }
+
+.preview-context-menu {
+  z-index: 10050;
+  width: 248px;
+  max-height: calc(100dvh - 16px);
+  overflow-y: auto;
+  transform: none;
+}
+.preview-context-menu button { min-height: 30px; white-space: normal; line-height: 1.35; }
+.preview-context-menu button:disabled { cursor: not-allowed; opacity: .42; }
+.preview-context-menu button:focus-visible { outline: 1px solid #54dfd2; background: rgba(53, 234, 217, .1); }
+.preview-menu-heading { padding: 7px; color: #a8c6c7; font-size: 11px; font-weight: 700; }
+.preview-menu-heading:not(:first-child) { margin-top: 4px; border-top: 1px solid rgba(129, 170, 172, .18); }
+.preview-menu-hint { margin: 4px 7px 7px; color: #94a5aa; font-size: 11px; line-height: 1.5; overflow-wrap: anywhere; }

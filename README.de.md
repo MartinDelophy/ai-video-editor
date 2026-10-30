@@ -31,11 +31,11 @@ Für sämtliche rechtlichen Folgen eines Verstoßes gegen diese Anforderungen is
 
 ## Projektneuigkeiten
 
+- **2026-10-30** — Neues Kontextmenü für Vorschauvideos: Bildausrichtung, Einpassen und Füllen, zeitliche Ausrichtung von Überlagerungen und manuelle Synchronisierung per Referenzbild, mit Rückgängig-Funktion und Schutz gesperrter Spuren.
 - **2026-10-24** — HD-Wiederherstellung durch modellfreie, einstellbare Kontrast- und Kantenverbesserung bei Originalauflösung mit Vergleich und gespeicherten Einstellungen ersetzt. Vergleichston und Statustexte korrigiert. Direkte Bildübertragung und wiederverwendete Puffer vermeiden PNG-Umwege bei unverändertem Filter. Bildverbesserung mit WebGPU, bevorzugter Hochleistungs-GPU, CPU-Rückfall und Anzeige des tatsächlich verwendeten Backends.
 - **2026-10-21** — Quellszenenanalyse, prüfbare Ausführungspläne, belegte Transkriptzusammenfassungen und optionale visuelle Offline-Suche integriert (#112–#115). Offline-Laufzeiten separat vorbereiten. [#112–#115](docs/material-analysis.md).
 - **2026-10-21** — Bearbeitbare Jianying-Entwürfe über lokalen Host und CLI exportieren, mit Transformations-Keyframes und Kompatibilitätsbericht; Ziel: chinesisches Jianying Pro 11.6.0 auf macOS.
 - **2026-10-20** — Optionaler lokaler macOS-Host mit dauerhafter Projektspeicherung, Sitzungserneuerung und Wiederherstellung von Schreib-Leases. Der Browsereditor bleibt verfügbar. [Einrichtung und Grenzen](docs/local-host.md).
-- **2026-10-19** — Die Vergleichsvorschau der KI-Wasserzeichenentfernung lässt sich nach dem Ende wieder abspielen.
 Geplante Arbeiten stehen in der [Roadmap](ROADMAP.md), veröffentlichte Änderungen in den [Releases](https://github.com/MartinDelophy/ai-video-editor/releases) und einzelne Aufgaben in den [Issues](https://github.com/MartinDelophy/ai-video-editor/issues).
 
 ## Was kann es produzieren?

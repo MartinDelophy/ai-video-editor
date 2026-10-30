@@ -31,11 +31,11 @@ El usuario será el único responsable de cualquier consecuencia legal derivada 
 
 ## Novedades del proyecto
 
+- **2026-10-30** — Nuevo menú contextual del vídeo de vista previa con alineación, ajuste y relleno, alineación temporal de superposiciones y sincronización manual por fotograma de referencia, con deshacer y protección de pistas bloqueadas.
 - **2026-10-24** — La restauración HD ahora mejora el contraste local y los bordes sin modelos, a resolución original, con comparación y ajustes guardados. Se corrigieron el sonido de la comparación y los textos de estado. Transferencia directa de fotogramas y reutilización de búferes sin cambiar el filtro. La mejora de imagen usa WebGPU con preferencia por GPU de alto rendimiento, alternativa CPU e indicador del motor real.
 - **2026-10-21** — Integrados análisis de escenas, planes revisables, resúmenes con evidencia y búsqueda visual offline opcional (#112–#115). Los entornos offline se preparan por separado. [#112–#115](docs/material-analysis.md).
 - **2026-10-21** — Exportación de borradores editables de Jianying mediante el host local y CLI, con fotogramas clave e informe de compatibilidad; para Jianying Pro 11.6.0 de China en macOS.
 - **2026-10-20** — Se añadió un servidor local opcional para macOS con guardado duradero, renovación de sesiones y recuperación de permisos de escritura. Se mantiene el editor web. [Configuración y límites](docs/local-host.md).
-- **2026-10-19** — Se corrigió la reproducción repetida de la vista comparativa de eliminación de marcas de agua con IA.
 Consulta el [Roadmap](ROADMAP.md) para el trabajo planificado, [Releases](https://github.com/MartinDelophy/ai-video-editor/releases) para los cambios publicados e [Issues](https://github.com/MartinDelophy/ai-video-editor/issues) para tareas y errores.
 
 ## ¿Qué puede producir?

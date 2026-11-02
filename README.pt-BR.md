@@ -31,7 +31,7 @@ O usuário é o único responsável por quaisquer consequências legais decorren
 
 ## Novidades do projeto
 
-- **2026-11-02** — Menus de alinhamento com ícones e tela dividida incluindo a imagem principal e sobreposições visíveis, com duas, três ou quatro imagens, recorte igual na prévia e exportação e desfazer em uma etapa.
+- **2026-11-02** — Menus de alinhamento com ícones e tela dividida incluindo a imagem principal e sobreposições visíveis, com duas, três ou quatro imagens, recorte igual na prévia e exportação e desfazer em uma etapa. O Skill e os comandos compartilhados de CLI, STDIO MCP e prévia/aplicação permitem aos agentes dividir a tela e sincronizar quadros de referência.
 - **2026-10-30** — Novo menu de contexto no vídeo de prévia para alinhamento, ajuste e preenchimento, alinhamento temporal de sobreposições e sincronização manual por quadro de referência, com desfazer e proteção de faixas bloqueadas.
 - **2026-10-24** — A restauração HD agora usa contraste local e realce de bordas ajustáveis, sem modelos, na resolução original, com comparação e configurações salvas. Corrigidos o som da comparação e os textos de status. Transferência direta de quadros e reutilização de buffers sem alterar o filtro. Melhoria de imagem com WebGPU, preferência por GPU de alto desempenho, alternativa em CPU e indicação do mecanismo usado.
 - **2026-10-21** — Integradas análise de cenas, planos revisáveis, resumos com evidências e busca visual offline opcional (#112–#115). Os ambientes offline precisam de preparação separada. [#112–#115](docs/material-analysis.md).

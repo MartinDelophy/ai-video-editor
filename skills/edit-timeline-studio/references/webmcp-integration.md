@@ -46,3 +46,7 @@ Implementation and schema examples: [integration reference](https://github.com/M
 ## Relighting and depth video
 
 The AI request kinds also include `relight-analysis` and `depth-map`; see [relighting-and-depth-video.md](relighting-and-depth-video.md) for source/quality constraints and the complete lifecycle. Analysis does not enable lighting. Use `clip.set_relight` through edit preview/apply after analysis; generated depth videos return My assets IDs and never insert or replace automatically. Reinspect after jobs finish.
+
+## Split-screen and frame-sync commands
+
+`project.split_screen` takes ordered `clipIds`, `layout` (`columns`, `rows`, `grid`) and absolute project `time`. It includes every visible active main/overlay picture, preserves timing, and crops proportionally. `overlay.sync_reference` takes a video overlay `clipId`, `referenceClipId`, `targetTime` and `referenceTime` to align two explicitly observed project frames without changing source timing. Both use the shared command registry and semantic preview/apply. See [the full contract](split-screen-and-frame-sync.md) for examples, rejection rules, collision behavior, persistent cells and browser-only split-screen rendering limits.

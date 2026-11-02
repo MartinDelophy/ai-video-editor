@@ -66,3 +66,7 @@ Observed browser-path constraints:
 3. Expand `project.render` with captions, stickers, overlays, transitions, effects, source audio, progress events, and cancellation diagnostics.
 4. Add structured progress and cancellation to the MCP and CLI paths for long-running analysis and rendering.
 5. Prefer local STDIO MCP, then the CLI, for project files; use browser WebMCP for supported edits to the open project, retaining UI control as the compatibility path.
+
+## Split-screen and frame-sync commands
+
+`project.split_screen` takes ordered `clipIds`, `layout` (`columns`, `rows`, `grid`) and absolute project `time`. It includes every visible active main/overlay picture, preserves timing, and crops proportionally. `overlay.sync_reference` takes a video overlay `clipId`, `referenceClipId`, `targetTime` and `referenceTime` to align two explicitly observed project frames without changing source timing. Both use the shared command registry and semantic preview/apply. See [the full contract](split-screen-and-frame-sync.md) for examples, rejection rules, collision behavior, persistent cells and browser-only split-screen rendering limits.

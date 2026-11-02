@@ -146,7 +146,7 @@ export function createTimelineStudioMcpServer() {
     { name: "timeline-studio", version: "1.0.0" },
     {
       instructions:
-        "Use the edit-timeline-studio Skill for editorial planning. Inspect a .timeline project before editing, then call timeline_project_diff before timeline_project_apply with the same revision and operations. Inspect timeline markers to review beats, chapters, ranges, and notes; edit them with marker.add, marker.update, and marker.delete in the same diff/apply workflow. Annotations do not extend rendered media duration. Writes always create a new archive; never replace the input. Use stable operation IDs. Render only the supported headless subset and keep unsupported effects in the editor workflow.",
+        "Use the edit-timeline-studio Skill for editorial planning. Inspect a .timeline project before editing, then call timeline_project_diff before timeline_project_apply with the same revision and operations. Use project.split_screen for ordered visible main/overlay pictures and overlay.sync_reference for two explicitly observed timeline-frame times. Inspect the semantic crop/keyframe/timing/layer diff before applying; split screens require browser rendering. Inspect timeline markers to review beats, chapters, ranges, and notes; edit them with marker.add, marker.update, and marker.delete in the same diff/apply workflow. Annotations do not extend rendered media duration. Writes always create a new archive; never replace the input. Use stable operation IDs. Render only the supported headless subset and keep unsupported effects in the editor workflow.",
     },
   );
 
@@ -240,7 +240,7 @@ export function createTimelineStudioMcpServer() {
     "timeline_project_diff",
     {
       title: "Preview Timeline Studio edits",
-      description: "Validate a versioned operation plan against the project and return its field-level dry-run diff without writing files. Supports marker.add, marker.update, and marker.delete alongside the shared editing command registry.",
+      description: "Validate a versioned operation plan against the project and return its field-level dry-run diff without writing files. Supports project.split_screen, overlay.sync_reference and marker operations alongside the shared editing command registry.",
       inputSchema: {
         project: absolutePath,
         baseRevision: z.number().int().nonnegative(),

@@ -42,7 +42,7 @@ Users are solely responsible for any legal liability arising from violations of 
 
 ## Project updates
 
-- **2026-11-02** — Added compact icon-based alignment menus and split screens that include the main picture and visible overlays, with two-, three- and four-picture layouts, shared preview/export cropping and one-step undo.
+- **2026-11-02** — Added compact icon-based alignment menus and split screens that include the main picture and visible overlays, with two-, three- and four-picture layouts, shared preview/export cropping and one-step undo. Agents can now invoke both features through shared CLI, STDIO MCP and browser preview/apply commands, documented in the editing Skill.
 - **2026-10-30** — Added preview-video context menus for canvas alignment, fit/fill, overlay start/end alignment, and manual reference-frame synchronization, with undo and locked-track protection.
 - **2026-10-24** — Replaced model-based HD restoration with adjustable local contrast and edge enhancement at original resolution, with before/after comparison and saved settings. Comparison playback uses one audible source stream, and enhancement status copy is consistent. Direct frame transfer and reusable buffers now avoid per-frame PNG round trips while keeping the enhancement algorithm unchanged. Detail enhancement now runs luminance, blur and edge processing on WebGPU, prefers a high-performance GPU, and falls back to the CPU when unavailable; the workspace shows the actual backend.
 - **2026-10-21** — Integrated saved source-scene analysis, reviewed execution plans, evidence-linked transcript summaries and optional offline visual search (#112–#115). Offline runtimes require separate preparation. [#112–#115](docs/material-analysis.md).

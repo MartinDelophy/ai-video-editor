@@ -349,6 +349,8 @@ export const BROWSER_OPERATION_FIELDS = Object.freeze({
   "timed.trim": ["track", "clipId", "sourceIn", "sourceOut"],
   "clip.delete": ["track", "clipId"],
   "overlay.set_transform": ["clipId", "transform"],
+  "project.split_screen": ["clipIds", "layout", "time"],
+  "overlay.sync_reference": ["clipId", "referenceClipId", "targetTime", "referenceTime"],
   "project.set_ratio": ["ratio"],
   "project.set_fit": ["fitMode"],
   "clip.set_property": ["clipId", "property", "value"],
@@ -421,7 +423,7 @@ function validateBrowserOperation(operation) {
   if (!fields) reject("BROWSER_EDIT_INVALID_PLAN", "unsupported_operation_type");
   const unsupported = Object.keys(operation).filter(field => field !== "type" && !fields.includes(field));
   if (unsupported.length) reject("BROWSER_EDIT_INVALID_PLAN", `unsupported_fields:${unsupported.join(",")}`);
-  for (const field of ["clipId", "sourceClipId", "newClipId", "rightClipId", "assetId", "audioClipId", "visualClipId", "markerId"]) {
+  for (const field of ["clipId", "sourceClipId", "newClipId", "rightClipId", "assetId", "audioClipId", "visualClipId", "markerId", "referenceClipId"]) {
     if (Object.hasOwn(operation, field)) assertId(operation[field]);
   }
   if (operation.type.startsWith("marker.")) {
@@ -558,6 +560,14 @@ export function buildBrowserOperationReview(inputProject, response, options = {}
   for (const [index, value] of requested.entries()) {
     validateBrowserOperation(value);
     let operation = { ...value };
+    if (operation.type === "project.split_screen" && Array.isArray(operation.clipIds)) {
+      for (const id of operation.clipIds) assertClipUnlocked(next, id, locks, originalAudioLanes);
+      focusTime = operation.time;
+    }
+    if (operation.type === "overlay.sync_reference") {
+      assertClipUnlocked(next, operation.clipId, locks, originalAudioLanes);
+      focusTime = operation.referenceTime;
+    }
     const beforeVisuals = next.visualSegments;
     const beforeLinkedCaptions = next.captionSegments.filter(caption => caption.visualSegmentId);
     const durationBefore = beforeVisuals.reduce((sum, clip) => sum + Number(clip.duration), 0);

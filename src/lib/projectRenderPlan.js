@@ -37,7 +37,7 @@ function assertSupportedProject(project) {
   if ((project.visualOverlaySegments || []).length) unsupported.push("overlays");
   if (project.trackVisibility?.source !== false && (project.sourceAudioSegments || []).length) unsupported.push("source audio");
   if ((project.visualSegments || []).some((item) => item.transition?.id && item.transition.id !== "none")) unsupported.push("transitions");
-  if ((project.visualSegments || []).some((item) => item.keyframes?.length || item.mask?.type || item.filter || item.effects?.length || item.vision || item.speedCurve?.enabled || item.cinematicDepth?.enabled)) unsupported.push("visual effects");
+  if ((project.visualSegments || []).some((item) => item.splitScreenRect || item.keyframes?.length || item.mask?.type || item.filter || item.effects?.length || item.vision || item.speedCurve?.enabled || item.cinematicDepth?.enabled)) unsupported.push("visual effects");
   if (unsupported.length) {
     throw renderError("UNSUPPORTED_RENDER_FEATURE", `Headless render does not yet support: ${[...new Set(unsupported)].join(", ")}`);
   }

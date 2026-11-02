@@ -94,3 +94,7 @@ npm run agent -- project.render /absolute/path/render.json
 The initial renderer uses local `ffmpeg`, writes a temporary output, atomically renames it only after encoding succeeds, and verifies the final dimensions, duration, and audio-track presence with `ffprobe`. It renders contiguous image/video Visuals with contain fitting plus portable Voiceover and Music clips into H.264/AAC MP4. Width and height are normalized to even values; defaults come from the project ratio.
 
 The command fails with `UNSUPPORTED_RENDER_FEATURE` instead of silently dropping visible captions, stickers, overlays, transitions, visual effects, or separated source audio. Use the browser renderer for those projects. `project.render` does not run AI generation and is intentionally separate from `project.run`; the editable `.timeline` remains the source of truth.
+
+## Split-screen and frame-sync commands
+
+`project.split_screen` takes ordered `clipIds`, `layout` (`columns`, `rows`, `grid`) and absolute project `time`. It includes every visible active main/overlay picture, preserves timing, and crops proportionally. `overlay.sync_reference` takes a video overlay `clipId`, `referenceClipId`, `targetTime` and `referenceTime` to align two explicitly observed project frames without changing source timing. Both use the shared command registry and semantic preview/apply. See [the full contract](../references/split-screen-and-frame-sync.md) for examples, rejection rules, collision behavior, persistent cells and browser-only split-screen rendering limits.

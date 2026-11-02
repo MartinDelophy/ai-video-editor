@@ -31,7 +31,7 @@ L’utilisateur assume seul toute responsabilité juridique découlant du non-re
 
 ## Actualités du projet
 
-- **2026-11-02** — Menus d’alignement avec icônes et écran partagé incluant l’image principale et les incrustations visibles, avec deux, trois ou quatre images, recadrage commun à l’aperçu et à l’export et annulation en une étape.
+- **2026-11-02** — Menus d’alignement avec icônes et écran partagé incluant l’image principale et les incrustations visibles, avec deux, trois ou quatre images, recadrage commun à l’aperçu et à l’export et annulation en une étape. Le Skill et les commandes partagées CLI, STDIO MCP et aperçu/application permettent aux agents de disposer les écrans partagés et de synchroniser les images de référence.
 - **2026-10-30** — Nouveau menu contextuel de la vidéo : alignement, ajustement et remplissage, alignement temporel des incrustations et synchronisation manuelle par image de référence, avec annulation et respect des pistes verrouillées.
 - **2026-10-24** — La restauration HD utilise désormais un contraste local et des contours réglables sans modèle, à résolution d’origine, avec comparaison et réglages enregistrés. Son de comparaison et textes d’état corrigés. Transfert direct des images et réutilisation des tampons sans modifier le filtre. Amélioration d’image via WebGPU avec préférence pour un GPU performant, repli CPU et affichage du moteur utilisé.
 - **2026-10-21** — Intégration des scènes sources, plans vérifiables, résumés étayés et recherche visuelle hors ligne facultative (#112–#115). Les environnements hors ligne se préparent séparément. [#112–#115](docs/material-analysis.md).

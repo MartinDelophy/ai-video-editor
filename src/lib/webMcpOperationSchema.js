@@ -59,6 +59,8 @@ export const WEB_MCP_OPERATION_SCHEMA = {
     operation("timed.resize", { track: timedTrack, clipId: id, start: time, duration }, ["track", "clipId", "duration"]),
     operation("timed.trim", { track: { type: "string", enum: ["audio", "music", "overlays"] }, clipId: id, sourceIn: sourceTime, sourceOut: sourceTime }, ["track", "clipId", "sourceIn", "sourceOut"]),
     operation("clip.delete", { track: timedTrack, clipId: id }, ["track", "clipId"]),
+    operation("project.split_screen", { clipIds: { type: "array", minItems: 2, maxItems: 100, uniqueItems: true, items: id }, layout: { type: "string", enum: ["columns", "rows", "grid"] }, time }, ["clipIds", "layout", "time"]),
+    operation("overlay.sync_reference", { clipId: id, referenceClipId: id, targetTime: time, referenceTime: time }, ["clipId", "referenceClipId", "targetTime", "referenceTime"]),
     operation("overlay.set_transform", { clipId: id, transform: { ...transform, minProperties: 1 } }, ["clipId", "transform"]),
     operation("project.set_ratio", { ratio: { type: "string", enum: ["16:9", "9:16", "1:1", "4:5"] } }, ["ratio"]),
     operation("project.set_fit", { fitMode: { type: "string", enum: ["contain", "cover"] } }, ["fitMode"]),

@@ -1,3 +1,4 @@
+import { VISUAL_PROPERTY_KEYS } from "./visualEffects.js";
 import { normalizeCinematicDepth } from "./depthOfField.js";
 import { CAPTION_STYLE_PROPERTY_SCHEMA } from "./projectCommandEngine.js";
 
@@ -6,15 +7,17 @@ const COLLECTIONS = {
   captions: "captionSegments", stickers: "stickerSegments", music: "musicSegments",
 };
 const FIELDS = [
-  "id", "type", "name", "text", "start", "end", "duration", "sourceStart", "sourceDuration",
+  "width", "height", "id", "type", "name", "text", "start", "end", "duration", "sourceStart", "sourceDuration",
   "playbackRate", "volume", "fadeIn", "fadeOut", "muted", "layer", "lane", "hidden", "audioSegmentId",
   "sourceAudioDisabled", "sourceAudioUnmapped", "sourceAudioVolume", "audioSeparated",
   "detachedAudioSegmentId", "x", "y", "scale", "rotation", "opacity", "fontId",
 ];
 const GLOBAL_FIELDS = ["script", "ratioId", "fitMode", "musicName", "musicDuration", "musicStart", "musicVolume", "sourceAudioStart", "sourceAudioVolume", "captionsEnabled", "trackVisibility", "trackLocks", "captionStyle", "captionSize", "captionStylePresetId", "captionPlacement", "captionPosition"];
-const NESTED_FIELDS = { baseTransform: ["x", "y", "scale", "rotation", "opacity"], placement: ["x", "y"], styleOverrides: Object.keys(CAPTION_STYLE_PROPERTY_SCHEMA) };
+const NESTED_FIELDS = { splitScreenRect: ["x", "y", "width", "height"], baseTransform: ["x", "y", "scale", "rotation", "opacity"], placement: ["x", "y"], styleOverrides: Object.keys(CAPTION_STYLE_PROPERTY_SCHEMA) };
 const scalar = (value) => ["string", "boolean", "number"].includes(typeof value) || value === null;
 const pick = (value, fields) => Object.fromEntries(fields.filter((key) => Object.hasOwn(value || {}, key) && scalar(value[key])).map((key) => [key, value[key]]));
+
+const numericKeyframes = frames => frames.map(frame => Object.fromEntries(["time", ...VISUAL_PROPERTY_KEYS].filter(key => Number.isFinite(frame?.[key])).map(key => [key, frame[key]])));
 
 const depthProperties = (value) => {
   const { enabled, output, quality, relight } = normalizeCinematicDepth(value);
@@ -22,7 +25,7 @@ const depthProperties = (value) => {
 };
 
 export function browserClipProperties(clip) {
-  return { ...(clip?.cinematicDepth ? { cinematicDepth: depthProperties(clip.cinematicDepth) } : {}), ...pick(clip, FIELDS), ...Object.fromEntries(Object.entries(NESTED_FIELDS).filter(([key]) => clip?.[key]).map(([key, fields]) => [key, pick(clip[key], fields)])) };
+  return { ...(clip?.keyframes ? { keyframes: numericKeyframes(clip.keyframes) } : {}), ...(clip?.cinematicDepth ? { cinematicDepth: depthProperties(clip.cinematicDepth) } : {}), ...pick(clip, FIELDS), ...Object.fromEntries(Object.entries(NESTED_FIELDS).filter(([key]) => clip?.[key]).map(([key, fields]) => [key, pick(clip[key], fields)])) };
 }
 
 export function browserReviewEntities(project) {
@@ -50,8 +53,8 @@ export function browserReviewDiff(diff) {
   result.tracks = Object.fromEntries(Object.entries(diff.tracks || {}).map(([track, changes]) => [track, {
     ...changes,
     modified: (changes.modified || []).map((item) => {
-      const fields = (item.fields || []).filter((field) => field === "cinematicDepth" || FIELDS.includes(field) || Object.hasOwn(NESTED_FIELDS, field));
-      const values = (source) => Object.fromEntries(fields.map((field) => [field, field === "cinematicDepth" ? source?.[field] ? depthProperties(source[field]) : null : Object.hasOwn(NESTED_FIELDS, field)
+      const fields = (item.fields || []).filter((field) => ["cinematicDepth", "keyframes"].includes(field) || FIELDS.includes(field) || Object.hasOwn(NESTED_FIELDS, field));
+      const values = (source) => Object.fromEntries(fields.map((field) => [field, field === "keyframes" ? numericKeyframes(source?.keyframes || []) : field === "cinematicDepth" ? source?.[field] ? depthProperties(source[field]) : null : Object.hasOwn(NESTED_FIELDS, field)
         ? source?.[field] ? pick(source[field], NESTED_FIELDS[field]) : null : scalar(source?.[field]) ? source[field] : null]));
       return { id: item.id, fields, before: values(item.before), after: values(item.after) };
     }),

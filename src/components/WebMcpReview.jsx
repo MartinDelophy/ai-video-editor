@@ -3,6 +3,7 @@ import "./WebMcpReview.css";
 
 const TRACK_LABELS = { visuals: "trackVisuals", overlays: "trackOverlays", audio: "trackAudio", captions: "trackCaptions", stickers: "trackStickers", music: "trackMusic", markers: "trackMarkers" };
 const FIELD_LABELS = {
+  splitScreenRect: "fieldSplitScreen", width: "fieldWidth", height: "fieldHeight",
   quality: "fieldDepthQuality", output: "fieldEffect", cinematicDepth: "relightTitle", relight: "relightTitle", strength: "relightStrength", range: "relightRange", softness: "relightSoftness", distance: "relightDistance",
   name: "fieldName", title: "fieldName", text: "fieldText", script: "fieldText", note: "fieldNote", notes: "fieldNote", description: "fieldNote",
   time: "fieldStart", start: "fieldStart", end: "fieldEnd", rangeEnd: "fieldEnd", endTime: "fieldEnd", duration: "fieldDuration",
@@ -22,7 +23,7 @@ const FIELD_LABELS = {
   shadowOpacity: "fieldShadowOpacity", effect: "fieldEffect", textStrokeColor: "fieldTextStrokeColor", textStrokeWidth: "fieldTextStrokeWidth",
 };
 const TIME_FIELDS = new Set(["time", "start", "end", "rangeEnd", "endTime", "duration", "sourceStart", "sourceDuration", "fadeIn", "fadeOut"]);
-const SUMMARY_FIELDS = ["type", "text", "note", "notes", "start", "time", "end", "endTime", "duration", "sourceStart", "sourceDuration", "volume", "fadeIn", "fadeOut", "muted", "layer", "lane", "baseTransform", "audioSegmentId", "sourceAudioDisabled", "sourceAudioUnmapped", "color"];
+const SUMMARY_FIELDS = ["type", "text", "note", "notes", "start", "time", "end", "endTime", "duration", "sourceStart", "sourceDuration", "volume", "fadeIn", "fadeOut", "muted", "layer", "lane", "baseTransform", "splitScreenRect", "audioSegmentId", "sourceAudioDisabled", "sourceAudioUnmapped", "color"];
 // Raw media and runtime metadata must never reach a review value. Text, names,
 // and marker notes are deliberately rendered as React text, never as markup.
 const PRIVATE_FIELDS = /^(?:blob|src|url|file|path|archivePath|integrity|archiveMediaId|assetId|originalAssetId|thumbnail.*|poster.*|waveform.*|media.*|cache.*|.*token|.*credential|.*secret)$/i;

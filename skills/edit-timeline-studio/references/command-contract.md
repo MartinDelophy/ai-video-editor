@@ -47,7 +47,7 @@ The standalone `validate_edit_plan.mjs` checks transport shape only. `project.di
 - `caption.add`, `caption.update`, `caption.link_audio`, `caption.unlink_audio`
 - `marker.add`, `marker.update`, `marker.delete`
 - `transition.set`, `track.set_visibility`, `track.set_locked`
-- `project.set_ratio`
+- `project.set_ratio`, `project.split_screen`, `overlay.sync_reference`
 
 Use [../docs/command-reference.md](../docs/command-reference.md) for required fields and current media-import limits. Do not invent operation types not listed there.
 
@@ -85,3 +85,7 @@ On failure, return `ok: false`, a stable error `code`, a human-readable `message
 Do not implement CLI and MCP editing separately. The bundled MCP server must remain a thin transport over the CLI's single command registry, pure project-state reducers, and shared validation. The browser WebMCP adapter compiles reviewed multi-track operation plans and legacy reorder/trim plans into this same engine, restores media only from trusted editor snapshots, integrates ripple helpers, and commits through normal history. Browser export jobs use the real editor export hook and cancellation controller. Expand shared coverage instead of copying reducers or renderers into another transport.
 
 `clip.set_relight` edits main/overlay lighting parameters in the shared registry (see [relighting and depth video](relighting-and-depth-video.md)). Local diff/apply edits settings only; depth inference, depth-video generation and rendered lighting require the live browser route.
+
+## Split-screen and frame-sync commands
+
+`project.split_screen` takes ordered `clipIds`, `layout` (`columns`, `rows`, `grid`) and absolute project `time`. It includes every visible active main/overlay picture, preserves timing, and crops proportionally. `overlay.sync_reference` takes a video overlay `clipId`, `referenceClipId`, `targetTime` and `referenceTime` to align two explicitly observed project frames without changing source timing. Both use the shared command registry and semantic preview/apply. See [the full contract](split-screen-and-frame-sync.md) for examples, rejection rules, collision behavior, persistent cells and browser-only split-screen rendering limits.

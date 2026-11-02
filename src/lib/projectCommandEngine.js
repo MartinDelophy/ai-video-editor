@@ -1,3 +1,4 @@
+import { applySplitScreenLayout, applyReferenceFrameSync } from "./visualLayoutCommands.js";
 import { applyRelightPatch } from "./relightCommand.js";
 import { reconcileVisualAssociations } from "./visualAssociations.js";
 import { MAX_TIMELINE_MARKER_SECONDS, TIMELINE_MARKER_COLORS, TIMELINE_MARKER_TYPES, normalizeTimelineMarkers } from "./timelineMarkers.js";
@@ -876,6 +877,8 @@ const reducers = {
   "visual.duplicate": duplicateVisual,
   "overlay.add": addOverlay,
   "overlay.set_transform": setOverlayTransform,
+  "project.split_screen": applySplitScreenLayout,
+  "overlay.sync_reference": applyReferenceFrameSync,
   "transition.set": setTransition,
   "caption.add": addCaption,
   "caption.update": updateCaption,

@@ -239,6 +239,19 @@ for (const [locale, copy] of Object.entries(WEBMCP_STYLE_COPY)) Object.assign(WE
 
 for (const [locale, copy] of Object.entries(WEBMCP_DEPTH_COPY)) Object.assign(WEBMCP_COPY[locale], copy);
 
+
+const layoutReviewLabels = {
+  zh: ["分屏区域", "宽度", "高度"], en: ["Split-screen cell", "Width", "Height"],
+  ja: ["分割領域", "幅", "高さ"], ko: ["분할 영역", "너비", "높이"],
+  es: ["Celda de pantalla dividida", "Anchura", "Altura"], fr: ["Case de l’écran partagé", "Largeur", "Hauteur"],
+  de: ["Bildschirmzelle", "Breite", "Höhe"], pt: ["Célula da tela dividida", "Largura", "Altura"],
+  th: ["พื้นที่แบ่งจอ", "ความกว้าง", "ความสูง"], vi: ["Ô chia màn hình", "Chiều rộng", "Chiều cao"],
+  ru: ["Ячейка разделённого экрана", "Ширина", "Высота"], it: ["Riquadro dello schermo diviso", "Larghezza", "Altezza"],
+  id: ["Sel layar terbagi", "Lebar", "Tinggi"],
+};
+for (const [locale, [fieldSplitScreen, fieldWidth, fieldHeight]] of Object.entries(layoutReviewLabels))
+  Object.assign(WEBMCP_COPY[locale], { fieldSplitScreen, fieldWidth, fieldHeight });
+
 export function createWebMcpTranslator(language) {
   const locale = String(language || "en").toLowerCase().split(/[-_]/)[0];
   const copy = WEBMCP_COPY[locale] || WEBMCP_COPY.en;

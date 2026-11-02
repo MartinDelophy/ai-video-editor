@@ -31,7 +31,7 @@ Für sämtliche rechtlichen Folgen eines Verstoßes gegen diese Anforderungen is
 
 ## Projektneuigkeiten
 
-- **2026-11-02** — Ausrichtungsmenüs mit Symbolen und geteilte Bildschirme einschließlich Hauptbild und sichtbarer Überlagerungen: zwei, drei oder vier Bilder, gleicher Zuschnitt in Vorschau und Export sowie einmaliges Rückgängigmachen.
+- **2026-11-02** — Ausrichtungsmenüs mit Symbolen und geteilte Bildschirme einschließlich Hauptbild und sichtbarer Überlagerungen: zwei, drei oder vier Bilder, gleicher Zuschnitt in Vorschau und Export sowie einmaliges Rückgängigmachen. Agenten können Bildschirmaufteilung und Referenzbild-Synchronisierung über gemeinsame CLI-, STDIO-MCP- und Vorschau/Anwenden-Befehle nutzen; der Bearbeitungs-Skill wurde ergänzt.
 - **2026-10-30** — Neues Kontextmenü für Vorschauvideos: Bildausrichtung, Einpassen und Füllen, zeitliche Ausrichtung von Überlagerungen und manuelle Synchronisierung per Referenzbild, mit Rückgängig-Funktion und Schutz gesperrter Spuren.
 - **2026-10-24** — HD-Wiederherstellung durch modellfreie, einstellbare Kontrast- und Kantenverbesserung bei Originalauflösung mit Vergleich und gespeicherten Einstellungen ersetzt. Vergleichston und Statustexte korrigiert. Direkte Bildübertragung und wiederverwendete Puffer vermeiden PNG-Umwege bei unverändertem Filter. Bildverbesserung mit WebGPU, bevorzugter Hochleistungs-GPU, CPU-Rückfall und Anzeige des tatsächlich verwendeten Backends.
 - **2026-10-21** — Quellszenenanalyse, prüfbare Ausführungspläne, belegte Transkriptzusammenfassungen und optionale visuelle Offline-Suche integriert (#112–#115). Offline-Laufzeiten separat vorbereiten. [#112–#115](docs/material-analysis.md).

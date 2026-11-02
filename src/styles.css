@@ -12813,3 +12813,27 @@ canvas.relight-position { width:100%; height:auto; display:block; }
 .preview-menu-heading { padding: 7px; color: #a8c6c7; font-size: 11px; font-weight: 700; }
 .preview-menu-heading:not(:first-child) { margin-top: 4px; border-top: 1px solid rgba(129, 170, 172, .18); }
 .preview-menu-hint { margin: 4px 7px 7px; color: #94a5aa; font-size: 11px; line-height: 1.5; overflow-wrap: anywhere; }
+
+/* Compact alignment tools: fixed geometry, visual glyphs and readable labels. */
+.preview-context-menu { width: min(304px, calc(100vw - 16px)); padding: 8px; background: rgba(12, 20, 26, .98); }
+.preview-context-menu .preview-menu-heading { padding: 8px 5px; font-size: 11px; }
+.preview-alignment-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; }
+.preview-context-menu .preview-alignment-grid button,
+.preview-context-menu .preview-split-grid button { display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 5px; min-height: 53px; padding: 7px 4px; border: 1px solid rgba(134, 173, 182, .12); border-radius: 7px; text-align: center; font-size: 11px; }
+.preview-context-menu button svg { flex-shrink: 0; color: #9bb8bf; }
+.preview-context-menu button:hover:not(:disabled),
+.preview-context-menu button:focus-visible { background: #173039; color: #c5fff6; transform: none; }
+.preview-context-menu button:hover:not(:disabled) svg,
+.preview-context-menu button:focus-visible svg { color: #57e4d4; }
+.preview-split-grid { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 4px; }
+.preview-split-grid svg { width: 44px; height: 28px; fill: rgba(74, 207, 196, .12); stroke: currentColor; stroke-width: 1.5; }
+.preview-time-actions { display: grid; gap: 2px; }
+.preview-context-menu .preview-time-actions button { display: flex; align-items: center; gap: 9px; min-height: 33px; padding: 6px 7px; font-size: 12px; }
+.preview-time-actions button span { flex: 1; min-width: 0; }
+.visual-overlay-viewport { position: absolute; inset: 0; z-index: 4; pointer-events: none; }
+.visual-overlay-viewport > .visual-overlay-layer { pointer-events: auto; }
+.primary-split-viewport { position: absolute; inset: 0; pointer-events: none; }
+.primary-split-viewport > .visual-media-layer,
+.primary-split-viewport > .visual-transform-box,
+.primary-split-viewport > .subject-effect-preview { pointer-events: auto; }
+.primary-split-viewport > .click-ripple-preview { z-index: 3; }

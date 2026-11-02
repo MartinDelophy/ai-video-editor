@@ -17,7 +17,13 @@ export const PREVIEW_ALIGNMENT_COPY = {
     "previewTime_reference": "当前帧对齐参考帧",
     "previewReference": "参考视频",
     "previewReferenceHint": "先标记参考帧，再找到另一视频的对应画面并对齐。",
-    "previewReferenceSaved": "已标记参考帧，请找到另一视频的对应画面后右键对齐"
+    "previewReferenceSaved": "已标记参考帧，请找到另一视频的对应画面后右键对齐",
+    "previewSplitTitle": "画面分屏 · {count} 个",
+    "previewSplit_columns": "左右排列",
+    "previewSplit_rows": "上下排列",
+    "previewSplit_grid": "网格分屏",
+    "previewSplitHint": "主画面与当前可见画中画一起排列；等比裁切填满，时间保持不变。",
+    "previewSplitNeedsMore": "需要至少 2 个同时可见的画面：主轨＋1 个画中画即可。"
   },
   "en": {
     "previewMenuTitle": "Video alignment",
@@ -37,7 +43,13 @@ export const PREVIEW_ALIGNMENT_COPY = {
     "previewTime_reference": "Match this frame to reference",
     "previewReference": "Reference video",
     "previewReferenceHint": "Mark a reference frame, then find and align the matching frame in the other video.",
-    "previewReferenceSaved": "Reference frame marked. Find the matching frame in the other video and right-click to align."
+    "previewReferenceSaved": "Reference frame marked. Find the matching frame in the other video and right-click to align.",
+    "previewSplitTitle": "Split screen · {count} pictures",
+    "previewSplit_columns": "Side by side",
+    "previewSplit_rows": "Stack vertically",
+    "previewSplit_grid": "Grid",
+    "previewSplitHint": "Arrange the main picture with visible overlays; crop to fill cells and keep clip timing.",
+    "previewSplitNeedsMore": "Requires 2 visible pictures: the main track plus 1 overlay is enough."
   },
   "ja": {
     "previewMenuTitle": "動画の整列",
@@ -57,7 +69,13 @@ export const PREVIEW_ALIGNMENT_COPY = {
     "previewTime_reference": "このフレームを基準に合わせる",
     "previewReference": "基準動画",
     "previewReferenceHint": "基準フレームをマークし、もう一方の動画で対応するフレームを見つけて合わせます。",
-    "previewReferenceSaved": "基準フレームをマークしました。もう一方の動画で対応するフレームを右クリックして合わせてください。"
+    "previewReferenceSaved": "基準フレームをマークしました。もう一方の動画で対応するフレームを右クリックして合わせてください。",
+    "previewSplitTitle": "画面分割 · {count} 画面",
+    "previewSplit_columns": "横に並べる",
+    "previewSplit_rows": "縦に並べる",
+    "previewSplit_grid": "グリッド",
+    "previewSplitHint": "主画面と表示中の子画面を配置。各枠に切り抜き、時間は維持します。",
+    "previewSplitNeedsMore": "同時に見える2画面が必要です。主画面＋子画面1つで使えます。"
   },
   "ko": {
     "previewMenuTitle": "동영상 정렬",
@@ -77,7 +95,13 @@ export const PREVIEW_ALIGNMENT_COPY = {
     "previewTime_reference": "이 프레임을 기준 프레임에 맞추기",
     "previewReference": "기준 동영상",
     "previewReferenceHint": "기준 프레임을 표시한 뒤 다른 동영상에서 대응하는 프레임을 찾아 맞추세요.",
-    "previewReferenceSaved": "기준 프레임을 표시했습니다. 다른 동영상의 대응 프레임을 찾아 우클릭으로 맞추세요."
+    "previewReferenceSaved": "기준 프레임을 표시했습니다. 다른 동영상의 대응 프레임을 찾아 우클릭으로 맞추세요.",
+    "previewSplitTitle": "화면 분할 · {count}개",
+    "previewSplit_columns": "가로 배열",
+    "previewSplit_rows": "세로 배열",
+    "previewSplit_grid": "격자",
+    "previewSplitHint": "주 화면과 현재 보이는 오버레이를 함께 배치합니다. 칸을 채우도록 자르고 시간은 유지합니다.",
+    "previewSplitNeedsMore": "동시에 보이는 화면이 2개 필요합니다. 주 화면과 오버레이 1개면 됩니다."
   },
   "es": {
     "previewMenuTitle": "Alinear vídeo",
@@ -97,7 +121,13 @@ export const PREVIEW_ALIGNMENT_COPY = {
     "previewTime_reference": "Alinear este fotograma con referencia",
     "previewReference": "Vídeo de referencia",
     "previewReferenceHint": "Marca un fotograma de referencia y busca el correspondiente en el otro vídeo para alinearlo.",
-    "previewReferenceSaved": "Referencia marcada. Busca el fotograma correspondiente en el otro vídeo y haz clic derecho para alinearlo."
+    "previewReferenceSaved": "Referencia marcada. Busca el fotograma correspondiente en el otro vídeo y haz clic derecho para alinearlo.",
+    "previewSplitTitle": "Pantalla dividida · {count}",
+    "previewSplit_columns": "En horizontal",
+    "previewSplit_rows": "En vertical",
+    "previewSplit_grid": "Cuadrícula",
+    "previewSplitHint": "Organiza la imagen principal y las superposiciones visibles, recortando cada celda sin cambiar los tiempos.",
+    "previewSplitNeedsMore": "Se necesitan 2 imágenes visibles: la principal y 1 superposición."
   },
   "fr": {
     "previewMenuTitle": "Aligner la vidéo",
@@ -117,7 +147,13 @@ export const PREVIEW_ALIGNMENT_COPY = {
     "previewTime_reference": "Aligner cette image sur la référence",
     "previewReference": "Vidéo de référence",
     "previewReferenceHint": "Marquez une image de référence, puis trouvez et alignez l’image correspondante dans l’autre vidéo.",
-    "previewReferenceSaved": "Référence marquée. Trouvez l’image correspondante dans l’autre vidéo et faites un clic droit pour l’aligner."
+    "previewReferenceSaved": "Référence marquée. Trouvez l’image correspondante dans l’autre vidéo et faites un clic droit pour l’aligner.",
+    "previewSplitTitle": "Écran partagé · {count}",
+    "previewSplit_columns": "Côte à côte",
+    "previewSplit_rows": "Empiler",
+    "previewSplit_grid": "Grille",
+    "previewSplitHint": "Dispose l’image principale et les incrustations visibles, recadrées dans chaque case sans changer le minutage.",
+    "previewSplitNeedsMore": "Il faut 2 images visibles : la principale et 1 incrustation suffisent."
   },
   "de": {
     "previewMenuTitle": "Video ausrichten",
@@ -137,7 +173,13 @@ export const PREVIEW_ALIGNMENT_COPY = {
     "previewTime_reference": "Dieses Bild an Referenz ausrichten",
     "previewReference": "Referenzvideo",
     "previewReferenceHint": "Ein Referenzbild markieren, dann das entsprechende Bild im anderen Video suchen und ausrichten.",
-    "previewReferenceSaved": "Referenz markiert. Das entsprechende Bild im anderen Video suchen und per Rechtsklick ausrichten."
+    "previewReferenceSaved": "Referenz markiert. Das entsprechende Bild im anderen Video suchen und per Rechtsklick ausrichten.",
+    "previewSplitTitle": "Geteilter Bildschirm · {count}",
+    "previewSplit_columns": "Nebeneinander",
+    "previewSplit_rows": "Untereinander",
+    "previewSplit_grid": "Raster",
+    "previewSplitHint": "Hauptbild und sichtbare Überlagerungen gemeinsam anordnen, Zellen füllend zuschneiden und Clipzeiten beibehalten.",
+    "previewSplitNeedsMore": "2 sichtbare Bilder erforderlich: Hauptspur plus 1 Überlagerung genügen."
   },
   "pt": {
     "previewMenuTitle": "Alinhar vídeo",
@@ -157,7 +199,13 @@ export const PREVIEW_ALIGNMENT_COPY = {
     "previewTime_reference": "Alinhar este quadro à referência",
     "previewReference": "Vídeo de referência",
     "previewReferenceHint": "Marque um quadro de referência e encontre o correspondente no outro vídeo para alinhar.",
-    "previewReferenceSaved": "Referência marcada. Encontre o quadro correspondente no outro vídeo e clique com o botão direito para alinhar."
+    "previewReferenceSaved": "Referência marcada. Encontre o quadro correspondente no outro vídeo e clique com o botão direito para alinhar.",
+    "previewSplitTitle": "Tela dividida · {count}",
+    "previewSplit_columns": "Lado a lado",
+    "previewSplit_rows": "Empilhar",
+    "previewSplit_grid": "Grade",
+    "previewSplitHint": "Organiza a imagem principal e as sobreposições visíveis, recortando cada célula sem alterar os tempos.",
+    "previewSplitNeedsMore": "São necessárias 2 imagens visíveis: a principal e 1 sobreposição."
   },
   "th": {
     "previewMenuTitle": "จัดแนววิดีโอ",
@@ -177,7 +225,13 @@ export const PREVIEW_ALIGNMENT_COPY = {
     "previewTime_reference": "จัดเฟรมนี้ให้ตรงกับเฟรมอ้างอิง",
     "previewReference": "วิดีโออ้างอิง",
     "previewReferenceHint": "ทำเครื่องหมายเฟรมอ้างอิง แล้วหาเฟรมที่ตรงกันในอีกวิดีโอเพื่อจัดแนว",
-    "previewReferenceSaved": "ทำเครื่องหมายแล้ว หาเฟรมที่ตรงกันในอีกวิดีโอแล้วคลิกขวาเพื่อจัดแนว"
+    "previewReferenceSaved": "ทำเครื่องหมายแล้ว หาเฟรมที่ตรงกันในอีกวิดีโอแล้วคลิกขวาเพื่อจัดแนว",
+    "previewSplitTitle": "แบ่งจอ · {count} ภาพ",
+    "previewSplit_columns": "เรียงแนวนอน",
+    "previewSplit_rows": "เรียงแนวตั้ง",
+    "previewSplit_grid": "ตาราง",
+    "previewSplitHint": "จัดภาพหลักพร้อมภาพซ้อนที่มองเห็น ครอบตัดเต็มช่องโดยคงเวลาของคลิป",
+    "previewSplitNeedsMore": "ต้องมีภาพที่มองเห็นพร้อมกัน 2 ภาพ: ภาพหลักและภาพซ้อน 1 ภาพก็พอ"
   },
   "vi": {
     "previewMenuTitle": "Căn chỉnh video",
@@ -197,7 +251,13 @@ export const PREVIEW_ALIGNMENT_COPY = {
     "previewTime_reference": "Căn khung hình này theo tham chiếu",
     "previewReference": "Video tham chiếu",
     "previewReferenceHint": "Đánh dấu khung hình tham chiếu, rồi tìm và căn khung hình tương ứng trong video kia.",
-    "previewReferenceSaved": "Đã đánh dấu tham chiếu. Tìm khung hình tương ứng trong video kia rồi nhấp chuột phải để căn chỉnh."
+    "previewReferenceSaved": "Đã đánh dấu tham chiếu. Tìm khung hình tương ứng trong video kia rồi nhấp chuột phải để căn chỉnh.",
+    "previewSplitTitle": "Chia màn hình · {count}",
+    "previewSplit_columns": "Xếp ngang",
+    "previewSplit_rows": "Xếp dọc",
+    "previewSplit_grid": "Lưới",
+    "previewSplitHint": "Xếp hình chính cùng các lớp phủ đang hiển thị, cắt vừa mỗi ô và giữ nguyên thời gian.",
+    "previewSplitNeedsMore": "Cần 2 hình cùng hiển thị: hình chính và 1 lớp phủ là đủ."
   },
   "ru": {
     "previewMenuTitle": "Выравнивание видео",
@@ -217,7 +277,13 @@ export const PREVIEW_ALIGNMENT_COPY = {
     "previewTime_reference": "Совместить этот кадр с опорным",
     "previewReference": "Опорное видео",
     "previewReferenceHint": "Отметьте опорный кадр, затем найдите и совместите соответствующий кадр другого видео.",
-    "previewReferenceSaved": "Опорный кадр отмечен. Найдите соответствующий кадр другого видео и нажмите правой кнопкой для совмещения."
+    "previewReferenceSaved": "Опорный кадр отмечен. Найдите соответствующий кадр другого видео и нажмите правой кнопкой для совмещения.",
+    "previewSplitTitle": "Разделение экрана · {count}",
+    "previewSplit_columns": "По горизонтали",
+    "previewSplit_rows": "По вертикали",
+    "previewSplit_grid": "Сетка",
+    "previewSplitHint": "Размещает основное изображение и видимые наложения с обрезкой по ячейке, сохраняя время клипов.",
+    "previewSplitNeedsMore": "Нужны 2 видимых изображения: основной дорожки и 1 наложения достаточно."
   },
   "it": {
     "previewMenuTitle": "Allinea video",
@@ -237,7 +303,13 @@ export const PREVIEW_ALIGNMENT_COPY = {
     "previewTime_reference": "Allinea questo fotogramma al riferimento",
     "previewReference": "Video di riferimento",
     "previewReferenceHint": "Segna un fotogramma di riferimento, poi trova e allinea quello corrispondente nell’altro video.",
-    "previewReferenceSaved": "Riferimento segnato. Trova il fotogramma corrispondente nell’altro video e fai clic destro per allinearlo."
+    "previewReferenceSaved": "Riferimento segnato. Trova il fotogramma corrispondente nell’altro video e fai clic destro per allinearlo.",
+    "previewSplitTitle": "Schermo diviso · {count}",
+    "previewSplit_columns": "Affianca",
+    "previewSplit_rows": "Impila",
+    "previewSplit_grid": "Griglia",
+    "previewSplitHint": "Dispone l’immagine principale e le sovrapposizioni visibili, ritagliandole nelle celle senza cambiare i tempi.",
+    "previewSplitNeedsMore": "Servono 2 immagini visibili: la principale e 1 sovrapposizione sono sufficienti."
   },
   "id": {
     "previewMenuTitle": "Sejajarkan video",
@@ -257,6 +329,12 @@ export const PREVIEW_ALIGNMENT_COPY = {
     "previewTime_reference": "Sejajarkan bingkai ini dengan acuan",
     "previewReference": "Video acuan",
     "previewReferenceHint": "Tandai bingkai acuan, lalu cari dan sejajarkan bingkai yang sesuai di video lain.",
-    "previewReferenceSaved": "Bingkai acuan ditandai. Cari bingkai yang sesuai di video lain lalu klik kanan untuk menyelaraskan."
+    "previewReferenceSaved": "Bingkai acuan ditandai. Cari bingkai yang sesuai di video lain lalu klik kanan untuk menyelaraskan.",
+    "previewSplitTitle": "Layar terbagi · {count}",
+    "previewSplit_columns": "Berdampingan",
+    "previewSplit_rows": "Susun vertikal",
+    "previewSplit_grid": "Kisi",
+    "previewSplitHint": "Susun gambar utama dan lapisan yang terlihat, pangkas untuk mengisi tiap sel tanpa mengubah waktu.",
+    "previewSplitNeedsMore": "Perlu 2 gambar yang terlihat bersamaan: gambar utama dan 1 lapisan sudah cukup."
   }
 };

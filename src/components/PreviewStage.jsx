@@ -26,6 +26,7 @@ import { resolveCaptionSizeForSegment } from "../lib/captionStyles.js";
 import { resolveCaptionSegmentPlacement } from "../lib/captionLayout.js";
 import { CaptionOverlay } from "./CaptionOverlay.jsx";
 import { IconButton } from "./ui.jsx";
+import { normalizeSplitScreenRect } from "../lib/previewAlignment.js";
 import { PreviewContextMenu } from "./PreviewContextMenu.jsx";
 import { getVisualOverlayPixelBox, resolveVisualOverlayTransform, snapVisualOverlayTransform } from "../lib/visualOverlayTimeline.js";
 import { getAnchoredResize } from "../lib/anchoredResize.js";
@@ -204,6 +205,7 @@ export function PreviewStage({
   onUpdateVisualOverlayMask,
   onReorderVisualOverlay,
   alignmentMainRange,
+  alignmentPrimaryRange,
   alignmentLocks = {},
   alignmentReference,
   onPreviewAlignment,
@@ -226,7 +228,9 @@ export function PreviewStage({
   const hasStickerOverlay = visibleStickers.some((sticker) => sticker?.src || sticker?.text);
   const hasPreviewContent = Boolean(previewVisualSrc || hasStickerOverlay || visualOverlays.length);
   const baseRenderedVisualSrc = previewVisualRenderSrc || previewVisualSrc;
-  const activeObjectFit = visualObjectFit || fitMode;
+  const primarySplitCell = normalizeSplitScreenRect(previewVisualSegment?.splitScreenRect);
+  const primarySplitStyle = primarySplitCell ? { clipPath: `inset(${primarySplitCell.y * 100}% ${(1 - primarySplitCell.x - primarySplitCell.width) * 100}% ${(1 - primarySplitCell.y - primarySplitCell.height) * 100}% ${primarySplitCell.x * 100}%)` } : undefined;
+  const activeObjectFit = primarySplitCell ? "contain" : visualObjectFit || fitMode;
   const activeObjectPosition = visualObjectPosition || "50% 50%";
   const smartContainActive = smartCropActive && smartFramePresentation === "safe-contain";
 
@@ -616,11 +620,13 @@ export function PreviewStage({
     let hit = event.target.closest?.("[data-preview-clip-id]");
     // The main picture's selection frame can cover an overlay. Resolve the
     // visible overlay beneath that frame before opening its clip menu.
-    if (event.type === "contextmenu" && hit?.dataset.previewTrack === "image") {
-      const overlayHit = document.elementsFromPoint(event.clientX, event.clientY)
-        .map(element => element.closest?.('[data-preview-track="overlay"]'))
-        .find(Boolean);
-      if (overlayHit) hit = overlayHit;
+    if (event.type === "contextmenu" && hit) {
+      const visibleHits = document.elementsFromPoint(event.clientX, event.clientY)
+        .map(element => element.closest?.("[data-preview-clip-id]"))
+        .filter(element => element && !element.classList.contains("visual-overlay-controls")
+          && !element.classList.contains("visual-transform-box"));
+      const overlayHit = visibleHits.find(element => element.dataset.previewTrack === "overlay");
+      hit = overlayHit || visibleHits[0] || hit;
     }
     if (!hit || !onPreviewAlignment) return;
     const track = hit.dataset.previewTrack;
@@ -710,6 +716,7 @@ export function PreviewStage({
           >
             <div className="caption-canvas-guide is-vertical" aria-hidden="true" />
             <div className="caption-canvas-guide is-horizontal" aria-hidden="true" />
+            <div className="primary-split-viewport" style={primarySplitStyle}>
             {renderedVisualSrc && trackVisibility.image && subjectEffectActive ? (
               <div className={`subject-effect-preview is-background-${normalizedSubjectEffect.background.mode}`} data-preview-track="image" data-preview-clip-id={previewVisualSegment?.id} aria-hidden="true">
                 {replacesBackground ? <div
@@ -868,6 +875,7 @@ export function PreviewStage({
                 {previewTransition.id === "flash" ? <i /> : null}
               </div>
             ) : null}
+            </div>
             {[...visualOverlays].sort((left, right) => (left.layer || 1) - (right.layer || 1)).map((overlay) => {
               const localTime = Math.max(0, currentTime - (overlay.start || 0));
               const transform = resolveVisualOverlayTransform(overlay, localTime);
@@ -936,7 +944,10 @@ export function PreviewStage({
                 height: containBox.height * animatedTransform.scale,
                 rotation: animatedTransform.rotation,
               });
+              const splitCell = normalizeSplitScreenRect(overlay.splitScreenRect);
+              const splitClip = splitCell ? { clipPath: `inset(${splitCell.y * 100}% ${(1 - splitCell.x - splitCell.width) * 100}% ${(1 - splitCell.y - splitCell.height) * 100}% ${splitCell.x * 100}%)` } : undefined;
               return <Fragment key={overlay.id}>
+                <div className="visual-overlay-viewport" style={splitClip}>
                 <div className="visual-overlay-layer" data-preview-track="overlay" data-preview-clip-id={overlay.id} tabIndex={0} aria-haspopup="menu" aria-label={overlay.name || t("previewMenuTitle")} style={style} onPointerDown={(event) => startOverlayTransform(event, "move", overlay)}>
                   {overlaySubjectActive ? <SubjectMaterialFilterDefs effect={overlaySubjectEffect} filterId={overlaySubjectFilterId} /> : null}
                   {overlaySubjectActive
@@ -975,6 +986,7 @@ export function PreviewStage({
                     style={{ filter: cutoutFilter }}
                   /> : null}
                   <ClickRippleOverlay effect={overlay.clickRipple} time={localTime} />
+                </div>
                 </div>
                 {selected && !isPlaying ? <div
                   className="visual-overlay-layer visual-overlay-controls is-selected"
@@ -1143,7 +1155,9 @@ export function PreviewStage({
     </section>
   );
   const alignmentMenu = contextMenu ? <PreviewContextMenu menu={contextMenu} locked={Boolean(alignmentLocks[contextMenu.track])}
-    mainRange={alignmentMainRange} reference={alignmentReference} t={t} onAction={onPreviewAlignment} onClose={() => setContextMenu(null)} /> : null;
+    mainRange={alignmentMainRange} reference={alignmentReference}
+    overlayCount={visualOverlays.length + (trackVisibility.image && previewVisualSegment && currentTime >= (alignmentPrimaryRange?.start ?? 0) && currentTime < (alignmentPrimaryRange?.end ?? 0) ? 1 : 0)}
+    splitLocked={Boolean((visualOverlays.length && alignmentLocks.overlay) || (trackVisibility.image && previewVisualSegment && alignmentLocks.image))} t={t} onAction={onPreviewAlignment} onClose={() => setContextMenu(null)} /> : null;
   if (isFocusPreviewOpen && typeof document !== "undefined") {
     return createPortal(<>
       <button className="focus-preview-backdrop" type="button" aria-label={t("closeFocusPreview", "关闭大画布预览")} onClick={() => setIsFocusPreviewOpen(false)} />

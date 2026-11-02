@@ -122,7 +122,7 @@ import { getMobileClipPanelOrigin } from "./lib/mobileClipActions.js";
 import { getVisualPropertyTabIds } from "./lib/visualPropertyTabs.js";
 import { applyTimelineRipple } from "./lib/timelineRipple.js";
 import { COMPACT_WORKSPACE_QUERY } from "./config/editor.js";
-import { alignPreviewSegment, alignedOverlayStart, capturePreviewFrame, moveAlignedOverlay, previewTimingFingerprint } from "./lib/previewAlignment.js";
+import { arrangeSplitScreen, alignPreviewSegment, alignedOverlayStart, capturePreviewFrame, moveAlignedOverlay, previewTimingFingerprint } from "./lib/previewAlignment.js";
 
 export function App() {
   const [uiLanguage, setUiLanguage] = useState(() => getStoredLanguage());
@@ -1794,6 +1794,7 @@ export function App() {
         }} />
 
         <PreviewStage
+          alignmentPrimaryRange={previewVisualRange}
           alignmentMainRange={previewVisualSegment?.type === "video" ? previewVisualRange : null}
           alignmentLocks={trackLocks}
           alignmentReference={validPreviewFrameReference}
@@ -1804,6 +1805,23 @@ export function App() {
             if (action === "mark") {
               setPreviewFrameReference(capturePreviewFrame(segment, track, start, time));
               notify(t("previewReferenceSaved"));
+              return;
+            }
+            if (action.startsWith("split-")) {
+              const primary = trackVisibility.image && previewVisualSegment && previewVisualRange
+                && time >= previewVisualRange.start && time < previewVisualRange.end ? previewVisualSegment : null;
+              const overlays = trackVisibility.overlay ? visualOverlaySegments.filter(item => time >= item.start && time < item.start + item.duration)
+                .sort((a, b) => (a.layer || 1) - (b.layer || 1)) : [];
+              if ((primary && trackLocks.image) || (overlays.length && trackLocks.overlay)) return;
+              const targets = [...(primary ? [{ ...primary, start: previewVisualRange.start }] : []), ...overlays];
+              if (targets.length < 2) return;
+              const arranged = arrangeSplitScreen(targets, targets.map(item => item.id), action.slice(6), frame, time);
+              const updates = new Map(arranged.map(item => [item.id, item]));
+              checkpointHistory();
+              if (primary) setVisualSegments(items => items.map(item => item.id === primary.id ? { ...item,
+                baseTransform: updates.get(item.id).baseTransform, keyframes: updates.get(item.id).keyframes,
+                splitScreenRect: updates.get(item.id).splitScreenRect } : item));
+              setVisualOverlaySegments(items => items.map(item => updates.get(item.id) || item));
               return;
             }
             if (trackLocks[track]) return;

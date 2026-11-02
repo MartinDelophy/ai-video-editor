@@ -1,6 +1,7 @@
 import { getDuckingEnvelope, scheduleDuckingGain } from "./audioDucking.js";
 import { applyBeatShakeTransform } from "./beatShakeEffect.js";
 import { drawGlitch } from "./glitchEffect.js";
+import { normalizeSplitScreenRect } from "./previewAlignment.js";
 import { composeRepairWithWebCodecs } from "./repairVideoComposition.js";
 import { createRepairRangeEncoding } from "./repairRangeEncoding.js";
 import { drawDriftingHalo } from "./driftingHaloEffect.js";
@@ -1204,6 +1205,14 @@ export function drawPreviewFrame(context, visual, canvas, options) {
   context.clearRect(0, 0, width, height);
   context.fillStyle = "#090b0f";
   context.fillRect(0, 0, width, height);
+  const primarySplitCell = normalizeSplitScreenRect(visualEffects?.splitScreenRect);
+  context.save();
+  if (primarySplitCell) {
+    context.beginPath();
+    context.rect(primarySplitCell.x * width, primarySplitCell.y * height, primarySplitCell.width * width, primarySplitCell.height * height);
+    context.clip();
+  }
+  const primaryFitMode = primarySplitCell ? "contain" : fitMode;
   const subjectEffect = normalizeSubjectEffect(visualEffects?.subjectEffect);
   if (hasSubjectEffect(subjectEffect) && subjectEffect.background.mode === "color") {
     context.save();
@@ -1234,13 +1243,13 @@ export function drawPreviewFrame(context, visual, canvas, options) {
   const drawPrimaryVisual = (targetContext, targetCanvas) => {
     if ((photoParallax.enabled || cinematicDepth.enabled) && depth?.depthVisual) {
       if (photoParallax.enabled && !(cinematicDepth.enabled && cinematicDepth.output !== "cinematic")) drawPhotoParallaxFrame(targetContext, visual, targetCanvas, {
-        effect: photoParallax, depthVisual: depth.depthVisual, fitMode, filter: primaryFilter, time: visualTime, clear: false,
+        effect: photoParallax, depthVisual: depth.depthVisual, fitMode: primaryFitMode, filter: primaryFilter, time: visualTime, clear: false,
       });
       else drawCinematicDepthFrame(targetContext, visual, targetCanvas, {
-        effect: cinematicDepth, ...depth, depthVisual: depth.depthVisual, fitMode, filter: primaryFilter, clear: false,
+        effect: cinematicDepth, ...depth, depthVisual: depth.depthVisual, fitMode: primaryFitMode, filter: primaryFilter, clear: false,
       });
       const sourceSize = getVisualDimensions(visual);
-      const fitRect = getVisualFitRect(sourceSize, targetCanvas, fitMode);
+      const fitRect = getVisualFitRect(sourceSize, targetCanvas, primaryFitMode);
       return {
         sourceSize,
         smartCropRect: null,
@@ -1251,7 +1260,7 @@ export function drawPreviewFrame(context, visual, canvas, options) {
     }
     const smartFrameSourceTime = getVisualSourceTime(visualEffects, visualTime);
     const smartFrameCrop = resolveSmartFrameCropAtTime(visualEffects?.smartFrame, smartFrameSourceTime);
-    return drawFittedVisual(targetContext, visual, targetCanvas, fitMode, primaryFilter, vision, visualEffects?.subjectEffect, smartFrameCrop);
+    return drawFittedVisual(targetContext, visual, targetCanvas, primaryFitMode, primaryFilter, vision, visualEffects?.subjectEffect, smartFrameCrop);
   };
   if (usesAlphaMask) {
     const layers = getVisualEffectsLayers(canvas);
@@ -1315,7 +1324,7 @@ export function drawPreviewFrame(context, visual, canvas, options) {
     const nextFilter = transitionId === "blur" ? `${nextBaseFilter === "none" ? "" : nextBaseFilter} blur(${Math.max(0, (1 - amount) * 14)}px)`.trim() : nextBaseFilter;
     const nextSourceTime = getVisualSourceTime(transitionNext.visualEffects, transitionNext.visualTime || 0);
     const nextSmartFrameCrop = resolveSmartFrameCropAtTime(transitionNext.visualEffects?.smartFrame, nextSourceTime);
-    drawFittedVisual(context, transitionNext.visual, canvas, fitMode, nextFilter, transitionNext.vision || null, null, nextSmartFrameCrop);
+    drawFittedVisual(context, transitionNext.visual, canvas, primaryFitMode, nextFilter, transitionNext.vision || null, null, nextSmartFrameCrop);
     context.restore();
     if (transitionId === "flash") {
       context.fillStyle = `rgba(255,255,255,${Math.max(0, 1 - Math.abs(amount - 0.5) * 2) * 0.7})`;
@@ -1327,9 +1336,18 @@ export function drawPreviewFrame(context, visual, canvas, options) {
     }
   }
 
+  context.restore();
+
   visualOverlays.forEach((overlay, index) => {
     const overlayVisual = visualOverlaySources[index];
     if (!overlayVisual) return;
+    const splitCell = normalizeSplitScreenRect(overlay.splitScreenRect);
+    context.save();
+    if (splitCell) {
+      context.beginPath();
+      context.rect(splitCell.x * width, splitCell.y * height, splitCell.width * width, splitCell.height * height);
+      context.clip();
+    }
     const overlayTime = Math.max(0, visualTime - (overlay.start || 0));
     const overlayTransform = resolveVisualTransform(overlay.keyframes, overlayTime, overlay.baseTransform);
     const overlayAnimation = resolveVisualClipAnimation(overlay.animation, overlayTime, overlay.duration);
@@ -1440,6 +1458,7 @@ export function drawPreviewFrame(context, visual, canvas, options) {
       paintOverlay(context);
       context.restore();
     }
+    context.restore();
   });
 
   if (captionsEnabled && subtitle) {

@@ -1,4 +1,5 @@
 import { getVisualSourceTime, normalizeVisualTransform, resolveVisualTransform } from "./visualEffects.js";
+import { getVisualOverlayPixelBox } from "./visualOverlayTimeline.js";
 import { resolveVisualClipAnimation } from "./visualClipAnimations.js";
 
 export function alignPreviewSegment(segment, time, action, frame, box) {
@@ -26,7 +27,7 @@ export function alignPreviewSegment(segment, time, action, frame, box) {
   // insert an implicit keyframe or erase the user's animation/colour keyframes.
   const keys = ["x", "y", "scale", "rotation"].filter(key => Math.abs(next[key] - current[key]) > 1e-8);
   const adjust = (value, key) => key === "scale" ? value * next.scale / current.scale : value + next[key] - current[key];
-  return { ...segment,
+  return { ...segment, splitScreenRect: undefined,
     baseTransform: normalizeVisualTransform(Object.fromEntries(Object.entries(base).map(([key, value]) => [key, keys.includes(key) ? adjust(value, key) : value]))),
     keyframes: (segment.keyframes || []).map(keyframe => Object.fromEntries(Object.entries(keyframe)
       .map(([key, value]) => [key, keys.includes(key) && Number.isFinite(value) ? adjust(value, key) : value]))),
@@ -58,4 +59,50 @@ export function moveAlignedOverlay(items, id, start) {
     && item.start < start + target.duration - 1e-7 && item.start + item.duration > start + 1e-7);
   if (collision) lane = Math.max(...items.map(item => Number(item.lane) || (Number(item.layer) || 1) - 1)) + 1;
   return items.map(item => item.id === id ? { ...item, start, lane, layer: lane + 1 } : item);
+}
+
+// Normalized canvas cells are shared by preview and every canvas export path.
+export function normalizeSplitScreenRect(value) {
+  if (!value || ![value.x, value.y, value.width, value.height].every(Number.isFinite)) return null;
+  if (value.x < 0 || value.y < 0 || value.width <= 0 || value.height <= 0
+    || value.x + value.width > 1.000001 || value.y + value.height > 1.000001) return null;
+  return value;
+}
+
+export function getSplitScreenCells(count, layout = "grid") {
+  if (!Number.isInteger(count) || count < 2) return [];
+  const columns = layout === "rows" ? 1 : layout === "columns" ? count : Math.ceil(Math.sqrt(count));
+  const rows = Math.ceil(count / columns);
+  return Array.from({ length: count }, (_, index) => {
+    const row = Math.floor(index / columns);
+    // The last row uses its full width, including odd clip counts.
+    const rowCount = Math.min(columns, count - row * columns);
+    return { x: (index % columns) / rowCount, y: row / rows, width: 1 / rowCount, height: 1 / rows };
+  });
+}
+
+export function arrangeSplitScreen(items, ids, layout, frame, time) {
+  const targets = ids.map(id => items.find(item => item.id === id)).filter(Boolean);
+  const cells = getSplitScreenCells(targets.length, layout);
+  if (!cells.length || !(frame.width > 0 && frame.height > 0)) return items;
+  const updates = new Map(targets.map((item, index) => {
+    const rect = cells[index];
+    const box = getVisualOverlayPixelBox(item, frame);
+    const scale = Math.max(frame.width * rect.width / box.width, frame.height * rect.height / box.height);
+    const localTime = Math.max(0, time - item.start);
+    const transform = resolveVisualTransform(item.keyframes, localTime, item.baseTransform);
+    const animation = resolveVisualClipAnimation(item.animation, localTime, item.duration);
+    const next = { x: (rect.x + rect.width / 2) * 100 - 50 - animation.x,
+      y: (rect.y + rect.height / 2) * 100 - 50 - animation.y,
+      scale: scale / animation.scale, rotation: 0 };
+    const adjust = (value, key) => key === "scale" ? value * next.scale / transform.scale : value + next[key] - transform[key];
+    const keys = Object.keys(next);
+    return [item.id, { ...item, splitScreenRect: rect,
+      baseTransform: normalizeVisualTransform(Object.fromEntries(Object.entries(normalizeVisualTransform(item.baseTransform))
+        .map(([key, value]) => [key, keys.includes(key) ? adjust(value, key) : value]))),
+      keyframes: (item.keyframes || []).map(keyframe => Object.fromEntries(Object.entries(keyframe)
+        .map(([key, value]) => [key, keys.includes(key) && Number.isFinite(value) ? adjust(value, key) : value]))),
+    }];
+  }));
+  return items.map(item => updates.get(item.id) || item);
 }

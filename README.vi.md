@@ -19,11 +19,11 @@ Người dùng tự chịu mọi trách nhiệm pháp lý phát sinh từ việc
 
 ## Cập nhật dự án
 
+- **2026-11-02** — Menu căn chỉnh với biểu tượng và chia màn hình gồm hình chính cùng các lớp phủ đang hiển thị, hỗ trợ hai, ba hoặc bốn hình; vùng cắt thống nhất khi xem trước và xuất, hoàn tác một bước.
 - **2026-10-30** — Thêm menu chuột phải cho video xem trước: căn khung hình, vừa khung và lấp đầy, căn thời gian lớp phủ và đồng bộ thủ công bằng khung hình tham chiếu; hỗ trợ hoàn tác và bảo vệ đường băng đã khóa.
 - **2026-10-25** — Anna bổ sung tạo nhạc đám mây chính thức với tùy chọn theo mô hình, khôi phục không gửi trùng, nghe thử và lưu vào Tài nguyên của tôi.
 - **2026-10-20** — Cài đặt video Anna dùng một vùng cuộn với thanh cuộn mảnh có thể kéo khi nội dung vượt khung. Video Anna mở bản xem trước sau khi lưu; đóng lại vẫn giữ nguyên trình chỉnh sửa. Bảng phân cảnh thêm menu chuột phải để xem trước, tải xuống, tạo nút tiếp, xóa và căn vừa bảng. Bảng vẽ vô hạn dùng chung menu và hỗ trợ hoàn tác/làm lại tại vùng trống. Cử chỉ bàn di chuột giữ vùng bắt đầu, cập nhật theo khung hình và lưu sau khi kết thúc.
 - **2026-10-19** — Bảng vẽ và bảng phân cảnh hỗ trợ tải và nhập dự án đầy đủ, sao lưu lên Anna và khôi phục thành bản sao có thể chỉnh sửa, gồm nút, liên kết, mô tả và tệp. Hai bảng dùng chung cách xử lý cử chỉ bàn di chuột. Đã sửa lỗi không thể phát lại khi bản xem trước so sánh xóa hình mờ AI kết thúc.
-- **2026-10-18** — Thêm các làn hành động nhân vật và máy quay đồng bộ, cùng băng chuyền kịch bản có thể chỉnh sửa theo phát lại. Hộp thoại 3D dùng chung ChatCut với lịch sử, khôi phục bản nháp, tham chiếu đối tượng và duyệt thay đổi. Storyboard mặc định dùng GPT Image 2 (fal). Đã sửa tham số định tuyến mô hình hội thoại và giữ ngữ cảnh dài hơn; xác minh phản hồi chuyển mô hình thực tế. Video có khung đầu và cuối vẫn chờ Anna mở rộng API: docs/storyboard-anna-video-contract.md. Lỗi tải quy trình được tách khỏi trình biên tập, hỗ trợ thử lại, quay về và tương thích tài nguyên giữa các bản nháp Anna. Canvas vô hạn bổ sung đường nối có hướng, tô sáng đầu vào tương thích và menu tạo rồi kết nối nút tiếp theo trong một thao tác có thể hoàn tác. Chat canvas hỗ trợ tìm kiếm và tham chiếu nút bằng @, thẻ có thể xóa và ID nút rõ ràng.
 
 Xem [Roadmap](ROADMAP.md) cho công việc dự kiến, [Releases](https://github.com/MartinDelophy/ai-video-editor/releases) cho thay đổi đã phát hành và [Issues](https://github.com/MartinDelophy/ai-video-editor/issues) cho nhiệm vụ và lỗi.
 

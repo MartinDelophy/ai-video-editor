@@ -1019,7 +1019,7 @@ export function PreviewStage({
                     <button className="visual-transform-rotate" type="button" aria-label={t("visualRotation", "旋转")} onPointerDown={(event) => startOverlayTransform(event, "rotate", overlay)} />
                     {['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'].map((handle) => <button key={handle} className={`visual-transform-handle is-${handle}`} type="button" aria-label={t("visualScale", "缩放")} onPointerDown={(event) => startOverlayTransform(event, `scale-${handle}`, overlay)} />)}
                   </> : null}
-                </div>
+                </div> : null}
                 {selected && !isPlaying ? (
                   <div
                     className={`visual-overlay-order-actions is-${overlayToolbar.placement}`}

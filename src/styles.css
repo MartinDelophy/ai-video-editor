@@ -13083,3 +13083,7 @@ canvas.relight-position { width:100%; height:auto; display:block; }
 .primary-split-viewport > .visual-transform-box,
 .primary-split-viewport > .subject-effect-preview { pointer-events: auto; }
 .primary-split-viewport > .click-ripple-preview { z-index: 3; }
+/* Selection controls stay above split cells without changing media layer order. */
+.visual-overlay-controls { z-index: 8; pointer-events: none; }
+.visual-overlay-controls > button,
+.visual-overlay-controls > .visual-mask-editor { pointer-events: auto; }

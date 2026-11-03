@@ -68,6 +68,9 @@ Clearing the cache cancels pending work and selects original preview mode.
 Mounted players retain their proxy URLs until they release them. Original
 project media is never evicted by proxy cache operations.
 
-The preview controls expose automatic proxies, original playback, cancellation
-and cache clearing in all 13 interface languages. Switching back to automatic
-mode also permits retry of previously canceled or unsupported sources.
+The View menu groups automatic proxies, original playback, actual playback-source
+status and cancellation in all 13 interface languages. Cache management opens a
+separate panel; clearing it returns preview to original media. Phones use a compact
+View icon and a scrollable bottom sheet, leaving preview transport controls clear.
+The menu explicitly states that export always uses original media. Switching back
+to automatic mode also permits retry of previously canceled or unsupported sources.

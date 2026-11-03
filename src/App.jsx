@@ -1627,6 +1627,8 @@ export function App({ hostSession = null }) {
         }}
       />
       <Topbar
+        proxySource={previewVisualType === "video" ? previewVisualSrc : ""}
+        proxyPlaybackSrc={previewPlaybackSrc}
         desktopActions={{
           importMedia: () => fileInputRef.current?.click(),
           duplicate: handleDuplicateTrack, delete: handleDeleteTrack, split: handleCutTrack,

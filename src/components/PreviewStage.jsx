@@ -223,7 +223,6 @@ export function PreviewStage({
   const proxy = useVideoProxyController(proxyAssets, proxyBusy);
   const transitionPlaybackSrc = useVideoProxySource(previewTransition?.next, previewTransition?.next?.src || "", isPlaying);
   const playbackSrc = previewPlaybackSrc || previewVisualSrc;
-  const proxyRecord = proxy.record(previewVisualSrc);
   const previewImageRef = useRef(null);
   const smartBackgroundVideoRef = useRef(null);
   const depthCanvasRef = useRef(null);
@@ -665,7 +664,7 @@ export function PreviewStage({
   };
   const previewStage = (
     <section
-      className={`preview-stage ${previewVisualType === "video" ? "has-proxy-controls" : ""} ${isFocusPreviewOpen ? `is-focus-preview is-focus-${focusPreviewOrientation}` : ""}`}
+      className={`preview-stage ${isFocusPreviewOpen ? `is-focus-preview is-focus-${focusPreviewOrientation}` : ""}`}
       style={isFocusPreviewOpen ? { "--focus-preview-ratio": previewRatioValue } : undefined}
       role={isFocusPreviewOpen ? "dialog" : undefined}
       aria-modal={isFocusPreviewOpen ? "true" : undefined}
@@ -1137,20 +1136,6 @@ export function PreviewStage({
           value={Math.min(currentTime, estimatedDuration)}
           onChange={(event) => seekTo(Number(event.target.value))}
         />
-        {previewVisualType === "video" ? <div className="proxy-preview-row">
-          <label className="proxy-preview-control" title={t("proxyHint")}>
-            <select aria-label={t("proxyMode")} value={proxy.mode} onChange={event => proxy.setMode(event.target.value)}>
-              <option value="auto">{t("proxyAuto")}</option>
-              <option value="original">{t("proxyOriginal")}</option>
-            </select>
-            <span role="status">{proxy.mode === "original" && playbackSrc === previewVisualSrc ? t("proxyOriginal")
-              : proxyRecord?.state === "ready" ? t("proxyReady")
-                : ["queued", "preparing"].includes(proxyRecord?.state) ? `${t("proxyPreparing")} ${Math.round((proxyRecord.progress || 0) * 100)}%`
-                  : t("proxyOriginal")}</span>
-          </label>
-          {["queued", "preparing"].includes(proxyRecord?.state) ? <button className="proxy-cache-button" type="button" onClick={() => proxy.cancel(previewVisualSrc)}>{t("proxyCancel")}</button> : null}
-          <button className="proxy-cache-button" type="button" onClick={() => void proxy.clear()}>{t("proxyClear")}</button>
-        </div> : null}
         <div className="transport-row">
           <span>
             {formatTime(currentTime)} <em>/ {formatTime(estimatedDuration)}</em>

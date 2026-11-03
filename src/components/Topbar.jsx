@@ -1,8 +1,29 @@
 import { DesktopMenus } from "./DesktopMenus.jsx";
-import { setVideoProxyMode } from "../lib/videoProxy.js";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { cancelVideoProxy, clearVideoProxyCache, getVideoProxyMode, getVideoProxyRecord, getVideoProxyRevision, subscribeVideoProxy, setVideoProxyMode } from "../lib/videoProxy.js";
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
   ArrowClockwise,
+  BookOpen,
+  Bug,
+  CheckCircle,
+  Copy,
+  CornersOut,
+  FrameCorners,
+  Cursor,
+  Gauge,
+  Info,
+  Keyboard,
+  Link,
+  LinkBreak,
+  MagnifyingGlassMinus,
+  MagnifyingGlassPlus,
+  Scissors,
+  SelectionAll,
+  SpeakerHigh,
+  StopCircle,
+  Trash,
+  ArrowsHorizontal,
+  ArrowsInLineHorizontal,
   ArrowCounterClockwise,
   CaretDown,
   CircleNotch,
@@ -42,6 +63,8 @@ const COMMUNITY_LINKS = Object.freeze({
 });
 
 export function Topbar({
+  proxySource = "",
+  proxyPlaybackSrc = "",
   desktopActions = {},
   hostService = null,
   completeProject = null,
@@ -82,6 +105,13 @@ export function Topbar({
   handleImportProject,
   projectFileInputRef,
 }) {
+  useSyncExternalStore(subscribeVideoProxy, getVideoProxyRevision);
+  const proxyMode = getVideoProxyMode();
+  const proxyRecord = getVideoProxyRecord(proxySource);
+  const proxyPending = ["queued", "preparing"].includes(proxyRecord?.state);
+  const [showProxyCache, setShowProxyCache] = useState(false);
+  const [clearingProxyCache, setClearingProxyCache] = useState(false);
+  const proxyCacheAnchor = useRef(null);
   const [activeMenu, setActiveMenu] = useState("");
   const [shortcutRequest, setShortcutRequest] = useState(0);
   const fileAnchorRef = useRef(null);
@@ -143,14 +173,34 @@ export function Topbar({
     return () => window.cancelAnimationFrame(frame);
   }, [modelCacheInspection.state, showSettings]);
 
+  useLayoutEffect(() => {
+    if (showProxyCache) document.querySelector(".proxy-cache-popover .popover-close")?.focus();
+  }, [showProxyCache]);
+  const closeProxyCache = () => {
+    const containedFocus = document.querySelector(".proxy-cache-popover")?.contains(document.activeElement);
+    setShowProxyCache(false);
+    if (containedFocus) proxyCacheAnchor.current?.parentElement?.querySelector(".is-compact-view [data-editor-menu-trigger]")?.focus();
+  };
   const closeDesktopMenu = () => setActiveMenu("");
   const openMenu = (id) => {
     setActiveMenu(id === "file" ? "" : id);
     setShowFileMenu(id === "file");
-    setShowSettings(false); setShowRatioMenu(false); setShowExportMenu(false);
+    setShowSettings(false); setShowRatioMenu(false); setShowExportMenu(false); setShowProxyCache(false);
   };
   const timelineCommand = command => window.dispatchEvent(new CustomEvent("editor-timeline-command", { detail: command }));
-  const item = (key, run, disabled = false, shortcut = "") => ({ key, run, disabled, shortcut });
+  const menuIcons = {
+    undo: ArrowCounterClockwise, redo: ArrowClockwise, desktopDuplicate: Copy, desktopDelete: Trash,
+    desktopSelectAll: SelectionAll, desktopSplit: Scissors, desktopTrim: ArrowsInLineHorizontal,
+    desktopSlip: ArrowsHorizontal, desktopSlide: Cursor, desktopSpeed: Gauge, desktopSeparate: SpeakerHigh,
+    desktopLink: Link, desktopUnlink: LinkBreak, desktopZoomIn: MagnifyingGlassPlus, desktopZoomOut: MagnifyingGlassMinus,
+    desktopFit: FrameCorners, desktopFullscreen: CornersOut, proxyAuto: Gauge, proxyOriginal: FilmSlate,
+    proxyCacheManage: Database, proxyCancel: StopCircle, desktopGuide: BookOpen, desktopShortcuts: Keyboard,
+    desktopFeedback: Bug, desktopAbout: Info,
+  };
+  const item = (key, run, disabled = false, shortcut = "") => ({ key, run, disabled, shortcut, icon: menuIcons[key] });
+  const proxySourceLabel = proxySource
+    ? t("proxyUsing").replace("{source}", t(proxyPlaybackSrc && proxyPlaybackSrc !== proxySource ? "proxyVideo" : "proxyOriginal"))
+    : t("proxyNoVideo");
   const menus = [
     { id: "edit", label: t("desktopEdit"), items: [
       item("undo", undo, false, `${shortcutModifier}+Z`), item("redo", redo, false, `${shortcutModifier}+Shift+Z`), null,
@@ -169,17 +219,25 @@ export function Topbar({
       item("desktopUnlink", () => timelineCommand("unlink-captions"), !desktopActions.canUnlink),
     ] },
     { id: "view", label: t("desktopView"), items: [
+      { key: "desktopTimelineGroup", kind: "heading" },
       item("desktopZoomIn", () => timelineCommand("zoom-in"), false, "+"),
       item("desktopZoomOut", () => timelineCommand("zoom-out"), false, "−"),
       item("desktopFit", () => timelineCommand("zoom-fit"), false, "Shift+Z"), null,
-      item("proxyAuto", () => setVideoProxyMode("auto")), item("proxyOriginal", () => setVideoProxyMode("original")), null,
+      { key: "proxyMode", kind: "heading" },
+      { ...item("proxyAuto", () => setVideoProxyMode("auto")), checked: proxyMode === "auto" },
+      { ...item("proxyOriginal", () => setVideoProxyMode("original")), checked: proxyMode === "original" },
+      { key: "proxyStatus", kind: "status", spinning: proxyPending, icon: proxyPending ? CircleNotch : CheckCircle, text: proxySourceLabel,
+        detail: proxyPending ? `${t("proxyPreparing")} ${Math.round((proxyRecord.progress || 0) * 100)}%` : proxySource && proxyRecord?.state === "ready" ? t("proxyReady") : "" },
+      ...(proxyPending ? [item("proxyCancel", () => cancelVideoProxy(proxySource))] : []), null,
+      item("proxyCacheManage", () => setShowProxyCache(true)),
       item("desktopFullscreen", () => window.dispatchEvent(new CustomEvent("editor-preview-command", { detail: "fullscreen" })), !imageSrc),
+      { key: "proxyExportHint", kind: "note" },
     ] },
     { id: "help", label: t("desktopHelp"), items: [
-      { key: "desktopGuide", href: "/how-it-works/", external: true },
+      { key: "desktopGuide", icon: BookOpen, href: "/how-it-works/", external: true },
       item("desktopShortcuts", () => { setShowSettings(true); setShortcutRequest(value => value + 1); }),
-      { key: "desktopFeedback", href: "https://github.com/MartinDelophy/ai-video-editor/issues", external: true }, null,
-      { key: "desktopAbout", href: "/features/", external: true },
+      { key: "desktopFeedback", icon: Bug, href: "https://github.com/MartinDelophy/ai-video-editor/issues", external: true }, null,
+      { key: "desktopAbout", icon: Info, href: "/features/", external: true },
     ] },
   ];
   useEffect(() => {
@@ -289,6 +347,19 @@ export function Topbar({
               <input ref={projectFileInputRef} className="project-file-input" type="file" accept="application/zip,.timeline" onChange={(event) => event.target.files?.[0] && handleImportProject(event.target.files[0])} />
             </div>
             <DesktopMenus menus={menus} activeMenu={activeMenu} onOpen={openMenu} onClose={closeDesktopMenu} t={t} />
+              <div className="menu-anchor" ref={proxyCacheAnchor}>
+                {showProxyCache ? <Popover portal anchorRef={proxyCacheAnchor} className="proxy-cache-popover" closeLabel={t("close")} onClose={closeProxyCache}>
+                  <section className="proxy-cache-panel" aria-label={t("proxyCacheManage")}>
+                    <h3><Database size={18} />{t("proxyCacheManage")}</h3>
+                    <p>{t("proxyCacheDescription")}</p>
+                    <button type="button" className="panel-secondary" disabled={clearingProxyCache} onClick={async () => {
+                      setClearingProxyCache(true);
+                      try { await clearVideoProxyCache(); closeProxyCache(); }
+                      finally { setClearingProxyCache(false); }
+                    }}>{clearingProxyCache ? <CircleNotch size={16} className="is-spinning" /> : <Trash size={16} />}{t("proxyClear")}</button>
+                  </section>
+                </Popover> : null}
+              </div>
             </nav>
           </div>
           <div className="autosave" title={completeProject?.error || undefined} role={completeProject ? "status" : undefined}>
@@ -388,7 +459,7 @@ export function Topbar({
             onClick={() => setShowExportMenu((open) => !open)}
           >
             {exportSettings.mediaType === "audio" ? <MusicNotes size={17} weight="bold" /> : <FilmSlate size={17} weight="bold" />}
-            {exporting ? t("exporting") : t(exportSettings.mediaType === "audio" ? "audioExportTitle" : "exportVideo")}
+            <span className="export-button-label">{exporting ? t("exporting") : t(exportSettings.mediaType === "audio" ? "audioExportTitle" : "exportVideo")}</span>
             {!exporting ? <CaretDown size={13} weight="bold" /> : null}
           </button>
           {showExportMenu ? (

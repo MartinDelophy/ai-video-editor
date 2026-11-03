@@ -160,3 +160,23 @@ export const VIDEO_PROXY_COPY = Object.fromEntries(
     Object.fromEntries(keys.map((key, index) => [key, values[index]])),
   ]),
 );
+
+const menuKeys = ["desktopTimelineGroup", "proxyCacheManage", "proxyCacheDescription", "proxyExportHint", "proxyUsing", "proxyVideo", "proxyNoVideo"];
+const menuRows = {
+  zh: "时间线|代理缓存管理|只清理可重新生成的代理，不影响原片和项目。清理后预览切回原片。|导出始终使用原片|当前使用：{source}|代理视频|选择视频以查看代理状态",
+  en: "Timeline|Manage proxy cache|Remove only rebuildable proxies. Original media and projects stay intact. Preview returns to originals.|Export always uses original media|Currently using: {source}|Proxy video|Select a video to see proxy status",
+  ja: "タイムライン|プロキシキャッシュ管理|再生成できるプロキシのみ削除します。元のメディアとプロジェクトは保持され、プレビューは元映像に戻ります。|書き出しには常に元のメディアを使用|現在のソース：{source}|プロキシ動画|動画を選択するとプロキシの状態を表示",
+  ko: "타임라인|프록시 캐시 관리|다시 생성할 수 있는 프록시만 삭제합니다. 원본과 프로젝트는 유지되며 미리보기는 원본으로 돌아갑니다.|내보내기는 항상 원본 사용|현재 사용: {source}|프록시 동영상|동영상을 선택하면 프록시 상태 표시",
+  es: "Línea de tiempo|Gestionar caché de proxies|Elimina solo proxies regenerables. Los originales y proyectos se conservan. La vista previa vuelve a los originales.|La exportación siempre usa originales|En uso: {source}|Vídeo proxy|Selecciona un vídeo para ver su estado",
+  fr: "Timeline|Gérer le cache des proxies|Supprime uniquement les proxies régénérables. Les originaux et projets sont conservés. L’aperçu revient aux originaux.|L’export utilise toujours les originaux|Source actuelle : {source}|Vidéo proxy|Sélectionnez une vidéo pour voir son état",
+  de: "Zeitleiste|Proxy-Cache verwalten|Nur neu erzeugbare Proxys entfernen. Originale und Projekte bleiben erhalten. Die Vorschau wechselt zu Originalen.|Export verwendet immer Originalmedien|Aktuell verwendet: {source}|Proxy-Video|Video auswählen, um den Proxy-Status zu sehen",
+  pt: "Linha do tempo|Gerenciar cache de proxies|Remove apenas proxies recriáveis. Originais e projetos são preservados. A prévia volta aos originais.|A exportação sempre usa originais|Em uso: {source}|Vídeo proxy|Selecione um vídeo para ver o status",
+  th: "ไทม์ไลน์|จัดการแคชพร็อกซี|ลบเฉพาะพร็อกซีที่สร้างใหม่ได้ ต้นฉบับและโปรเจกต์ยังคงอยู่ ตัวอย่างจะกลับไปใช้ต้นฉบับ|ส่งออกด้วยสื่อต้นฉบับเสมอ|กำลังใช้: {source}|วิดีโอพร็อกซี|เลือกวิดีโอเพื่อดูสถานะพร็อกซี",
+  vi: "Dòng thời gian|Quản lý bộ nhớ đệm proxy|Chỉ xóa proxy có thể tạo lại. Giữ nguyên nguồn và dự án. Xem trước trở về bản gốc.|Xuất luôn dùng phương tiện gốc|Đang dùng: {source}|Video proxy|Chọn video để xem trạng thái proxy",
+  ru: "Таймлайн|Управление кэшем прокси|Удаляются только воссоздаваемые прокси. Оригиналы и проекты сохраняются. Предпросмотр вернётся к оригиналам.|Экспорт всегда использует оригиналы|Сейчас используется: {source}|Прокси-видео|Выберите видео для просмотра состояния прокси",
+  it: "Timeline|Gestisci cache proxy|Rimuove solo i proxy rigenerabili. Originali e progetti restano intatti. L’anteprima torna agli originali.|L’esportazione usa sempre gli originali|Sorgente attuale: {source}|Video proxy|Seleziona un video per vedere lo stato proxy",
+  id: "Linimasa|Kelola cache proksi|Hanya menghapus proksi yang dapat dibuat ulang. Sumber asli dan proyek tetap utuh. Pratinjau kembali ke sumber asli.|Ekspor selalu memakai sumber asli|Sedang memakai: {source}|Video proksi|Pilih video untuk melihat status proksi",
+};
+for (const [language, row] of Object.entries(menuRows)) {
+  Object.assign(VIDEO_PROXY_COPY[language], Object.fromEntries(row.split("|").map((value, index) => [menuKeys[index], value])));
+}

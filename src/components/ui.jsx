@@ -1,4 +1,5 @@
 import { memo, useEffect, useMemo, useRef } from "react";
+import { createPortal } from "react-dom";
 import { X } from "@phosphor-icons/react";
 import { getWaveformDisplayPeaks, isWaveformPlaceholder } from "../lib/waveform.js";
 import { formatShortcutLabel, releasePointerActivatedFocus } from "../lib/editorShortcuts.js";
@@ -25,7 +26,7 @@ export function IconButton({ label, children, active = false, disabled = false, 
   );
 }
 
-export function Popover({ children, onClose, closeLabel = "Close", className = "", anchorRef, showClose = true }) {
+export function Popover({ children, onClose, closeLabel = "Close", className = "", anchorRef, showClose = true, portal = false }) {
   const popoverRef = useRef(null);
 
   useEffect(() => {
@@ -43,7 +44,7 @@ export function Popover({ children, onClose, closeLabel = "Close", className = "
     };
   }, [anchorRef, onClose]);
 
-  return (
+  const content = (
     <div ref={popoverRef} className={`popover ${className}`.trim()} role="dialog">
       {showClose ? <button className="popover-close" type="button" aria-label={closeLabel} onClick={onClose}>
         <X size={14} />
@@ -51,6 +52,7 @@ export function Popover({ children, onClose, closeLabel = "Close", className = "
       {children}
     </div>
   );
+  return portal ? createPortal(content, document.body) : content;
 }
 
 // The playhead updates its parent frequently; immutable peaks and CSS-driven

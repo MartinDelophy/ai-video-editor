@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { PLAYBACK_UI_FRAME_MS, getAudioSegmentPreviewVolume, getTimelineTrackLocalTime, isAudioSegmentAudible, isTimelineTimeInsideTrack, requestTimelineMediaPlay, setTimelineAudioGain, shouldCorrectPreviewMediaTime } from "../lib/editorRuntime.js";
 import { getLinkedSourceAudioState } from "../lib/sourceAudioSync.js";
 import { filterTimedSegmentsByLaneVisibility } from "../lib/timeline.js";
@@ -66,7 +66,7 @@ export function useMediaSync(d) {
     });
   }, [d.audioSegments, d.currentTime, d.isPlaying, d.trackVisibility, visibleAudioSegmentIds]);
   useEffect(() => { if (d.sourceAudioRef.current) setTimelineAudioGain(d.sourceAudioRef.current, d.sourceAudioLinked ? getLinkedSourceAudioState(d.linkedSourceAudioSegments, d.currentTime).segment?.volume ?? d.sourceAudioVolume : d.sourceAudioVolume, d.sourceAudioSpatialEffect, d.sourceAudioSpatialAmount); }, [d.currentTime, d.linkedSourceAudioSegments, d.sourceAudioLinked, d.sourceAudioSpatialAmount, d.sourceAudioSpatialEffect, d.sourceAudioVolume, d.sourceAudioUrl]);
-  useEffect(() => {
+  useLayoutEffect(() => {
     const a = d.sourceAudioRef.current; if (!a || !d.sourceAudioUrl) return;
     const state = d.sourceAudioLinked
       ? getLinkedSourceAudioState(d.linkedSourceAudioSegments, d.currentTime)
@@ -74,6 +74,62 @@ export function useMediaSync(d) {
     const play = d.isPlaying && d.trackVisibility?.source !== false && state.active;
     syncTimelineAudioElement(a, { active: state.active, shouldPlay: play, expectedTime: state.sourceTime, playbackRate: state.playbackRate });
   }, [d.currentTime, d.isPlaying, d.linkedSourceAudioSegments, d.sourceAudioDuration, d.sourceAudioLinked, d.sourceAudioStart, d.sourceAudioUrl, d.trackVisibility.source]);
+  useLayoutEffect(() => {
+    const video = d.previewVideoRef.current;
+    const audio = d.sourceAudioRef.current;
+    if (!video || !audio) return;
+    let frame = 0;
+    let aligned = false;
+    const sync = () => {
+      const state = playbackStateRef.current;
+      if (state.isPlaying && !frame) frame = requestAnimationFrame(() => { frame = 0; sync(); });
+      const linked = getLinkedSourceAudioState(state.linkedSourceAudioSegments, state.currentTime);
+      const active = state.isPlaying && state.sourceAudioLinked && state.sourceAudioUrl
+        && state.previewVisualType === "video" && state.trackVisibility.image !== false && state.trackVisibility.source !== false
+        && linked.active && linked.segment?.id === state.previewVisualSegment?.id
+        && (linked.segment?.volume ?? state.sourceAudioVolume ?? 1) > 0 && !video.ended;
+      if (!active) { aligned = false; video.__timelineLinkedAudioPending = false; return; }
+      const ready = video.readyState >= 2 && !video.seeking && !video.__timelineFramePending;
+      if (!ready || video.seeking) aligned = false;
+      const visualTime = getVisualSourceTime(state.previewVisualSegment, Math.max(0, state.currentTime - (state.previewVisualRange?.start || 0)));
+      // A concatenated source-audio buffer can have a different origin. Follow
+      // the presented picture clock while retaining that explicit offset.
+      const expected = linked.sourceTime + (ready ? video.currentTime - visualTime : 0);
+      if (audio.playbackRate !== linked.playbackRate) audio.playbackRate = linked.playbackRate;
+      const misaligned = Math.abs(audio.currentTime - expected) > Math.max(0.003, linked.playbackRate * 0.015);
+      // Follow the presented picture without stopping it for ordinary native
+      // decoder drift; readiness gating is only needed at seeks and starts.
+      if (aligned && ready) {
+        video.__timelineLinkedAudioPending = false;
+        if (!audio.seeking && Math.abs(audio.currentTime - expected) > Math.max(0.004, linked.playbackRate * 0.03)) audio.currentTime = Math.max(0, expected);
+        if (!video.__timelineProxyAudioPending) {
+          requestTimelineMediaPlay(audio);
+          requestTimelineMediaPlay(video);
+        }
+        return;
+      }
+      if (!ready || audio.readyState < 3 || audio.seeking || misaligned) {
+        video.__timelineLinkedAudioPending = true;
+        video.pause(); audio.pause();
+        if (audio.readyState >= 1 && !audio.seeking && Math.abs(audio.currentTime - expected) > 0.002) audio.currentTime = Math.max(0, expected);
+        if (!frame) frame = requestAnimationFrame(() => { frame = 0; sync(); });
+        return;
+      }
+      aligned = true;
+      video.__timelineLinkedAudioPending = false;
+      requestTimelineMediaPlay(audio); requestTimelineMediaPlay(video);
+    };
+    const events = ["canplay", "seeked", "playing", "timeupdate", "ratechange"];
+    events.forEach(name => video.addEventListener(name, sync));
+    ["loadedmetadata", "seeked", "canplay", "waiting"].forEach(name => audio.addEventListener(name, sync));
+    sync();
+    return () => {
+      if (frame) cancelAnimationFrame(frame);
+      video.__timelineLinkedAudioPending = false;
+      events.forEach(name => video.removeEventListener(name, sync));
+      ["loadedmetadata", "seeked", "canplay", "waiting"].forEach(name => audio.removeEventListener(name, sync));
+    };
+  }, [d.isPlaying, d.previewVideoRef, d.previewVisualSrc, d.previewVisualSegment?.id, d.sourceAudioRef, d.sourceAudioUrl, d.sourceAudioLinked, d.linkedSourceAudioSegments, d.trackVisibility.image, d.trackVisibility.source, d.sourceAudioVolume]);
   useEffect(() => {
     const music = d.musicRef.current;
     if (!music) return;
@@ -152,7 +208,7 @@ export function useMediaSync(d) {
       const waiting = state.previewVisualType === "video" && state.trackVisibility.image !== false
         && video && !video.error && !video.ended
         && !(Number.isFinite(video.duration) && video.currentTime >= video.duration - 0.1)
-        && (video.__timelineFramePending || video.seeking || video.readyState < 3
+        && (video.__timelineFramePending || video.__timelineProxyAudioPending || video.__timelineLinkedAudioPending || video.seeking || video.readyState < 3
           || (video.paused && video.__timelinePlayPending));
       if (waiting) {
         d.visualPlaybackStartedAtRef.current += elapsed;

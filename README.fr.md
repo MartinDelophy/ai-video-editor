@@ -31,11 +31,11 @@ L’utilisateur assume seul toute responsabilité juridique découlant du non-re
 
 ## Actualités du projet
 
+- **2026-11-03** — Ajout des menus de bureau Fichier, Édition, Clip, Affichage et Aide, reliés aux actions existantes de montage, d’aperçu, de proxies et d’aide, avec navigation au clavier et les 13 langues. Les téléphones et tablettes conservent les menus compacts. Correction de l’annulation pendant la préparation, des temps source lors du découpage des courbes de vitesse et de la synchronisation audio séparée. Le focus clavier est attribué après le montage du menu déroulant.
+- **2026-11-03** — Ajout de proxies vidéo locaux de 1280px avec génération en arrière-plan, validation des horodatages et cache réutilisable. L’export utilise les originaux ; l’aperçu peut y revenir et les vignettes précises restent issues des médias sources.
 - **2026-11-02** — Menus d’alignement avec icônes et écran partagé incluant l’image principale et les incrustations visibles, avec deux, trois ou quatre images, recadrage commun à l’aperçu et à l’export et annulation en une étape. Le Skill et les commandes partagées CLI, STDIO MCP et aperçu/application permettent aux agents de disposer les écrans partagés et de synchroniser les images de référence.
 - **2026-10-30** — Nouveau menu contextuel de la vidéo : alignement, ajustement et remplissage, alignement temporel des incrustations et synchronisation manuelle par image de référence, avec annulation et respect des pistes verrouillées.
 - **2026-10-24** — La restauration HD utilise désormais un contraste local et des contours réglables sans modèle, à résolution d’origine, avec comparaison et réglages enregistrés. Son de comparaison et textes d’état corrigés. Transfert direct des images et réutilisation des tampons sans modifier le filtre. Amélioration d’image via WebGPU avec préférence pour un GPU performant, repli CPU et affichage du moteur utilisé.
-- **2026-10-21** — Intégration des scènes sources, plans vérifiables, résumés étayés et recherche visuelle hors ligne facultative (#112–#115). Les environnements hors ligne se préparent séparément. [#112–#115](docs/material-analysis.md).
-- **2026-10-21** — Export de brouillons Jianying modifiables via l’hôte local et la CLI, avec images clés de transformation et rapport de compatibilité ; cible : Jianying Pro chinois 11.6.0 sur macOS.
 Consultez la [Roadmap](ROADMAP.md) pour les travaux prévus, les [Releases](https://github.com/MartinDelophy/ai-video-editor/releases) pour les changements publiés et les [Issues](https://github.com/MartinDelophy/ai-video-editor/issues) pour les tâches et anomalies.
 
 ## Que peut-il produire ?

@@ -1,3 +1,6 @@
+import { ProxySourceAudio } from "./ProxySourceAudio.jsx";
+import { cancelVideoProxy } from "../lib/videoProxy.js";
+import { useVideoProxyController, useVideoProxySource } from "../hooks/useVideoProxy.js";
 import { requestLatestVideoFrame } from "../lib/videoFrameSync.js";
 import { useRelightCompare } from "../lib/videoRelighting.js";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
@@ -72,6 +75,7 @@ function ClickRippleOverlay({ effect: value, time }) {
 }
 
 function VisualOverlayMedia({ overlay, src, style, isPlaying, localTime }) {
+  const playbackSrc = useVideoProxySource(overlay, src, isPlaying);
   const videoRef = useRef(null);
   const imageRef = useRef(null);
   const canvasRef = useRef(null);
@@ -99,7 +103,7 @@ function VisualOverlayMedia({ overlay, src, style, isPlaying, localTime }) {
     video.addEventListener("loadedmetadata", sync);
     sync();
     return () => video.removeEventListener("loadedmetadata", sync);
-  }, [isPlaying, localTime, overlay, src]);
+  }, [isPlaying, localTime, overlay, src, playbackSrc]);
   useEffect(() => {
     if (!depthRenderActive || !canvasRef.current) return undefined;
     let canceled = false;
@@ -122,13 +126,17 @@ function VisualOverlayMedia({ overlay, src, style, isPlaying, localTime }) {
   }, [depthEffect, depthRenderActive, depthUrl, overlay.depthAnalysis?.nextDepthUrl, overlay.depthAnalysis?.depthMix, localTime, overlay.type, parallaxActive, parallaxEffect, style?.filter, decodedFrameRevision]);
   return <>
     {overlay.type === "video"
-      ? <video ref={videoRef} onSeeked={() => setDecodedFrameRevision((revision) => revision + 1)} onLoadedData={() => setDecodedFrameRevision((revision) => revision + 1)} src={src} crossOrigin="anonymous" muted={overlay.muted === true} playsInline preload="metadata" style={{ ...style, opacity: depthRenderActive ? 0 : style?.opacity }} />
+      ? <video ref={videoRef} onError={() => { if (playbackSrc !== src) cancelVideoProxy(src); }} onSeeked={() => setDecodedFrameRevision((revision) => revision + 1)} onLoadedData={() => setDecodedFrameRevision((revision) => revision + 1)} src={playbackSrc} crossOrigin="anonymous" muted={playbackSrc !== src || overlay.muted === true} playsInline preload="metadata" style={{ ...style, opacity: depthRenderActive ? 0 : style?.opacity }} />
       : <img ref={imageRef} src={src} alt="" crossOrigin="anonymous" draggable={false} style={{ ...style, opacity: depthRenderActive ? 0 : style?.opacity }} />}
+    {overlay.type === "video" && playbackSrc !== src ? <ProxySourceAudio source={src} segment={overlay} videoRef={videoRef} localTime={localTime} isPlaying={isPlaying} muted={overlay.muted === true} /> : null}
     {depthRenderActive ? <canvas ref={canvasRef} className="cinematic-depth-preview-canvas photo-parallax-preview-canvas" /> : null}
   </>;
 }
 
 export function PreviewStage({
+  previewPlaybackSrc,
+  proxyAssets = [],
+  proxyBusy = false,
   t,
   previewShellRef,
   previewCanvasRef,
@@ -212,6 +220,10 @@ export function PreviewStage({
 }) {
   const [contextMenu, setContextMenu] = useState(null);
   const [overlaySnapGuides, setOverlaySnapGuides] = useState([]);
+  const proxy = useVideoProxyController(proxyAssets, proxyBusy);
+  const transitionPlaybackSrc = useVideoProxySource(previewTransition?.next, previewTransition?.next?.src || "", isPlaying);
+  const playbackSrc = previewPlaybackSrc || previewVisualSrc;
+  const proxyRecord = proxy.record(previewVisualSrc);
   const previewImageRef = useRef(null);
   const smartBackgroundVideoRef = useRef(null);
   const depthCanvasRef = useRef(null);
@@ -220,6 +232,13 @@ export function PreviewStage({
   latestPlaybackRef.current = { isPlaying, trackVisibility };
   const [decodedFrameRevision, setDecodedFrameRevision] = useState(0);
   const [isFocusPreviewOpen, setIsFocusPreviewOpen] = useState(false);
+  useEffect(() => {
+    const handlePreviewCommand = ({ detail }) => {
+      if (detail === "fullscreen" && window.matchMedia("(min-width: 1280px)").matches) setIsFocusPreviewOpen(value => !value);
+    };
+    window.addEventListener("editor-preview-command", handlePreviewCommand);
+    return () => window.removeEventListener("editor-preview-command", handlePreviewCommand);
+  }, []);
   const [focusPreviewFrameSize, setFocusPreviewFrameSize] = useState({ width: 0, height: 0 });
   const [previewRatioWidth, previewRatioHeight] = String(previewRatio).split("/").map((value) => Number(value.trim()));
   const previewRatioValue = previewRatioWidth > 0 && previewRatioHeight > 0 ? previewRatioWidth / previewRatioHeight : 16 / 9;
@@ -646,7 +665,7 @@ export function PreviewStage({
   };
   const previewStage = (
     <section
-      className={`preview-stage ${isFocusPreviewOpen ? `is-focus-preview is-focus-${focusPreviewOrientation}` : ""}`}
+      className={`preview-stage ${previewVisualType === "video" ? "has-proxy-controls" : ""} ${isFocusPreviewOpen ? `is-focus-preview is-focus-${focusPreviewOrientation}` : ""}`}
       style={isFocusPreviewOpen ? { "--focus-preview-ratio": previewRatioValue } : undefined}
       role={isFocusPreviewOpen ? "dialog" : undefined}
       aria-modal={isFocusPreviewOpen ? "true" : undefined}
@@ -729,7 +748,7 @@ export function PreviewStage({
                 >
                   {normalizedSubjectEffect.background.visible !== false && normalizedSubjectEffect.background.mode === "blur" ? (
                     previewVisualType === "video"
-                      ? <video src={previewVisualSrc} muted playsInline autoPlay={isPlaying} style={{ objectFit: "cover", filter: `blur(${normalizedSubjectEffect.background.blur}px) brightness(${1 - normalizedSubjectEffect.background.darken})`, transform: "scale(1.1)" }} />
+                      ? <video src={playbackSrc} muted playsInline autoPlay={isPlaying} style={{ objectFit: "cover", filter: `blur(${normalizedSubjectEffect.background.blur}px) brightness(${1 - normalizedSubjectEffect.background.darken})`, transform: "scale(1.1)" }} />
                       : <img src={previewVisualSrc} alt="" style={{ objectFit: "cover", filter: `blur(${normalizedSubjectEffect.background.blur}px) brightness(${1 - normalizedSubjectEffect.background.darken})`, transform: "scale(1.1)" }} />
                   ) : null}
                 </div> : null}
@@ -771,7 +790,7 @@ export function PreviewStage({
                 {smartContainActive && previewVisualType === "video" ? <video
                   ref={smartBackgroundVideoRef}
                   className="smart-frame-fill-background"
-                  src={previewVisualSrc}
+                  src={playbackSrc}
                   crossOrigin="anonymous"
                   muted
                   playsInline
@@ -787,12 +806,13 @@ export function PreviewStage({
                   style={{ ...visualTransformStyle, opacity: depthRenderActive ? 0 : visualTransformStyle.opacity, filter: selectedFilterCss, objectFit: activeObjectFit, objectPosition: activeObjectPosition, background: smartContainActive ? "transparent" : undefined }}
                 /> : null}
                 {previewVisualType === "video" ? <video
-                  key={previewVisualSrc}
+                  key={playbackSrc}
                   ref={previewVideoRef}
                   className="preview-video"
-                  src={previewVisualSrc}
+                  onError={() => { if (playbackSrc !== previewVisualSrc) proxy.cancel(previewVisualSrc); }}
+                  src={playbackSrc}
                   crossOrigin="anonymous"
-                  muted={previewVisualMuted}
+                  muted={playbackSrc !== previewVisualSrc || previewVisualMuted}
                   playsInline
                   preload="auto"
                   onLoadedMetadata={(event) => {
@@ -858,6 +878,7 @@ export function PreviewStage({
                 /> : null}
               </div>
             ) : null}
+            {previewVisualType === "video" && playbackSrc !== previewVisualSrc && trackVisibility.image ? <ProxySourceAudio source={previewVisualSrc} segment={previewVisualSegment} videoRef={previewVideoRef} localTime={visualLocalTime} isPlaying={isPlaying} muted={previewVisualMuted} /> : null}
             {renderedVisualSrc && trackVisibility.image ? <ClickRippleOverlay effect={visualEffects?.clickRipple} time={visualLocalTime} /> : null}
             {renderedVisualSrc && trackVisibility.image && visualTransformEditable && !visualMaskEditable ? (
               <div className="visual-transform-box" data-preview-track="image" data-preview-clip-id={previewVisualSegment?.id} style={visualTransformBoxStyle} onPointerDown={(event) => startVisualTransform(event, "move")}>
@@ -868,7 +889,7 @@ export function PreviewStage({
             {previewTransition?.next?.src && trackVisibility.image ? (
               <div className={`preview-transition-layer type-${previewTransition.id}`} style={{ "--transition-progress": previewTransition.progress }}>
                 {previewTransition.next.type === "video" ? (
-                  <video src={previewTransition.next.src} crossOrigin="anonymous" muted playsInline autoPlay preload="auto" style={{ objectFit: activeObjectFit, objectPosition: activeObjectPosition }} />
+                  <video onError={() => { if (transitionPlaybackSrc !== previewTransition.next.src) proxy.cancel(previewTransition.next.src); }} src={transitionPlaybackSrc} crossOrigin="anonymous" muted playsInline autoPlay preload="auto" style={{ objectFit: activeObjectFit, objectPosition: activeObjectPosition }} />
                 ) : (
                   <img src={previewTransition.next.src} alt="" crossOrigin="anonymous" style={{ objectFit: activeObjectFit, objectPosition: activeObjectPosition }} />
                 )}
@@ -1116,6 +1137,20 @@ export function PreviewStage({
           value={Math.min(currentTime, estimatedDuration)}
           onChange={(event) => seekTo(Number(event.target.value))}
         />
+        {previewVisualType === "video" ? <div className="proxy-preview-row">
+          <label className="proxy-preview-control" title={t("proxyHint")}>
+            <select aria-label={t("proxyMode")} value={proxy.mode} onChange={event => proxy.setMode(event.target.value)}>
+              <option value="auto">{t("proxyAuto")}</option>
+              <option value="original">{t("proxyOriginal")}</option>
+            </select>
+            <span role="status">{proxy.mode === "original" && playbackSrc === previewVisualSrc ? t("proxyOriginal")
+              : proxyRecord?.state === "ready" ? t("proxyReady")
+                : ["queued", "preparing"].includes(proxyRecord?.state) ? `${t("proxyPreparing")} ${Math.round((proxyRecord.progress || 0) * 100)}%`
+                  : t("proxyOriginal")}</span>
+          </label>
+          {["queued", "preparing"].includes(proxyRecord?.state) ? <button className="proxy-cache-button" type="button" onClick={() => proxy.cancel(previewVisualSrc)}>{t("proxyCancel")}</button> : null}
+          <button className="proxy-cache-button" type="button" onClick={() => void proxy.clear()}>{t("proxyClear")}</button>
+        </div> : null}
         <div className="transport-row">
           <span>
             {formatTime(currentTime)} <em>/ {formatTime(estimatedDuration)}</em>

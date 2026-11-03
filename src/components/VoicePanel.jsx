@@ -1520,6 +1520,7 @@ export function VoicePanel({
   selectedTrackAudioSegment,
   audioProcessingDisabled, registerAudioProcessingUrl, captionVisualLinkDisabled, toggleCaptionVisualLink, audioVisualAssociation, stickerVisualAssociation,
   mobileInspectorOrigin = "",
+  desktopInspectorRequest = null,
   mobileInspectorSection = "",
   onCloseMobileInspector,
   updateSelectedTrackAudioSegment,
@@ -1821,7 +1822,8 @@ export function VoicePanel({
             vectorEditor={isVectorOverlay ? <VectorControls t={t} segment={selectedVisualOverlay} onUpdate={updateVisualOverlaySegment} /> : null}
             onApplyPreset={applyVisualOverlayPreset}
             onDelete={deleteVisualOverlay}
-            requestedTab={mobileInspectorSection}
+            requestedTab={mobileInspectorSection || (desktopInspectorRequest?.segmentId === selectedVisualOverlay.id ? desktopInspectorRequest.tab : "")}
+            requestedTabRevision={desktopInspectorRequest?.revision}
             singleSection={mobileInspectorSection}
           />
         </div> : null}
@@ -1847,7 +1849,8 @@ export function VoicePanel({
             miganRepair={miganRepair}
             hdRestoration={hdRestoration}
             smartDenoise={smartDenoise}
-            requestedTab={mobileInspectorSection}
+            requestedTab={mobileInspectorSection || (desktopInspectorRequest?.segmentId === selectedVisualSegment.id ? desktopInspectorRequest.tab : "")}
+            requestedTabRevision={desktopInspectorRequest?.revision}
             singleSection={mobileInspectorSection}
             vectorEditor={isVectorVisual ? <VectorControls t={t} segment={selectedVisualSegment} onUpdate={(patch) => updateSelectedVisualEffects?.({ vectorPatch: patch })} /> : null}
           />

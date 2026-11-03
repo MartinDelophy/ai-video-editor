@@ -14,15 +14,30 @@ export function normalizeVisualPlaybackRate(value) {
   return Math.max(MIN_VISUAL_PLAYBACK_RATE, Math.min(MAX_VISUAL_PLAYBACK_RATE, rate));
 }
 
+// A split can begin inside an eased interval. Retain a window onto the
+// original curve instead of refitting a different easing shape at the cut.
+export function getVisualSpeedCurveWindow(curve) {
+  const window = curve?.sourceWindow;
+  if (Array.isArray(window?.points) && window.points.length >= 2
+    && Number.isFinite(window.start) && Number.isFinite(window.end) && window.end > window.start) {
+    return { curve: { points: window.points, smooth: window.smooth !== false },
+      start: Math.max(0, Math.min(1, window.start)), end: Math.max(0, Math.min(1, window.end)) };
+  }
+  return { curve, start: 0, end: 1 };
+}
+
 export function getVisualSourceTime(segment, localTime = 0) {
   const start = Math.max(0, Number(segment?.sourceStart) || 0);
   const duration = Math.max(MIN_VISUAL_SEGMENT_SECONDS, Number(segment?.duration) || MIN_VISUAL_SEGMENT_SECONDS);
-  const sourceDuration = Math.max(MIN_VISUAL_SEGMENT_SECONDS, Number(segment?.sourceDuration) || duration * normalizeVisualPlaybackRate(segment?.playbackRate));
+  const sourceDuration = Math.max(1e-12, Number(segment?.sourceDuration) || duration * normalizeVisualPlaybackRate(segment?.playbackRate));
   if (segment?.speedCurve?.enabled && Array.isArray(segment.speedCurve.points)) {
     const progress = Math.max(0, Math.min(1, Math.max(0, Number(localTime) || 0) / duration));
-    // Imported lazily at module evaluation time through a local helper to keep
-    // the existing visual-effects API as the single source-time entry point.
-    return start + sourceDuration * getCurveSourceProgress(segment.speedCurve, progress);
+    // Preview, exact thumbnails, audio and export share this source-time clock.
+    const basis = getVisualSpeedCurveWindow(segment.speedCurve);
+    const sourceIn = getCurveSourceProgress(basis.curve, basis.start);
+    const sourceOut = getCurveSourceProgress(basis.curve, basis.end);
+    const mapped = getCurveSourceProgress(basis.curve, basis.start + (basis.end - basis.start) * progress);
+    return start + sourceDuration * Math.max(0, Math.min(1, (mapped - sourceIn) / Math.max(1e-12, sourceOut - sourceIn)));
   }
   return start + Math.max(0, Number(localTime) || 0) * normalizeVisualPlaybackRate(segment?.playbackRate);
 }
@@ -31,17 +46,19 @@ export function getVisualPlaybackRateAtTime(segment, localTime = 0) {
   if (!segment?.speedCurve?.enabled || !Array.isArray(segment.speedCurve.points)) return normalizeVisualPlaybackRate(segment?.playbackRate);
   const duration = Math.max(MIN_VISUAL_SEGMENT_SECONDS, Number(segment?.duration) || MIN_VISUAL_SEGMENT_SECONDS);
   const progress = Math.max(0, Math.min(1, Math.max(0, Number(localTime) || 0) / duration));
-  const points = segment.speedCurve.points
+  const basis = getVisualSpeedCurveWindow(segment.speedCurve);
+  const curveProgress = basis.start + (basis.end - basis.start) * progress;
+  const points = basis.curve.points
     .filter((point) => point && Number.isFinite(Number(point.progress)) && Number.isFinite(Number(point.rate)))
     .map((point) => ({ progress: Math.max(0, Math.min(1, Number(point.progress))), rate: normalizeVisualPlaybackRate(point.rate) }))
     .sort((left, right) => left.progress - right.progress);
   if (points.length < 2) return normalizeVisualPlaybackRate(segment?.playbackRate);
-  const rightIndex = points.findIndex((point) => point.progress >= progress);
+  const rightIndex = points.findIndex((point) => point.progress >= curveProgress);
   if (rightIndex <= 0) return points[0].rate;
   const left = points[rightIndex - 1];
   const right = points[rightIndex];
-  const local = (progress - left.progress) / Math.max(0.0001, right.progress - left.progress);
-  const eased = segment.speedCurve.smooth === false ? local : local * local * (3 - 2 * local);
+  const local = (curveProgress - left.progress) / Math.max(0.0001, right.progress - left.progress);
+  const eased = basis.curve.smooth === false ? local : local * local * (3 - 2 * local);
   return normalizeVisualPlaybackRate(left.rate + (right.rate - left.rate) * eased);
 }
 

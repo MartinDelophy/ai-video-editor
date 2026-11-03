@@ -31,11 +31,11 @@ Für sämtliche rechtlichen Folgen eines Verstoßes gegen diese Anforderungen is
 
 ## Projektneuigkeiten
 
+- **2026-11-03** — Desktop-Menüs für Datei, Bearbeiten, Clip, Ansicht und Hilfe ergänzt, verbunden mit vorhandenen Schnitt-, Vorschau-, Proxy- und Hilfefunktionen, mit Tastaturnavigation und allen 13 Sprachen. Smartphones und Tablets behalten kompakte Menüs. Undo/Redo während der Medienvorbereitung, Quellzeiten beim Teilen von Geschwindigkeitskurven und die Wiedergabesynchronisierung separierter Audiospuren wurden korrigiert. Der Tastaturfokus wird nach dem Einblenden des Menüs gesetzt.
+- **2026-11-03** — Lokale 1280px-Videoproxys mit Hintergrundgenerierung, Prüfung der Quellzeitstempel und wiederverwendbarem Cache hinzugefügt. Der Export verwendet Originalmedien. Die Vorschau kann auf Originale umgeschaltet werden; präzise Timeline-Vorschaubilder nutzen weiterhin die Quellen.
 - **2026-11-02** — Ausrichtungsmenüs mit Symbolen und geteilte Bildschirme einschließlich Hauptbild und sichtbarer Überlagerungen: zwei, drei oder vier Bilder, gleicher Zuschnitt in Vorschau und Export sowie einmaliges Rückgängigmachen. Agenten können Bildschirmaufteilung und Referenzbild-Synchronisierung über gemeinsame CLI-, STDIO-MCP- und Vorschau/Anwenden-Befehle nutzen; der Bearbeitungs-Skill wurde ergänzt.
 - **2026-10-30** — Neues Kontextmenü für Vorschauvideos: Bildausrichtung, Einpassen und Füllen, zeitliche Ausrichtung von Überlagerungen und manuelle Synchronisierung per Referenzbild, mit Rückgängig-Funktion und Schutz gesperrter Spuren.
 - **2026-10-24** — HD-Wiederherstellung durch modellfreie, einstellbare Kontrast- und Kantenverbesserung bei Originalauflösung mit Vergleich und gespeicherten Einstellungen ersetzt. Vergleichston und Statustexte korrigiert. Direkte Bildübertragung und wiederverwendete Puffer vermeiden PNG-Umwege bei unverändertem Filter. Bildverbesserung mit WebGPU, bevorzugter Hochleistungs-GPU, CPU-Rückfall und Anzeige des tatsächlich verwendeten Backends.
-- **2026-10-21** — Quellszenenanalyse, prüfbare Ausführungspläne, belegte Transkriptzusammenfassungen und optionale visuelle Offline-Suche integriert (#112–#115). Offline-Laufzeiten separat vorbereiten. [#112–#115](docs/material-analysis.md).
-- **2026-10-21** — Bearbeitbare Jianying-Entwürfe über lokalen Host und CLI exportieren, mit Transformations-Keyframes und Kompatibilitätsbericht; Ziel: chinesisches Jianying Pro 11.6.0 auf macOS.
 Geplante Arbeiten stehen in der [Roadmap](ROADMAP.md), veröffentlichte Änderungen in den [Releases](https://github.com/MartinDelophy/ai-video-editor/releases) und einzelne Aufgaben in den [Issues](https://github.com/MartinDelophy/ai-video-editor/issues).
 
 ## Was kann es produzieren?

@@ -1,6 +1,7 @@
 import { MIN_VISUAL_SEGMENT_SECONDS } from "../config/editor.js";
 import { cloneVisualSegment, createVisualSegment, getVisualSegmentTimeline, getVisualSegmentsTotal, isTimedSegmentLaneLocked, makeId, materializeCaptionTimings } from "./timeline.js";
-import { normalizeVisualKeyframes, resolveVisualTransform } from "./visualEffects.js";
+import { splitVisualSpeedCurve } from "./visualSpeedCurve.js";
+import { getVisualSourceTime, normalizeVisualKeyframes, resolveVisualTransform } from "./visualEffects.js";
 
 const MIN_CAPTION_SPLIT_SECONDS = 0.2;
 
@@ -22,27 +23,25 @@ function splitVisualKeyframes(keyframes, splitTime, duration, baseTransform) {
   };
 }
 
-export function splitVisualSegmentState(source, firstDuration, secondDuration) {
-  const playbackRate = source.type === "video"
-    ? Math.max(0.25, Math.min(4, Number(source.playbackRate) || 1))
-    : 1;
-  const sourceStart = Math.max(0, Number(source.sourceStart) || 0);
+function splitVisualTiming(source, firstDuration, secondDuration) {
+  const playbackRate = Math.max(0.25, Math.min(4, Number(source.playbackRate) || 1));
+  const start = getVisualSourceTime(source, 0);
+  const cut = getVisualSourceTime(source, firstDuration);
+  const end = getVisualSourceTime(source, firstDuration + secondDuration);
+  const curves = source.speedCurve?.enabled ? splitVisualSpeedCurve(source.speedCurve, firstDuration / (firstDuration + secondDuration)) : null;
   return [
-    cloneVisualSegment(source, {
-      id: makeId("visual"),
-      duration: firstDuration,
-      sourceDuration: source.type === "video" ? firstDuration * playbackRate : source.sourceDuration,
-      sourceStart,
-    }),
-    cloneVisualSegment(source, {
-      id: makeId("visual"),
-      duration: secondDuration,
-      sourceDuration: source.type === "video" ? secondDuration * playbackRate : source.sourceDuration,
-      sourceStart: source.type === "video"
-        ? sourceStart + firstDuration * playbackRate
-        : sourceStart,
-    }),
+    { sourceStart: start, sourceDuration: cut - start, playbackRate: curves ? (cut - start) / firstDuration : playbackRate, ...(curves ? { speedCurve: curves[0] } : {}) },
+    { sourceStart: cut, sourceDuration: end - cut, playbackRate: curves ? (end - cut) / secondDuration : playbackRate, ...(curves ? { speedCurve: curves[1] } : {}) },
   ];
+}
+
+export function splitVisualSegmentState(source, firstDuration, secondDuration) {
+  const timing = source.type === "video" ? splitVisualTiming(source, firstDuration, secondDuration) : [{}, {}];
+  const audioTiming = source.sourceAudioTiming ? splitVisualTiming({ ...source.sourceAudioTiming, duration: firstDuration + secondDuration }, firstDuration, secondDuration) : null;
+  return [firstDuration, secondDuration].map((duration, index) => cloneVisualSegment(source, {
+    id: makeId("visual"), duration, ...timing[index],
+    ...(audioTiming ? { sourceAudioTiming: { ...source.sourceAudioTiming, ...audioTiming[index], duration } } : {}),
+  }));
 }
 
 export function createTimelineCutActions(d) {
@@ -179,24 +178,10 @@ export function createTimelineCutActions(d) {
     }
     const firstId = makeId("overlay");
     const secondId = makeId("overlay");
-    const playbackRate = source.type === "video" ? Math.max(0.25, Math.min(4, Number(source.playbackRate) || 1)) : 1;
     const keyframes = splitVisualKeyframes(source.keyframes, firstDuration, duration, source.baseTransform);
-    const first = cloneVisualSegment(source, {
-      id: firstId,
-      duration: firstDuration,
-      keyframes: keyframes.left,
-      ...(source.type === "video" ? { sourceDuration: firstDuration * playbackRate } : {}),
-    });
-    const second = cloneVisualSegment(source, {
-      id: secondId,
-      start: time,
-      duration: secondDuration,
-      keyframes: keyframes.right,
-      ...(source.type === "video" ? {
-        sourceStart: Math.max(0, Number(source.sourceStart) || 0) + firstDuration * playbackRate,
-        sourceDuration: secondDuration * playbackRate,
-      } : {}),
-    });
+    const [timedFirst, timedSecond] = splitVisualSegmentState(source, firstDuration, secondDuration);
+    const first = cloneVisualSegment(timedFirst, { id: firstId, keyframes: keyframes.left });
+    const second = cloneVisualSegment(timedSecond, { id: secondId, start: time, keyframes: keyframes.right });
     const next = [...d.visualOverlaySegments];
     next.splice(index, 1, first, second);
     d.setVisualOverlaySegments(next);

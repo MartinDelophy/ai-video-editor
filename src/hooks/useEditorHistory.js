@@ -74,11 +74,10 @@ function createSnapshot(d) {
 }
 
 function mediaIdentity(item) {
-  const { blob, url, src, peaks, trackFrames: _frames, trackFrameDuration: _duration, trackFrameSampling: _sampling, trackFrameImportBudget: _budget, cutoutVisual, ...serializable } = item;
+  const { blob, url, src, peaks: _peaks, thumbnail: _thumbnail, preparing: _preparing, prepareProgress: _prepareProgress, meta: _meta, trackFrames: _frames, trackFrameDuration: _duration, trackFrameSampling: _sampling, trackFrameImportBudget: _budget, cutoutVisual, ...serializable } = item;
   return {
     ...serializable,
     media: blob ? "blob" : src || url || "",
-    hasPeaks: Boolean(peaks?.length),
     hasCutout: Boolean(cutoutVisual),
   };
 }
@@ -149,7 +148,15 @@ function restoreSnapshot(snapshot, d) {
     if (!blobUrls.has(blob)) blobUrls.set(blob, createObjectUrl(blob));
     return blobUrls.get(blob);
   };
-  const restoreAsset = (item) => {
+  const restoreAsset = (saved) => {
+    // Decode progress and filmstrip refinements belong to the media, not the
+    // edit history. Reuse current preparation without replacing source trims.
+    const prepared = [...(d.userAssets || []), ...(d.visualSegments || []), ...(d.visualOverlaySegments || [])]
+      .find(asset => saved.blob && asset.blob === saved.blob);
+    const item = { ...saved };
+    if (prepared) for (const key of ["preparing", "prepareProgress", "meta", "trackFrames", "trackFrameDuration", "trackFrameSampling", "trackFrameImportBudget", "thumbnail", "peaks"]) {
+      if (Object.hasOwn(prepared, key)) item[key] = prepared[key];
+    }
     if (!item.blob) return { ...item };
     const nextUrl = getBlobUrl(item.blob);
     if (nextUrl) d.imageUrlRefs.current.add(nextUrl);
@@ -190,7 +197,7 @@ function restoreSnapshot(snapshot, d) {
   d.setStickerSegments(cloneItems(snapshot.stickerSegments));
   d.setTimelineMarkers?.(normalizeTimelineMarkers(snapshot.timelineMarkers));
   d.setSelectedStickerId(snapshot.selectedStickerId);
-  d.setAudioSegments(snapshot.audioSegments.map((item) => ({
+  d.setAudioSegments(snapshot.audioSegments.map(restoreAsset).map((item) => ({
     ...item,
     url: item.blob ? getBlobUrl(item.blob) : item.url,
   })));
@@ -349,6 +356,16 @@ export function useEditorHistory(d) {
     timerRef.current = window.setTimeout(commitPending, HISTORY_DEBOUNCE_MS);
     return () => window.clearTimeout(timerRef.current);
   }, [commitPending, signature, resetVersion]);
+
+  useEffect(() => {
+    // Refresh runtime media in place without adding an undo step, resetting
+    // the edit debounce, or discarding the redo branch.
+    const latest = latestSnapshotRef.current;
+    if (createEditorSnapshotSignature(historyRef.current.current) === signature) {
+      historyRef.current = { ...historyRef.current, current: latest };
+    }
+    if (pendingRef.current && createEditorSnapshotSignature(pendingRef.current) === signature) pendingRef.current = latest;
+  }, [contentSnapshot, signature]);
 
   useEffect(() => () => window.clearTimeout(timerRef.current), []);
 

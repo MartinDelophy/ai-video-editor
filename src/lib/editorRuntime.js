@@ -200,6 +200,8 @@ export function getTimelineTrackLocalTime(time, start = 0, duration = 0) { retur
 export function isTimelineTimeInsideTrack(time, start = 0, duration = 0) { return duration > 0 && time >= start && time < start + duration; }
 
 export function requestTimelineMediaPlay(media) {
+  // Proxy pictures wait for their untouched source audio after seek/buffering.
+  if (media?.__timelineProxyAudioPending || media?.__timelineLinkedAudioPending) return;
   if (!media || media.__timelinePlayPending) return;
   timelineAudioGainNodes.get(media)?.context?.resume?.().catch(() => {});
   media.__timelinePlayPending = true;

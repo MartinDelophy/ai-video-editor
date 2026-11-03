@@ -1,3 +1,4 @@
+import { useVideoProxySource } from "./hooks/useVideoProxy.js";
 import { applyProcessedSourceMedia, getSourceProcessingLane } from "./lib/sourceAudioProcessing.js";
 import { getAudioProcessingCopy } from "./i18nAudioProcessing.js";
 import { isTimedSegmentLaneLocked } from "./lib/timeline.js";
@@ -117,6 +118,7 @@ export function App({ hostSession = null }) {
   const mobilePanelTimerRef = useRef(null);
   const [mobilePanelOrigin, setMobilePanelOrigin] = useState("");
   const [mobileInspectorSection, setMobileInspectorSection] = useState("");
+  const [desktopInspectorRequest, setDesktopInspectorRequest] = useState(null);
   const [effectsPanelMode, setEffectsPanelMode] = useState("outline");
   const [isCompactViewport, setIsCompactViewport] = useState(() => (
     typeof window !== "undefined" && window.matchMedia?.(COMPACT_WORKSPACE_QUERY).matches
@@ -354,6 +356,7 @@ export function App({ hostSession = null }) {
     timelineZoom,
     trackVisibility, visionRecords, visualSegments, visualType, visualOverlaySegments,
   });
+  const previewPlaybackSrc = useVideoProxySource(previewVisualSegment, previewVisualSrc, isPlaying || exporting);
   const previousTimelineContentDurationRef = useRef(estimatedDuration);
   useEffect(() => {
     const previousDuration = previousTimelineContentDurationRef.current;
@@ -1207,7 +1210,7 @@ export function App({ hostSession = null }) {
   useMediaSync({
     audioRef, audioSegmentRefs, audioSegments, currentTime, currentTimeRef, estimatedDuration,
     isPlaying, musicDuration, musicSegments, musicRef, musicStart, musicUrl, musicVolume, pauseTimelineMedia, previewVideoRef,
-    previewVisualSegment, previewVisualSourceTime, previewVisualSrc, previewVisualType,
+    previewVisualSegment, previewVisualSourceTime, previewVisualSrc: previewPlaybackSrc, previewVisualType,
     previewVisualRange,
     linkedSourceAudioSegments, setCurrentTime, setIsPlaying, setPreviewVideoMediaTime, sourceAudioDuration,
     sourceAudioLinked,
@@ -1587,6 +1590,10 @@ export function App({ hostSession = null }) {
   const generateVoiceoverWhenIdle = guardAgentAi(generateVoiceover);
   const generateCaptionsWhenIdle = guardAgentAi(generateCaptionsFromSourceAudio);
 
+  const desktopSelectionId = ({ image: selectedVisualSegmentId, overlay: selectedVisualOverlayId, caption: selectedSegmentId, audio: selectedAudioSegmentId, sticker: selectedStickerSegmentId, source: selectedSourceAudioSegmentId, music: selectedMusicSegmentId })[selectedTrack];
+  const desktopSelectionLocked = Boolean(trackLocks[selectedTrack]
+    || (selectedTrack === "audio" && isTimedSegmentLaneLocked(audioSegments, selectedAudioSegmentId, trackLocks))
+    || (selectedTrack === "overlay" && isTimedSegmentLaneLocked(visualOverlaySegments, selectedVisualOverlayId, trackLocks, "overlay")));
   return (
     <main className={`app-shell ${isCompactViewport ? "is-compact-workspace" : ""} ${mobilePanel ? `mobile-panel-${mobilePanel}` : ""} ${isCompactViewport && mobileInspectorSection ? `mobile-section-${mobileInspectorSection}` : ""} ${isCompactViewport && mobileInspectorSection === "mask" && (selectedVisualOverlay || selectedVisualSegment)?.mask?.type && (selectedVisualOverlay || selectedVisualSegment).mask.type !== "none" ? "mobile-mask-active" : ""} ${mobilePanelClosing ? "is-mobile-panel-closing" : ""}`} lang={activeLanguage} onDragOver={(event) => {
       if (event.dataTransfer?.types?.includes("Files")) event.preventDefault();
@@ -1620,6 +1627,25 @@ export function App({ hostSession = null }) {
         }}
       />
       <Topbar
+        desktopActions={{
+          importMedia: () => fileInputRef.current?.click(),
+          duplicate: handleDuplicateTrack, delete: handleDeleteTrack, split: handleCutTrack,
+          hasClips: Boolean(visualSegments.length || visualOverlaySegments.length || captionSegments.length || audioSegments.length || stickerSegments.length || musicSegments.length || sourceAudioBlob),
+          hasSelection: Boolean(desktopSelectionId),
+          selectionLocked: desktopSelectionLocked,
+          canMainEdit: Boolean(imageSrc && !trackLocks.image),
+          canSplit: Boolean(imageSrc || desktopSelectionId) && !(desktopSelectionId ? desktopSelectionLocked : trackLocks.image),
+          canSpeedEdit: selectedTrack === "image" && selectedVisualSegment?.type === "video" && !trackLocks.image,
+          canVideoEdit: Boolean((selectedTrack === "overlay" ? selectedVisualOverlay : selectedTrack === "image" ? selectedVisualSegment : null)?.type === "video" && !desktopSelectionLocked),
+          canLink: !trackLocks.caption && captionSegments.some(caption => audioSegments.some(audio => audio.id === caption.detachedAudioSegmentId)),
+          canUnlink: !trackLocks.caption && captionSegments.some(caption => audioSegments.some(audio => audio.id === caption.audioSegmentId)),
+          speed: () => {
+            const segment = selectedTrack === "overlay" ? selectedVisualOverlay : selectedVisualSegment;
+            if (!segment || trackLocks[selectedTrack]) return;
+            setActiveTool("media");
+            setDesktopInspectorRequest({ segmentId: segment.id, tab: "speedCurve", revision: Date.now() });
+          },
+        }}
         completeProject={completeProject}
         hostService={hostSession ? <HostServicePanel client={hostSession} completeProject={completeProject} execution={webMcp.execution} language={activeLanguage}
           isBusy={() => isEditorBusy() || webMcp.isAiRunning() || webMcp.execution.busy || webMcp.execution.hasPending || generationPlugins.job.running || completeProject?.busy()} /> : null}
@@ -1762,6 +1788,9 @@ export function App({ hostSession = null }) {
           previewVideoRef={previewVideoRef}
           onPreviewVideoTimeUpdate={previewVisionBaseAnalysis?.kind === "video-timeline" ? setPreviewVideoMediaTime : undefined}
           previewVisualSrc={previewVisualSrc}
+          previewPlaybackSrc={previewPlaybackSrc}
+          proxyAssets={[...userAssets, ...visualSegments, ...visualOverlaySegments]}
+          proxyBusy={isPlaying || exporting}
           previewVisualSegment={previewVisualSegment}
           previewVisualRenderSrc={previewVisualRenderSrc}
           previewVisionMaskUrl={previewVisionMaskUrl}
@@ -1965,6 +1994,7 @@ export function App({ hostSession = null }) {
           audioProcessingDisabled={selectedTrack === "source" ? Boolean(trackLocks.source || trackLocks.audio || trackLocks.image) : selectedTrack !== "audio" || isTimedSegmentLaneLocked(audioSegments, selectedAudioSegmentId, trackLocks)}
           registerAudioProcessingUrl={url => imageUrlRefs.current.add(url)}
           mobileInspectorOrigin={mobilePanel === "inspector" ? mobilePanelOrigin : ""}
+          desktopInspectorRequest={!isCompactViewport ? desktopInspectorRequest : null}
           mobileInspectorSection={isCompactViewport && mobilePanel === "inspector" ? mobileInspectorSection : ""}
           onCloseMobileInspector={() => changeMobilePanel("")}
           updateSelectedTrackAudioSegment={updateSelectedTrackAudioSegment}

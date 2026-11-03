@@ -12837,3 +12837,53 @@ canvas.relight-position { width:100%; height:auto; display:block; }
 .primary-split-viewport > .visual-transform-box,
 .primary-split-viewport > .subject-effect-preview { pointer-events: auto; }
 .primary-split-viewport > .click-ripple-preview { z-index: 3; }
+
+.proxy-preview-control { display: flex; flex-direction: column; gap: 3px; min-width: 0; max-width: 160px; font-size: 11px; color: var(--text-muted, #a7b1c4); }
+.proxy-preview-control select { min-width: 0; max-width: 100%; border: 1px solid rgba(140, 165, 195, .24); border-radius: 7px; background: #17202c; color: #e0e8f3; padding: 4px 6px; font-size: 12px; cursor: pointer; }
+.proxy-preview-control span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+@media (max-width: 760px) { .proxy-preview-control { max-width: 110px; } }
+.proxy-cache-button { border: 0; border-radius: 6px; padding: 4px 6px; background: transparent; color: #a7b1c4; font-size: 11px; cursor: pointer; }
+.proxy-cache-button:hover { color: #dfeaf8; background: rgba(140, 165, 195, .12); }
+.proxy-preview-row { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 6px; padding: 4px 0; }
+.proxy-preview-row .proxy-preview-control { flex-direction: row; align-items: center; max-width: none; gap: 8px; }
+.proxy-preview-row .proxy-preview-control span { max-width: 170px; }
+@media (max-width: 760px) { .proxy-preview-row { gap: 3px; } .proxy-preview-row .proxy-preview-control span { max-width: 110px; } }
+/* Reserve the controls' intrinsic height without growing the editor panel. */
+.preview-stage.has-proxy-controls:not(.is-focus-preview) { grid-template-rows: minmax(0, 1fr) auto; }
+.preview-stage.has-proxy-controls.is-focus-preview { grid-template-rows: 54px minmax(0, 1fr) auto; }
+@media (max-width: 760px) {
+  .preview-stage.has-proxy-controls.is-focus-preview { grid-template-rows: 52px minmax(0, 1fr) auto; }
+  .preview-stage.has-proxy-controls.is-focus-preview.is-focus-landscape { grid-template-rows: 52px auto auto; }
+  .preview-stage.has-proxy-controls.is-focus-preview.is-focus-square { grid-template-rows: 52px minmax(280px, 58dvh) auto; }
+}
+
+.editor-main-menu { display: flex; align-items: center; gap: 2px; min-width: 0; }
+.desktop-editor-menu, .desktop-file-actions { display: none; }
+.desktop-editor-popover { min-width: 240px; z-index: 180; }
+.desktop-menu-items { display: grid; min-width: 230px; padding: 5px; max-height: min(70vh, 680px); overflow-y: auto; }
+.desktop-menu-items > button, .desktop-menu-items > a { display: flex; align-items: center; justify-content: space-between; gap: 18px; border: 0; border-radius: 6px; padding: 9px 10px; color: #d7e3eb; background: transparent; font: inherit; font-size: 12px; text-align: left; white-space: nowrap; text-decoration: none; cursor: pointer; }
+.desktop-menu-items > :is(button,a):is(:hover,:focus-visible) { color: #eafffb; background: rgba(53,234,217,.10); outline: 1px solid rgba(53,234,217,.25); }
+.desktop-menu-items > button:disabled { opacity: .36; cursor: not-allowed; background: transparent; outline: none; }
+.desktop-menu-items kbd { font-family: inherit; font-size: 11px; opacity: .65; }
+.desktop-menu-separator { height: 1px; background: rgba(255,255,255,.08); margin: 5px 4px; }
+@media (min-width: 1280px) {
+  .desktop-editor-menu, .desktop-file-actions { display: block; }
+  .project-title-row { min-width: 0; }
+  .project-title { max-width: clamp(90px, 10vw, 210px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .project-cluster > div { min-width: 0; }
+  .editor-main-menu { flex-shrink: 0; }
+}
+@media (min-width: 1280px) {
+  .editor-main-menu { gap: 3px; }
+  .editor-main-menu .project-file-button { min-height: 28px; padding: 4px 7px; gap: 5px; line-height: 18px; font-weight: 550; white-space: nowrap; }
+  .editor-main-menu .project-file-button > svg { width: 12px; height: 12px; flex: 0 0 12px; opacity: .7; transition: transform 140ms ease; }
+  .editor-main-menu .project-file-button[aria-expanded="true"] { color: #bffcf1; background: rgba(53,234,217,.09); }
+  .editor-main-menu .project-file-button[aria-expanded="true"] > svg { transform: rotate(180deg); }
+  .editor-main-menu .desktop-editor-popover { top: calc(100% + 7px); left: 0; right: auto; width: max-content; min-width: 250px; max-width: min(440px, calc(100vw - 32px)); padding: 5px; }
+  .desktop-menu-items { min-width: 238px; padding: 3px; }
+  .desktop-menu-items > button, .desktop-menu-items > a { min-height: 34px; padding: 7px 10px; }
+}
+@media (prefers-reduced-motion: reduce) { .editor-main-menu .project-file-button > svg { transition: none; } }
+/* Keep the chevron legible throughout opening, including fast menu switches. */
+.editor-main-menu .project-file-button > svg { transition: none; }
+.editor-main-menu .project-file-button:focus-visible { outline: 2px solid rgba(53,234,217,.65); outline-offset: 2px; }

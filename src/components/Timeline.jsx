@@ -1867,6 +1867,32 @@ export function Timeline({
     setLocalTimelineZoom(nextZoom);
     commitTimelineZoom(nextZoom, commitDelay);
   };
+  useEffect(() => {
+    const handleMenuCommand = ({ detail }) => {
+      if (!window.matchMedia("(min-width: 1280px)").matches) return;
+      if (detail === "zoom-in") adjustTimelineZoom(zoom => zoom * TIMELINE_BUTTON_ZOOM_RATIO);
+      else if (detail === "zoom-out") adjustTimelineZoom(zoom => zoom / TIMELINE_BUTTON_ZOOM_RATIO);
+      else if (detail === "zoom-fit") adjustTimelineZoom(fitTimelineZoom);
+      else if (detail === "select-all") {
+        setSelectedEditPointIndex(-1);
+        setTimelineRangeSelection(new Set(timelineSelectableClips.filter(clip => !isTimelineClipLocked(clip.track, clip.id)).map(clip => timelineSelectionKey(clip.track, clip.id))));
+        setTimelineSelectionMode("select");
+      } else if (["trim", "slip", "slide"].includes(detail)) {
+        setTimelineSelectionMode(detail === "trim" ? "edit-point" : detail);
+        if (detail !== "trim") setSelectedEditPointIndex(-1);
+        setTimelineRangeSelection(new Set());
+        setTimelineSelectionMenuOpen(false);
+      } else if (detail === "link-captions") linkAllCaptionAudio?.();
+      else if (detail === "unlink-captions") unlinkAllCaptionAudio?.();
+      else if (detail === "separate-audio") {
+        const segment = selectedTrack === "overlay" ? visualOverlaySegments.find(item => item.id === selectedVisualOverlayId)
+          : selectedTrack === "image" ? displayedVisualSegments.find(item => item.id === selectedVisualSegmentId) : null;
+        if (segment?.type === "video" && !isTimelineClipLocked(selectedTrack, segment.id)) void runSourceAudioExtraction(segment, selectedTrack);
+      }
+    };
+    window.addEventListener("editor-timeline-command", handleMenuCommand);
+    return () => window.removeEventListener("editor-timeline-command", handleMenuCommand);
+  });
   const hasSelectedShortcutTarget = timelineRangeSelection.size > 0 || Boolean(
     (selectedTrack === "image" && selectedVisualSegmentId) ||
     (selectedTrack === "overlay" && selectedVisualOverlayId) ||

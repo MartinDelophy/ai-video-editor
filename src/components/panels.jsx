@@ -2013,6 +2013,7 @@ export function VisualEffectsPanel({
   onDelete = null,
   onCanvasEditModeChange,
   requestedTab = "",
+  requestedTabRevision = 0,
   singleSection = "",
 }) {
   const [activeTab, setActiveTab] = useState("transform");
@@ -2081,7 +2082,7 @@ export function VisualEffectsPanel({
     const nextTab = tabs.some(([id]) => id === requestedTab) ? requestedTab : "transform";
     setActiveTab(nextTab);
     onCanvasEditModeChange?.(nextTab === "mask" ? "mask" : "transform");
-  }, [mode, onCanvasEditModeChange, requestedTab, segment?.id]);
+  }, [mode, onCanvasEditModeChange, requestedTab, requestedTabRevision, segment?.id]);
   useEffect(() => {
     onCanvasEditModeChange?.(activeTab === "mask" ? "mask" : "transform");
   }, [activeTab, onCanvasEditModeChange]);

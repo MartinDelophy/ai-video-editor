@@ -1,4 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { DesktopMenus } from "./DesktopMenus.jsx";
+import { setVideoProxyMode } from "../lib/videoProxy.js";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   ArrowClockwise,
   ArrowCounterClockwise,
@@ -31,10 +33,11 @@ import { IconButton, Popover } from "./ui.jsx";
 const COMMUNITY_LINKS = Object.freeze({
   discord: "https://discord.gg/uq2uvUTBr",
   github: "https://github.com/MartinDelophy/ai-video-editor",
-  x: "https://x.com/marindeloph",
+  x: "https://x.com/delophy37406",
 });
 
 export function Topbar({
+  desktopActions = {},
   hostService = null,
   completeProject = null,
   t,
@@ -74,6 +77,16 @@ export function Topbar({
   handleImportProject,
   projectFileInputRef,
 }) {
+  const [activeMenu, setActiveMenu] = useState("");
+  const [shortcutRequest, setShortcutRequest] = useState(0);
+  const fileAnchorRef = useRef(null);
+  const fileKeyboardOpen = useRef(false);
+  useLayoutEffect(() => {
+    if (!showFileMenu || !fileKeyboardOpen.current) return;
+    fileAnchorRef.current?.querySelector(".file-menu-action:not(:disabled)")?.focus();
+    fileKeyboardOpen.current = false;
+  }, [showFileMenu]);
+  const shortcutGuideRef = useRef(null);
   const ht = (key) => hostText(activeLanguage, key);
   const [namingProject, setNamingProject] = useState(false);
   const exportAnchorRef = useRef(null);
@@ -125,6 +138,57 @@ export function Topbar({
     return () => window.cancelAnimationFrame(frame);
   }, [modelCacheInspection.state, showSettings]);
 
+  const closeDesktopMenu = () => setActiveMenu("");
+  const openMenu = (id) => {
+    setActiveMenu(id === "file" ? "" : id);
+    setShowFileMenu(id === "file");
+    setShowSettings(false); setShowRatioMenu(false); setShowExportMenu(false);
+  };
+  const timelineCommand = command => window.dispatchEvent(new CustomEvent("editor-timeline-command", { detail: command }));
+  const item = (key, run, disabled = false, shortcut = "") => ({ key, run, disabled, shortcut });
+  const menus = [
+    { id: "edit", label: t("desktopEdit"), items: [
+      item("undo", undo, false, `${shortcutModifier}+Z`), item("redo", redo, false, `${shortcutModifier}+Shift+Z`), null,
+      item("desktopDuplicate", desktopActions.duplicate, !desktopActions.hasSelection || desktopActions.selectionLocked, `${shortcutModifier}+D`),
+      item("desktopDelete", desktopActions.delete, !desktopActions.hasSelection || desktopActions.selectionLocked, "Delete"),
+      item("desktopSelectAll", () => timelineCommand("select-all"), !desktopActions.hasClips),
+    ] },
+    { id: "clip", label: t("desktopClip"), items: [
+      item("desktopSplit", desktopActions.split, !desktopActions.canSplit, `${shortcutModifier}+B`),
+      item("desktopTrim", () => timelineCommand("trim"), !desktopActions.canMainEdit),
+      item("desktopSlip", () => timelineCommand("slip"), !desktopActions.canMainEdit),
+      item("desktopSlide", () => timelineCommand("slide"), !desktopActions.canMainEdit),
+      item("desktopSpeed", desktopActions.speed, !desktopActions.canSpeedEdit), null,
+      item("desktopSeparate", () => timelineCommand("separate-audio"), !desktopActions.canVideoEdit), null,
+      item("desktopLink", () => timelineCommand("link-captions"), !desktopActions.canLink),
+      item("desktopUnlink", () => timelineCommand("unlink-captions"), !desktopActions.canUnlink),
+    ] },
+    { id: "view", label: t("desktopView"), items: [
+      item("desktopZoomIn", () => timelineCommand("zoom-in"), false, "+"),
+      item("desktopZoomOut", () => timelineCommand("zoom-out"), false, "−"),
+      item("desktopFit", () => timelineCommand("zoom-fit"), false, "Shift+Z"), null,
+      item("proxyAuto", () => setVideoProxyMode("auto")), item("proxyOriginal", () => setVideoProxyMode("original")), null,
+      item("desktopFullscreen", () => window.dispatchEvent(new CustomEvent("editor-preview-command", { detail: "fullscreen" })), !imageSrc),
+    ] },
+    { id: "help", label: t("desktopHelp"), items: [
+      { key: "desktopGuide", href: "/how-it-works/", external: true },
+      item("desktopShortcuts", () => { setShowSettings(true); setShortcutRequest(value => value + 1); }),
+      { key: "desktopFeedback", href: "https://github.com/MartinDelophy/ai-video-editor/issues", external: true }, null,
+      { key: "desktopAbout", href: "/features/", external: true },
+    ] },
+  ];
+  useEffect(() => {
+    if (!showSettings || !shortcutRequest) return;
+    const frame = requestAnimationFrame(() => { shortcutGuideRef.current?.scrollIntoView({ block: "nearest" }); shortcutGuideRef.current?.focus(); setShortcutRequest(0); });
+    return () => cancelAnimationFrame(frame);
+  }, [showSettings, shortcutRequest]);
+  useEffect(() => {
+    const query = window.matchMedia("(min-width: 1280px)");
+    const resized = () => { if (!query.matches) setActiveMenu(""); };
+    query.addEventListener("change", resized);
+    return () => query.removeEventListener("change", resized);
+  }, []);
+
   return (
     <header className="topbar">
       {namingProject && completeProject ? <LocalProjectNameDialog language={activeLanguage}
@@ -135,51 +199,78 @@ export function Topbar({
         </IconButton>
         <div>
           <div className="project-title-row">
-            <div className="project-title">{completeProject?.name || t("projectTitle")}</div>
-            <div className="menu-anchor">
-              <button className="project-file-button" type="button" onClick={() => setShowFileMenu((open) => !open)}>
-                {t("fileMenu")} <CaretDown size={13} />
+            <div className="project-title" title={completeProject?.name || t("projectTitle")}>{completeProject?.name || t("projectTitle")}</div>
+            <nav className="editor-main-menu" role="menubar" aria-label={t("desktopMenuBar")} onKeyDown={event => {
+              if (event.defaultPrevented) return;
+              if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+              const triggers = [...event.currentTarget.querySelectorAll("[data-editor-menu-trigger]")].filter(node => node.getClientRects().length);
+              const focusedTrigger = document.activeElement?.closest?.(".menu-anchor")?.querySelector("[data-editor-menu-trigger]") || document.activeElement;
+              const index = triggers.indexOf(focusedTrigger);
+              if (index < 0) return;
+              event.preventDefault();
+              const next = triggers[event.key === "Home" ? 0 : event.key === "End" ? triggers.length - 1 : (index + (event.key === "ArrowRight" ? 1 : -1) + triggers.length) % triggers.length];
+              next?.focus();
+              if ((activeMenu || showFileMenu) && next !== focusedTrigger) { if (next === fileAnchorRef.current?.querySelector("[data-editor-menu-trigger]")) openMenu("file"); else next?.click(); }
+            }}>
+            <div className="menu-anchor" ref={fileAnchorRef}>
+              <button className="project-file-button" type="button" role="menuitem" data-editor-menu-trigger aria-haspopup="menu" aria-expanded={showFileMenu}
+                onKeyDown={event => { if (event.key === "ArrowDown") { event.preventDefault(); if (showFileMenu) fileAnchorRef.current?.querySelector(".file-menu-action:not(:disabled)")?.focus(); else { fileKeyboardOpen.current = true; openMenu("file"); } } }}
+                onClick={() => { fileKeyboardOpen.current = false; if (showFileMenu) setShowFileMenu(false); else openMenu("file"); }}>
+                <span>{t("fileMenu")}</span><CaretDown size={12} weight="bold" aria-hidden="true" />
               </button>
               {showFileMenu ? (
-                <Popover className="project-file-popover" closeLabel={t("close")} onClose={() => setShowFileMenu(false)}>
-                  <div className="file-menu-card">
+                <Popover anchorRef={fileAnchorRef} className="project-file-popover" closeLabel={t("close")} onClose={() => setShowFileMenu(false)}>
+                  <div className="file-menu-card" role="menu" aria-label={t("fileMenu")} onKeyDown={event => {
+                    const items = [...event.currentTarget.querySelectorAll('button:not(:disabled), a[href]')];
+                    const index = items.indexOf(document.activeElement);
+                    if (["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) {
+                      event.preventDefault();
+                      items[event.key === "Home" ? 0 : event.key === "End" ? items.length - 1 : (index + (event.key === "ArrowDown" ? 1 : -1) + items.length) % items.length]?.focus();
+                    } else if (event.key === "Escape") { setShowFileMenu(false); fileAnchorRef.current?.querySelector("[data-editor-menu-trigger]")?.focus(); }
+                    else if (event.key === "Tab") setShowFileMenu(false);
+                  }}>
                     <div className="file-menu-heading">
                       <span>{t("projectMenuHeading")}</span>
                       <small>Timeline Studio</small>
                     </div>
-                    <button className="file-menu-action file-menu-new" type="button" onClick={handleNewProject}>
+                    <button role="menuitem" className="file-menu-action file-menu-new" type="button" onClick={() => { setShowFileMenu(false); handleNewProject(); }}>
                       <span className="file-menu-icon"><FilePlus size={17} /></span>
                       <span className="file-menu-copy"><strong>{t("newProject")}</strong><small>{t("newProjectHint")}</small></span>
                     </button>
                     <div className="file-menu-divider" />
-                    {completeProject ? <button className="file-menu-action" type="button"
+                    {completeProject ? <button role="menuitem" className="file-menu-action" type="button"
                       disabled={completeProject.status === "preparing" || completeProject.status === "saving"}
                       onClick={() => { setShowFileMenu(false); void completeProject.open(); }}>
                       <span className="file-menu-icon"><FileArrowUp size={17} /></span>
                       <span className="file-menu-copy"><strong>{ht("open")}</strong></span>
                     </button> : null}
-                    {completeProject ? <button className="file-menu-action" type="button"
+                    {completeProject ? <button role="menuitem" className="file-menu-action" type="button"
                       disabled={completeProject.status === "preparing" || completeProject.status === "saving"}
                       onClick={() => { setShowFileMenu(false); if (completeProject.projectId) void completeProject.save(); else setNamingProject(true); }}>
                       <span className="file-menu-icon"><FileArrowDown size={17} /></span>
                       <span className="file-menu-copy"><strong>{completeProject.projectId && completeProject.status === "error" ? ht("retry") : ht("save")}</strong></span>
                     </button> : null}
-                    {completeProject?.name ? <button className="file-menu-action" type="button"
+                    {completeProject?.name ? <button role="menuitem" className="file-menu-action" type="button"
                       disabled={!completeProject.canClose()}
                       onClick={() => { setShowFileMenu(false); void completeProject.closeProject(); }}>
                       <span className="file-menu-icon"><X size={17} /></span>
                       <span className="file-menu-copy"><strong>{ht("close")}</strong></span>
                     </button> : null}
-                    <button className="file-menu-action" type="button" onClick={() => handleImportProject()}>
+                    <button role="menuitem" className="file-menu-action" type="button" onClick={() => handleImportProject()}>
                       <span className="file-menu-icon"><FileArrowUp size={17} /></span>
                       <span className="file-menu-copy"><strong>{t("importProject")}</strong><small>{t("importProjectHint")}</small></span>
                       <span className="file-menu-format">.timeline</span>
                     </button>
-                    <button className="file-menu-action is-primary" type="button" onClick={handleExportProject}>
+                    <button role="menuitem" className="file-menu-action is-primary" type="button" onClick={handleExportProject}>
                       <span className="file-menu-icon"><FileArrowDown size={17} /></span>
                       <span className="file-menu-copy"><strong>{t("exportProject")}</strong><small>{t("exportProjectHint")}</small></span>
                       <span className="file-menu-format">.timeline</span>
                     </button>
+                    <div className="desktop-file-actions">
+                      <div className="file-menu-divider" />
+                      <button role="menuitem" className="file-menu-action" type="button" onClick={() => { setShowFileMenu(false); desktopActions.importMedia?.(); }}><span className="file-menu-copy"><strong>{t("desktopImportMedia")}</strong></span></button>
+                      <button role="menuitem" className="file-menu-action" type="button" disabled={!imageSrc || exporting} onClick={() => { setShowFileMenu(false); setShowExportMenu(true); }}><span className="file-menu-copy"><strong>{t("exportVideo")}</strong></span></button>
+                    </div>
                     <div className="file-menu-divider" />
                     <nav className="file-menu-resources" aria-label={t("resourceLinks")}>
                       <a href="/features/">{t("resourceFeatures")}</a>
@@ -192,6 +283,8 @@ export function Topbar({
               ) : null}
               <input ref={projectFileInputRef} className="project-file-input" type="file" accept="application/zip,.timeline" onChange={(event) => event.target.files?.[0] && handleImportProject(event.target.files[0])} />
             </div>
+            <DesktopMenus menus={menus} activeMenu={activeMenu} onOpen={openMenu} onClose={closeDesktopMenu} t={t} />
+            </nav>
           </div>
           <div className="autosave" title={completeProject?.error || undefined} role={completeProject ? "status" : undefined}>
             <ShieldCheck size={13} weight="fill" />
@@ -365,7 +458,7 @@ export function Topbar({
                   />
                   {t("enableMusicTrack")}
                 </label>
-                <section className="shortcut-guide" aria-labelledby="shortcut-guide-title">
+                <section ref={shortcutGuideRef} tabIndex={-1} className="shortcut-guide" aria-labelledby="shortcut-guide-title">
                   <div className="shortcut-guide-heading">
                     <strong id="shortcut-guide-title">{t("keyboardShortcuts")}</strong>
                     <span>Timeline Studio</span>

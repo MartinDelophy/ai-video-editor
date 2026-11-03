@@ -31,11 +31,11 @@ Người dùng tự chịu mọi trách nhiệm pháp lý phát sinh từ việc
 
 ## Cập nhật dự án
 
+- **2026-11-03** — Thêm menu máy tính Tệp, Chỉnh sửa, Đoạn, Hiển thị và Trợ giúp, nối với các thao tác chỉnh sửa, xem trước, proxy và trợ giúp hiện có, hỗ trợ bàn phím và đủ 13 ngôn ngữ. Điện thoại và máy tính bảng giữ menu gọn. Sửa hoàn tác/làm lại khi chuẩn bị phương tiện, giữ thời gian nguồn khi cắt đường cong tốc độ và đồng bộ phát âm thanh đã tách. Đặt tiêu điểm bàn phím sau khi menu thả xuống được hiển thị.
+- **2026-11-03** — Thêm proxy video 1280px cục bộ trong trình duyệt, tạo nền, kiểm tra dấu thời gian nguồn và dùng lại bộ nhớ đệm. Xuất dùng bản gốc; có thể chuyển xem trước về bản gốc và hình thu nhỏ chính xác vẫn đọc từ nguồn.
 - **2026-11-02** — Menu căn chỉnh với biểu tượng và chia màn hình gồm hình chính cùng các lớp phủ đang hiển thị, hỗ trợ hai, ba hoặc bốn hình; vùng cắt thống nhất khi xem trước và xuất, hoàn tác một bước. Skill chỉnh sửa và lệnh chung qua CLI, STDIO MCP và xem trước/áp dụng cho phép Agent chia màn hình và đồng bộ khung hình tham chiếu.
 - **2026-10-30** — Thêm menu chuột phải cho video xem trước: căn khung hình, vừa khung và lấp đầy, căn thời gian lớp phủ và đồng bộ thủ công bằng khung hình tham chiếu; hỗ trợ hoàn tác và bảo vệ đường băng đã khóa.
 - **2026-10-24** — Thay khôi phục HD bằng tăng tương phản cục bộ và đường viền không cần mô hình, giữ độ phân giải gốc, có so sánh và lưu thông số. Sửa âm thanh khi so sánh và nội dung trạng thái. Truyền khung hình trực tiếp và tái sử dụng bộ đệm mà không đổi bộ lọc. Cải thiện hình ảnh bằng WebGPU, ưu tiên GPU hiệu năng cao, dự phòng CPU và hiển thị bộ xử lý thực tế.
-- **2026-10-21** — Tích hợp phân tích cảnh, kế hoạch có thể duyệt, tóm tắt kèm bằng chứng và tìm kiếm hình ảnh ngoại tuyến tùy chọn (#112–#115). Cần chuẩn bị riêng môi trường ngoại tuyến. [#112–#115](docs/material-analysis.md).
-- **2026-10-21** — Xuất bản nháp Jianying có thể chỉnh sửa qua host cục bộ và CLI, gồm khung hình chính biến đổi và báo cáo tương thích; dành cho Jianying Pro Trung Quốc 11.6.0 trên macOS.
 Xem [Roadmap](ROADMAP.md) cho công việc dự kiến, [Releases](https://github.com/MartinDelophy/ai-video-editor/releases) cho thay đổi đã phát hành và [Issues](https://github.com/MartinDelophy/ai-video-editor/issues) cho nhiệm vụ và lỗi.
 
 ## Có thể tạo ra những gì?

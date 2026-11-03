@@ -1,3 +1,4 @@
+import { assertOriginalMediaSource } from "./videoProxy.js";
 import { throwIfExportAborted } from "./exportCancellation.js";
 import { prepareEmbeddedVideoAudio } from "./embeddedVideoAudioExport.js";
 import { shouldMuteEmbeddedVideoAudio } from "./sourceAudioSync.js";
@@ -8,6 +9,7 @@ import { filterTimedSegmentsByLaneVisibility } from "./timeline.js";
 /** One composition description for exported files and explicitly requested agent samples. */
 export async function prepareEditorComposition(d, { exportSettings, exportRange, exportAudio, burnCaptions, signal, onProgress }) {
   const progress = onProgress || (() => {});
+  [d.imageSrc, ...d.renderedVisualSegments.map(item => item.src), ...d.visualOverlaySegments.map(item => item.src)].forEach(src => assertOriginalMediaSource(src, d.t?.("proxyExportOriginalRequired")));
   // Preserve the full visual sequence when selecting embedded audio so
   // source segments retain their actual timeline positions after edits.
   const embeddedVisuals = d.sourceAudioBlob ? d.renderedVisualSegments.map((segment) => ({

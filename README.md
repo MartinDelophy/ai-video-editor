@@ -42,11 +42,11 @@ Users are solely responsible for any legal liability arising from violations of 
 
 ## Project updates
 
+- **2026-11-03** — Added desktop File, Edit, Clip, View and Help menus wired to existing editing, preview, proxy and help actions, with keyboard navigation and all 13 interface languages. Phones and tablets retain the compact menu layout. Fixed undo/redo during media preparation, source-time preservation when splitting speed curves, and separated-audio playback synchronization. Keyboard menu focus is now assigned after the dropdown mounts.
+- **2026-11-03** — Added browser-local 1280px video proxies for editing, with background generation, source-timestamp validation, reusable local caching and original-media export. Preview mode can be switched back to originals; exact timeline thumbnails continue to use source media.
 - **2026-11-02** — Added compact icon-based alignment menus and split screens that include the main picture and visible overlays, with two-, three- and four-picture layouts, shared preview/export cropping and one-step undo. Agents can now invoke both features through shared CLI, STDIO MCP and browser preview/apply commands, documented in the editing Skill.
 - **2026-10-30** — Added preview-video context menus for canvas alignment, fit/fill, overlay start/end alignment, and manual reference-frame synchronization, with undo and locked-track protection.
 - **2026-10-24** — Replaced model-based HD restoration with adjustable local contrast and edge enhancement at original resolution, with before/after comparison and saved settings. Comparison playback uses one audible source stream, and enhancement status copy is consistent. Direct frame transfer and reusable buffers now avoid per-frame PNG round trips while keeping the enhancement algorithm unchanged. Detail enhancement now runs luminance, blur and edge processing on WebGPU, prefers a high-performance GPU, and falls back to the CPU when unavailable; the workspace shows the actual backend.
-- **2026-10-21** — Integrated saved source-scene analysis, reviewed execution plans, evidence-linked transcript summaries and optional offline visual search (#112–#115). Offline runtimes require separate preparation. [#112–#115](docs/material-analysis.md).
-- **2026-10-21** — Added editable Jianying Pro draft export through the local host and CLI, including transform keyframes and compatibility reports; targets domestic Jianying Pro 11.6.0 on macOS.
 See the public [Roadmap](ROADMAP.md) for planned work, [Releases](https://github.com/MartinDelophy/ai-video-editor/releases) for shipped changes, and [Issues](https://github.com/MartinDelophy/ai-video-editor/issues) for focused tasks and bugs.
 
 ## What can it produce?

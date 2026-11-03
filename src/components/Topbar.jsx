@@ -8,9 +8,14 @@ import {
   CircleNotch,
   Database,
   DiscordLogo,
-  FileArrowDown,
   FileArrowUp,
   FilePlus,
+  FilmSlate,
+  FloppyDisk,
+  FolderOpen,
+  Images,
+  MusicNotes,
+  Package,
   GearSix,
   GithubLogo,
   Pause,
@@ -247,7 +252,7 @@ export function Topbar({
                     {completeProject ? <button role="menuitem" className="file-menu-action" type="button"
                       disabled={completeProject.status === "preparing" || completeProject.status === "saving"}
                       onClick={() => { setShowFileMenu(false); if (completeProject.projectId) void completeProject.save(); else setNamingProject(true); }}>
-                      <span className="file-menu-icon"><FileArrowDown size={17} /></span>
+                      <span className="file-menu-icon"><FloppyDisk size={17} /></span>
                       <span className="file-menu-copy"><strong>{completeProject.projectId && completeProject.status === "error" ? ht("retry") : ht("save")}</strong></span>
                     </button> : null}
                     {completeProject?.name ? <button role="menuitem" className="file-menu-action" type="button"
@@ -257,19 +262,19 @@ export function Topbar({
                       <span className="file-menu-copy"><strong>{ht("close")}</strong></span>
                     </button> : null}
                     <button role="menuitem" className="file-menu-action" type="button" onClick={() => handleImportProject()}>
-                      <span className="file-menu-icon"><FileArrowUp size={17} /></span>
+                      <span className="file-menu-icon"><FolderOpen size={17} /></span>
                       <span className="file-menu-copy"><strong>{t("importProject")}</strong><small>{t("importProjectHint")}</small></span>
                       <span className="file-menu-format">.timeline</span>
                     </button>
                     <button role="menuitem" className="file-menu-action is-primary" type="button" onClick={handleExportProject}>
-                      <span className="file-menu-icon"><FileArrowDown size={17} /></span>
+                      <span className="file-menu-icon"><Package size={17} /></span>
                       <span className="file-menu-copy"><strong>{t("exportProject")}</strong><small>{t("exportProjectHint")}</small></span>
                       <span className="file-menu-format">.timeline</span>
                     </button>
                     <div className="desktop-file-actions">
                       <div className="file-menu-divider" />
-                      <button role="menuitem" className="file-menu-action" type="button" onClick={() => { setShowFileMenu(false); desktopActions.importMedia?.(); }}><span className="file-menu-icon"><FileArrowUp size={17} /></span><span className="file-menu-copy"><strong>{t("desktopImportMedia")}</strong></span></button>
-                      <button role="menuitem" className="file-menu-action" type="button" disabled={!imageSrc || exporting} onClick={() => { setShowFileMenu(false); setShowExportMenu(true); }}><span className="file-menu-icon"><FileArrowDown size={17} /></span><span className="file-menu-copy"><strong>{t("exportVideo")}</strong></span></button>
+                      <button role="menuitem" className="file-menu-action" type="button" onClick={() => { setShowFileMenu(false); desktopActions.importMedia?.(); }}><span className="file-menu-icon"><Images size={17} /></span><span className="file-menu-copy"><strong>{t("desktopImportMedia")}</strong></span></button>
+                      <button role="menuitem" className="file-menu-action" type="button" disabled={!imageSrc || exporting} onClick={() => { setShowFileMenu(false); setShowExportMenu(true); }}><span className="file-menu-icon"><FilmSlate size={17} /></span><span className="file-menu-copy"><strong>{t("exportVideo")}</strong></span></button>
                     </div>
                     <div className="file-menu-divider" />
                     <nav className="file-menu-resources" aria-label={t("resourceLinks")}>
@@ -382,7 +387,7 @@ export function Topbar({
             disabled={exporting}
             onClick={() => setShowExportMenu((open) => !open)}
           >
-            <FileArrowDown size={17} weight="bold" />
+            {exportSettings.mediaType === "audio" ? <MusicNotes size={17} weight="bold" /> : <FilmSlate size={17} weight="bold" />}
             {exporting ? t("exporting") : t(exportSettings.mediaType === "audio" ? "audioExportTitle" : "exportVideo")}
             {!exporting ? <CaretDown size={13} weight="bold" /> : null}
           </button>

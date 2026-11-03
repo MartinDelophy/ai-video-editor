@@ -3,6 +3,8 @@
 Thank you for helping improve Timeline Studio. First-time open-source
 contributors are welcome.
 
+Translations of this guide: [Tiếng Việt](CONTRIBUTING.vi.md)
+
 ## Good ways to start
 
 Look for issues labeled:

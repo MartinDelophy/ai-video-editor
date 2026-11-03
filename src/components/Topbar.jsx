@@ -268,8 +268,8 @@ export function Topbar({
                     </button>
                     <div className="desktop-file-actions">
                       <div className="file-menu-divider" />
-                      <button role="menuitem" className="file-menu-action" type="button" onClick={() => { setShowFileMenu(false); desktopActions.importMedia?.(); }}><span className="file-menu-copy"><strong>{t("desktopImportMedia")}</strong></span></button>
-                      <button role="menuitem" className="file-menu-action" type="button" disabled={!imageSrc || exporting} onClick={() => { setShowFileMenu(false); setShowExportMenu(true); }}><span className="file-menu-copy"><strong>{t("exportVideo")}</strong></span></button>
+                      <button role="menuitem" className="file-menu-action" type="button" onClick={() => { setShowFileMenu(false); desktopActions.importMedia?.(); }}><span className="file-menu-icon"><FileArrowUp size={17} /></span><span className="file-menu-copy"><strong>{t("desktopImportMedia")}</strong></span></button>
+                      <button role="menuitem" className="file-menu-action" type="button" disabled={!imageSrc || exporting} onClick={() => { setShowFileMenu(false); setShowExportMenu(true); }}><span className="file-menu-icon"><FileArrowDown size={17} /></span><span className="file-menu-copy"><strong>{t("exportVideo")}</strong></span></button>
                     </div>
                     <div className="file-menu-divider" />
                     <nav className="file-menu-resources" aria-label={t("resourceLinks")}>

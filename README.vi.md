@@ -31,7 +31,7 @@ Người dùng tự chịu mọi trách nhiệm pháp lý phát sinh từ việc
 
 ## Cập nhật dự án
 
-- **2026-11-04** — Thêm Hình nét trong Hiệu ứng, với chi tiết, độ dày, đảo trắng đen và xem trước. Lưu ảnh PNG và video WebM 24 fps giữ phần cắt, tốc độ và âm thanh nguồn vào Tài nguyên của tôi, không tự chèn. Hỗ trợ 13 ngôn ngữ và di động.
+- **2026-11-04** — Thêm Hình nét trong Hiệu ứng, với chi tiết, độ dày, đảo trắng đen và xem trước. Lưu ảnh PNG và video WebM 24 fps giữ phần cắt, tốc độ và âm thanh nguồn vào Tài nguyên của tôi, không tự chèn. Hỗ trợ 13 ngôn ngữ và di động. Sửa phát dòng thời gian chỉ có đoạn hình trong hình mà không có hình chính.
 - **2026-11-03** — Thêm menu máy tính Tệp, Chỉnh sửa, Đoạn, Hiển thị và Trợ giúp, nối với các thao tác chỉnh sửa, xem trước, proxy và trợ giúp hiện có, hỗ trợ bàn phím và đủ 13 ngôn ngữ. Điện thoại và máy tính bảng giữ menu gọn. Sửa hoàn tác/làm lại khi chuẩn bị phương tiện, giữ thời gian nguồn khi cắt đường cong tốc độ và đồng bộ phát âm thanh đã tách. Đặt tiêu điểm bàn phím sau khi menu thả xuống được hiển thị. Đưa thao tác proxy vào Hiển thị, kèm nguồn phát thực tế, quản lý bộ nhớ đệm riêng, biểu tượng theo chức năng và bảng di động đủ 13 ngôn ngữ.
 - **2026-11-03** — Thêm proxy video 1280px cục bộ trong trình duyệt, tạo nền, kiểm tra dấu thời gian nguồn và dùng lại bộ nhớ đệm. Xuất dùng bản gốc; có thể chuyển xem trước về bản gốc và hình thu nhỏ chính xác vẫn đọc từ nguồn.
 - **2026-11-02** — Menu căn chỉnh với biểu tượng và chia màn hình gồm hình chính cùng các lớp phủ đang hiển thị, hỗ trợ hai, ba hoặc bốn hình; vùng cắt thống nhất khi xem trước và xuất, hoàn tác một bước. Skill chỉnh sửa và lệnh chung qua CLI, STDIO MCP và xem trước/áp dụng cho phép Agent chia màn hình và đồng bộ khung hình tham chiếu.

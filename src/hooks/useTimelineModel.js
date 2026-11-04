@@ -241,8 +241,13 @@ export function useTimelineModel(d) {
     0,
     d.visualSegments.findIndex((segment) => segment.id === d.selectedVisualSegmentId),
   );
+  // Overlay-only projects are valid timelines too. Resolve eligibility from
+  // the whole track, including clips starting after the current playhead.
   const hasPlayableVisualTimeline = Boolean(
-    previewVisualSrc && d.trackVisibility.image && d.imageDuration > 0,
+    (previewVisualSrc && d.trackVisibility.image && d.imageDuration > 0) ||
+    (d.trackVisibility.overlay !== false && d.visualOverlaySegments.some(
+      (segment) => segment.hidden !== true && segment.src && Number(segment.duration) > 0,
+    )),
   );
   const hasPlayableAudioTimeline = Boolean(
     (filterTimedSegmentsByLaneVisibility(d.audioSegments, d.trackVisibility).length && audioBlob && audioUrl) ||

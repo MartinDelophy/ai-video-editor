@@ -1,3 +1,4 @@
+import { LineArtPanel } from "./LineArtPanel.jsx";
 import { normalizeCaptionHighlightRanges, getCaptionKeywordRanges } from "../lib/captionKeywords.js";
 import { getCaptionKeywordCopy, getCaptionSelectionHighlightCopy, getCaptionVisualLinkCopy } from "../i18nCaptionEditing.js";
 import { CaptionGroupingControl } from "./CaptionGroupingControl.jsx";
@@ -1569,6 +1570,8 @@ export function VoicePanel({
   photoParallaxDepth,
   updateSelectedPhotoParallax,
   onOpticalFlowAssetReady,
+  onLineArtAssetReady,
+  lineArtLocalTime,
   generationPlugins,
 }) {
   const [captionPanelTab, setCaptionPanelTab] = useState("caption");
@@ -1590,6 +1593,7 @@ export function VoicePanel({
   const isSilenceRemovalContext = isSmartContext && smartMode === "remove-pauses";
   const isFaceSwapContext = isEffectsContext && effectsPanelMode === "face-swap";
   const isOpticalFlowContext = isEffectsContext && effectsPanelMode === "vector-tracking";
+  const isLineArtContext = isEffectsContext && effectsPanelMode === "line-art";
   const isCinematicDepthContext = isEffectsContext && ["cinematic-depth", "depth-map", "relight"].includes(effectsPanelMode);
   const isPhotoParallaxContext = isEffectsContext && effectsPanelMode === "photo-parallax";
   const isClickRippleContext = isEffectsContext && effectsPanelMode === "click-ripple";
@@ -1641,9 +1645,10 @@ export function VoicePanel({
     background: t("effectBackground"),
     edge: t("effectEdgeCleanup"),
   }[mobileInspectorSection];
-  const title = focusedSectionTitle || (isSilenceRemovalContext ? t("pauseTitle") : isPluginsContext ? getPluginCopy(uiLanguage).title : isFaceSwapContext ? t("faceSwapTitle") : isOpticalFlowContext ? t("effectVectorTracking") : isCinematicDepthContext ? t(effectsPanelMode === "relight" ? "relightTitle" : effectsPanelMode === "depth-map" ? "depthMapTitle" : "depthTitle") : isPhotoParallaxContext ? t("parallaxTitle") : isEffectsContext ? t("effectProperties") : isAiMusicContext ? (AI_MUSIC_COPY[uiLanguage] || AI_MUSIC_COPY.en).title : isSmartAutoContext ? t("smartAutoEdit") : isSmartFrameContext ? t("smartFrame") : isAvatarContext ? t("avatarTitle") : isVectorOverlay || isVectorVisual ? t("vectorProperties", "矢量图形") : isOverlayContext ? t("pictureInPicture", "画中画") : isStickerContext ? t("stickerProperties") : isVisualContext ? t("visualPanelTitle") : isCaptionContext ? t("caption") : isAudioClipContext ? t("audioClipProperties") : t("aiVoice"));
+  const title = focusedSectionTitle || (isSilenceRemovalContext ? t("pauseTitle") : isPluginsContext ? getPluginCopy(uiLanguage).title : isFaceSwapContext ? t("faceSwapTitle") : isOpticalFlowContext ? t("effectVectorTracking") : isLineArtContext ? t("lineArtTitle") : isCinematicDepthContext ? t(effectsPanelMode === "relight" ? "relightTitle" : effectsPanelMode === "depth-map" ? "depthMapTitle" : "depthTitle") : isPhotoParallaxContext ? t("parallaxTitle") : isEffectsContext ? t("effectProperties") : isAiMusicContext ? (AI_MUSIC_COPY[uiLanguage] || AI_MUSIC_COPY.en).title : isSmartAutoContext ? t("smartAutoEdit") : isSmartFrameContext ? t("smartFrame") : isAvatarContext ? t("avatarTitle") : isVectorOverlay || isVectorVisual ? t("vectorProperties", "矢量图形") : isOverlayContext ? t("pictureInPicture", "画中画") : isStickerContext ? t("stickerProperties") : isVisualContext ? t("visualPanelTitle") : isCaptionContext ? t("caption") : isAudioClipContext ? t("audioClipProperties") : t("aiVoice"));
   const panelStatusText = isSilenceRemovalContext ? t("pauseHint") : isFaceSwapContext
     ? faceSwap?.job?.running ? `${faceSwap.job.progress}%` : hasVisual ? t("smartVisualReady") : t("smartWaitingVisual")
+    : isLineArtContext ? t("lineArtPreview")
     : isOpticalFlowContext ? t("effectFlowExperimental")
     : isCinematicDepthContext ? cinematicDepth?.job?.running
       ? `${Math.round(cinematicDepth.job.progress || 0)}%`
@@ -1756,7 +1761,7 @@ export function VoicePanel({
 
       <div className={`voice-tab-body ${isVisualContext && !selectedVisualSegment ? "is-empty-visual-context" : ""}`}>
         {isPluginsContext ? <PluginInspector language={uiLanguage} plugins={generationPlugins} /> : null}
-        {isEffectsContext && !isFaceSwapContext && !isOpticalFlowContext && !isCinematicDepthContext && !isPhotoParallaxContext && !isClickRippleContext ? <SubjectEffectsInspector
+        {isEffectsContext && !isFaceSwapContext && !isOpticalFlowContext && !isLineArtContext && !isCinematicDepthContext && !isPhotoParallaxContext && !isClickRippleContext ? <SubjectEffectsInspector
           t={t}
           segment={effectSegment}
           analysis={effectAnalysis}
@@ -1776,6 +1781,7 @@ export function VoicePanel({
           localTime={visualLocalTime}
           onAssetReady={onOpticalFlowAssetReady}
         /> : null}
+        {isLineArtContext ? <LineArtPanel t={t} segment={effectSegment} localTime={lineArtLocalTime} onAssetReady={onLineArtAssetReady} /> : null}
         {isCinematicDepthContext ? <CinematicDepthPanel
           relight={effectsPanelMode === "relight"}
           depthMap={effectsPanelMode === "depth-map"}

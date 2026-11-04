@@ -1,5 +1,6 @@
 import {
   Aperture,
+  PencilLine,
   Sun,
   CaretRight,
   Check,
@@ -824,6 +825,10 @@ export function SubjectEffectsWorkspace({
         <CinematicDepthEffectCard t={t} depthMap
           analysis={cinematicDepthAnalysis} running={cinematicDepthRunning} progress={cinematicDepthProgress}
           onClick={() => onOpenCinematicDepth?.("depth-map")} />
+        <button type="button" className="subject-outline-entry line-art-entry" onClick={() => onOpenCinematicDepth?.("line-art")}>
+          <span className="subject-outline-entry-preview line-art-card-art"><PencilLine size={44} weight="duotone" /></span>
+          <span className="subject-outline-entry-footer"><span className="subject-outline-entry-copy"><strong>{t("lineArtTitle")}</strong><small>{t("lineArtDescription")}</small></span><span className="subject-outline-entry-state"><CaretRight size={17} /></span></span>
+        </button>
         <PhotoParallaxEffectCard
           t={t}
           active={photoParallaxActive}

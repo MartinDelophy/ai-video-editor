@@ -2043,6 +2043,8 @@ export function App({ hostSession = null }) {
           updateSelectedSubjectEffect={updateSelectedSubjectEffect}
           updateSelectedClickRipple={updateSelectedClickRipple}
           removeSelectedSubjectEffect={removeSelectedSubjectEffect}
+          lineArtLocalTime={Math.max(0, currentTime - depthTimelineStart)}
+          onLineArtAssetReady={(draft) => { const asset = handleDepthMapAssetReady(draft); notify(t("lineArtAssetReady")); return asset; }}
           onOpticalFlowAssetReady={handleOpticalFlowAssetReady}
           generationPlugins={generationPlugins}
         />

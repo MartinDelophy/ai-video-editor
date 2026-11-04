@@ -12930,3 +12930,15 @@ canvas.relight-position { width:100%; height:auto; display:block; }
   .export-button { min-width: 0; max-width: 100%; }
   .export-button > svg { flex-shrink: 0; }
 }
+
+/* Line-art conversion shares the Effects inspector and compact drawers. */
+.line-art-preview { display:grid; place-items:center; min-height:140px; max-height:280px; background:#fff; color:#20252a; border:1px solid var(--border); border-radius:12px; overflow:hidden; }
+.line-art-preview canvas { display:block; width:100%; height:auto; max-height:280px; object-fit:contain; }
+.line-art-preview canvas[hidden] { display:none; }
+.line-art-controls { border:0; padding:0; margin:0; min-width:0; display:grid; gap:16px; }
+.line-art-hint { color:var(--muted); font-size:12px; line-height:1.6; margin:0; overflow-wrap:anywhere; }
+.line-art-error { color:#ffb0ac; font-size:12px; }
+.line-art-panel .cinematic-depth-progress>div>span { display:flex; align-items:center; gap:6px; min-width:0; }
+.line-art-card-art { display:grid; place-items:center; background:linear-gradient(135deg,#fbfcfb,#dce7e6); color:#263a3b; }
+@media(max-width:760px) { .line-art-preview,.line-art-preview canvas {max-height:220px;} }
+.line-art-controls input[type="range"] { display:block; width:100%; max-width:100%; margin:7px 0 0; }

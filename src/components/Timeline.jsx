@@ -2866,7 +2866,7 @@ export function Timeline({
 
   return (
     <section
-      className={`timeline ${markerController.railExpanded ? "has-marker-rail" : "has-compact-markers"} is-selection-mode-${timelineSelectionMode} ${timelineRangeDrag?.dragging ? "is-range-dragging" : ""}`}
+      className={`timeline ${typeof navigator !== "undefined" && /Win/i.test(navigator.platform || navigator.userAgent) ? "is-windows" : ""} ${markerController.railExpanded ? "has-marker-rail" : "has-compact-markers"} is-selection-mode-${timelineSelectionMode} ${timelineRangeDrag?.dragging ? "is-range-dragging" : ""}`}
       style={{ "--range-drag-x": `${timelineRangeDrag?.dragging ? timelineRangeDrag.delta / Math.max(0.001, timelineDuration) * Math.max(1, rulerViewport.contentWidth) : 0}px` }}
       onClickCapture={(event) => {
         // Shift selection is committed on pointer-down. Block the synthetic

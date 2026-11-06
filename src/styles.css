@@ -12923,3 +12923,12 @@ canvas.relight-position { width:100%; height:auto; display:block; }
   filter: none;
   box-shadow: none;
 }
+
+/* Windows mouse users need a persistent horizontal timeline drag rail. */
+@media (min-width: 761px) {
+  .timeline.is-windows .tracks { scrollbar-width: thin; scrollbar-color: #647882 #10141a; }
+  .timeline.is-windows .tracks::-webkit-scrollbar { display: block; width: 0; height: 8px; }
+  .timeline.is-windows .tracks::-webkit-scrollbar-track { background: #10141a; border-radius: 8px; }
+  .timeline.is-windows .tracks::-webkit-scrollbar-thumb { background: #647882; border: 2px solid #10141a; border-radius: 8px; }
+  .timeline.is-windows .tracks::-webkit-scrollbar-thumb:hover { background: #9aafb9; }
+}

@@ -5354,7 +5354,6 @@ button:disabled {
 .visual-overlay-thumbnails > img, .visual-overlay-thumbnails > video { flex: 1 0 auto; min-width: 42px; height: 100%; object-fit: cover; }
 .visual-overlay-clip > span { position: absolute; right: 6px; bottom: 4px; left: 6px; z-index: 2; overflow: hidden; font-size: 10px; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; text-shadow: 0 1px 3px rgba(0,0,0,.9); }
 .visual-overlay-clip.is-video > span { left: 31px; }
-.visual-overlay-clip.is-selected-segment { border-color: #58a6ff; box-shadow: 0 0 0 2px rgba(88,166,255,.28), 0 0 14px rgba(88,166,255,.25); filter: var(--timeline-visual-selection-filter); }
 .clip-mute-toggle { position: absolute; top: 4px; left: 4px; z-index: 5; display: grid; place-items: center; width: 22px; height: 22px; border: 1px solid rgba(255,255,255,.18); border-radius: 5px; padding: 0; color: #eef8fb; background: rgba(5,10,14,.78); cursor: pointer; }
 .clip-mute-toggle:hover { color: #071616; background: #35ead9; }
 .visual-overlay-resize { position: absolute; top: 4px; bottom: 4px; width: 6px; border-radius: 3px; background: rgba(232,244,255,.9); opacity: 0; cursor: ew-resize; touch-action: none; }
@@ -7594,14 +7593,15 @@ button:disabled {
   cursor: not-allowed;
 }
 
-.timeline { --timeline-visual-selection-filter: brightness(1.1) saturate(1.08); }
+.timeline { --timeline-clip-selection-filter: brightness(1.1) saturate(1.08); }
 
+.timeline :where(:not(.is-track-locked):not(.is-track-disabled)) > [data-timeline-segment-track]:is(.is-selected-segment, .is-selected),
 .timeline [data-timeline-segment-track][data-range-selected="true"] {
   z-index: 5;
   border-color: #6feadd;
   outline: 1px solid rgba(111, 234, 221, .9);
   outline-offset: -2px;
-  filter: var(--timeline-visual-selection-filter);
+  filter: var(--timeline-clip-selection-filter);
   box-shadow:
     inset 0 0 0 1px rgba(211, 255, 251, .18),
     0 0 10px rgba(53, 234, 217, .3);
@@ -8354,16 +8354,7 @@ button:disabled {
   will-change: transform;
 }
 
-.image-clip.is-selected-segment {
-  z-index: 4;
-  border-color: #8bacff;
-  outline: 1px solid rgba(139, 172, 255, 0.82);
-  outline-offset: -2px;
-  filter: var(--timeline-visual-selection-filter);
-  box-shadow:
-    inset 0 0 0 1px rgba(210, 224, 255, 0.18),
-    0 0 8px rgba(90, 139, 255, 0.24);
-}
+
 
 .image-clip.is-fine-editing {
   z-index: 7;
@@ -8698,16 +8689,6 @@ button:disabled {
   transform: translateY(-50%);
 }
 
-.caption-segment.is-selected-segment {
-  z-index: 4;
-  border-color: #ffad6b;
-  outline: 1px solid rgba(255, 173, 107, 0.82);
-  outline-offset: -2px;
-  filter: brightness(1.06);
-  box-shadow:
-    inset 0 0 0 1px rgba(255, 229, 207, 0.16),
-    0 0 8px rgba(255, 137, 72, 0.22);
-}
 
 .caption-segment-label {
   min-width: 0;
@@ -8774,16 +8755,6 @@ button:disabled {
   transform: translateY(-50%);
 }
 
-.sticker-segment.is-selected-segment {
-  z-index: 4;
-  border-color: #35ead9;
-  outline: 1px solid rgba(53, 234, 217, 0.82);
-  outline-offset: -2px;
-  filter: brightness(1.06);
-  box-shadow:
-    inset 0 0 0 1px rgba(205, 255, 250, 0.16),
-    0 0 8px rgba(53, 234, 217, 0.2);
-}
 
 .sticker-segment.is-timeline-dragging {
   opacity: 0.38;
@@ -9063,31 +9034,8 @@ button:disabled {
   cursor: grabbing;
 }
 
-.audio-clip.is-selected .waveform-strip {
-  border-color: #b493ff;
-  outline: 1px solid rgba(180, 147, 255, 0.82);
-  outline-offset: -2px;
-  filter: brightness(1.07) saturate(1.05);
-  box-shadow:
-    inset 0 0 0 1px rgba(230, 219, 255, 0.16),
-    0 0 8px rgba(153, 109, 255, 0.22);
-}
 
-.audio-clip.is-source.is-selected .waveform-strip {
-  border-color: #ffd45f;
-  outline-color: #ffd45f;
-  box-shadow:
-    inset 0 0 0 1px rgba(255, 241, 198, 0.18),
-    0 0 8px rgba(255, 190, 55, 0.24);
-}
 
-.audio-clip.is-music.is-selected .waveform-strip {
-  border-color: #65ddb0;
-  outline-color: #65ddb0;
-  box-shadow:
-    inset 0 0 0 1px rgba(210, 255, 238, 0.17),
-    0 0 8px rgba(66, 211, 157, 0.22);
-}
 
 .audio-clip.is-source .waveform-strip {
   border-color: rgba(250, 194, 93, 0.52);
@@ -9113,13 +9061,6 @@ button:disabled {
   background: #f7c256;
 }
 
-.audio-clip.is-video-source.is-selected .waveform-strip {
-  border-color: #ffd45f;
-  outline-color: #ffd45f;
-  box-shadow:
-    inset 0 0 0 1px rgba(255, 241, 198, 0.18),
-    0 0 8px rgba(255, 190, 55, 0.24);
-}
 
 .audio-clip.is-music .waveform-strip {
   border-color: rgba(103, 181, 255, 0.5);
@@ -12948,10 +12889,15 @@ canvas.relight-position { width:100%; height:auto; display:block; }
 .line-art-controls input[type="range"] { display:block; width:100%; max-width:100%; margin:7px 0 0; }
 
 
-.timeline-export-selection-badge {
+.timeline [data-timeline-segment-track] > .timeline-export-selection-badge {
   position: absolute;
   right: 4px;
+  left: auto;
+  top: auto;
   bottom: 3px;
+  width: max-content;
+  max-width: calc(100% - 8px);
+  height: auto;
   z-index: 12;
   display: inline-flex;
   align-items: center;
@@ -12966,4 +12912,14 @@ canvas.relight-position { width:100%; height:auto; display:block; }
   line-height: 1.2;
   font-variant-numeric: tabular-nums;
   pointer-events: none;
+}
+
+
+/* Audio keeps its track color; only the selection chrome is shared. Apply
+   the brightness once on the clip, never again on its waveform child. */
+.timeline :where(:not(.is-track-locked):not(.is-track-disabled)) > .audio-clip:is(.is-selected, [data-range-selected="true"]) > .waveform-strip {
+  border-color: #6feadd;
+  outline: none;
+  filter: none;
+  box-shadow: none;
 }

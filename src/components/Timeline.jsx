@@ -210,6 +210,7 @@ function getImageTimelineThumbnailCount({ duration, timelineDuration, contentWid
 
 export function Timeline({
   exportClip,
+  exportSelectedClips,
   exporting = false,
   t,
   audioProcessingLabel,
@@ -517,6 +518,13 @@ export function Timeline({
   ]);
   const timelineSelectionKey = (track, id) => `${track}:${id}`;
   const isRangeSelected = (track, id) => timelineRangeSelection.has(timelineSelectionKey(track, id));
+  const selectedExportClips = timelineSelectableClips
+    .filter((clip) => ["image", "overlay"].includes(clip.track) && isRangeSelected(clip.track, clip.id))
+    .sort((left, right) => left.start - right.start || (left.track === right.track ? 0 : left.track === "image" ? -1 : 1));
+  const renderExportSelectionBadge = (track, id) => {
+    const index = selectedExportClips.findIndex((clip) => clip.track === track && clip.id === id);
+    return index < 0 ? null : <span className="timeline-export-selection-badge" aria-label={t("exportSelectionMark").replace("{number}", index + 1)}>✓ {index + 1}</span>;
+  };
   const isTimelineClipVisible = (track, id) => {
     if (typeof document === "undefined") return true;
     const clip = Array.from(document.querySelectorAll(`[data-timeline-segment-track="${track}"]`))
@@ -1168,6 +1176,14 @@ export function Timeline({
     contentWidth: 0,
   });
   const [contextMenu, setContextMenu] = useState(null);
+  const contextMenuRef = useRef(null);
+  useLayoutEffect(() => {
+    const menu = contextMenuRef.current;
+    if (!contextMenu || !menu || window.matchMedia?.("(max-width: 760px)").matches) return;
+    const x = Math.max(10, Math.min(contextMenu.x, window.innerWidth - menu.offsetWidth - 10));
+    const y = Math.max(14, Math.min(contextMenu.y, window.innerHeight - menu.offsetHeight - 10));
+    if (x !== contextMenu.x || y !== contextMenu.y) setContextMenu((current) => current ? { ...current, x, y } : current);
+  }, [contextMenu]);
   const [imageCaptionPendingId, setImageCaptionPendingId] = useState("");
   const contextImageSegment = contextMenu?.track === "image" && contextMenu.segmentId
     ? displayedVisualSegments.find((segment) => segment.id === contextMenu.segmentId)
@@ -1270,6 +1286,7 @@ export function Timeline({
   };
   const showTrackContextMenu = (event, track, segmentId = "", visibilityKey = track, lockKey = track) => {
     event.preventDefault(); event.stopPropagation();
+    if (!segmentId || !isRangeSelected(track, segmentId)) setTimelineRangeSelection(new Set());
     selectContextTarget(track, segmentId);
     if (segmentId && window.matchMedia?.("(max-width: 760px)").matches) {
       setContextMenu(null);
@@ -2825,6 +2842,7 @@ export function Timeline({
           {segment.type === "video" && !segment.audioSeparated ? <VideoClipAudio segment={segment} disabled={trackLocks.overlay || !isOverlayLaneVisible(lane)} muted={segment.muted} t={t} onChange={(volume) => setVisualOverlaySegments((items) => items.map((item) => item.id === segment.id ? { ...item, volume } : item))} /> : null}
           <span className={segment.type === "video" ? "video-clip-name" : undefined}>{segment.name || t("overlayTrack", "Overlay")}</span>
           {segment.type === "video" ? <span className="image-clip-duration">{formatClock(segment.duration)}</span> : null}
+          {renderExportSelectionBadge("overlay", segment.id)}
           <i className="visual-overlay-resize is-start" onPointerDown={(event) => startOverlayEdit(event, "resize-start")} />
           <i className="visual-overlay-resize is-end" onPointerDown={(event) => startOverlayEdit(event, "resize-end")} />
         </div>;
@@ -2851,13 +2869,18 @@ export function Timeline({
       className={`timeline ${markerController.railExpanded ? "has-marker-rail" : "has-compact-markers"} is-selection-mode-${timelineSelectionMode} ${timelineRangeDrag?.dragging ? "is-range-dragging" : ""}`}
       style={{ "--range-drag-x": `${timelineRangeDrag?.dragging ? timelineRangeDrag.delta / Math.max(0.001, timelineDuration) * Math.max(1, rulerViewport.contentWidth) : 0}px` }}
       onClickCapture={(event) => {
+        // Shift selection is committed on pointer-down. Block the synthetic
+        // click so the clip's ordinary single-selection handler cannot undo it.
+        if (event.shiftKey && event.target instanceof Element && event.target.closest("[data-timeline-segment-track]")) {
+          event.preventDefault(); event.stopPropagation(); return;
+        }
         if (!timelineRangeDragClickGuardRef.current) return;
         event.preventDefault();
         event.stopPropagation();
         timelineRangeDragClickGuardRef.current = "";
       }}
       onPointerDownCapture={(event) => {
-      if (!(event.target instanceof Element)) return;
+      if (event.button !== 0 || !(event.target instanceof Element)) return;
       // A real follow-up pointer gesture is intentional user input, so it
       // ends the one-shot guard reserved for the synthetic click after drag.
       if (timelineRangeDragClickGuardRef.current && !timelineRangeDrag) {
@@ -3328,6 +3351,7 @@ export function Timeline({
                           }
                         }}
                       >
+                        {renderExportSelectionBadge("image", segment.id)}
                         {segment.preparing ? (
                           <div className="timeline-media-preparing" aria-live="polite">
                             <i className="timeline-media-spinner" />
@@ -3756,7 +3780,7 @@ export function Timeline({
         </nav>
       ), document.body) : null}
       {contextMenu ? (
-        <div className="timeline-context-menu" role="menu" aria-label={t("timelineContextMenu")} style={{ left: contextMenu.x, top: contextMenu.y }} onPointerDown={(event) => event.stopPropagation()}>
+        <div ref={contextMenuRef} className="timeline-context-menu" role="menu" aria-label={t("timelineContextMenu")} style={{ left: contextMenu.x, top: contextMenu.y }} onPointerDown={(event) => event.stopPropagation()}>
           <div className="timeline-context-heading">{contextMenu.kind === "clip" ? t("clipActions") : t("trackActions")}<span>{t({ image: "imageTrack", overlay: "overlayTrack", caption: "caption", sticker: "stickerTrack", source: "sourceTrack", audio: "voiceTrack", music: "musicTrack" }[contextMenu.track], contextMenu.track)}</span></div>
           <button type="button" role="menuitem" onClick={() => runContextAction(() => openTrackPanel(contextMenu.track))}><SlidersHorizontal size={16} />{t("openTrackPanel")}</button>
           {contextMenu.kind === "clip" ? (
@@ -3803,7 +3827,8 @@ export function Timeline({
                 <button type="button" role="menuitem" disabled={audioProcessingBusy} onClick={() => runContextAction(() => separateAudioClipVocals?.({ blob: musicBlob, name: t("musicTrack"), start: contextMusicSegment.start, sourceStart: contextMusicSegment.sourceStart || 0, duration: contextMusicSegment.duration, segmentId: contextMusicSegment.id, track: "music" }))}><Waveform size={16} />{t("separateVocalsFromClip")}</button>
                 <button type="button" role="menuitem" disabled={audioProcessingBusy} onClick={() => runContextAction(() => generateCaptionsFromAudioClip?.({ blob: musicBlob, start: contextMusicSegment.start, sourceStart: contextMusicSegment.sourceStart || 0, duration: contextMusicSegment.duration, append: true }))}><ClosedCaptioning size={16} />{t("generateCaptionsFromClip")}</button>
               </> : null}
-              {["image", "overlay"].includes(contextMenu.track) && exportClip ? <button type="button" role="menuitem" disabled={exporting} title={t("exportClipHint")} onClick={() => runContextAction(() => exportClip(contextMenu.track, contextMenu.segmentId))}><FileArrowDown size={16} />{t("exportClip")}</button> : null}
+              {isRangeSelected(contextMenu.track, contextMenu.segmentId) && selectedExportClips.length > 1 && exportSelectedClips ? <button type="button" role="menuitem" disabled={exporting} title={t("exportSelectedClipsHint")} onClick={() => runContextAction(() => exportSelectedClips(selectedExportClips.map(({ track, id }) => ({ track, id }))))}><FileArrowDown size={16} />{t("exportSelectedClips").replace("{count}", selectedExportClips.length)}</button> : null}
+              {["image", "overlay"].includes(contextMenu.track) && exportClip && !(isRangeSelected(contextMenu.track, contextMenu.segmentId) && selectedExportClips.length > 1 && exportSelectedClips) ? <button type="button" role="menuitem" disabled={exporting} title={t("exportClipHint")} onClick={() => runContextAction(() => exportClip(contextMenu.track, contextMenu.segmentId))}><FileArrowDown size={16} />{t("exportClip")}</button> : null}
               <button type="button" role="menuitem" onClick={() => runContextAction(handleCutTrack)}><Scissors size={16} />{t("splitAtPlayhead")}</button>
               <button type="button" role="menuitem" onClick={() => runContextAction(handleDuplicateTrack)}><CopySimple size={16} />{t("duplicateClip")}</button>
               <div className="timeline-context-divider" />

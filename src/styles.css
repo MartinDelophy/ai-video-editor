@@ -8913,6 +8913,8 @@ button:disabled {
 }
 
 .timeline-context-menu {
+  max-height: calc(100dvh - 28px);
+  overflow-y: auto;
   position: fixed;
   z-index: 180;
   display: grid;
@@ -12942,3 +12944,24 @@ canvas.relight-position { width:100%; height:auto; display:block; }
 .line-art-card-art { display:grid; place-items:center; background:linear-gradient(135deg,#fbfcfb,#dce7e6); color:#263a3b; }
 @media(max-width:760px) { .line-art-preview,.line-art-preview canvas {max-height:220px;} }
 .line-art-controls input[type="range"] { display:block; width:100%; max-width:100%; margin:7px 0 0; }
+
+
+.timeline-export-selection-badge {
+  position: absolute;
+  right: 4px;
+  bottom: 3px;
+  z-index: 12;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 5px;
+  border: 1px solid #b7fff6;
+  border-radius: 5px;
+  background: #35ead9;
+  color: #062725;
+  font-size: 10px;
+  font-weight: 750;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}

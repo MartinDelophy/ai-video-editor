@@ -23,3 +23,28 @@ export function getClipExportSettings(settings, track, id, visuals, overlays) {
     fileName: `${name}-${start.toFixed(3)}-${(start + duration).toFixed(3)}`,
   };
 }
+
+/** Resolve once before a batch so async downloads cannot change its targets. */
+export function getSelectedClipExportJobs(settings, selected, visuals, overlays) {
+  const seen = new Set();
+  return selected.flatMap(({ track, id }) => {
+    const key = `${track}:${id}`;
+    if (seen.has(key)) return [];
+    seen.add(key);
+    const clip = getClipExportSettings(settings, track, id, visuals, overlays);
+    return clip ? [clip] : [];
+  }).sort((left, right) => left.rangeStart - right.rangeStart)
+    .map((clip, index) => ({ ...clip, fileName: `${String(index + 1).padStart(2, "0")}-${clip.fileName}` }));
+}
+
+export async function exportClipJobs(jobs, exportVideo, { signal, onStart } = {}) {
+  let completed = 0;
+  for (const settings of jobs) {
+    if (signal?.aborted) return { status: "canceled", completed };
+    onStart?.({ current: completed + 1, total: jobs.length });
+    const result = await exportVideo({ settings, signal, suppressNotification: true });
+    if (result?.status !== "success") return { status: result?.status || "failed", completed };
+    completed += 1;
+  }
+  return { status: "success", completed };
+}

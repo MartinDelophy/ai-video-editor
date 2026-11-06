@@ -1,4 +1,4 @@
-import { getClipExportSettings } from "./lib/clipExport.js";
+import { exportClipJobs, getClipExportSettings, getSelectedClipExportJobs } from "./lib/clipExport.js";
 import { useVideoProxySource } from "./hooks/useVideoProxy.js";
 import { applyProcessedSourceMedia, getSourceProcessingLane } from "./lib/sourceAudioProcessing.js";
 import { getAudioProcessingCopy } from "./i18nAudioProcessing.js";
@@ -133,6 +133,8 @@ export function App({ hostSession = null }) {
     return () => query.removeEventListener?.("change", update);
   }, []);
   const [showExportMenu, setShowExportMenu] = useState(false);
+  const clipExportBatchRef = useRef(null);
+  const [clipExportBatch, setClipExportBatch] = useState(null);
   const [exportSettings, setExportSettings] = useState(() => loadExportSettings());
   useEffect(() => {
     saveExportSettings(exportSettings);
@@ -290,6 +292,7 @@ export function App({ hostSession = null }) {
   } = useVoiceProfiles({ favoriteVoiceIds, setFavoriteVoiceIds, notify, t });
   const selectedVoiceProfile = voiceProfiles.find((profile) => profile.id === selectedVoiceProfileId) ?? null;
   const handleCancelExport = () => {
+    clipExportBatchRef.current?.abort();
     const controller = exportAbortControllerRef.current;
     if (!controller || controller.signal.aborted) return;
     setExportPhase(t("exportCanceling"));
@@ -1460,12 +1463,29 @@ export function App({ hostSession = null }) {
   };
   const handleExportVideo = useVideoExport(videoCompositionContext);
   const handleExportClip = (track, id) => {
-    if (exporting || exportAbortControllerRef.current) return;
+    if (exporting || exportAbortControllerRef.current || clipExportBatchRef.current) return;
     const settings = getClipExportSettings(exportSettings, track, id, renderedVisualSegments, visualOverlaySegments);
     if (!settings) return notify(t("exportRangeInvalid"));
     pauseForTimelineEdit();
     setShowExportMenu(false);
     void handleExportVideo({ settings });
+  };
+  const handleExportSelectedClips = async (selected) => {
+    if (exporting || exportAbortControllerRef.current || clipExportBatchRef.current) return;
+    const jobs = getSelectedClipExportJobs(exportSettings, selected, renderedVisualSegments, visualOverlaySegments);
+    if (!jobs.length) return notify(t("exportRangeInvalid"));
+    const controller = new AbortController();
+    clipExportBatchRef.current = controller;
+    pauseForTimelineEdit();
+    setShowExportMenu(false);
+    try {
+      const result = await exportClipJobs(jobs, handleExportVideo, { signal: controller.signal, onStart: setClipExportBatch });
+      if (result.status === "success") notify(t("exportSelectedClipsDone").replace("{count}", result.completed));
+      else if (result.status === "canceled") notify(t("exportCanceled"));
+    } finally {
+      clipExportBatchRef.current = null;
+      setClipExportBatch(null);
+    }
   };
   const { startCaptionResize, startTimelineClipDrag } = createTimelineReorderControls({
     timelineMarkers,
@@ -2061,6 +2081,7 @@ export function App({ hostSession = null }) {
 
       <Timeline
         exportClip={handleExportClip}
+        exportSelectedClips={handleExportSelectedClips}
         exporting={exporting}
         audioProcessingLabel={getAudioProcessingCopy(uiLanguage).processing}
         timelineMarkers={timelineMarkers}
@@ -2269,13 +2290,13 @@ export function App({ hostSession = null }) {
         onApplied={() => changeMobilePanel("")}
       />
       <ExportProgressOverlay
-        exporting={exporting}
+        exporting={exporting || Boolean(clipExportBatch)}
         error={exportError}
         language={activeLanguage}
         onClose={() => setExportError(null)}
         onRetry={() => { if (exportError?.settings) void handleExportVideo({ settings: exportError.settings }); }}
         percent={exportPercent}
-        phase={exportPhase}
+        phase={clipExportBatch ? `${t("exportSelectedClipsProgress").replace("{current}", clipExportBatch.current).replace("{total}", clipExportBatch.total)} · ${exportPhase}` : exportPhase}
         elapsedSeconds={exportElapsedSeconds}
         onCancel={handleCancelExport}
         canceling={exportPhase === t("exportCanceling")}

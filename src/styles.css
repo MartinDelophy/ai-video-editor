@@ -5354,7 +5354,7 @@ button:disabled {
 .visual-overlay-thumbnails > img, .visual-overlay-thumbnails > video { flex: 1 0 auto; min-width: 42px; height: 100%; object-fit: cover; }
 .visual-overlay-clip > span { position: absolute; right: 6px; bottom: 4px; left: 6px; z-index: 2; overflow: hidden; font-size: 10px; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; text-shadow: 0 1px 3px rgba(0,0,0,.9); }
 .visual-overlay-clip.is-video > span { left: 31px; }
-.visual-overlay-clip.is-selected-segment { border-color: #58a6ff; box-shadow: 0 0 0 2px rgba(88,166,255,.28), 0 0 14px rgba(88,166,255,.25); filter: brightness(1.12); }
+.visual-overlay-clip.is-selected-segment { border-color: #58a6ff; box-shadow: 0 0 0 2px rgba(88,166,255,.28), 0 0 14px rgba(88,166,255,.25); filter: var(--timeline-visual-selection-filter); }
 .clip-mute-toggle { position: absolute; top: 4px; left: 4px; z-index: 5; display: grid; place-items: center; width: 22px; height: 22px; border: 1px solid rgba(255,255,255,.18); border-radius: 5px; padding: 0; color: #eef8fb; background: rgba(5,10,14,.78); cursor: pointer; }
 .clip-mute-toggle:hover { color: #071616; background: #35ead9; }
 .visual-overlay-resize { position: absolute; top: 4px; bottom: 4px; width: 6px; border-radius: 3px; background: rgba(232,244,255,.9); opacity: 0; cursor: ew-resize; touch-action: none; }
@@ -7594,12 +7594,14 @@ button:disabled {
   cursor: not-allowed;
 }
 
+.timeline { --timeline-visual-selection-filter: brightness(1.1) saturate(1.08); }
+
 .timeline [data-timeline-segment-track][data-range-selected="true"] {
   z-index: 5;
   border-color: #6feadd;
   outline: 1px solid rgba(111, 234, 221, .9);
   outline-offset: -2px;
-  filter: brightness(1.1) saturate(1.08);
+  filter: var(--timeline-visual-selection-filter);
   box-shadow:
     inset 0 0 0 1px rgba(211, 255, 251, .18),
     0 0 10px rgba(53, 234, 217, .3);
@@ -8357,7 +8359,7 @@ button:disabled {
   border-color: #8bacff;
   outline: 1px solid rgba(139, 172, 255, 0.82);
   outline-offset: -2px;
-  filter: brightness(1.07) saturate(1.06);
+  filter: var(--timeline-visual-selection-filter);
   box-shadow:
     inset 0 0 0 1px rgba(210, 224, 255, 0.18),
     0 0 8px rgba(90, 139, 255, 0.24);

@@ -8073,7 +8073,7 @@ button:disabled {
   width: 2px;
   background: #f4fbff;
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.18);
-  z-index: 5;
+  z-index: 20;
   cursor: ew-resize;
   touch-action: none;
 }
@@ -12891,8 +12891,8 @@ canvas.relight-position { width:100%; height:auto; display:block; }
 
 .timeline [data-timeline-segment-track] > .timeline-export-selection-badge {
   position: absolute;
-  right: auto;
-  left: 6px;
+  right: 4px;
+  left: auto;
   top: auto;
   bottom: 3px;
   width: max-content;

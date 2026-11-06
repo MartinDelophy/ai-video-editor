@@ -12891,8 +12891,8 @@ canvas.relight-position { width:100%; height:auto; display:block; }
 
 .timeline [data-timeline-segment-track] > .timeline-export-selection-badge {
   position: absolute;
-  right: 4px;
-  left: auto;
+  right: auto;
+  left: 6px;
   top: auto;
   bottom: 3px;
   width: max-content;

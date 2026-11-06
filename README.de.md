@@ -31,11 +31,11 @@ Für sämtliche rechtlichen Folgen eines Verstoßes gegen diese Anforderungen is
 
 ## Projektneuigkeiten
 
+- **2026-11-06** — Schmale, ziehbare horizontale Bildlaufleiste für die Timeline unter Windows hinzugefügt.
 - **2026-11-06** — Mehrfachauswahl per Umschalt-Klick mit nummerierten Markierungen. Das Kontextmenü exportiert jeden ausgewählten Clip als eigene Datei in zeitlicher Reihenfolge bei unveränderten Einstellungen und synchronem Audio.
 - **2026-11-06** — Clip-Export in den Kontextmenüs für Hauptbild und Overlays sowie den mobilen Aktionen ergänzt. Exportiert den Clip-Zeitbereich mit Originalmedien, Geschwindigkeitskurven, Untertiteln und Audio in allen 13 Oberflächensprachen.
 - **2026-11-04** — Linienzeichnung unter Effekte ergänzt: Details, Linienstärke, Invertierung und Vorschau. PNG-Bilder und 24-fps-WebM-Videos mit Zuschnitt, Geschwindigkeit und Quellton werden unter Meine Medien ohne automatische Einfügung gespeichert. Alle 13 Sprachen und Mobilgeräte werden unterstützt. Wiedergabe von Timelines mit ausschließlich Bild-in-Bild-Clips korrigiert.
 - **2026-11-03** — Desktop-Menüs für Datei, Bearbeiten, Clip, Ansicht und Hilfe ergänzt, verbunden mit vorhandenen Schnitt-, Vorschau-, Proxy- und Hilfefunktionen, mit Tastaturnavigation und allen 13 Sprachen. Smartphones und Tablets behalten kompakte Menüs. Undo/Redo während der Medienvorbereitung, Quellzeiten beim Teilen von Geschwindigkeitskurven und die Wiedergabesynchronisierung separierter Audiospuren wurden korrigiert. Der Tastaturfokus wird nach dem Einblenden des Menüs gesetzt. Proxy-Steuerung unter Ansicht mit tatsächlicher Wiedergabequelle, separater Cache-Verwaltung, eigenen Aktionssymbolen und mobilem Bedienfeld in allen 13 Sprachen.
-- **2026-11-03** — Lokale 1280px-Videoproxys mit Hintergrundgenerierung, Prüfung der Quellzeitstempel und wiederverwendbarem Cache hinzugefügt. Der Export verwendet Originalmedien. Die Vorschau kann auf Originale umgeschaltet werden; präzise Timeline-Vorschaubilder nutzen weiterhin die Quellen.
 Geplante Arbeiten stehen in der [Roadmap](ROADMAP.md), veröffentlichte Änderungen in den [Releases](https://github.com/MartinDelophy/ai-video-editor/releases) und einzelne Aufgaben in den [Issues](https://github.com/MartinDelophy/ai-video-editor/issues).
 
 ## Was kann es produzieren?

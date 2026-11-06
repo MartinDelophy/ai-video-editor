@@ -31,11 +31,11 @@ L’utilisateur assume seul toute responsabilité juridique découlant du non-re
 
 ## Actualités du projet
 
+- **2026-11-06** — Ajout d’une fine barre de défilement horizontal déplaçable dans la timeline sous Windows.
 - **2026-11-06** — Sélection multiple avec Maj et repères numérotés ; le menu contextuel exporte chaque clip dans un fichier distinct dans l’ordre, en conservant les réglages et la synchronisation audio.
 - **2026-11-06** — Ajout de l’export de clips aux menus contextuels des visuels et superpositions et aux actions mobiles, avec médias originaux, vitesses, sous-titres et audio sur l’intervalle du clip. Disponible dans les 13 langues.
 - **2026-11-04** — Ajout du Dessin au trait dans les effets : détail, épaisseur, inversion et aperçu. Les images PNG et vidéos WebM à 24 fps conservant découpage, vitesse et son source sont enregistrées dans Mes ressources sans insertion automatique. Compatible avec les 13 langues et le mobile. Correction de la lecture des timelines contenant uniquement des incrustations.
 - **2026-11-03** — Ajout des menus de bureau Fichier, Édition, Clip, Affichage et Aide, reliés aux actions existantes de montage, d’aperçu, de proxies et d’aide, avec navigation au clavier et les 13 langues. Les téléphones et tablettes conservent les menus compacts. Correction de l’annulation pendant la préparation, des temps source lors du découpage des courbes de vitesse et de la synchronisation audio séparée. Le focus clavier est attribué après le montage du menu déroulant. Les commandes de proxy sont regroupées dans Affichage, avec la source de lecture réelle, une gestion séparée du cache, des icônes distinctes et un panneau mobile dans les 13 langues.
-- **2026-11-03** — Ajout de proxies vidéo locaux de 1280px avec génération en arrière-plan, validation des horodatages et cache réutilisable. L’export utilise les originaux ; l’aperçu peut y revenir et les vignettes précises restent issues des médias sources.
 Consultez la [Roadmap](ROADMAP.md) pour les travaux prévus, les [Releases](https://github.com/MartinDelophy/ai-video-editor/releases) pour les changements publiés et les [Issues](https://github.com/MartinDelophy/ai-video-editor/issues) pour les tâches et anomalies.
 
 ## Que peut-il produire ?

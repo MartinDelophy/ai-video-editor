@@ -41,7 +41,7 @@ export function useVideoExport(d) {
     if (options.signal?.aborted) return { status: "canceled" };
     const requestedSettings = normalizeExportSettings(options.settings || d.exportSettings);
     const audioOnly = requestedSettings.mediaType === "audio";
-    if (!audioOnly && !d.imageSrc) {
+    if (!audioOnly && !d.imageSrc && !d.visualOverlaySegments.some((segment) => segment.src && !segment.hidden && segment.duration > 0)) {
       d.notify(d.t("exportVisualRequired"));
       return { status: "blocked", error: d.t("exportVisualRequired") };
     }

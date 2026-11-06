@@ -17,6 +17,7 @@ export function getMobileClipActionIds(track, options = {}) {
       ...(options.isVector ? ["visual-vector"] : ["visual-mask", "visual-filter"]),
       ...(track === "overlay" && !options.isVector ? ["visual-effects"] : []),
       "visual-animation",
+      "export-clip",
       ...(!options.isVector && options.isVideo ? ["visual-speed", "audio-properties", "audio-spatial"] : []),
       ...(track === "image" && !options.isVector ? ["visual-repair"] : []),
       ...(track === "overlay" ? ["overlay-timing"] : []),

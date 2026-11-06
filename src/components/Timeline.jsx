@@ -16,6 +16,7 @@ import {
   ClosedCaptioning,
   Eye,
   EyeSlash,
+  FileArrowDown,
   LockKey,
   LockKeyOpen,
   LinkBreak,
@@ -208,6 +209,8 @@ function getImageTimelineThumbnailCount({ duration, timelineDuration, contentWid
 }
 
 export function Timeline({
+  exportClip,
+  exporting = false,
   t,
   audioProcessingLabel,
   timelineMarkers = [],
@@ -3739,6 +3742,7 @@ export function Timeline({
             if (actionId === "audio-spatial") return <button type="button" key={actionId} onClick={() => openSelectedClipInspector("spatial")}><Waveform size={20} /><span>{t("audioSpaceTab")}</span></button>;
             if (actionId === "audio-processing") return <button type="button" key={actionId} onClick={() => openSelectedClipInspector("processing")}><SlidersHorizontal size={20} /><span>{audioProcessingLabel}</span></button>;
             if (actionId === "audio-voice-color") return <button type="button" key={actionId} onClick={() => openSelectedClipInspector("voice-color")}><Sparkle size={20} weight="fill" /><span>{t("voiceColorTab", "音色")}</span></button>;
+            if (actionId === "export-clip") return <button type="button" key={actionId} disabled={exporting} title={t("exportClipHint")} onClick={() => runMobileClipAction(() => exportClip?.(selectedMobileClipTrack, (selectedMobileVisualSegment || selectedMobileOverlaySegment)?.id))}><FileArrowDown size={20} /><span>{t("exportClip")}</span></button>;
             if (actionId === "split") return <button type="button" key={actionId} onClick={() => runMobileClipAction(handleCutTrack)}><Scissors size={20} /><span>{t("mobileClipSplit")}</span></button>;
             if (actionId === "copy") return <button type="button" key={actionId} onClick={() => runMobileClipAction(handleDuplicateTrack)}><CopySimple size={20} /><span>{t("mobileClipCopy")}</span></button>;
             if (actionId === "captions") return <button type="button" key={actionId} disabled={audioProcessingBusy || !selectedMobileAudioSegment} onClick={generateSelectedMobileAudioCaptions}><ClosedCaptioning size={20} /><span>{t("mobileClipCaptions")}</span></button>;
@@ -3799,6 +3803,7 @@ export function Timeline({
                 <button type="button" role="menuitem" disabled={audioProcessingBusy} onClick={() => runContextAction(() => separateAudioClipVocals?.({ blob: musicBlob, name: t("musicTrack"), start: contextMusicSegment.start, sourceStart: contextMusicSegment.sourceStart || 0, duration: contextMusicSegment.duration, segmentId: contextMusicSegment.id, track: "music" }))}><Waveform size={16} />{t("separateVocalsFromClip")}</button>
                 <button type="button" role="menuitem" disabled={audioProcessingBusy} onClick={() => runContextAction(() => generateCaptionsFromAudioClip?.({ blob: musicBlob, start: contextMusicSegment.start, sourceStart: contextMusicSegment.sourceStart || 0, duration: contextMusicSegment.duration, append: true }))}><ClosedCaptioning size={16} />{t("generateCaptionsFromClip")}</button>
               </> : null}
+              {["image", "overlay"].includes(contextMenu.track) && exportClip ? <button type="button" role="menuitem" disabled={exporting} title={t("exportClipHint")} onClick={() => runContextAction(() => exportClip(contextMenu.track, contextMenu.segmentId))}><FileArrowDown size={16} />{t("exportClip")}</button> : null}
               <button type="button" role="menuitem" onClick={() => runContextAction(handleCutTrack)}><Scissors size={16} />{t("splitAtPlayhead")}</button>
               <button type="button" role="menuitem" onClick={() => runContextAction(handleDuplicateTrack)}><CopySimple size={16} />{t("duplicateClip")}</button>
               <div className="timeline-context-divider" />

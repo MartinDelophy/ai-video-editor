@@ -31,11 +31,11 @@ O usuário é o único responsável por quaisquer consequências legais decorren
 
 ## Novidades do projeto
 
+- **2026-11-06** — Adicionada a exportação de clipes aos menus de Visuais e Sobreposição e às ações móveis, preservando originais, velocidade, legendas e áudio no intervalo do clipe. Disponível nos 13 idiomas.
 - **2026-11-04** — Adicionado Desenho de linhas em Efeitos, com detalhes, espessura, inversão e prévia. Salva imagens PNG e vídeos WebM de 24 fps com corte, velocidade e áudio de origem em Meus recursos, sem inserção automática. Suporte aos 13 idiomas e dispositivos móveis. Corrigida a reprodução de linhas do tempo com apenas clipes de imagem em imagem.
 - **2026-11-03** — Adicionados menus de desktop Arquivo, Editar, Clipe, Exibir e Ajuda, ligados às ações existentes de edição, prévia, proxies e ajuda, com navegação por teclado e os 13 idiomas. Celulares e tablets mantêm menus compactos. Corrigidos desfazer/refazer durante a preparação, os tempos de origem ao dividir curvas de velocidade e a sincronização do áudio separado. O foco do teclado é definido após montar o menu suspenso. Os controles de proxy ficam em Exibir, com a fonte real de reprodução, gerenciamento separado do cache, ícones por ação e painel móvel nos 13 idiomas.
 - **2026-11-03** — Adicionados proxies locais de vídeo de 1280px com geração em segundo plano, validação dos tempos da fonte e cache reutilizável. A exportação usa originais; a prévia pode voltar a eles e as miniaturas precisas continuam usando a mídia de origem.
 - **2026-11-02** — Menus de alinhamento com ícones e tela dividida incluindo a imagem principal e sobreposições visíveis, com duas, três ou quatro imagens, recorte igual na prévia e exportação e desfazer em uma etapa. O Skill e os comandos compartilhados de CLI, STDIO MCP e prévia/aplicação permitem aos agentes dividir a tela e sincronizar quadros de referência.
-- **2026-10-30** — Novo menu de contexto no vídeo de prévia para alinhamento, ajuste e preenchimento, alinhamento temporal de sobreposições e sincronização manual por quadro de referência, com desfazer e proteção de faixas bloqueadas.
 Consulte o [Roadmap](ROADMAP.md) para o trabalho planejado, [Releases](https://github.com/MartinDelophy/ai-video-editor/releases) para mudanças publicadas e [Issues](https://github.com/MartinDelophy/ai-video-editor/issues) para tarefas e erros.
 
 ## O que ele pode produzir?

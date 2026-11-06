@@ -1,3 +1,4 @@
+import { getClipExportSettings } from "./lib/clipExport.js";
 import { useVideoProxySource } from "./hooks/useVideoProxy.js";
 import { applyProcessedSourceMedia, getSourceProcessingLane } from "./lib/sourceAudioProcessing.js";
 import { getAudioProcessingCopy } from "./i18nAudioProcessing.js";
@@ -1458,6 +1459,14 @@ export function App({ hostSession = null }) {
     visualOverlaySegments, t, language: activeLanguage,
   };
   const handleExportVideo = useVideoExport(videoCompositionContext);
+  const handleExportClip = (track, id) => {
+    if (exporting || exportAbortControllerRef.current) return;
+    const settings = getClipExportSettings(exportSettings, track, id, renderedVisualSegments, visualOverlaySegments);
+    if (!settings) return notify(t("exportRangeInvalid"));
+    pauseForTimelineEdit();
+    setShowExportMenu(false);
+    void handleExportVideo({ settings });
+  };
   const { startCaptionResize, startTimelineClipDrag } = createTimelineReorderControls({
     timelineMarkers,
     audioSegments, captionSegments, captionTargetDuration, commitCaptionSegments, commitVisualSegments, setAudioSegments,
@@ -2051,6 +2060,8 @@ export function App({ hostSession = null }) {
       </section>
 
       <Timeline
+        exportClip={handleExportClip}
+        exporting={exporting}
         audioProcessingLabel={getAudioProcessingCopy(uiLanguage).processing}
         timelineMarkers={timelineMarkers}
         setTimelineMarkers={setTimelineMarkers}

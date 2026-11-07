@@ -1,0 +1,66 @@
+.visual-replacement-dialog {
+  width: min(620px, calc(100vw - 28px));
+  max-height: calc(100dvh - 32px);
+  padding: 18px;
+  color: #eff7f7;
+  background: #141a20;
+  border: 1px solid #34404a;
+  border-radius: 14px;
+  box-shadow: 0 20px 60px #0008;
+}
+.visual-replacement-dialog::backdrop { background: #080c13b8; }
+.visual-replacement-dialog form { display: grid; gap: 14px; }
+.visual-replacement-dialog header, .visual-replacement-dialog footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.visual-replacement-dialog h2 { margin: 0 0 4px; font-size: 17px; }
+.visual-replacement-dialog small {
+  display: block;
+  max-width: min(450px, 72vw);
+  overflow: hidden;
+  color: #a4b1bc;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.visual-replacement-dialog button {
+  padding: 7px 12px;
+  color: inherit;
+  background: #212932;
+  border: 1px solid #39444d;
+  border-radius: 7px;
+  cursor: pointer;
+}
+.visual-replacement-dialog .replacement-close { display: grid; place-items: center; padding: 7px; }
+.replacement-source-picker, .replacement-range-field {
+  display: grid;
+  align-items: center;
+  gap: 7px;
+}
+.replacement-source-picker { grid-template-columns: minmax(0, 1fr) auto; }
+.replacement-source-picker > label:first-child { grid-column: 1 / -1; }
+.replacement-source-picker select, .replacement-range-field input[type="number"] {
+  min-width: 0;
+  height: 34px;
+  padding: 5px 7px;
+  color: inherit;
+  background: #0e141a;
+  border: 1px solid #35414b;
+  border-radius: 6px;
+}
+.replacement-preview { display: grid; place-items: center; background: #090e14; border-radius: 8px; }
+.replacement-preview :is(video, img) {
+  display: block;
+  width: 100%;
+  height: min(230px, 29dvh);
+  object-fit: contain;
+}
+.visual-replacement-dialog fieldset { min-width: 0; margin: 0; padding: 8px 10px; border: 1px solid #33404a; border-radius: 8px; }
+.replacement-range-field { grid-template-columns: minmax(0, 1fr) 75px; margin-top: 6px; }
+.replacement-range-field input[type="range"] { grid-column: 1 / -1; width: 100%; accent-color: #35ead9; }
+.visual-replacement-dialog p { margin: 4px 0 0; color: #b3c1cc; font-size: 12px; }
+.visual-replacement-dialog footer { justify-content: end; }
+.visual-replacement-dialog button.replacement-confirm { color: #07191b; background: #35ead9; border-color: #35ead9; font-weight: 700; }
+.visual-replacement-dialog button:disabled { opacity: 0.42; cursor: not-allowed; }

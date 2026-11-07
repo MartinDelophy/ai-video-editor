@@ -17,6 +17,7 @@ import {
   Eye,
   EyeSlash,
   FileArrowDown,
+  Swap,
   LockKey,
   LockKeyOpen,
   LinkBreak,
@@ -41,6 +42,7 @@ import {
   X,
 } from "@phosphor-icons/react";
 
+import { replacementCopy } from "../i18nVisualReplacement.js";
 import { IMAGE_SEGMENT_SECONDS, MAX_TIMELINE_DURATION_SECONDS, TRANSITIONS } from "../config/editor.js";
 import { formatClock, formatCompactDuration, formatTime, getSegmentStartTime, getVisualSegmentStartTime, packCaptionSegmentsIntoLanes, packTimedSegmentsIntoLanes } from "../lib/timeline.js";
 import {
@@ -214,6 +216,8 @@ function getImageTimelineThumbnailCount({ duration, timelineDuration, contentWid
 
 export function Timeline({
   playheadRevealRequest,
+  canReplaceVisual,
+  onReplaceVisual,
   exportClip,
   exportSelectedClips,
   exporting = false,
@@ -917,6 +921,7 @@ export function Timeline({
     && (selectedMobileClipTrack === "overlay" || !Number.isFinite(selectedMobileExtractableVideo.sourceAudioOffset));
   const mobileClipActionIds = getMobileClipActionIds(selectedMobileClipTrack, {
     canExtractSourceAudio: canExtractSelectedMobileSourceAudio,
+    canReplaceVisual: selectedMobileExtractableVideo && canReplaceVisual?.(selectedMobileClipTrack, selectedMobileExtractableVideo.id),
     hasLinkedCaption: selectedMobileHasLinkedCaption,
     isVideo: (selectedMobileVisualSegment || selectedMobileOverlaySegment)?.type === "video",
     isVector: (selectedMobileVisualSegment || selectedMobileOverlaySegment)?.kind === "vector"
@@ -3790,6 +3795,7 @@ export function Timeline({
             if (actionId === "audio-spatial") return <button type="button" key={actionId} onClick={() => openSelectedClipInspector("spatial")}><Waveform size={20} /><span>{t("audioSpaceTab")}</span></button>;
             if (actionId === "audio-processing") return <button type="button" key={actionId} onClick={() => openSelectedClipInspector("processing")}><SlidersHorizontal size={20} /><span>{audioProcessingLabel}</span></button>;
             if (actionId === "audio-voice-color") return <button type="button" key={actionId} onClick={() => openSelectedClipInspector("voice-color")}><Sparkle size={20} weight="fill" /><span>{t("voiceColorTab", "音色")}</span></button>;
+            if (actionId === "replace-visual") return <button type="button" key={actionId} onClick={() => runMobileClipAction(() => onReplaceVisual?.(selectedMobileClipTrack, selectedMobileExtractableVideo?.id))}><Swap size={20} /><span>{replacementCopy(effectLanguage).title}</span></button>;
             if (actionId === "export-clip") return <button type="button" key={actionId} disabled={exporting} title={t("exportClipHint")} onClick={() => runMobileClipAction(() => exportClip?.(selectedMobileClipTrack, (selectedMobileVisualSegment || selectedMobileOverlaySegment)?.id))}><FileArrowDown size={20} /><span>{t("exportClip")}</span></button>;
             if (actionId === "split") return <button type="button" key={actionId} onClick={() => runMobileClipAction(handleCutTrack)}><Scissors size={20} /><span>{t("mobileClipSplit")}</span></button>;
             if (actionId === "copy") return <button type="button" key={actionId} onClick={() => runMobileClipAction(handleDuplicateTrack)}><CopySimple size={20} /><span>{t("mobileClipCopy")}</span></button>;
@@ -3809,6 +3815,13 @@ export function Timeline({
           <button type="button" role="menuitem" onClick={() => runContextAction(() => openTrackPanel(contextMenu.track))}><SlidersHorizontal size={16} />{t("openTrackPanel")}</button>
           {contextMenu.kind === "clip" ? (
             <>
+              {(contextImageSegment || contextOverlaySegment) && onReplaceVisual ? (
+                <button type="button" role="menuitem"
+                  disabled={!canReplaceVisual?.(contextMenu.track, contextMenu.segmentId)}
+                  onClick={() => runContextAction(() => onReplaceVisual(contextMenu.track, contextMenu.segmentId))}>
+                  <Swap size={16} />{replacementCopy(effectLanguage).title}
+                </button>
+              ) : null}
               {contextMenu.track === "caption" ? (
                 <><button type="button" role="menuitem" onClick={() => runContextAction(() => {
                   openTrackPanel("caption");

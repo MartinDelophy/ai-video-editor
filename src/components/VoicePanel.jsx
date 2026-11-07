@@ -1474,13 +1474,7 @@ export function VoicePanel({
   setHistoryItems,
   notify,
   audioUrl,
-  audioRef,
   audioSegments,
-  audioSegmentRefs,
-  sourceAudioRef,
-  musicRef,
-  sourceAudioUrl,
-  musicUrl,
   captionSegments,
   selectedCaptionSegment,
   selectedSegmentId,
@@ -2037,31 +2031,6 @@ export function VoicePanel({
         ) : null}
       </div>
 
-      {audioSegments.map((segment) => (
-        <audio
-          key={`${segment.id}:${segment.url}`}
-          ref={(node) => {
-            if (node) audioSegmentRefs.current.set(segment.id, node);
-            else audioSegmentRefs.current.delete(segment.id);
-            if (segment.id === audioSegments.at(-1)?.id) audioRef.current = node;
-          }}
-          src={segment.url}
-        />
-      ))}
-      {sourceAudioUrl ? (
-        <audio
-          key={sourceAudioUrl}
-          data-track="source-audio"
-          ref={sourceAudioRef}
-          src={sourceAudioUrl}
-        />
-      ) : null}
-      {musicUrl ? (
-        <audio
-          ref={musicRef}
-          src={musicUrl}
-        />
-      ) : null}
     </aside>
   );
 }

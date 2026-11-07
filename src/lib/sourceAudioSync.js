@@ -35,7 +35,10 @@ export function attachSourceAudioOffset(visualSegments = [], source = {}, source
 }
 
 export function getLinkedSourceAudioSegments(visualSegments = [], sourceAudioAssetId = "", sourceAudioDuration = 0) {
-  const hasMappedOffsets = visualSegments.some((segment) => segment.type === "video" && Number.isFinite(segment.sourceAudioOffset));
+  // A visual replacement can keep the exact extracted audio mapping even
+  // when its new picture is a still image.
+  const hasSourceAudio = (segment) => segment.type === "video" || Boolean(segment.sourceAudioTiming);
+  const hasMappedOffsets = visualSegments.some((segment) => hasSourceAudio(segment) && Number.isFinite(segment.sourceAudioOffset));
   const linkedAssetId = resolveLinkedAssetId(visualSegments, sourceAudioAssetId);
   if (!hasMappedOffsets && !linkedAssetId) return [];
   const timeline = getVisualSegmentTimeline(visualSegments);
@@ -43,7 +46,7 @@ export function getLinkedSourceAudioSegments(visualSegments = [], sourceAudioAss
   return visualSegments.flatMap((segment, index) => {
     const hasSegmentMapping = Number.isFinite(segment.sourceAudioOffset);
     const matchesLegacyAssetMapping = !hasMappedOffsets && (segment.sourceAudioOriginAssetId || segment.assetId) === linkedAssetId;
-    if (segment.type !== "video" || segment.sourceAudioDisabled || segment.sourceAudioUnmapped || (!hasSegmentMapping && !matchesLegacyAssetMapping)) return [];
+    if (!hasSourceAudio(segment) || segment.sourceAudioDisabled || segment.sourceAudioUnmapped || (!hasSegmentMapping && !matchesLegacyAssetMapping)) return [];
     const range = timeline[index];
     const timing = segment.sourceAudioTiming || segment;
     const playbackRate = normalizeVisualPlaybackRate(timing.playbackRate);

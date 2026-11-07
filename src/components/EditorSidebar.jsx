@@ -11,7 +11,6 @@ import { PluginCatalogPanel } from "./GenerationPlugins.jsx";
 
 export function EditorSidebar({ model: d }) {
   const toolRailRef = useRef(null);
-  const [templateDraft, setTemplateDraft] = useState({});
   const toolLabel = (id, label) => {
     if (id === "specialEffects") return SPECIAL_EFFECTS_LABELS[d.activeLanguage] || SPECIAL_EFFECTS_LABELS.en;
     if (id === "templates") return templateCopy(d.activeLanguage).title;
@@ -148,10 +147,7 @@ export function EditorSidebar({ model: d }) {
             }}
           />
         ) : d.activeTool === "templates" ? (
-          <TemplateLibrary language={d.activeLanguage} draft={templateDraft} setDraft={setTemplateDraft}
-            visualSegments={d.visualSegments} userAssets={d.userAssets} shouldAppend={d.shouldAppendBeatTemplate}
-            hasMusic={Boolean(d.musicBlob)} musicLocked={d.trackLocks.music}
-            blocked={d.templateTracksBlocked} onUpload={d.handleFiles} onApply={d.applyBeatTemplate} />
+          <TemplateLibrary language={d.activeLanguage} selected={d.templateSelected} onSelect={d.selectBeatTemplate} />
         ) : d.activeTool === "plugins" ? (
           <PluginCatalogPanel
             language={d.activeLanguage}

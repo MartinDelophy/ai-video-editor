@@ -1,4 +1,7 @@
 import { createBeatTemplate, getBeatTemplateDuration, isUntouchedTemplateSource } from "./lib/beatMontage.js";
+import { getTimelineVisualAssets, replaceVisualClipMedia } from "./lib/visualReplacement.js";
+import { replacementCopy } from "./i18nVisualReplacement.js";
+import { renderBeatTemplateMusic } from "./lib/beatTemplateMusic.js";
 import { templateCopy } from "./i18nTemplates.js";
 import { getAutoRatioSourceKey } from "./lib/editorRuntime.js";
 import { useFaceAttachmentAnalysis } from "./hooks/useFaceAttachmentAnalysis.js";
@@ -18,6 +21,8 @@ import { Topbar } from "./components/Topbar.jsx";
 import { HostServicePanel } from "./components/HostServicePanel.jsx";
 import { AssetDragPreview, ExportProgressOverlay } from "./components/EditorOverlays.jsx";
 import { EditorSidebar } from "./components/EditorSidebar.jsx";
+import { VisualReplacementDialog } from "./components/VisualReplacementDialog.jsx";
+import { TemplateInspector } from "./components/TemplateLibrary.jsx";
 import { FirstVisualGuide } from "./components/FirstVisualGuide.jsx";
 import { MiganRepairDialog } from "./components/MiganRepairDialog.jsx";
 import { DetailRestorationDialog } from "./components/DetailRestorationDialog.jsx";
@@ -86,13 +91,13 @@ import { createAssetDropActions } from "./lib/assetDropActions.js";
 import { createEditorCommandActions } from "./lib/editorCommandActions.js";
 import { useTimelineViewModel } from "./lib/timelineViewModel.js";
 import { createTranslator, getStoredLanguage, translateOptionName } from "./i18n.js";
-import { decodeWaveform, downloadBlob } from "./lib/media.js";
+import { decodeWaveform, downloadBlob, encodeAudioBufferAsWav, getAudioWaveformPeaks } from "./lib/media.js";
 import { useAiMusicGeneration } from "./hooks/useAiMusicGeneration.js";
 import { useMiganRepair } from "./hooks/useMiganRepair.js";
 import { useDetailRestoration } from "./hooks/useDetailRestoration.js";
 import { useSmartDenoise } from "./hooks/useSmartDenoise.js";
 import { useGenerationPlugins } from "./hooks/useGenerationPlugins.js";
-import { getVisualAssetPayload, getVisualSegmentTimeline, getVisualSegmentIndexAtTime, getImageThumbnailCount, getVisualSegmentsTotal, normalizeTimedSegmentIds } from "./lib/timeline.js";
+import { getVisualAssetPayload, getVisualSegmentTimeline, getVisualSegmentIndexAtTime, getImageThumbnailCount, getVisualSegmentsTotal, normalizeTimedSegmentIds, packTimedSegmentsIntoLanes } from "./lib/timeline.js";
 import { getVisualSourceTime, normalizeVisualTransform, removeVisualPropertyKeyframe, updateVisualSegmentPlaybackRate, upsertVisualKeyframe, upsertVisualPropertyKeyframe } from "./lib/visualEffects.js";
 import { getVisualSpeedCurveTimelineProgress, updateVisualSegmentSpeedCurve } from "./lib/visualSpeedCurve.js";
 import { getLinkedSourceAudioEnd, getLinkedSourceAudioSegments, shouldMuteEmbeddedVideoAudio, sliceSourceAudioPeaks } from "./lib/sourceAudioSync.js";
@@ -220,6 +225,9 @@ export function App({ hostSession = null }) {
   const [userAssets, setUserAssets] = useState([]);
   const [timelineMarkers, setTimelineMarkers] = useState([]);
   const [playheadRevealRequest, setPlayheadRevealRequest] = useState(null);
+  const [templateDraft, setTemplateDraft] = useState({});
+  const [templateSelected, setTemplateSelected] = useState(false);
+  const [visualReplacement, setVisualReplacement] = useState(null);
   const [effectClips, setEffectClips] = useState([]);
   const [selectedEffectClipId, setSelectedEffectClipId] = useState("");
   const faceAttachments=useFaceAttachmentAnalysis({clips:effectClips,segments:visualSegments,setClips:setEffectClips,currentTime});
@@ -1648,7 +1656,7 @@ export function App({ hostSession = null }) {
         || musicBlob || script.trim() || selectedFilterId !== "none"
         || Object.keys(visionRecords).length || Object.keys(depthRecords).length);
   };
-  const applyBeatTemplate = ({ assets, bpm, music }) => {
+  const applyBeatTemplate = ({ assets, bpm, music, builtInMusic }) => {
     if (templateTracksBlocked) return;
     const copy = templateCopy(activeLanguage);
     const previous = shouldAppendBeatTemplate(assets.main) ? visualSegments : [];
@@ -1662,17 +1670,27 @@ export function App({ hostSession = null }) {
       assets, bpm, start, frameRatio: empty ? 1 : ratio.width / ratio.height,
       firstLayer: Math.max(0, ...visualOverlaySegments.map((item) => item.layer || 0)) + 1,
     });
+    const canAddMusic = !musicBlob && !trackLocks.music && trackVisibility.music !== false;
+    if (canAddMusic && builtInMusic) {
+      const score = renderBeatTemplateMusic({ bpm, start, duration: result.duration, markers: result.markers });
+      music = {
+        blob: encodeAudioBufferAsWav(score), duration: result.duration,
+        name: copy.builtInMusic,
+        peaks: getAudioWaveformPeaks(score.getChannelData(0), score.duration),
+        volume: 0.72,
+      };
+    }
     checkpointHistory();
     pauseForTimelineEdit();
     if (empty) {
       autoRatioSourceKeyRef.current = getAutoRatioSourceKey(result.visualSegments);
       setRatioId("1:1");
     }
-    if (music && !musicBlob && !trackLocks.music) {
+    if (music && canAddMusic) {
       replaceMusic(music.blob, music.duration, music.peaks || [], music.name, "", { start, focusAudio: false });
       setMusicSegments((items) => items.map((item) => {
         const duration = Math.min(item.duration, result.duration);
-        return { ...item, duration, sourceDuration: duration };
+        return { ...item, duration, sourceDuration: duration, ...(builtInMusic ? { volume: music.volume } : {}) };
       }));
     }
     const existingBeatTimes = new Set(timelineMarkers.filter((marker) => marker.type === "marker").map((marker) => Math.round(marker.time * 1000)));
@@ -1688,6 +1706,48 @@ export function App({ hostSession = null }) {
     setPlayheadRevealRequest(result.visualSegments[0].id);
     setShowFirstVisualGuide(false);
     changeMobilePanel("");
+  };
+  const canReplaceVisual = (track, id) => {
+    if (trackLocks[track] || (track !== "image" && track !== "overlay")) return false;
+    if (track === "image") return visualSegments.some((item) => item.id === id && !item.preparing);
+    const lanes = packTimedSegmentsIntoLanes(visualOverlaySegments, { preferredLaneKey: "lane" });
+    const lane = lanes.findIndex((row) => row.some((item) => item.id === id && !item.preparing));
+    return lane >= 0 && !trackLocks[`overlay-${lane}`];
+  };
+  const openVisualReplacement = (track, id) => {
+    if (!canReplaceVisual(track, id)) return;
+    pauseForTimelineEdit();
+    setVisualReplacement({ track, id });
+  };
+  const replacementClip = visualReplacement && (visualReplacement.track === "overlay" ? visualOverlaySegments : visualSegments)
+    .find((clip) => clip.id === visualReplacement.id);
+  const applyVisualReplacement = (asset, timing) => {
+    if (!replacementClip || !canReplaceVisual(visualReplacement.track, replacementClip.id)) return;
+    const overlay = visualReplacement.track === "overlay";
+    const keepSourceAudio = !overlay && linkedSourceAudioSegments.some((item) => item.id === replacementClip.id);
+    const next = replaceVisualClipMedia(replacementClip, asset, timing, { frame: ratio, overlay, keepSourceAudio });
+    const message = replacementCopy(activeLanguage).done;
+    const index = visualSegments.findIndex((item) => item.id === next.id);
+    const start = overlay ? next.start : visualTimeline[index].start;
+    const preview = currentTime >= start && currentTime < start + next.duration
+      ? currentTime : start + next.duration / 2;
+    checkpointHistory();
+    pauseForTimelineEdit();
+    if (overlay) {
+      setVisualOverlaySegments((items) => items.map((item) => item.id === next.id ? next : item));
+      setSelectedVisualOverlayId(next.id);
+      setSelectedTrack("overlay");
+      notify(message);
+    } else {
+      const items = visualSegments.map((item) => item.id === next.id ? next : item);
+      autoRatioSourceKeyRef.current = getAutoRatioSourceKey(items);
+      commitVisualSegments(items, message, index);
+    }
+    currentTimeRef.current = preview;
+    setCurrentTime(preview);
+    setPlayheadRevealRequest(crypto.randomUUID());
+    setTemplateSelected(false);
+    setVisualReplacement(null);
   };
   const desktopSelectionLocked = Boolean(trackLocks[selectedTrack]
     || (selectedTrack === "audio" && isTimedSegmentLaneLocked(audioSegments, selectedAudioSegmentId, trackLocks))
@@ -1791,6 +1851,33 @@ export function App({ hostSession = null }) {
       />
 
       <WebMcpReview agent={webMcp} language={activeLanguage} />
+      <div hidden>
+        {audioSegments.map((segment) => (
+          <audio
+            key={`${segment.id}:${segment.url}`}
+            ref={(node) => {
+              if (node) audioSegmentRefs.current.set(segment.id, node);
+              else audioSegmentRefs.current.delete(segment.id);
+              if (segment.id === audioSegments.at(-1)?.id) audioRef.current = node;
+            }}
+            src={segment.url}
+          />
+        ))}
+        {sourceAudioUrl ? (
+          <audio
+            key={sourceAudioUrl}
+            data-track="source-audio"
+            ref={sourceAudioRef}
+            src={sourceAudioUrl}
+          />
+        ) : null}
+        {musicUrl ? (
+          <audio
+            ref={musicRef}
+            src={musicUrl}
+          />
+        ) : null}
+      </div>
       <WebMcpAiStatus agent={webMcp} />
       <ProjectImportOverlay progress={projectImportProgress} language={activeLanguage} />
       <section className={`editor-grid ${compactRail ? "is-compact-rail" : ""}`}>
@@ -1829,7 +1916,13 @@ export function App({ hostSession = null }) {
           selectedVisualSegment, selectedEffectSegment, effectAnalysis, effectRunning, effectProgress, effectPhase,
           effectsPanelMode, setEffectsPanelMode, cinematicDepth, photoParallaxDepth,
           effectClips, setEffectClips, selectedEffectClipId, setSelectedEffectClipId, currentTime,
-          visualSegments, templateTracksBlocked, shouldAppendBeatTemplate, applyBeatTemplate,
+          templateSelected,
+          selectBeatTemplate: () => {
+            setTemplateSelected(true);
+            setMobilePanelOrigin("");
+            setMobileInspectorSection("");
+            if (isCompactViewport) changeMobilePanel("inspector");
+          },
           visualLocalTime, updateSelectedVisualEffects, updateSelectedSubjectEffect, updateSelectedClickRipple, removeSelectedSubjectEffect, miganRepair, hdRestoration, smartDenoise,
           mobilePanel, setMobilePanel: changeMobilePanel, applyAssetToTrack, handleGeneratedVector, generationPlugins,
         }} />
@@ -2005,7 +2098,13 @@ export function App({ hostSession = null }) {
           })}
         />
 
-        {activeTool === "specialEffects" ? (
+        {activeTool === "templates" && templateSelected ? (
+          <TemplateInspector language={activeLanguage} closeLabel={t("close")} onClose={() => setTemplateSelected(false)}
+            draft={templateDraft} setDraft={setTemplateDraft} visualSegments={visualSegments} userAssets={userAssets}
+            shouldAppend={shouldAppendBeatTemplate} hasMusic={Boolean(musicBlob)}
+            musicLocked={trackLocks.music || trackVisibility.music === false} blocked={templateTracksBlocked}
+            onUpload={handleFiles} onApply={applyBeatTemplate} />
+        ) : activeTool === "specialEffects" ? (
         <TimelineEffectInspector onAlignmentStart={() => { if (isPlaying) { pauseTimelineMedia(); setIsPlaying(false); } }} visualSegments={visualSegments} currentTime={currentTime} onSeek={(time) => { pauseTimelineMedia(); setIsPlaying(false); seekTo(time, { immediate: true }); }} hasVisual={visualSegments.length>0} faceAttachments={faceAttachments} clips={effectClips} setClips={setEffectClips} selectedId={selectedTrack === "effects" ? selectedEffectClipId : ""} language={activeLanguage} t={t} locked={trackLocks.effects} onClose={() => setSelectedEffectClipId("")} />
         ) : <VoicePanel
           captionHighlightDisabled={trackLocks.caption}
@@ -2052,13 +2151,7 @@ export function App({ hostSession = null }) {
           setHistoryItems={setHistoryItems}
           notify={notify}
           audioUrl={audioUrl}
-          audioRef={audioRef}
           audioSegments={audioSegments}
-          audioSegmentRefs={audioSegmentRefs}
-          sourceAudioRef={sourceAudioRef}
-          musicRef={musicRef}
-          sourceAudioUrl={sourceAudioUrl}
-          musicUrl={musicUrl}
           captionSegments={captionSegments}
           selectedCaptionSegment={selectedCaptionSegment}
           captionVisualLinkDisabled={Boolean(trackLocks.caption || (!selectedCaptionSegment?.visualSegmentId && !captionVisualTarget))}
@@ -2164,6 +2257,8 @@ export function App({ hostSession = null }) {
 
       <Timeline
         playheadRevealRequest={playheadRevealRequest}
+        canReplaceVisual={canReplaceVisual}
+        onReplaceVisual={openVisualReplacement}
         exportClip={handleExportClip}
         exportSelectedClips={handleExportSelectedClips}
         exporting={exporting}
@@ -2355,6 +2450,12 @@ export function App({ hostSession = null }) {
       ) : null}
       {mobilePanel ? <button className="mobile-sheet-backdrop" type="button" aria-label={t("close", "关闭")} onClick={() => changeMobilePanel("")} /> : null}
 
+      {replacementClip ? <VisualReplacementDialog key={replacementClip.id} language={activeLanguage} t={t}
+        clip={replacementClip}
+        assets={[...new Map([...getTimelineVisualAssets([...visualSegments, ...visualOverlaySegments]), ...userAssets]
+          .filter((asset) => asset.type === "image" || asset.type === "video")
+          .map((asset) => [asset.id, asset])).values()]}
+        onUpload={handleFiles} onClose={() => setVisualReplacement(null)} onReplace={applyVisualReplacement} /> : null}
       <AssetDragPreview preview={assetDragPreview} t={t} />
       <MiganRepairDialog
         repair={miganRepair}

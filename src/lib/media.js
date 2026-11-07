@@ -514,37 +514,37 @@ export async function decodeWaveform(blob, barCount = 118, options = {}) {
         throw fallbackError;
       }
     }
-    const channelData = decoded.getChannelData(0);
-    // Keep bounded fine detail for timeline envelopes, even when callers request a legacy strip.
-    barCount = Math.max(barCount, Math.min(8192, Math.max(1024, Math.ceil(decoded.duration * 48))));
-    const blockSize = Math.max(1, Math.floor(channelData.length / barCount));
-    const peaks = Array.from({ length: barCount }, (_, index) => {
-      const start = index * blockSize;
-      let peak = 0;
-      let sumSquares = 0;
-      let samples = 0;
-      for (
-        let cursor = start;
-        cursor < start + blockSize && cursor < channelData.length;
-        cursor += 1
-      ) {
-        const value = Math.abs(channelData[cursor]);
-        peak = Math.max(peak, value);
-        sumSquares += value * value;
-        samples += 1;
-      }
-      const rms = samples ? Math.sqrt(sumSquares / samples) : 0;
-      return rms * 0.78 + peak * 0.22;
-    });
-    const strongest = Math.max(...peaks, 0.001);
-
-    return {
-      duration: decoded.duration,
-      peaks: peaks.map((peak) => Math.max(0.04, Math.min(1, Math.pow(peak / strongest, 0.72)))),
-    };
+    return { duration: decoded.duration, peaks: getAudioWaveformPeaks(decoded.getChannelData(0), decoded.duration, barCount) };
   } finally {
     if (!borrowedAudioContext) await audioContext.close().catch(() => {});
   }
+}
+
+export function getAudioWaveformPeaks(channelData, duration, barCount = 118) {
+  // Keep bounded fine detail for timeline envelopes, even when callers request a legacy strip.
+  barCount = Math.max(barCount, Math.min(8192, Math.max(1024, Math.ceil(duration * 48))));
+  const blockSize = Math.max(1, Math.floor(channelData.length / barCount));
+  const peaks = Array.from({ length: barCount }, (_, index) => {
+    const start = index * blockSize;
+    let peak = 0;
+    let sumSquares = 0;
+    let samples = 0;
+    for (
+      let cursor = start;
+      cursor < start + blockSize && cursor < channelData.length;
+      cursor += 1
+    ) {
+      const value = Math.abs(channelData[cursor]);
+      peak = Math.max(peak, value);
+      sumSquares += value * value;
+      samples += 1;
+    }
+    const rms = samples ? Math.sqrt(sumSquares / samples) : 0;
+    return rms * 0.78 + peak * 0.22;
+  });
+  const strongest = Math.max(...peaks, 0.001);
+
+  return peaks.map((peak) => Math.max(0.04, Math.min(1, Math.pow(peak / strongest, 0.72))));
 }
 
 export function encodeAudioBufferAsWav(buffer) {

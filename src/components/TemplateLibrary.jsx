@@ -1,14 +1,18 @@
 import { useId, useState } from "react";
-import { ArrowRight, FilmStrip, ImageSquare, MusicNote, UploadSimple } from "@phosphor-icons/react";
+import { ArrowRight, FilmStrip, ImageSquare, MusicNote, UploadSimple, X } from "@phosphor-icons/react";
 import { beatEffectCopy } from "../i18nBeatEffects.js";
 import { templateCopy } from "../i18nTemplates.js";
 import { BEAT_MONTAGE_ID, getBeatTemplateDuration, MAX_TEMPLATE_BPM, MIN_TEMPLATE_BPM, TEMPLATE_SLOTS } from "../lib/beatMontage.js";
+import { getTimelineVisualAssets } from "../lib/visualReplacement.js";
 import { getMediaFileKind } from "../lib/mediaCompatibility.js";
 import "./TemplateLibrary.css";
+
+const BUILT_IN_MUSIC = "built-in-beat-score";
 
 function AssetSlot({ copy, title, items, selected, onChange, onUpload, optional, audio = false }) {
   const id = useId();
   const asset = items.find((item) => item.id === selected);
+  const choice = audio && selected === BUILT_IN_MUSIC ? BUILT_IN_MUSIC : asset?.id || "";
   const [invalid, setInvalid] = useState(false);
   const acceptFile = (file) => {
     const kind = getMediaFileKind(file);
@@ -35,7 +39,8 @@ function AssetSlot({ copy, title, items, selected, onChange, onUpload, optional,
       <span className="template-slot-thumb">{thumbnail ? <img src={thumbnail} alt="" /> : <Icon size={18} />}</span>
       <div className="template-slot-fields">
         <label htmlFor={id}>{title}</label>
-        <select id={id} value={asset?.id || ""} onChange={(event) => { setInvalid(false); onChange(event.target.value); }}>
+        <select id={id} value={choice} onChange={(event) => { setInvalid(false); onChange(event.target.value); }}>
+          {audio ? <option value={BUILT_IN_MUSIC}>{copy.builtInMusic}</option> : null}
           <option value="">{optional || copy.choose}</option>
           {items.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
         </select>
@@ -65,19 +70,27 @@ function isReady(asset) {
   return asset.width > 0 && asset.height > 0 && (asset.type === "image" || asset.duration > 0);
 }
 
-export function TemplateLibrary({ language, draft, setDraft, visualSegments, userAssets, hasMusic, musicLocked, shouldAppend, blocked, onUpload, onApply }) {
+export function TemplateLibrary({ language, selected, onSelect }) {
   const copy = templateCopy(language);
   const title = beatEffectCopy(language)[BEAT_MONTAGE_ID];
-  const timelineAssets = new Map();
-  for (const segment of visualSegments) {
-    if (!segment.src) continue;
-    const id = segment.assetId || segment.id;
-    const current = timelineAssets.get(id);
-    const end = Math.max(current?.duration || 0, segment.trackFrameDuration || 0,
-      (segment.sourceStart || 0) + (segment.sourceDuration || segment.duration));
-    timelineAssets.set(id, { ...(current || segment), id, sourceStart: 0, sourceDuration: end, duration: end });
-  }
-  const fromTimeline = [...timelineAssets.values()];
+  return (
+    <section className="template-library mobile-panel-scroll-body" aria-label={copy.title}>
+      <button type="button" className="template-card" aria-pressed={selected} onClick={onSelect}>
+        <span className="template-card-cover" aria-hidden="true">
+          <img src="/assets/effects/vfx/halo.webp" alt="" />
+          <img src="/assets/effects/vfx/glow.webp" alt="" />
+          <img src="/assets/effects/vfx/shake.webp" alt="" />
+        </span>
+        <span className="template-card-title"><strong>{title}</strong><ArrowRight size={18} /></span>
+      </button>
+    </section>
+  );
+}
+
+export function TemplateInspector({ language, closeLabel, onClose, draft, setDraft, visualSegments, userAssets, hasMusic, musicLocked, shouldAppend, blocked, onUpload, onApply }) {
+  const copy = templateCopy(language);
+  const title = beatEffectCopy(language)[BEAT_MONTAGE_ID];
+  const fromTimeline = getTimelineVisualAssets(visualSegments);
   const assets = [...new Map([...fromTimeline, ...userAssets].map((item) => [item.id, item])).values()];
   const visuals = assets.filter((item) => item.type === "image" || item.type === "video");
   const audio = assets.filter((item) => item.type === "audio");
@@ -86,7 +99,10 @@ export function TemplateLibrary({ language, draft, setDraft, visualSegments, use
   const main = visuals.find((item) => item.id === mainId);
   const detail = visuals.find((item) => item.id === draft.detail) || main;
   const alternate = visuals.find((item) => item.id === draft.alternate) || main;
-  const music = hasMusic || musicLocked ? null : audio.find((item) => item.id === draft.music);
+  const musicChoice = draft.music ?? BUILT_IN_MUSIC;
+  const canAddMusic = !hasMusic && !musicLocked;
+  const builtInMusic = canAddMusic && musicChoice === BUILT_IN_MUSIC;
+  const music = canAddMusic ? audio.find((item) => item.id === musicChoice) : null;
   const bpm = Number(draft.bpm ?? 104);
   const duration = getBeatTemplateDuration(bpm);
   const validBpm = Number.isInteger(bpm) && bpm >= MIN_TEMPLATE_BPM && bpm <= MAX_TEMPLATE_BPM;
@@ -94,16 +110,12 @@ export function TemplateLibrary({ language, draft, setDraft, visualSegments, use
     && (!music || isReady(music));
   const change = (key, value) => setDraft((prev) => ({ ...prev, [key]: value }));
   return (
-    <section className="template-library mobile-panel-scroll-body" aria-label={copy.title}>
-      <button type="button" className="template-card" aria-expanded={Boolean(draft.open)} onClick={() => change("open", !draft.open)}>
-        <span className="template-card-cover" aria-hidden="true">
-          <img src="/assets/effects/vfx/halo.webp" alt="" />
-          <img src="/assets/effects/vfx/glow.webp" alt="" />
-          <img src="/assets/effects/vfx/shake.webp" alt="" />
-        </span>
-        <span className="template-card-title"><strong>{title}</strong><ArrowRight size={18} /></span>
-      </button>
-      {draft.open ? <div className="template-setup">
+    <aside className="voice-panel template-inspector" aria-label={title}>
+      <header className="template-inspector-heading">
+        <h2>{title}</h2>
+        <button type="button" aria-label={closeLabel} onClick={onClose}><X size={17} /></button>
+      </header>
+      <div className="voice-tab-body template-setup">
         <p>{copy.description}</p>
         {TEMPLATE_SLOTS.map((slot) => (
           <AssetSlot key={slot} copy={copy} title={copy[slot]} items={visuals}
@@ -111,7 +123,7 @@ export function TemplateLibrary({ language, draft, setDraft, visualSegments, use
             optional={slot === "main" ? "" : copy.reuseMain} />
         ))}
         {hasMusic ? <p>{copy.musicOccupied}</p> : musicLocked ? null : <AssetSlot copy={copy} title={copy.music} items={audio}
-          selected={draft.music} onChange={(id) => change("music", id)} onUpload={onUpload} audio optional="—" />}
+          selected={musicChoice} onChange={(id) => change("music", id)} onUpload={onUpload} audio optional={copy.noMusic} />}
         <label className="template-tempo">
           <span>BPM ♩</span>
           <input type="number" min={MIN_TEMPLATE_BPM} max={MAX_TEMPLATE_BPM} step="1" value={draft.bpm ?? 104}
@@ -120,10 +132,10 @@ export function TemplateLibrary({ language, draft, setDraft, visualSegments, use
         </label>
         {blocked ? <p role="status">{copy.locked}</p> : null}
         <button type="button" className="template-apply" disabled={blocked || !ready || !validBpm}
-          onClick={() => onApply({ assets: { main, detail, alternate }, bpm, music })}>
+          onClick={() => onApply({ assets: { main, detail, alternate }, bpm, music, builtInMusic })}>
           {shouldAppend(main) ? copy.append : copy.apply}
         </button>
-      </div> : null}
-    </section>
+      </div>
+    </aside>
   );
 }

@@ -19,7 +19,7 @@
   border-radius: 12px;
   cursor: pointer;
 }
-.template-card:is(:hover, [aria-expanded="true"]) { border-color: #41d4cd; }
+.template-card:is(:hover, [aria-pressed="true"]) { border-color: #41d4cd; }
 .template-card-cover {
   display: grid;
   grid-template-rows: repeat(3, minmax(0, 1fr));
@@ -49,8 +49,30 @@
   padding: 12px;
 }
 .template-setup, .template-slot-fields { display: grid; gap: 6px; min-width: 0; }
-.template-card[aria-expanded="true"] .template-card-cover { height: 91px; }
-.template-setup { flex: 0 0 auto; gap: 10px; }
+
+.template-inspector-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.template-inspector-heading h2 { margin: 0; font-size: 15px; }
+.template-inspector-heading button {
+  display: grid;
+  place-items: center;
+  width: 29px;
+  height: 29px;
+  padding: 0;
+  color: inherit;
+  border: 1px solid #303940;
+  border-radius: 7px;
+  background: transparent;
+  cursor: pointer;
+}
+.template-inspector .template-setup { align-content: start; gap: 10px; }
+@media (max-width: 1279px) {
+  .mobile-panel-inspector .template-inspector-heading > button { display: none; }
+}
 .template-setup > p { margin: 0; color: #b4c0cc; font-size: 12px; line-height: 1.55; }
 .template-slot {
   display: grid;

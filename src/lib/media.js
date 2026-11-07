@@ -828,13 +828,10 @@ function drawVisualEffectsMask(context, mask, canvas) {
   context.restore();
 }
 
-function drawOverlayMaskShape(context, mask, canvas, visual) {
+function traceOverlayMaskShape(context, mask, canvas, visual) {
   const visualSize = getVisualDimensions(visual);
   const box = getVisualFitRect(visualSize, canvas, "contain");
   const geometry = getVisualMaskGeometry(mask, { width: box.width, height: box.height });
-  const feather = getVisualMaskFeatherPixels(mask, { width: box.width, height: box.height });
-  context.fillStyle = "#fff";
-  context.filter = feather ? `blur(${feather}px)` : "none";
   context.beginPath();
   if (mask.type === "circle") {
     context.arc(box.x + geometry.centerX, box.y + geometry.centerY, geometry.radius, 0, Math.PI * 2);
@@ -847,7 +844,6 @@ function drawOverlayMaskShape(context, mask, canvas, visual) {
       geometry.cornerRadius,
     );
   }
-  context.fill();
 }
 
 function getMaskedVisualLayer(canvas) {
@@ -1205,7 +1201,7 @@ export function drawPreviewFrame(context, visual, canvas, options) {
     context.rect(primarySplitCell.x * width, primarySplitCell.y * height, primarySplitCell.width * width, primarySplitCell.height * height);
     context.clip();
   }
-  const primaryFitMode = primarySplitCell ? "contain" : fitMode;
+  const primaryFitMode = primarySplitCell ? "contain" : visualEffects?.fitMode || fitMode;
   const subjectEffect = normalizeSubjectEffect(visualEffects?.subjectEffect);
   if (hasSubjectEffect(subjectEffect) && subjectEffect.background.mode === "color") {
     context.save();
@@ -1362,6 +1358,7 @@ export function drawPreviewFrame(context, visual, canvas, options) {
       : FILTER_OPTIONS.find((option) => option.id === overlay.filterId)?.css || "none";
     const mask = overlay.mask ?? { type: "none" };
     const hasMask = mask.type && mask.type !== "none";
+    const hardMask = hasMask && !mask.inverted && !(Number(mask.feather) > 0) && !overlayClickRipple.enabled;
     const paintOverlay = (targetContext) => {
       targetContext.save();
       targetContext.globalAlpha = animatedOverlayTransform.opacity * (isVector ? vectorAppearance.opacity : 1);
@@ -1369,6 +1366,10 @@ export function drawPreviewFrame(context, visual, canvas, options) {
       targetContext.rotate((animatedOverlayTransform.rotation * Math.PI) / 180);
       targetContext.scale(animatedOverlayTransform.scale, animatedOverlayTransform.scale);
       targetContext.translate(-width / 2, -height / 2);
+      if (hardMask) {
+        traceOverlayMaskShape(targetContext, mask, canvas, overlayVisual);
+        targetContext.clip();
+      }
       const overlayDepth = normalizeCinematicDepth(overlay.cinematicDepth);
       const overlayParallax = normalizePhotoParallax(overlay.photoParallax);
       if ((overlayParallax.enabled || overlayDepth.enabled) && overlay.depth?.depthVisual) {
@@ -1391,7 +1392,7 @@ export function drawPreviewFrame(context, visual, canvas, options) {
       }
       targetContext.restore();
     };
-    if (hasMask) {
+    if (hasMask && !hardMask) {
       const layers = getVisualEffectsLayers(canvas);
       const layerContext = layers.visual.getContext("2d");
       const maskContext = layers.mask.getContext("2d");
@@ -1417,7 +1418,12 @@ export function drawPreviewFrame(context, visual, canvas, options) {
       maskContext.rotate((animatedOverlayTransform.rotation * Math.PI) / 180);
       maskContext.scale(animatedOverlayTransform.scale, animatedOverlayTransform.scale);
       maskContext.translate(-width / 2, -height / 2);
-      drawOverlayMaskShape(maskContext, mask, canvas, overlayVisual);
+      const box = getVisualFitRect(getVisualDimensions(overlayVisual), canvas, "contain");
+      const feather = getVisualMaskFeatherPixels(mask, box);
+      maskContext.fillStyle = "#fff";
+      maskContext.filter = feather ? `blur(${feather}px)` : "none";
+      traceOverlayMaskShape(maskContext, mask, canvas, overlayVisual);
+      maskContext.fill();
       maskContext.restore();
       layerContext.save();
       layerContext.globalCompositeOperation = "destination-in";

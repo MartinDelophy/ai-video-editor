@@ -3,13 +3,20 @@ import { CaretDown } from "@phosphor-icons/react";
 import { COMPACT_WORKSPACE_QUERY, TOOL_RAIL } from "../config/editor.js";
 import { SPECIAL_EFFECTS_LABELS } from "../i18nEffectClips.js";
 import { TimelineEffectCatalog } from "./TimelineEffects.jsx";
-import { BEAT_MONTAGE_ID } from "../lib/beatMontage.js";
+import { templateCopy } from "../i18nTemplates.js";
+import { TemplateLibrary } from "./TemplateLibrary.jsx";
 import { createEffectClip } from "../lib/timelineEffects.js";
 import { MediaPanel, ToolPanel } from "./panels.jsx";
 import { PluginCatalogPanel } from "./GenerationPlugins.jsx";
 
 export function EditorSidebar({ model: d }) {
   const toolRailRef = useRef(null);
+  const [templateDraft, setTemplateDraft] = useState({});
+  const toolLabel = (id, label) => {
+    if (id === "specialEffects") return SPECIAL_EFFECTS_LABELS[d.activeLanguage] || SPECIAL_EFFECTS_LABELS.en;
+    if (id === "templates") return templateCopy(d.activeLanguage).title;
+    return d.t(id, label);
+  };
   const [toolRailOverflow, setToolRailOverflow] = useState({ hasOverflow: false, canScrollDown: false });
 
   const updateToolRailOverflow = useCallback(() => {
@@ -56,7 +63,7 @@ export function EditorSidebar({ model: d }) {
               type="button"
               key={id}
               data-tool={id}
-              aria-label={id === "specialEffects" ? SPECIAL_EFFECTS_LABELS[d.activeLanguage] || SPECIAL_EFFECTS_LABELS.en : d.t(id, label)}
+              aria-label={toolLabel(id, label)}
               onClick={() => {
                 d.selectTool(id);
                 if (window.matchMedia?.(COMPACT_WORKSPACE_QUERY).matches) {
@@ -66,7 +73,7 @@ export function EditorSidebar({ model: d }) {
               }}
             >
               <Icon size={23} />
-              <span>{id === "specialEffects" ? SPECIAL_EFFECTS_LABELS[d.activeLanguage] || SPECIAL_EFFECTS_LABELS.en : d.t(id, label)}</span>
+              <span>{toolLabel(id, label)}</span>
             </button>
           ))}
         </aside>
@@ -133,7 +140,6 @@ export function EditorSidebar({ model: d }) {
             language={d.activeLanguage}
             onAdd={(effect) => {
               if (d.trackLocks?.effects) return;
-              if (effect === BEAT_MONTAGE_ID) return d.addBeatMontage();
               const clip = createEffectClip(effect, d.currentTime);
               d.setEffectClips((items) => [...items, clip]);
               d.setSelectedEffectClipId(clip.id);
@@ -141,6 +147,11 @@ export function EditorSidebar({ model: d }) {
               d.setMobilePanel?.("inspector");
             }}
           />
+        ) : d.activeTool === "templates" ? (
+          <TemplateLibrary language={d.activeLanguage} draft={templateDraft} setDraft={setTemplateDraft}
+            visualSegments={d.visualSegments} userAssets={d.userAssets} hasVisuals={d.visualSegments.length > 0}
+            hasMusic={Boolean(d.musicBlob)} musicLocked={d.trackLocks.music}
+            blocked={d.templateTracksBlocked} onUpload={d.handleFiles} onApply={d.applyBeatTemplate} />
         ) : d.activeTool === "plugins" ? (
           <PluginCatalogPanel
             language={d.activeLanguage}

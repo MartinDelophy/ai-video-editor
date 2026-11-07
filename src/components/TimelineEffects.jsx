@@ -1,5 +1,4 @@
 import { beatEffectCopy } from "../i18nBeatEffects.js";
-import { BEAT_MONTAGE_ID } from "../lib/beatMontage.js";
 import { BEAT_SOURCES, FLASH_SHAPES, normalizeBeatSettings } from "../lib/beatEffects.js";
 import { FaceAlignmentArcs } from "./FaceAlignmentArcs.jsx";
 import { faceAppearanceCopy } from "../i18nFaceAppearance.js";
@@ -60,7 +59,6 @@ const EFFECT_PREVIEW_IMAGES = Object.freeze({
   vignette: "/assets/effects/vfx/vignette.webp",
   grain: "/assets/effects/vfx/grain.webp",
   chromatic: "/assets/effects/vfx/chromatic.webp",
-  [BEAT_MONTAGE_ID]: "/assets/effects/vfx/glow.webp",
   "beat-backdrop": "/assets/effects/vfx/halo.webp",
   "beat-zoom": "/assets/effects/vfx/shake.webp",
   "ink-print": "/assets/effects/vfx/grain.webp",
@@ -80,7 +78,7 @@ function TimelineEffectCard({ effect, label, onAdd, selected }) {
     const source = EFFECT_PREVIEW_IMAGES[effect];
     const image = imageRef.current?.getAttribute("src") === source ? imageRef.current : new Image();
     imageRef.current = image;
-    const clip = effect === BEAT_MONTAGE_ID ? { effect } : createEffectClip(effect, 0, effect === "shape-flash" ? 0.62 : 60);
+    const clip = createEffectClip(effect, 0, effect === "shape-flash" ? 0.62 : 60);
     if (!isFaceEffect(clip)) clip.intensity = 0.65;
     let canceled = false,
       frame = 0,
@@ -141,7 +139,7 @@ function TimelineEffectCard({ effect, label, onAdd, selected }) {
   return (
     <button
       type="button"
-      draggable={effect !== BEAT_MONTAGE_ID}
+      draggable
       className={`subject-outline-entry timeline-effect-card ${previewing ? "is-previewing" : ""} ${selected ? "is-selected" : ""}`}
       onPointerEnter={() => setPreviewing(true)}
       onPointerLeave={() => setPreviewing(false)}
@@ -152,7 +150,6 @@ function TimelineEffectCard({ effect, label, onAdd, selected }) {
         window.dispatchEvent(new CustomEvent(EFFECT_ASSET_DRAG_EVENT, { detail: null }))
       }
       onDragStart={(event) => {
-        if (effect === BEAT_MONTAGE_ID) return event.preventDefault();
         setPreviewing(false);
         event.dataTransfer.setData(EFFECT_DRAG_TYPE, effect);
         event.dataTransfer.effectAllowed = "copy";
@@ -210,7 +207,7 @@ export function TimelineEffectCatalog({ language, onAdd, selectedEffect }) {
         ))}
       </div>
       <div ref={gridRef} className="subject-effect-capability-grid timeline-effect-grid">
-        {[BEAT_MONTAGE_ID, ...TIMELINE_EFFECT_IDS].filter(
+        {TIMELINE_EFFECT_IDS.filter(
           (id) => isFaceEffect({ effect: id }) === (category === "person"),
         ).map((id) => (
           <TimelineEffectCard

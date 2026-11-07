@@ -31,11 +31,11 @@ El usuario será el único responsable de cualquier consecuencia legal derivada 
 
 ## Novedades del proyecto
 
+- **2026-11-07** — Añadimos Plantillas después de Efectos especiales. Usa tus imágenes, vídeos y música opcional en el montaje editable de tres paneles y ajusta el tempo antes de añadirlo a la línea de tiempo. Mejoramos la fluidez de la trama y de los paneles en la vista previa.
 - **2026-11-07** — Añadimos un montaje rítmico editable de tres paneles y cuatro efectos combinables: destello de fondo, zoom al ritmo, trama de tinta y destello con forma. El ritmo puede seguir un tempo fijo o los marcadores; el destello puede ser un círculo, una estrella o una línea horizontal.
 - **2026-11-07** — Nuevo espacio de efectos especiales con ocho efectos de imagen combinables, orejas de cristal y cuernos de rubí que siguen el rostro. Arrastra, recorta y anima los efectos con fotogramas clave en pistas propias. Arrastra los arcos para ajustar la posición; al alargar un efecto se conserva el seguimiento existente. Las tarjetas mantienen el tamaño del catálogo de efectos y la vista previa coincide con la exportación. Nuevo maquillaje de gato con nariz, bigotes y rubor suave; comparte el seguimiento facial y se combina con las orejas. La entrada y el panel de procesamiento se llaman Imagen y vídeo en los 13 idiomas, separados claramente de los efectos especiales. El JavaScript inicial se divide y los módulos de exportación, análisis, voz y conectores se cargan cuando hacen falta.
 - **2026-11-06** — Añadida una barra horizontal fina que se puede arrastrar en la línea de tiempo de Windows.
 - **2026-11-06** — Selección múltiple con Mayús y marcadores numerados; el menú contextual exporta cada clip seleccionado a un archivo independiente en orden, conservando ajustes y sincronía de audio.
-- **2026-11-06** — Se añadió la exportación de clips a los menús de Visuales y Superposición y a las acciones móviles, conservando originales, cambios de velocidad, subtítulos y audio en el intervalo del clip. Disponible en los 13 idiomas.
 Consulta el [Roadmap](ROADMAP.md) para el trabajo planificado, [Releases](https://github.com/MartinDelophy/ai-video-editor/releases) para los cambios publicados e [Issues](https://github.com/MartinDelophy/ai-video-editor/issues) para tareas y errores.
 
 ## ¿Qué puede producir?

@@ -43,7 +43,7 @@ export function usePreviewModel(d) {
       : "";
   const previewVisualObjectFit = previewSmartCropRect?.presentation === "safe-contain"
     ? "contain"
-    : previewSmartCropRect ? "cover" : d.fitMode;
+    : previewSmartCropRect ? "cover" : d.previewVisualSegment?.fitMode || d.fitMode;
   const previewVisualObjectPosition = previewSmartCropRect
     ? previewSmartCropRect.presentation === "safe-contain"
       ? "50% 50%"

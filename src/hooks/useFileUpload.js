@@ -11,7 +11,7 @@ export function shouldAutoAddImportedVisual(assets, visualSegments) {
 }
 
 export function useFileUpload(deps) {
-  return useCallback((files) => {
+  return useCallback((files, { insertFirstVisual = true, quiet = false } = {}) => {
     const mediaFiles = Array.from(files ?? []).filter((file) =>
       SUPPORTED_MEDIA_TYPES.some((type) => file.type.startsWith(type)) || isSupportedMediaFile(file));
     if (!mediaFiles.length) return void deps.notify("请选择图片、视频或音频素材");
@@ -24,7 +24,7 @@ export function useFileUpload(deps) {
     });
     const primary = assets[0]; deps.setSelectedLibraryAssetId(primary.id); deps.setUserAssets((current) => [...assets, ...current]);
     const primaryVisual = assets.find((asset) => asset.type === "image" || asset.type === "video");
-    const shouldAutoAddFirstVisual = shouldAutoAddImportedVisual(assets, deps.visualSegments);
+    const shouldAutoAddFirstVisual = insertFirstVisual && shouldAutoAddImportedVisual(assets, deps.visualSegments);
     if (shouldAutoAddFirstVisual) {
       deps.appendVisualAssetToTimeline(primaryVisual);
       deps.setSelectedTrack("image");
@@ -34,7 +34,7 @@ export function useFileUpload(deps) {
     assets.forEach((asset) => {
       if (asset.type === "audio") {
         decodeWaveform(asset.blob, 96).then((decoded) => update(asset.id, { meta: `音频 · ${formatTime(decoded.duration)}`, duration: decoded.duration, peaks: decoded.peaks }))
-          .catch(() => update(asset.id, { meta: "音频读取失败" }));
+          .catch(() => update(asset.id, { meta: "音频读取失败", mediaUnavailable: true }));
         return;
       }
       if (asset.type === "video") {
@@ -66,7 +66,7 @@ export function useFileUpload(deps) {
             deps.notify(deps.t("mediaCompatibilityReady"));
           } catch (error) {
             console.error("Media compatibility fallback failed", error);
-            const failurePatch = { meta: deps.t("mediaCompatibilityFailed"), preparing: false, prepareProgress: 0 };
+            const failurePatch = { meta: deps.t("mediaCompatibilityFailed"), preparing: false, prepareProgress: 0, mediaUnavailable: true };
             update(asset.id, failurePatch);
             deps.updateVisualAssetInTimeline(asset.id, failurePatch);
             deps.notify(deps.t("mediaCompatibilityFailedHint"));
@@ -116,7 +116,7 @@ export function useFileUpload(deps) {
           };
           video.onerror = async () => {
             if (compatibility || !shouldProbeWithLibav(asset.blob, { nativeMetadataError: true })) {
-              const failurePatch = { meta: deps.t("mediaCompatibilityFailed"), preparing: false, prepareProgress: 0 };
+              const failurePatch = { meta: deps.t("mediaCompatibilityFailed"), preparing: false, prepareProgress: 0, mediaUnavailable: true };
               update(asset.id, failurePatch);
               deps.updateVisualAssetInTimeline(asset.id, failurePatch);
               return;
@@ -132,12 +132,13 @@ export function useFileUpload(deps) {
         const patch = { meta: `${image.naturalWidth || 0} x ${image.naturalHeight || 0}`, width: image.naturalWidth || 0, height: image.naturalHeight || 0, type: "image" };
         update(asset.id, patch); deps.updateVisualAssetInTimeline(asset.id, patch);
       };
-      image.onerror = () => update(asset.id, { meta: "读取失败" }); image.src = asset.src;
+      image.onerror = () => update(asset.id, { meta: "读取失败", mediaUnavailable: true }); image.src = asset.src;
     });
-    deps.notify(mediaFiles.length > 1 ? `已上传 ${mediaFiles.length} 个素材${shouldAutoAddFirstVisual ? "，项目首个画面已加入时间线" : "，请拖到目标轨道使用"}`
+    if (!quiet) deps.notify(mediaFiles.length > 1 ? `已上传 ${mediaFiles.length} 个素材${shouldAutoAddFirstVisual ? "，项目首个画面已加入时间线" : "，请拖到目标轨道使用"}`
       : primaryVisual ? shouldAutoAddFirstVisual
         ? `${primary.type === "video" ? "视频" : "图片"}已加入画布和时间线`
         : `${primary.type === "video" ? "视频" : "图片"}已加入素材库，请拖到 Visuals 或画中画轨道`
       : "音频已上传到素材库，可拖到音乐或配音轨");
+    return assets;
   }, [deps]);
 }

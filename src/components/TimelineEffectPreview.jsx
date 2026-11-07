@@ -6,6 +6,9 @@ import { useEffect, useRef } from "react";
 import { drawPreviewFrame } from "../lib/media.js";
 import { isCompositionEffect } from "../lib/beatEffects.js";
 import { activeEffectClips } from "../lib/timelineEffects.js";
+import { getVisualPlaybackRateAtTime, getVisualSourceTime } from "../lib/visualEffects.js";
+
+const COMPOSITION_PREVIEW_MAX_EDGE = 960;
 
 // Use the same primary-picture compositor and post-process as offline export.
 // The underlying video remains mounted for audio, seeking and frame observers.
@@ -15,6 +18,7 @@ export function TimelineEffectPreview({
   overlays,
   time,
   localTime,
+  isPlaying,
   videoRef,
   imageRef,
   type,
@@ -28,22 +32,34 @@ export function TimelineEffectPreview({
 }) {
   const ref = useRef(null),
     latest = useRef(null);
-  latest.current = { clips, markers, overlays, time, localTime, effects, fitMode, filter, vision, transition };
+  latest.current = { clips, markers, overlays, time, localTime, isPlaying, effects, fitMode, filter, vision, transition };
   useEffect(() => {
     const canvas = ref.current,
       shell = shellRef.current;
     if (!canvas || !shell) return;
     let frame,
-      lastDraw = null;
+      lastDraw = null, lastPaint = -Infinity;
     void ensureFaceAttachmentAssets(latest.current.clips)
       .then(() => {
         lastDraw = null;
       })
       .catch(() => {});
-    const draw = () => {
+    const draw = (now) => {
       const d = latest.current;
       const source = type === "video" ? videoRef.current : imageRef.current;
-      const active = activeEffectClips(d.clips, d.time);
+      let visualTime = d.localTime;
+      if (d.isPlaying && type === "video" && source && d.effects) {
+        const sourceTime = getVisualSourceTime(d.effects, visualTime);
+        const rate = getVisualPlaybackRateAtTime(d.effects, visualTime);
+        const delta = (source.currentTime - sourceTime) / rate;
+        // React updates the timeline UI less often than video presents frames.
+        // Use the native clock between updates, without jumping across cuts.
+        if (Math.abs(delta) < 0.14) {
+          visualTime = Math.max(0, Math.min(d.effects.duration, visualTime + delta));
+        }
+      }
+      const timelineTime = d.time + visualTime - d.localTime;
+      const active = activeEffectClips(d.clips, timelineTime);
       if (
         active.length > 0 &&
         source &&
@@ -53,12 +69,21 @@ export function TimelineEffectPreview({
       ) {
         // The shell includes editor padding and letterboxed workspace. Rasterize
         // the actual composition frame, which is also the export aspect ratio.
+        const composite = active.some(isCompositionEffect);
+        const expensive = composite || active.some((clip) => clip.effect === "ink-print");
+        if (expensive && d.isPlaying && now - lastPaint < 31) {
+          frame = requestAnimationFrame(draw);
+          return;
+        }
         const rect = canvas.getBoundingClientRect();
-        const width = Math.max(2, Math.round(rect.width * (window.devicePixelRatio || 1)));
-        const height = Math.max(2, Math.round(rect.height * (window.devicePixelRatio || 1)));
+        const pixelRatio = window.devicePixelRatio || 1;
+        const density = expensive
+          ? Math.min(pixelRatio, COMPOSITION_PREVIEW_MAX_EDGE / Math.max(1, rect.width, rect.height))
+          : pixelRatio;
+        const width = Math.max(2, Math.round(rect.width * density));
+        const height = Math.max(2, Math.round(rect.height * density));
         if (canvas.width !== width) canvas.width = width;
         if (canvas.height !== height) canvas.height = height;
-        const composite = active.some(isCompositionEffect);
         const overlayLayers = composite ? [...shell.querySelectorAll("[data-composition-overlay]")] : [];
         const overlaySources = overlayLayers.map((layer) => layer.querySelector(":scope > video, :scope > img:not(.visual-overlay-subject-cutout), :scope > .visual-overlay-subject-cutout"));
         const overlayFrames = overlaySources.map((item) => item && (item.seeking ? "seeking" : item.currentTime ?? item.naturalWidth));
@@ -77,6 +102,7 @@ export function TimelineEffectPreview({
           frame = requestAnimationFrame(draw);
           return;
         }
+        lastPaint = now;
         lastDraw = {
           assetRevision: faceAttachmentAssetRevision(),
           data: d,
@@ -101,7 +127,7 @@ export function TimelineEffectPreview({
           visualEffects: useDepth
             ? { ...d.effects, cinematicDepth: null, photoParallax: null }
             : d.effects,
-          visualTime: d.localTime,
+          visualTime,
           vision: d.vision,
           transitionId: d.transition?.id,
           transitionProgress: d.transition?.progress,
@@ -116,7 +142,7 @@ export function TimelineEffectPreview({
             return { ...overlay, start: (overlay.start || 0) - (d.time - d.localTime) };
           }) : [],
           visualOverlaySources: compositeReady ? overlaySources : [],
-          timelineTime: d.time,
+          timelineTime,
         });
         canvas.style.visibility = "visible";
         shell.classList.add("has-timeline-effects");

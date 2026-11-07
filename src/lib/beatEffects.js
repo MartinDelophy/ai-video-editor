@@ -35,44 +35,83 @@ export function isCompositionEffect(clip) {
   return clip.effect === "beat-zoom" || clip.effect === "shape-flash";
 }
 
+// Rasterize a small antialiased dot stamp once per luminance and row parity.
+// The live frame then only needs a low-resolution readback and a pixel copy.
+const INK_TILE = 6;
+const INK_LEVELS = 32;
+const inkStamps = Array.from({ length: 2 }, (_, parity) =>
+  Array.from({ length: INK_LEVELS }, (_, level) => {
+    const radius = Math.pow(1 - level / (INK_LEVELS - 1), 1.55) * 0.44;
+    const stamp = new Uint8ClampedArray(INK_TILE * INK_TILE);
+    if (radius < 0.09) return stamp;
+    const cx = 0.30 + parity * 0.38;
+    const cos = Math.cos(0.5), sin = Math.sin(0.5);
+    for (let y = 0; y < INK_TILE; y++) {
+      for (let x = 0; x < INK_TILE; x++) {
+        let coverage = 0;
+        for (const dy of [0.25, 0.75]) for (const dx of [0.25, 0.75]) {
+          const px = (x + dx) / INK_TILE - cx;
+          const py = (y + dy) / INK_TILE - 0.5;
+          const u = px * cos - py * sin;
+          const v = (px * sin + py * cos) / 0.72;
+          if (u * u + v * v <= radius * radius) coverage++;
+        }
+        stamp[y * INK_TILE + x] = coverage * 63.75;
+      }
+    }
+    return stamp;
+  }),
+);
 const printSamples = new WeakMap();
 function printInk(ctx, canvas, source, amount) {
   const { width, height } = canvas;
   const step = Math.max(3, Math.min(width, height) / 142);
   const cols = Math.ceil(width / step), rows = Math.ceil(height / step);
-  let sample = printSamples.get(canvas);
-  if (!sample) {
-    sample = document.createElement("canvas");
-    printSamples.set(canvas, sample);
+  let buffers = printSamples.get(canvas);
+  if (!buffers || buffers.sample.width !== cols || buffers.sample.height !== rows) {
+    const sample = document.createElement("canvas"), ink = document.createElement("canvas");
+    sample.width = cols; sample.height = rows;
+    ink.width = cols * INK_TILE; ink.height = rows * INK_TILE;
+    const reader = sample.getContext("2d", { willReadFrequently: true });
+    const raster = ink.getContext("2d");
+    const image = raster.createImageData(ink.width, ink.height);
+    for (let i = 0; i < image.data.length; i += 4) {
+      image.data[i] = 20;
+      image.data[i + 1] = 21;
+      image.data[i + 2] = 28;
+    }
+    buffers = { sample, reader, ink, raster, image };
+    printSamples.set(canvas, buffers);
   }
-  if (sample.width !== cols) sample.width = cols;
-  if (sample.height !== rows) sample.height = rows;
-  const reader = sample.getContext("2d", { willReadFrequently: true });
-  reader.clearRect(0, 0, cols, rows);
-  reader.drawImage(source, 0, 0, cols, rows);
+  const { reader, ink, raster, image } = buffers;
   ctx.globalAlpha = Math.min(1, amount * 1.45);
   ctx.filter = "grayscale(1) contrast(1.25) brightness(1.08)";
   ctx.drawImage(source, 0, 0);
   ctx.filter = "none";
+  reader.clearRect(0, 0, cols, rows);
+  reader.drawImage(source, 0, 0, width / step, height / step);
   let pixels;
   try { pixels = reader.getImageData(0, 0, cols, rows).data; }
   catch { return; } // Cross-origin input can still use the monochrome treatment.
-  ctx.globalAlpha = amount * 0.76;
-  ctx.fillStyle = "#14151c";
-  ctx.beginPath();
+  const stride = ink.width * 4;
   for (let y = 0; y < rows; y++) {
+    const stamps = inkStamps[y % 2];
     for (let x = 0; x < cols; x++) {
       const i = (y * cols + x) * 4;
-      const luma = (0.213 * pixels[i] + 0.715 * pixels[i + 1] + 0.072 * pixels[i + 2]) / 255;
-      const radius = Math.pow(1 - luma, 1.55) * step * 0.44;
-      if (radius < step * 0.09) continue;
-      const cx = (x + 0.30 + (y % 2) * 0.38) * step;
-      const cy = (y + 0.50) * step;
-      ctx.moveTo(cx + radius, cy);
-      ctx.ellipse(cx, cy, radius, radius * 0.72, -0.5, 0, Math.PI * 2);
+      const luma = (54 * pixels[i] + 183 * pixels[i + 1] + 19 * pixels[i + 2]) / 65280;
+      const stamp = stamps[Math.min(INK_LEVELS - 1, Math.round(luma * (INK_LEVELS - 1)))];
+      const origin = y * INK_TILE * stride + x * INK_TILE * 4 + 3;
+      for (let row = 0; row < INK_TILE; row++) {
+        const start = origin + row * stride;
+        for (let col = 0; col < INK_TILE; col++) {
+          image.data[start + col * 4] = stamp[row * INK_TILE + col];
+        }
+      }
     }
   }
-  ctx.fill();
+  raster.putImageData(image, 0, 0);
+  ctx.globalAlpha = amount * 0.76;
+  ctx.drawImage(ink, 0, 0, cols * step, rows * step);
 }
 
 function drawFlash(ctx, canvas, clip, time) {

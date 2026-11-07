@@ -82,14 +82,21 @@ export async function createProjectArchive({ project, visualSegments = [], audio
   const files = {};
   const media = { visuals: [], audioSegments: [], audio: null, sourceAudio: null, music: null };
 
+  const visualFiles = new Map();
   for (let index = 0; index < visualSegments.length; index += 1) {
     const segment = visualSegments[index];
     if (!segment?.src && !segment?.blob) continue;
-    const blob = await blobForSource(segment.src, segment.blob);
-    if (!blob) continue;
-    const path = `media/visuals/${String(index + 1).padStart(3, "0")}-${safeName(segment.name, "visual")}.${extensionFor(blob, segment.type === "video" ? "mp4" : "png")}`;
-    files[path] = blob;
-    media.visuals.push({ id: segment.id, path, name: segment.name || "素材", type: blob.type, size: blob.size });
+    const source = segment.blob instanceof Blob ? segment.blob : segment.src;
+    let entry = visualFiles.get(source);
+    if (!entry) {
+      const blob = await blobForSource(segment.src, segment.blob);
+      if (!blob) continue;
+      const path = `media/visuals/${String(index + 1).padStart(3, "0")}-${safeName(segment.name, "visual")}.${extensionFor(blob, segment.type === "video" ? "mp4" : "png")}`;
+      files[path] = blob;
+      entry = { path, type: blob.type, size: blob.size };
+      visualFiles.set(source, entry);
+    }
+    media.visuals.push({ id: segment.id, name: segment.name || "素材", ...entry });
   }
 
   for (let index = 0; index < audioSegments.length; index += 1) {

@@ -1,5 +1,6 @@
-import { createBeatMontage } from "./lib/beatMontage.js";
-import { faceEffectCopy } from "./i18nFaceEffects.js";
+import { createBeatTemplate, getBeatTemplateDuration } from "./lib/beatMontage.js";
+import { templateCopy } from "./i18nTemplates.js";
+import { getAutoRatioSourceKey } from "./lib/editorRuntime.js";
 import { useFaceAttachmentAnalysis } from "./hooks/useFaceAttachmentAnalysis.js";
 import { exportClipJobs, getClipExportSettings, getSelectedClipExportJobs } from "./lib/clipExport.js";
 import { useVideoProxySource } from "./hooks/useVideoProxy.js";
@@ -114,7 +115,7 @@ import { createVisualOverlaySegment, getVisualOverlayPreset, updateVisualOverlay
 import { getMobileClipPanelOrigin } from "./lib/mobileClipActions.js";
 import { getVisualPropertyTabIds } from "./lib/visualPropertyTabs.js";
 import { applyTimelineRipple } from "./lib/timelineRipple.js";
-import { COMPACT_WORKSPACE_QUERY } from "./config/editor.js";
+import { MAX_TIMELINE_DURATION_SECONDS, COMPACT_WORKSPACE_QUERY } from "./config/editor.js";
 import { arrangeSplitScreen, alignPreviewSegment, alignedOverlayStart, capturePreviewFrame, moveAlignedOverlay, previewTimingFingerprint } from "./lib/previewAlignment.js";
 
 export function App({ hostSession = null }) {
@@ -1634,6 +1635,43 @@ export function App({ hostSession = null }) {
   const generateCaptionsWhenIdle = guardAgentAi(generateCaptionsFromSourceAudio);
 
   const desktopSelectionId = ({ image: selectedVisualSegmentId, overlay: selectedVisualOverlayId, caption: selectedSegmentId, audio: selectedAudioSegmentId, sticker: selectedStickerSegmentId, source: selectedSourceAudioSegmentId, music: selectedMusicSegmentId })[selectedTrack];
+  const templateTracksBlocked = ["image", "overlay", "effects"].some(
+    (track) => trackLocks[track] || trackVisibility[track] === false,
+  );
+  const applyBeatTemplate = ({ assets, bpm, music }) => {
+    if (templateTracksBlocked) return;
+    const copy = templateCopy(activeLanguage);
+    const start = getVisualSegmentsTotal(visualSegments);
+    if (start + getBeatTemplateDuration(bpm) > MAX_TIMELINE_DURATION_SECONDS) {
+      notify(copy.tooLong);
+      return;
+    }
+    const empty = !visualSegments.length;
+    const result = createBeatTemplate({
+      assets, bpm, start, frameRatio: empty ? 1 : ratio.width / ratio.height,
+      firstLayer: Math.max(0, ...visualOverlaySegments.map((item) => item.layer || 0)) + 1,
+    });
+    checkpointHistory();
+    pauseForTimelineEdit();
+    if (empty) {
+      autoRatioSourceKeyRef.current = getAutoRatioSourceKey(result.visualSegments);
+      setRatioId("1:1");
+    }
+    if (music && !musicBlob && !trackLocks.music) {
+      replaceMusic(music.blob, music.duration, music.peaks || [], music.name, "", { start, focusAudio: false });
+      setMusicSegments((items) => items.map((item) => {
+        const duration = Math.min(item.duration, result.duration);
+        return { ...item, duration, sourceDuration: duration };
+      }));
+    }
+    const existingBeatTimes = new Set(timelineMarkers.filter((marker) => marker.type === "marker").map((marker) => Math.round(marker.time * 1000)));
+    setTimelineMarkers((items) => [...items, ...result.markers.filter((marker) => !existingBeatTimes.has(Math.round(marker.time * 1000)))]);
+    setVisualOverlaySegments((items) => [...items, ...result.overlays]);
+    setEffectClips((items) => [...items, ...result.effects]);
+    commitVisualSegments([...visualSegments, ...result.visualSegments], copy.applied, visualSegments.length);
+    seekTo(start, { immediate: true });
+    changeMobilePanel("");
+  };
   const desktopSelectionLocked = Boolean(trackLocks[selectedTrack]
     || (selectedTrack === "audio" && isTimedSegmentLaneLocked(audioSegments, selectedAudioSegmentId, trackLocks))
     || (selectedTrack === "overlay" && isTimedSegmentLaneLocked(visualOverlaySegments, selectedVisualOverlayId, trackLocks, "overlay")));
@@ -1774,29 +1812,7 @@ export function App({ hostSession = null }) {
           selectedVisualSegment, selectedEffectSegment, effectAnalysis, effectRunning, effectProgress, effectPhase,
           effectsPanelMode, setEffectsPanelMode, cinematicDepth, photoParallaxDepth,
           effectClips, setEffectClips, selectedEffectClipId, setSelectedEffectClipId, currentTime,
-          addBeatMontage: () => {
-            if (trackLocks.overlay || trackVisibility.overlay === false || trackVisibility.image === false) return;
-            const asset = currentVisualSegment;
-            const result = createBeatMontage({
-              asset, start: currentTime, available: getVisualSegmentsTotal(visualSegments) - currentTime,
-              frameRatio: ratio.width / ratio.height,
-              firstLayer: Math.max(0, ...visualOverlaySegments.map((item) => item.layer || 0)) + 1,
-              sourceStarts: asset?.type === "video" ? [0, 0.38, 0.7].map((portion) =>
-                (asset.sourceStart || 0) + Math.max(0, (asset.sourceDuration || asset.duration) - 1.6) * portion) : undefined,
-            });
-            if (!result) {
-              if (!asset) notify(faceEffectCopy(activeLanguage).needMedia);
-              return;
-            }
-            checkpointHistory();
-            setVisualOverlaySegments((items) => [...items, ...result.overlays]);
-            setEffectClips((items) => [...items, ...result.effects]);
-            setTimelineMarkers((items) => [...items, ...result.markers.filter((mark) =>
-              !items.some((item) => item.type === "marker" && Math.abs(item.time - mark.time) < 0.01))]);
-            setSelectedEffectClipId(result.effects[1].id);
-            setSelectedTrack("effects");
-            changeMobilePanel("inspector");
-          },
+          visualSegments, templateTracksBlocked, applyBeatTemplate,
           visualLocalTime, updateSelectedVisualEffects, updateSelectedSubjectEffect, updateSelectedClickRipple, removeSelectedSubjectEffect, miganRepair, hdRestoration, smartDenoise,
           mobilePanel, setMobilePanel: changeMobilePanel, applyAssetToTrack, handleGeneratedVector, generationPlugins,
         }} />
@@ -1904,7 +1920,7 @@ export function App({ hostSession = null }) {
           trackVisibility={trackVisibility}
           fileInputRef={fileInputRef}
           selectedFilter={activePreviewFilter}
-          fitMode={fitMode}
+          fitMode={previewVisualSegment?.fitMode || fitMode}
           ratioId={ratioId}
           setRatioId={(nextRatioId) => {
             setRatioId(nextRatioId);
@@ -1919,7 +1935,14 @@ export function App({ hostSession = null }) {
           smartCropActive={Boolean(previewSmartCropRect)}
           smartFramePresentation={previewSmartCropRect?.presentation}
           smartFrameBackgroundPosition={previewSmartBackgroundPosition}
-          setFitMode={setFitModeFromUser}
+          setFitMode={(value) => {
+            if (!previewVisualSegment?.fitMode) return setFitModeFromUser(value);
+            if (trackLocks.image) return;
+            const clipId = previewVisualSegment.id;
+            setVisualSegments((items) => items.map((clip) => clip.id === clipId
+              ? { ...clip, fitMode: typeof value === "function" ? value(clip.fitMode) : value }
+              : clip));
+          }}
           captionsEnabled={captionsEnabled}
           currentCaption={currentCaption}
           currentCaptions={currentCaptions}
@@ -2302,7 +2325,7 @@ export function App({ hostSession = null }) {
                   ? t("pictureInPicture", "画中画")
                   : mobilePanelOrigin === "caption-clip"
                     ? t("caption")
-                    : activeTool === "specialEffects" ? SPECIAL_EFFECTS_LABELS[activeLanguage] : t(activeTool))}</strong>
+                    : activeTool === "specialEffects" ? SPECIAL_EFFECTS_LABELS[activeLanguage] : activeTool === "templates" ? templateCopy(activeLanguage).title : t(activeTool))}</strong>
           <div className="mobile-sheet-nav-actions">
             {!mobilePanelOrigin.endsWith("-clip") ? <div className="mobile-sheet-tabs" role="tablist" aria-label={t("mobilePanelView")}>
               <button className={mobilePanel === "tools" ? "is-active" : ""} type="button" role="tab" aria-selected={mobilePanel === "tools"} onClick={() => changeMobilePanel("tools")}>{t("mobileDrawerTools")}</button>

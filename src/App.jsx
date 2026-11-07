@@ -1,3 +1,5 @@
+import { createBeatMontage } from "./lib/beatMontage.js";
+import { faceEffectCopy } from "./i18nFaceEffects.js";
 import { useFaceAttachmentAnalysis } from "./hooks/useFaceAttachmentAnalysis.js";
 import { exportClipJobs, getClipExportSettings, getSelectedClipExportJobs } from "./lib/clipExport.js";
 import { useVideoProxySource } from "./hooks/useVideoProxy.js";
@@ -1398,7 +1400,7 @@ export function App({ hostSession = null }) {
   }), [currentTime, depthRecords, previewVisualOverlays]);
 
   const { projectImportProgress, getProjectSnapshot, createCurrentArchive, handleExportProject, handleImportProject, handleNewProject, captureCompleteProject, prepareCompleteProject } = useProjectFiles({
-    sourceVoiceColorOriginalRef, effectClips, setEffectClips,
+    sourceVoiceColorOriginalRef, autoRatioSourceKeyRef, effectClips, setEffectClips,
     language: activeLanguage, pauseTimelineMedia, setIsPlaying,
     imageSrc, imageName, imageMeta, visualType, imageDuration, imageClipCount,
     audioUrl, musicUrl, sourceAudioUrl, userAssets, timelineHorizon, currentTime,
@@ -1457,7 +1459,7 @@ export function App({ hostSession = null }) {
     sourceAudioTimelineEnd, stickerDuration, visualOverlaySegments, voiceTrackDuration,
   ]);
   const videoCompositionContext = {
-    effectClips,
+    effectClips, timelineMarkers,
     audioSegments, captionDuration, captionPlacement, captionPosition, captionSegments, captionTargetDuration,
     captionSize, captionStyle, captionsEnabled, exporting, exportAbortControllerRef, exportStartRef, fitMode,
     imageDuration, imageSrc, musicBlob, musicDuration, musicSegments, musicStart, musicTimelineEnd, musicVolume, notify,
@@ -1772,11 +1774,35 @@ export function App({ hostSession = null }) {
           selectedVisualSegment, selectedEffectSegment, effectAnalysis, effectRunning, effectProgress, effectPhase,
           effectsPanelMode, setEffectsPanelMode, cinematicDepth, photoParallaxDepth,
           effectClips, setEffectClips, selectedEffectClipId, setSelectedEffectClipId, currentTime,
+          addBeatMontage: () => {
+            if (trackLocks.overlay || trackVisibility.overlay === false || trackVisibility.image === false) return;
+            const asset = currentVisualSegment;
+            const result = createBeatMontage({
+              asset, start: currentTime, available: getVisualSegmentsTotal(visualSegments) - currentTime,
+              frameRatio: ratio.width / ratio.height,
+              firstLayer: Math.max(0, ...visualOverlaySegments.map((item) => item.layer || 0)) + 1,
+              sourceStarts: asset?.type === "video" ? [0, 0.38, 0.7].map((portion) =>
+                (asset.sourceStart || 0) + Math.max(0, (asset.sourceDuration || asset.duration) - 1.6) * portion) : undefined,
+            });
+            if (!result) {
+              if (!asset) notify(faceEffectCopy(activeLanguage).needMedia);
+              return;
+            }
+            checkpointHistory();
+            setVisualOverlaySegments((items) => [...items, ...result.overlays]);
+            setEffectClips((items) => [...items, ...result.effects]);
+            setTimelineMarkers((items) => [...items, ...result.markers.filter((mark) =>
+              !items.some((item) => item.type === "marker" && Math.abs(item.time - mark.time) < 0.01))]);
+            setSelectedEffectClipId(result.effects[1].id);
+            setSelectedTrack("effects");
+            changeMobilePanel("inspector");
+          },
           visualLocalTime, updateSelectedVisualEffects, updateSelectedSubjectEffect, updateSelectedClickRipple, removeSelectedSubjectEffect, miganRepair, hdRestoration, smartDenoise,
           mobilePanel, setMobilePanel: changeMobilePanel, applyAssetToTrack, handleGeneratedVector, generationPlugins,
         }} />
 
         <PreviewStage
+          timelineMarkers={timelineMarkers}
           effectClips={trackVisibility.effects === false ? [] : faceAttachments.previewClips}
           effectVision={previewVisionAnalysis}
           alignmentPrimaryRange={previewVisualRange}

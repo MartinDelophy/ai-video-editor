@@ -81,6 +81,7 @@ export async function prepareEditorComposition(d, { exportSettings, exportRange,
     throw new Error("配音片段的音频媒体已丢失，请重新生成或重新添加后再导出。");
   }
   return {
+    timelineMarkers: d.timelineMarkers,
     effectClips: d.trackVisibility.effects === false ? [] : d.effectClips,
     imageSrc: d.imageSrc, visualType: d.visualType,
     visualSegments: exportedVisualSegments,

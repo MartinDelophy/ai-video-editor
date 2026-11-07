@@ -3,6 +3,7 @@ import { DEFAULT_SCRIPT, DEFAULT_TIMELINE_DURATION_SECONDS, normalizeVoiceId, RA
 import { decodeWaveform, downloadBlob } from "../lib/media.js";
 import { createProjectArchive, readProjectArchive, readProjectFileAsText, resolveProjectVisualMedia } from "../lib/projectArchive.js";
 import { createCaptionSegments, getImageThumbnailCount, getVisualSegmentsTotal } from "../lib/timeline.js";
+import { getAutoRatioSourceKey } from "../lib/editorRuntime.js";
 import { normalizeSmartFrame } from "../lib/smartFrame.js";
 import { normalizeTrackLocks, normalizeTrackVisibility } from "../lib/projectTrackState.js";
 import { normalizeTimelineMarkers } from "../lib/timelineMarkers.js";
@@ -72,6 +73,7 @@ export function useProjectFiles(deps) {
     return { captured: captureProjectState(restored), apply() {
       deps.pauseTimelineMedia?.(); deps.setIsPlaying(false);
       commandStateRef.current = restored.commandState;
+      deps.autoRatioSourceKeyRef.current = getAutoRatioSourceKey(restored.visualSegments);
       for (const [setter, value] of assignments) setter(value);
       deps.musicUrlRef.current = restored.musicUrl;
       deps.sourceAudioUrlRef.current = restored.sourceAudioUrl;
@@ -305,6 +307,7 @@ export function useProjectFiles(deps) {
       for (const segment of [...visuals, ...overlays]) {
         if (segment.src?.startsWith("blob:")) deps.imageUrlRefs.current.add(segment.src);
       }
+      deps.autoRatioSourceKeyRef.current = getAutoRatioSourceKey(visuals);
       deps.setVisualSegments(visuals); deps.setImageDuration(getVisualSegmentsTotal(visuals));
       deps.setVisualOverlaySegments(overlays); deps.setSelectedVisualOverlayId("");
       deps.setImageClipCount(getImageThumbnailCount(getVisualSegmentsTotal(visuals))); deps.setCurrentVisualAsset(visuals[0] || null);
@@ -318,7 +321,7 @@ export function useProjectFiles(deps) {
       if (decodedSource) deps.replaceSourceAudio(sourceAudio, Number(data.sourceAudioDuration) || decodedSource.duration, decodedSource.peaks, data.sourceAudioName || "source-audio", "", Number(data.sourceAudioStart) || 0, data.sourceAudioAssetId || "", { focusAudio: false });
       else deps.clearSourceAudioTrack("");
       if (decodedMusic) {
-        deps.replaceMusic(music, Number(data.musicDuration) || decodedMusic.duration, decodedMusic.peaks, data.musicName || "background-music", "");
+        deps.replaceMusic(music, Number(data.musicDuration) || decodedMusic.duration, decodedMusic.peaks, data.musicName || "background-music", "", { focusAudio: false });
         deps.setMusicStart(Math.max(0, Number(data.musicStart) || 0));
         if (Array.isArray(data.musicSegments) && data.musicSegments.length) deps.setMusicSegments(data.musicSegments.map((segment) => ({ ...segment, peaks: decodedMusic.peaks })));
       } else deps.clearMusicTrack("");

@@ -100,6 +100,63 @@ async function encodeAudioBuffer(source, buffer, signal) {
   throwIfExportAborted(signal);
 }
 
+// An overlay usually advances in source order, just like the primary picture.
+// Decode its active range in one pass instead of seeking a hidden media
+// element (and waiting for presentation) for every overlapping frame.
+function createOverlayFrameReader(segment, framePlan, signal) {
+  if (segment.type !== "video" || !framePlan?.length) return null;
+  const timestamps = framePlan
+    .filter(({ timestamp }) => timestamp >= segment.start && timestamp < segment.start + segment.duration)
+    .map(({ timestamp }) => getVisualSourceTime(segment, timestamp - segment.start));
+  if (!timestamps.length || timestamps.some((time, i) => i > 0 && time < timestamps[i - 1])) return null;
+  let input, iterator, current, disabled = false, index = 0;
+  return {
+    async next() {
+      if (disabled) return null;
+      try {
+        if (!iterator) {
+          const blob = segment.blob instanceof Blob ? segment.blob : await fetch(segment.src, { signal }).then((response) => {
+            if (!response.ok) throw new Error(`Unable to read overlay (${response.status})`);
+            return response.blob();
+          });
+          input = new Input({ source: new BlobSource(blob), formats: ALL_FORMATS });
+          const track = await input.getPrimaryVideoTrack();
+          if (!track || !(await track.canDecode())) throw new Error("Overlay codec is not supported by WebCodecs");
+          const ratio = await track.getPixelAspectRatio();
+          const direct = (await track.getRotation()) === 0 && ratio.num === ratio.den;
+          const frames = direct
+            ? new VideoSampleSink(track, { optimizeForLatency: true }).samplesAtTimestamps(timestamps)
+            : new CanvasSink(track, { poolSize: 2, decoderOptions: { optimizeForLatency: true } }).canvasesAtTimestamps(timestamps);
+          iterator = frames[Symbol.asyncIterator]();
+        }
+        const { value } = await iterator.next();
+        index++;
+        if (!value) return null;
+        if (value.canvas) return value.canvas;
+        try { current = value.toVideoFrame(); }
+        finally { value.close(); }
+        return current;
+      } catch (error) {
+        this.dispose();
+        throwIfExportAborted(signal);
+        return null;
+      }
+    },
+    release() {
+      current?.close();
+      current = null;
+      if (index >= timestamps.length) this.dispose();
+    },
+    dispose() {
+      disabled = true;
+      current?.close();
+      current = null;
+      input?.dispose();
+      input = null;
+    },
+  };
+}
+
 async function prepareComposition(options) {
   throwIfExportAborted(options.signal);
   const targetWidth = Math.max(2, Math.round(Number(options.exportSettings?.width) || options.ratio.width));
@@ -243,6 +300,7 @@ async function prepareComposition(options) {
         : await loadImage(getVectorRenderSource(segment, { targetWidth, targetHeight })),
       temporalMaskCache,
       depthCache,
+      sequentialFrames: createOverlayFrameReader(segment, options.framePlan, options.signal),
     };
   }));
   throwIfExportAborted(options.signal);
@@ -290,35 +348,33 @@ async function renderCompositionAt(context, canvas, prepared, options, time) {
   const activeOverlayItems = prepared.overlayItems
     .filter((item) => activeOverlayIds.has(item.segment.id))
     .sort((left, right) => activeOverlaySegments.findIndex((segment) => segment.id === left.segment.id) - activeOverlaySegments.findIndex((segment) => segment.id === right.segment.id));
-  for (const overlay of activeOverlayItems) {
-    if (overlay.segment.type === "video") {
-      await seekVideoFrame(overlay.visual, Math.min(Math.max(0, (overlay.visual.duration || 0) - 0.04), getVisualSourceTime(overlay.segment, Math.max(0, time - overlay.segment.start))));
-    }
-  }
-  const renderedOverlayItems = await Promise.all(activeOverlayItems.map(async (overlay) => {
-    const sourceTime = overlay.segment.type === "video"
-      ? getVisualSourceTime(overlay.segment, Math.max(0, time - overlay.segment.start))
-      : Math.max(0, time - overlay.segment.start);
-    const vision = resolveVisionAnalysisAtTime(overlay.segment.vision || null, sourceTime);
-    const depthSample = resolveDepthAnalysisAtTime(overlay.segment.depth || null, sourceTime);
-    if (vision?.cutoutUrl) await overlay.temporalMaskCache?.prepare(vision.cutoutUrl);
-    if (depthSample?.depthUrl) await prepareDepthFrame(overlay.depthCache, depthSample);
-    return {
-      ...overlay,
-      renderSegment: {
-        ...overlay.segment,
-        ...(vision ? { vision: {
-          ...vision,
-          options: overlay.segment.vision?.options || vision.options,
-          maskVisual: overlay.temporalMaskCache?.get(vision.cutoutUrl) || null,
-        } } : {}),
-        ...(depthSample ? { depth: getDepthFrame(overlay.depthCache, depthSample) } : {}),
-      },
-    };
-  }));
   try {
+    const renderedOverlayItems = await Promise.all(activeOverlayItems.map(async (overlay) => {
+      const sourceTime = overlay.segment.type === "video"
+        ? getVisualSourceTime(overlay.segment, Math.max(0, time - overlay.segment.start))
+        : Math.max(0, time - overlay.segment.start);
+      const decoded = await overlay.sequentialFrames?.next();
+      if (!decoded && overlay.segment.type === "video") await seekVideoFrame(overlay.visual, sourceTime);
+      const vision = resolveVisionAnalysisAtTime(overlay.segment.vision || null, sourceTime);
+      const depthSample = resolveDepthAnalysisAtTime(overlay.segment.depth || null, sourceTime);
+      if (vision?.cutoutUrl) await overlay.temporalMaskCache?.prepare(vision.cutoutUrl);
+      if (depthSample?.depthUrl) await prepareDepthFrame(overlay.depthCache, depthSample);
+      return {
+        ...overlay,
+        frameVisual: decoded || overlay.visual,
+        renderSegment: {
+          ...overlay.segment,
+          ...(vision ? { vision: {
+            ...vision,
+            options: overlay.segment.vision?.options || vision.options,
+            maskVisual: overlay.temporalMaskCache?.get(vision.cutoutUrl) || null,
+          } } : {}),
+          ...(depthSample ? { depth: getDepthFrame(overlay.depthCache, depthSample) } : {}),
+        },
+      };
+    }));
     drawPreviewFrame(context, frameVisual, canvas, {
-      effectClips: options.effectClips, timelineTime: time,
+      effectClips: options.effectClips, timelineMarkers: options.timelineMarkers, timelineTime: time,
       subtitle: caption, fitMode: options.fitMode, filter: options.filter,
       captionsEnabled: options.captionsEnabled, captionPosition: options.captionPosition,
       captionPlacement: resolveCaptionSegmentPlacement(activeCaptionSegment, options.captionPlacement),
@@ -334,10 +390,11 @@ async function renderCompositionAt(context, canvas, prepared, options, time) {
       } : null,
       transitionProgress, vision: frameVision, depth: frameDepth, visualEffects: item.segment, visualTime: localTime,
       visualOverlays: renderedOverlayItems.map((item) => ({ ...item.renderSegment, start: item.segment.start - (range?.start || 0) })),
-      visualOverlaySources: renderedOverlayItems.map((item) => item.visual),
+      visualOverlaySources: renderedOverlayItems.map((item) => item.frameVisual),
     });
   } finally {
     item.sequentialFrames?.release();
+    for (const overlay of activeOverlayItems) overlay.sequentialFrames?.release();
   }
 }
 

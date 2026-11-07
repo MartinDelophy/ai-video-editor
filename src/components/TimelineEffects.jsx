@@ -1,3 +1,6 @@
+import { beatEffectCopy } from "../i18nBeatEffects.js";
+import { BEAT_MONTAGE_ID } from "../lib/beatMontage.js";
+import { BEAT_SOURCES, FLASH_SHAPES, normalizeBeatSettings } from "../lib/beatEffects.js";
 import { FaceAlignmentArcs } from "./FaceAlignmentArcs.jsx";
 import { faceAppearanceCopy } from "../i18nFaceAppearance.js";
 import { ensureFaceAttachmentAssets } from "../lib/faceAttachmentAssets.js";
@@ -27,6 +30,7 @@ import {
   TIMELINE_EFFECT_IDS,
   EFFECT_DRAG_TYPE,
   createEffectClip,
+  getDefaultEffectDuration,
   normalizeEffectClips,
   effectRangeFits,
   compactEffectLanes,
@@ -56,6 +60,11 @@ const EFFECT_PREVIEW_IMAGES = Object.freeze({
   vignette: "/assets/effects/vfx/vignette.webp",
   grain: "/assets/effects/vfx/grain.webp",
   chromatic: "/assets/effects/vfx/chromatic.webp",
+  [BEAT_MONTAGE_ID]: "/assets/effects/vfx/glow.webp",
+  "beat-backdrop": "/assets/effects/vfx/halo.webp",
+  "beat-zoom": "/assets/effects/vfx/shake.webp",
+  "ink-print": "/assets/effects/vfx/grain.webp",
+  "shape-flash": "/assets/effects/vfx/chromatic.webp",
   "cat-ears": "/assets/effects/vfx/cat-ears-base.webp",
   "devil-horns": "/assets/effects/vfx/devil-horns-base.webp",
   "cat-face": "/assets/effects/vfx/cat-face-base.webp",
@@ -71,7 +80,7 @@ function TimelineEffectCard({ effect, label, onAdd, selected }) {
     const source = EFFECT_PREVIEW_IMAGES[effect];
     const image = imageRef.current?.getAttribute("src") === source ? imageRef.current : new Image();
     imageRef.current = image;
-    const clip = createEffectClip(effect, 0, 60);
+    const clip = effect === BEAT_MONTAGE_ID ? { effect } : createEffectClip(effect, 0, effect === "shape-flash" ? 0.62 : 60);
     if (!isFaceEffect(clip)) clip.intensity = 0.65;
     let canceled = false,
       frame = 0,
@@ -132,7 +141,7 @@ function TimelineEffectCard({ effect, label, onAdd, selected }) {
   return (
     <button
       type="button"
-      draggable
+      draggable={effect !== BEAT_MONTAGE_ID}
       className={`subject-outline-entry timeline-effect-card ${previewing ? "is-previewing" : ""} ${selected ? "is-selected" : ""}`}
       onPointerEnter={() => setPreviewing(true)}
       onPointerLeave={() => setPreviewing(false)}
@@ -143,6 +152,7 @@ function TimelineEffectCard({ effect, label, onAdd, selected }) {
         window.dispatchEvent(new CustomEvent(EFFECT_ASSET_DRAG_EVENT, { detail: null }))
       }
       onDragStart={(event) => {
+        if (effect === BEAT_MONTAGE_ID) return event.preventDefault();
         setPreviewing(false);
         event.dataTransfer.setData(EFFECT_DRAG_TYPE, effect);
         event.dataTransfer.effectAllowed = "copy";
@@ -169,7 +179,7 @@ function TimelineEffectCard({ effect, label, onAdd, selected }) {
   );
 }
 export function TimelineEffectCatalog({ language, onAdd, selectedEffect }) {
-  const c = { ...effectCopy(language), ...faceEffectCopy(language) };
+  const c = { ...effectCopy(language), ...faceEffectCopy(language), ...beatEffectCopy(language) };
   const gridRef = useRef(null);
   const [category, setCategory] = useState(
     isFaceEffect({ effect: selectedEffect }) ? "person" : "frame",
@@ -200,7 +210,7 @@ export function TimelineEffectCatalog({ language, onAdd, selectedEffect }) {
         ))}
       </div>
       <div ref={gridRef} className="subject-effect-capability-grid timeline-effect-grid">
-        {TIMELINE_EFFECT_IDS.filter(
+        {[BEAT_MONTAGE_ID, ...TIMELINE_EFFECT_IDS].filter(
           (id) => isFaceEffect({ effect: id }) === (category === "person"),
         ).map((id) => (
           <TimelineEffectCard
@@ -215,6 +225,20 @@ export function TimelineEffectCatalog({ language, onAdd, selectedEffect }) {
     </section>
   );
 }
+function BeatTempoInput({ bpm, onChange }) {
+  const [draft, setDraft] = useState(String(bpm));
+  useEffect(() => setDraft(String(bpm)), [bpm]);
+  return <input type="number" min="30" max="300" value={draft}
+    onChange={(event) => setDraft(event.target.value)}
+    onKeyDown={(event) => { if (event.key === "Enter") event.currentTarget.blur(); }}
+    onBlur={(event) => {
+      const entered = event.currentTarget.valueAsNumber;
+      const next = Number.isFinite(entered) ? Math.min(300, Math.max(30, Math.round(entered))) : bpm;
+      setDraft(String(next));
+      if (next !== bpm) onChange(next);
+    }} />;
+}
+
 export function TimelineEffectInspector({
   clips,
   setClips,
@@ -234,6 +258,7 @@ export function TimelineEffectInspector({
       ...effectCopy(language),
       ...faceEffectCopy(language),
       ...faceAppearanceCopy(language),
+      ...beatEffectCopy(language),
     },
     clip = clips.find((item) => item.id === selectedId);
   const panelRef = useRef(null);
@@ -262,6 +287,9 @@ export function TimelineEffectInspector({
       );
   };
   const resolved = resolveEffectParameters(clip, currentTime);
+  const usesBeat = ["beat-backdrop", "beat-zoom", "shake"].includes(clip.effect);
+  const beat = usesBeat ? normalizeBeatSettings(clip.beat || { bpm: 60 }) : null;
+  const patchBeat = (change) => patch({ beat: { ...beat, ...change } });
   const keyTime = effectKeyTime(clip, currentTime);
   const pose = getFaceAttachmentPoseAtTime(
     faceAttachments?.previewClips?.find((item) => item.id === clip.id) || clip,
@@ -398,6 +426,29 @@ export function TimelineEffectInspector({
             />
           </details>
         ) : null}
+        {usesBeat || clip.effect === "shape-flash" ? <div className="beat-effect-fields">
+          {usesBeat ? <>
+            <label>{c.beatSource}
+              <select value={beat.source} onChange={(event) => patchBeat({ source: event.target.value })}>
+                {BEAT_SOURCES.map((source) => <option key={source} value={source}>{c[source]}</option>)}
+              </select>
+            </label>
+            {beat.source === "tempo" ? <>
+              <label>BPM
+                <BeatTempoInput key={clip.id} bpm={beat.bpm} onChange={(bpm) => patchBeat({ bpm })} />
+              </label>
+              <label>{c.beatDivision}
+                <select value={beat.subdivision} onChange={(event) => patchBeat({ subdivision: Number(event.target.value) })}>
+                  <option value="1">{c.quarter}</option><option value="2">{c.eighth}</option>
+                </select>
+              </label>
+            </> : null}
+          </> : <label>{c.shape}
+            <select value={clip.shape} onChange={(event) => patch({ shape: event.target.value })}>
+              {FLASH_SHAPES.map((shape) => <option key={shape} value={shape}>{c[shape]}</option>)}
+            </select>
+          </label>}
+        </div> : null}
         {clip.effect !== "ripple" ? (
           <label className="effect-intensity-field">
             {isFaceEffect(clip) ? c.size : c.intensity}
@@ -420,7 +471,7 @@ export function TimelineEffectInspector({
             />
           </label>
         ) : null}
-        {["glitch", "halo"].includes(clip.effect) || isFaceEffect(clip) ? (
+        {["glitch", "halo", "beat-backdrop", "shape-flash"].includes(clip.effect) || isFaceEffect(clip) ? (
           <label className="effect-color-field">
             {c.color}
             {keyButton("color", c.color)}
@@ -587,7 +638,7 @@ export function TimelineEffectLane({
   setTimelineHorizon,
   pauseForEdit,
 }) {
-  const c = { ...effectCopy(language), ...faceEffectCopy(language) },
+  const c = { ...effectCopy(language), ...faceEffectCopy(language), ...beatEffectCopy(language) },
     ref = useRef(null),
     gesture = useRef(null);
   const preview = sharedPreview;
@@ -792,9 +843,10 @@ export function TimelineEffectLane({
         event.preventDefault();
         event.stopPropagation();
         event.dataTransfer.dropEffect = "copy";
+        const duration = getDefaultEffectDuration(assetEffect);
         const candidate = {
-          start: snap(at(event), 3, event).start,
-          duration: 3,
+          start: snap(at(event), duration, event).start,
+          duration,
           lane: laneIndex,
           effect: assetEffect,
         };

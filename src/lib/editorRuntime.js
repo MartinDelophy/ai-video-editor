@@ -163,6 +163,11 @@ export async function encodeAvatarFrames(blobs, width, height, fps, keyframeTime
   return result;
 }
 
+export function getAutoRatioSourceKey(segments = []) {
+  const source = segments.find((segment) => segment.width > 0 && segment.height > 0);
+  return source ? `${source.assetId || source.id}:${source.width}x${source.height}` : "";
+}
+
 export function getNearestRatioIdForSize(width, height) {
   const w = Number(width); const h = Number(height);
   if (!Number.isFinite(w) || !Number.isFinite(h) || w <= 0 || h <= 0) return "";

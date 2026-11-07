@@ -42,11 +42,11 @@ Users are solely responsible for any legal liability arising from violations of 
 
 ## Project updates
 
+- **2026-11-07** — Added an editable three-panel beat montage and four stackable effects: background beat flash, beat zoom, halftone ink and shape flash. Beat effects can follow a fixed tempo or timeline markers; choose circle, star or horizontal line for the flash.
 - **2026-11-07** — Added a separate Special Effects workspace with eight stackable picture effects plus tracked crystal cat ears and ruby horns. Drag, trim and keyframe effects on dedicated timeline lanes. Draggable alignment arcs adjust headwear, and extending a face effect reuses existing tracking. The catalog uses the Effects card sizes, with live hover previews and matching browser export. Added tracked Cat face makeup with a shaded nose, whiskers and soft blush; it shares optical-flow tracking with headwear and can stack with cat ears. Renamed the processing entry and panel to Image & Video Tools in all 13 interface languages, keeping it distinct from Special Effects. Split the editor’s startup JavaScript and load export, analysis, voice, and connector runtimes only when needed.
 - **2026-11-06** — Added a slim draggable horizontal timeline scrollbar on Windows desktops.
 - **2026-11-06** — Shift-click visual clips to select multiple clips, with numbered selection badges and a right-click action that exports each selected clip to a separate numbered file in timeline order. Existing export settings, composition and audio timing are preserved.
 - **2026-11-06** — Added Export clip to Visuals and Overlay context menus and mobile clip actions. Exports the clip’s timeline interval with the current composition, original media, speed mapping, captions and audio; includes all 13 interface languages.
-- **2026-11-04** — Added Line art beside Depth map in Effects: adjustable detail, line weight and inversion with a live preview. Images become PNG assets and trimmed/speed-mapped videos become 24 fps WebM assets with source audio, saved to My assets without automatic insertion. Includes all 13 interface languages and mobile controls. Fixed playback when only picture-in-picture clips remain on the timeline.
 See the public [Roadmap](ROADMAP.md) for planned work, [Releases](https://github.com/MartinDelophy/ai-video-editor/releases) for shipped changes, and [Issues](https://github.com/MartinDelophy/ai-video-editor/issues) for focused tasks and bugs.
 
 ## What can it produce?

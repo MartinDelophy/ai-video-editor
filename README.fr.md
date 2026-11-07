@@ -31,11 +31,11 @@ L’utilisateur assume seul toute responsabilité juridique découlant du non-re
 
 ## Actualités du projet
 
+- **2026-11-07** — Ajout d’un montage rythmé éditable à trois panneaux et de quatre effets superposables : flash de fond, zoom au rythme, trame d’encre et flash en forme. Le rythme suit un tempo fixe ou les marqueurs de la timeline ; le flash peut prendre la forme d’un cercle, d’une étoile ou d’une ligne horizontale.
 - **2026-11-07** — Nouvel espace d’effets spéciaux avec huit effets d’image superposables, des oreilles en cristal et des cornes de rubis avec suivi du visage. Glissez, rognez et animez les effets sur leurs propres pistes. Les arcs règlent la pose et prolonger un effet conserve le suivi existant. Les cartes reprennent la taille du catalogue Effets ; le survol donne un aperçu et l’export reprend les mêmes effets. Ajout du maquillage de chat avec nez, moustaches et blush doux ; il partage le suivi du visage et se superpose aux oreilles. L’entrée et le panneau de traitement deviennent Image et vidéo dans les 13 langues, distincts des effets spéciaux. Le JavaScript initial est réparti en modules ; l’export, l’analyse, la voix et les connecteurs se chargent à la demande.
 - **2026-11-06** — Ajout d’une fine barre de défilement horizontal déplaçable dans la timeline sous Windows.
 - **2026-11-06** — Sélection multiple avec Maj et repères numérotés ; le menu contextuel exporte chaque clip dans un fichier distinct dans l’ordre, en conservant les réglages et la synchronisation audio.
 - **2026-11-06** — Ajout de l’export de clips aux menus contextuels des visuels et superpositions et aux actions mobiles, avec médias originaux, vitesses, sous-titres et audio sur l’intervalle du clip. Disponible dans les 13 langues.
-- **2026-11-04** — Ajout du Dessin au trait dans les effets : détail, épaisseur, inversion et aperçu. Les images PNG et vidéos WebM à 24 fps conservant découpage, vitesse et son source sont enregistrées dans Mes ressources sans insertion automatique. Compatible avec les 13 langues et le mobile. Correction de la lecture des timelines contenant uniquement des incrustations.
 Consultez la [Roadmap](ROADMAP.md) pour les travaux prévus, les [Releases](https://github.com/MartinDelophy/ai-video-editor/releases) pour les changements publiés et les [Issues](https://github.com/MartinDelophy/ai-video-editor/issues) pour les tâches et anomalies.
 
 ## Que peut-il produire ?

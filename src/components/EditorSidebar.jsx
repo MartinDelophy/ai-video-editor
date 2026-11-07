@@ -3,6 +3,7 @@ import { CaretDown } from "@phosphor-icons/react";
 import { COMPACT_WORKSPACE_QUERY, TOOL_RAIL } from "../config/editor.js";
 import { SPECIAL_EFFECTS_LABELS } from "../i18nEffectClips.js";
 import { TimelineEffectCatalog } from "./TimelineEffects.jsx";
+import { BEAT_MONTAGE_ID } from "../lib/beatMontage.js";
 import { createEffectClip } from "../lib/timelineEffects.js";
 import { MediaPanel, ToolPanel } from "./panels.jsx";
 import { PluginCatalogPanel } from "./GenerationPlugins.jsx";
@@ -127,7 +128,19 @@ export function EditorSidebar({ model: d }) {
             }}
           />
         ) : d.activeTool === "specialEffects" ? (
-          <TimelineEffectCatalog selectedEffect={d.effectClips.find(clip=>clip.id===d.selectedEffectClipId)?.effect} language={d.activeLanguage} onAdd={effect => { if(d.trackLocks?.effects) return; const clip=createEffectClip(effect,d.currentTime); d.setEffectClips(items=>[...items,clip]); d.setSelectedEffectClipId(clip.id); d.setSelectedTrack("effects"); d.setMobilePanel?.("inspector"); }} />
+          <TimelineEffectCatalog
+            selectedEffect={d.effectClips.find((clip) => clip.id === d.selectedEffectClipId)?.effect}
+            language={d.activeLanguage}
+            onAdd={(effect) => {
+              if (d.trackLocks?.effects) return;
+              if (effect === BEAT_MONTAGE_ID) return d.addBeatMontage();
+              const clip = createEffectClip(effect, d.currentTime);
+              d.setEffectClips((items) => [...items, clip]);
+              d.setSelectedEffectClipId(clip.id);
+              d.setSelectedTrack("effects");
+              d.setMobilePanel?.("inspector");
+            }}
+          />
         ) : d.activeTool === "plugins" ? (
           <PluginCatalogPanel
             language={d.activeLanguage}

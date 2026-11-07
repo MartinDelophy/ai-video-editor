@@ -5,6 +5,7 @@ import { disposeVisionWorker } from "../lib/vision.js";
 import { disposeVocalSeparationWorker } from "../lib/vocalSeparation.js";
 import {
   getNearestRatioIdForSize,
+  getAutoRatioSourceKey,
   revokeVisionObjectUrls,
 } from "../lib/editorRuntime.js";
 import { ensureUniqueVisualSegmentIds } from "../lib/timeline.js";
@@ -25,7 +26,7 @@ export function useEditorLifecycle(d) {
       d.autoRatioSourceKeyRef.current = "";
       return;
     }
-    const sourceKey = `${ratioSource.assetId || ratioSource.id}:${ratioSource.width}x${ratioSource.height}`;
+    const sourceKey = getAutoRatioSourceKey(d.visualSegments);
     if (d.autoRatioSourceKeyRef.current === sourceKey) return;
     d.autoRatioSourceKeyRef.current = sourceKey;
     const nextRatioId = getNearestRatioIdForSize(ratioSource.width, ratioSource.height);

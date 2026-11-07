@@ -135,7 +135,7 @@ function VisualOverlayMedia({ overlay, src, style, isPlaying, localTime }) {
 }
 
 export function PreviewStage({
-  effectClips = [], effectVision = null,
+  effectClips = [], effectVision = null, timelineMarkers = [],
   previewPlaybackSrc,
   proxyAssets = [],
   proxyBusy = false,
@@ -880,7 +880,7 @@ export function PreviewStage({
               </div>
             ) : null}
             {previewVisualType === "video" && playbackSrc !== previewVisualSrc && trackVisibility.image ? <ProxySourceAudio source={previewVisualSrc} segment={previewVisualSegment} videoRef={previewVideoRef} localTime={visualLocalTime} isPlaying={isPlaying} muted={previewVisualMuted} /> : null}
-            {effectClips.length > 0 && renderedVisualSrc && trackVisibility.image ? <TimelineEffectPreview clips={effectClips} time={currentTime} localTime={visualLocalTime} videoRef={previewVideoRef} imageRef={previewImageRef} type={previewVisualType} effects={visualEffects} fitMode={fitMode} filter={selectedFilter.css} vision={effectVision} depthRef={depthCanvasRef} shellRef={previewShellRef} transition={previewTransition} /> : null}
+            {effectClips.length > 0 && renderedVisualSrc && trackVisibility.image ? <TimelineEffectPreview markers={timelineMarkers} overlays={visualOverlays} clips={effectClips} time={currentTime} localTime={visualLocalTime} videoRef={previewVideoRef} imageRef={previewImageRef} type={previewVisualType} effects={visualEffects} fitMode={fitMode} filter={selectedFilter.css} vision={effectVision} depthRef={depthCanvasRef} shellRef={previewShellRef} transition={previewTransition} /> : null}
             {renderedVisualSrc && trackVisibility.image ? <ClickRippleOverlay effect={visualEffects?.clickRipple} time={visualLocalTime} /> : null}
             {renderedVisualSrc && trackVisibility.image && visualTransformEditable && !visualMaskEditable ? (
               <div className="visual-transform-box" data-preview-track="image" data-preview-clip-id={previewVisualSegment?.id} style={visualTransformBoxStyle} onPointerDown={(event) => startVisualTransform(event, "move")}>
@@ -971,7 +971,7 @@ export function PreviewStage({
               const splitClip = splitCell ? { clipPath: `inset(${splitCell.y * 100}% ${(1 - splitCell.x - splitCell.width) * 100}% ${(1 - splitCell.y - splitCell.height) * 100}% ${splitCell.x * 100}%)` } : undefined;
               return <Fragment key={overlay.id}>
                 <div className="visual-overlay-viewport" style={splitClip}>
-                <div className="visual-overlay-layer" data-preview-track="overlay" data-preview-clip-id={overlay.id} tabIndex={0} aria-haspopup="menu" aria-label={overlay.name || t("previewMenuTitle")} style={style} onPointerDown={(event) => startOverlayTransform(event, "move", overlay)}>
+                <div className="visual-overlay-layer" data-composition-overlay={overlay.id} data-preview-track="overlay" data-preview-clip-id={overlay.id} tabIndex={0} aria-haspopup="menu" aria-label={overlay.name || t("previewMenuTitle")} style={style} onPointerDown={(event) => startOverlayTransform(event, "move", overlay)}>
                   {overlaySubjectActive ? <SubjectMaterialFilterDefs effect={overlaySubjectEffect} filterId={overlaySubjectFilterId} /> : null}
                   {overlaySubjectActive
                     && overlaySubjectEffect.background.visible !== false

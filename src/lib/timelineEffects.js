@@ -1,3 +1,4 @@
+import { BEAT_EFFECT_IDS, FLASH_SHAPES, normalizeBeatSettings, resolveBeatAge, isCompositionEffect, drawBeatEffect } from "./beatEffects.js";
 import { resolveEffectParameters } from "./effectKeyframes.js";
 import { MAX_TIMELINE_DURATION_SECONDS } from "../config/editor.js";
 import { normalizeClickRippleEffect } from "./clickRippleEffect.js";
@@ -12,6 +13,7 @@ export const TIMELINE_EFFECT_IDS = Object.freeze([
   "vignette",
   "grain",
   "chromatic",
+  ...BEAT_EFFECT_IDS,
   "cat-ears",
   "devil-horns",
   "cat-face",
@@ -38,6 +40,9 @@ export function normalizeEffectClips(items) {
       alignmentRoll: Math.max(-45, Math.min(45, finite(item.alignmentRoll, 0))),
       intensity: Math.max(0, Math.min(1, finite(item.intensity, 0.5))),
       color: /^#[0-9a-f]{6}$/i.test(item.color) ? item.color : "#35ead9",
+      ...(["beat-zoom", "beat-backdrop"].includes(item.effect) || (item.effect === "shake" && item.beat)
+        ? { beat: normalizeBeatSettings(item.beat) } : {}),
+      ...(item.effect === "shape-flash" ? { shape: FLASH_SHAPES.includes(item.shape) ? item.shape : "circle" } : {}),
       ripple: normalizeClickRippleEffect({ ...item.ripple, enabled: true }),
     }));
 }
@@ -46,7 +51,8 @@ export function activeEffectClips(clips, time) {
     (clip) => !clip.hidden && time >= clip.start && time < clip.start + clip.duration,
   );
 }
-export function createEffectClip(effect, start, duration = 3) {
+export const getDefaultEffectDuration = (effect) => effect === "shape-flash" ? 0.62 : 3;
+export function createEffectClip(effect, start, duration = getDefaultEffectDuration(effect)) {
   return normalizeEffectClips([
     {
       effect,
@@ -60,7 +66,9 @@ export function createEffectClip(effect, start, duration = 3) {
           ? { color: "#df8e9f" }
           : effect === "devil-horns"
             ? { color: "#a51538" }
-            : {}),
+            : ["shape-flash", "beat-backdrop"].includes(effect)
+              ? { color: "#ffffff" }
+              : {}),
     },
   ])[0];
 }
@@ -79,16 +87,18 @@ function copyFrame(canvas) {
   return copy;
 }
 // All animation uses clip-local timeline seconds, never wall time or Math.random().
-export function drawTimelineEffects(ctx, canvas, clips, time, drawRipple) {
+export function drawTimelineEffects(ctx, canvas, clips, time, drawRipple, { composition = false, markers = [] } = {}) {
   const w = canvas.width,
     h = canvas.height;
   for (const rawClip of activeEffectClips(clips, time)) {
     const clip = resolveEffectParameters(rawClip, time);
     const t = time - clip.start + (clip.sourceOffset || 0),
       amount = clip.intensity;
-    if (isFaceEffect(clip)) continue;
+    if (isFaceEffect(clip) || isCompositionEffect(clip) !== composition) continue;
     ctx.save();
-    if (clip.effect === "ripple")
+    if (BEAT_EFFECT_IDS.includes(clip.effect))
+      drawBeatEffect(ctx, canvas, clip, time, markers, copyFrame);
+    else if (clip.effect === "ripple")
       drawRipple(ctx, canvas, { ...clip.ripple, enabled: true, color: clip.color }, t);
     else if (clip.effect === "vignette") {
       const gradient = ctx.createRadialGradient(
@@ -132,8 +142,7 @@ export function drawTimelineEffects(ctx, canvas, clips, time, drawRipple) {
         ctx.filter = `blur(${Math.max(1, w * 0.012)}px)`;
         ctx.drawImage(source, 0, 0);
       } else if (clip.effect === "shake") {
-        const beat = t * 1;
-        const envelope = Math.exp(-(beat % 1) * 12) * amount;
+        const envelope = Math.exp(-resolveBeatAge(clip, time, markers) * 12) * amount;
         ctx.clearRect(0, 0, w, h);
         ctx.translate(
           w / 2 + Math.sin(t * 85) * w * 0.012 * envelope,

@@ -931,3 +931,30 @@
   margin: 0;
   padding: 3px;
 }
+
+.preview-canvas.has-composition-effects .visual-overlay-viewport > .visual-overlay-layer > :not(svg) {
+  opacity: 0 !important;
+}
+
+.beat-effect-fields {
+  display: grid;
+  gap: 10px;
+  padding-bottom: 14px;
+}
+.beat-effect-fields label {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+}
+.beat-effect-fields select,
+.beat-effect-fields input {
+  min-width: 0;
+  height: 34px;
+  padding: 0 8px;
+  color: inherit;
+  background: #20262e;
+  border: 1px solid #343c45;
+  border-radius: 7px;
+  font: inherit;
+}

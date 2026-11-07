@@ -1332,7 +1332,7 @@ export function drawPreviewFrame(context, visual, canvas, options) {
 
   context.restore();
 
-  drawTimelineEffects(context, canvas, options.effectClips || [], options.timelineTime || 0, drawClickRippleEffect);
+  drawTimelineEffects(context, canvas, options.effectClips || [], options.timelineTime || 0, drawClickRippleEffect, { markers: options.timelineMarkers });
 
   visualOverlays.forEach((overlay, index) => {
     const overlayVisual = visualOverlaySources[index];
@@ -1452,6 +1452,8 @@ export function drawPreviewFrame(context, visual, canvas, options) {
     context.restore();
   });
 
+  drawTimelineEffects(context, canvas, options.effectClips || [], options.timelineTime || 0, drawClickRippleEffect, { composition: true, markers: options.timelineMarkers });
+
   if (captionsEnabled && subtitle) {
     const captionLayout = getCaptionTextLayout({
       context,
@@ -1562,6 +1564,7 @@ function createVideoRecorder(outputStream, {
 
 export async function exportBrowserVideo({
   effectClips = [],
+  timelineMarkers = [],
   imageSrc,
   visualType,
   visualSegments = [],
@@ -2058,7 +2061,7 @@ export async function exportBrowserVideo({
       transitionProgress,
       vision: frameVision,
       depth: frameDepth,
-      effectClips, timelineTime,
+      effectClips, timelineMarkers, timelineTime,
       visualEffects: visualItem.segment,
       visualTime: localTime,
       visualOverlays: renderedVisualOverlays.map(({ segment, renderSegment }) => ({
@@ -2140,7 +2143,7 @@ export async function exportBrowserVideo({
       transitionId,
       vision: finalFrameVision,
       depth: finalFrameDepth,
-      effectClips, timelineTime: rangeStart + totalDuration,
+      effectClips, timelineMarkers, timelineTime: rangeStart + totalDuration,
       visualEffects: finalVisualItem.segment,
       visualTime: finalLocalTime,
       visualOverlays: finalVisualOverlays.map(({ segment }) => ({

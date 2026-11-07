@@ -1,3 +1,4 @@
+import { BEAT_MONTAGE_ID, createBeatMontage, MONTAGE_DURATION } from "./beatMontage.js";
 import { drawPreviewFrame } from "./media.js";
 import {
   isFaceEffect,
@@ -33,8 +34,29 @@ const CAT_FACE_COVER = {
   ],
   forehead: { x: 0.48055065, z: -0.04197972, y: 0.30461717 },
 };
+const montageCovers = new WeakMap();
 export function drawEffectCardPreview(canvas, image, clip, { live = false, time = 0 } = {}) {
   const context = canvas.getContext("2d");
+  if (clip.effect === BEAT_MONTAGE_ID) {
+    const ratio = canvas.width / canvas.height;
+    let saved = montageCovers.get(canvas);
+    if (!saved || saved.ratio !== ratio || saved.image !== image) {
+      saved = { image, ratio, montage: createBeatMontage({
+        asset: { src: image.src, width: image.naturalWidth, height: image.naturalHeight },
+        start: 0, available: MONTAGE_DURATION, frameRatio: ratio,
+      }) };
+      montageCovers.set(canvas, saved);
+    }
+    if (!saved.montage) return false;
+    const t = live ? (time + 0.74) % MONTAGE_DURATION : MONTAGE_DURATION - 0.05;
+    const overlays = saved.montage.overlays.filter((item) => item.start <= t);
+    drawPreviewFrame(context, image, canvas, {
+      captionsEnabled: false, fitMode: "cover", visualTime: t, timelineTime: t,
+      effectClips: saved.montage.effects, visualOverlays: overlays, visualOverlaySources: overlays.map(() => image),
+    });
+    return true;
+  }
+  if (clip.effect === "shape-flash") time = live ? time % 1.35 : clip.duration * 0.25;
   const person = isFaceEffect(clip);
   const makeup = clip.effect === "cat-face";
   const sprite = person && !makeup && live ? getFaceAttachmentAsset(clip.effect, clip.color) : null;
@@ -42,7 +64,7 @@ export function drawEffectCardPreview(canvas, image, clip, { live = false, time 
   drawPreviewFrame(context, image, canvas, {
     fitMode: "cover",
     captionsEnabled: false,
-    effectClips: live && !person ? [clip] : [],
+    effectClips: !person && (live || clip.effect === "ink-print" || clip.effect === "shape-flash") ? [clip] : [],
     timelineTime: time,
   });
   if (makeup) {

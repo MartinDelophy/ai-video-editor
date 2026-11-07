@@ -14,7 +14,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { encodeAvatarFrames } from "../lib/editorRuntime.js";
 import { createVideoTrackFramesFromBlobs } from "../lib/media.js";
-import { analyzeOpticalFlowVideo } from "../lib/opticalFlowTracking.js";
 import { formatTime } from "../lib/timeline.js";
 
 const TRACK_COLORS = ["#49f4df", "#8d7bff", "#ffbf5f", "#47a8ff", "#f477ff"];
@@ -324,6 +323,7 @@ export function OpticalFlowTrackingPanel({ t, segment, localTime = 0, onAssetRea
       const safeLocalTime = Math.max(0, Math.min(Number(segment.duration) || 0, Number(localTime) || 0));
       const availableTimelineDuration = Math.max(0.5, (Number(segment.duration) || 0.5) - safeLocalTime);
       const analysisWindow = Math.min(availableTimelineDuration, Math.max(2, 41 / sampleRate));
+      const { analyzeOpticalFlowVideo } = await import("../lib/opticalFlowTracking.js");
       const nextResult = await analyzeOpticalFlowVideo({
         src: segment.src,
         sourceStart: Math.max(0, Number(segment.sourceStart) || 0) + safeLocalTime * playbackRate,

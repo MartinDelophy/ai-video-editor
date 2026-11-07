@@ -1,4 +1,3 @@
-import { createFaceAttachmentFrameReader } from "./faceAttachmentFrames.js";
 import { createFaceAttachmentFlow } from "./faceAttachmentFlow.js";
 import { getVisualSourceTime } from "./visualEffects.js";
 import { getVisualSegmentTimeline } from "./timeline.js";
@@ -299,8 +298,10 @@ async function analyzeFaceRange(
       const sourceTimes = times.map((time) =>
         getVisualSourceTime(segment, Math.max(0, time - range.start)),
       );
-      if (flow)
+      if (flow) {
+        const { createFaceAttachmentFrameReader } = await import("./faceAttachmentFrames.js");
         reader = await createFaceAttachmentFrameReader(segment, sourceTimes, dimensions, signal);
+      }
       for (let i = 0; i <= count; i++) {
         if (signal.aborted) throw abort();
         const time = times[i],

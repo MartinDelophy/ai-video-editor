@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getDepthAnalysisSignature } from "../lib/depthOfField.js";
 import { createDepthSampleStream } from "../lib/depthSampleStream.js";
-import { renderDepthMapAsset } from "../lib/depthMapAsset.js";
 import { getVisionKey } from "../lib/vision.js";
 import { getVisualSourceTime } from "../lib/visualEffects.js";
 
@@ -258,9 +257,9 @@ export function useDepthOfFieldAnalysis({
         if (segmentForRun.type === "video" && effect.output === "depth-map" && commitAsset && ["fast", "balanced"].includes(qualityId)) {
           const streamingAnalysis = { samples, sourceSize: { width: source.width, height: source.height }, duration, fps: sampleFps };
           sampleStream = createDepthSampleStream(streamingAnalysis, controller.signal);
-          pipelineResult = renderDepthMapAsset({ segment: segmentForRun, analysis: streamingAnalysis, effect, signal: controller.signal,
+          pipelineResult = import("../lib/depthMapAsset.js").then(({ renderDepthMapAsset }) => renderDepthMapAsset({ segment: segmentForRun, analysis: streamingAnalysis, effect, signal: controller.signal,
             onProgress: reportEncodingProgress, sampleStream,
-          }).then((rendered) => ({ rendered }), (error) => {
+          })).then((rendered) => ({ rendered }), (error) => {
             sampleStream.releaseConsumer();
             return { error };
           });
@@ -349,6 +348,7 @@ export function useDepthOfFieldAnalysis({
           if (result.error) throw result.error;
           rendered = result.rendered;
         } else {
+          const { renderDepthMapAsset } = await import("../lib/depthMapAsset.js");
           rendered = await renderDepthMapAsset({ segment: segmentForRun, analysis, effect, signal: controller.signal,
             onProgress: reportEncodingProgress,
           });

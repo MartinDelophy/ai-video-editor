@@ -16,6 +16,7 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { GENERATION_PROVIDERS } from "../plugins/generation/registry.js";
+import { preparePuterAdapter } from "../plugins/generation/adapters.js";
 
 const COPY = {
   zh: { title: "插件", subtitle: "连接网页生成服务，结果进入 My assets。", search: "搜索插件", connected: "已连接", connect: "连接", available: "可用", cancel: "取消", disconnect: "断开连接", capability: "图像与视频生成", authTitle: "连接 Puter.js", authBody: "将打开 Puter 登录弹窗。登录成功后，生成调用会使用你的 Puter 账户额度。", continue: "登录 Puter", secure: "无需 API Key；登录和用量由 Puter 处理。", userPays: "用户账户计费", mode: "生成方式", textVideo: "文生视频", textImage: "文生图", prompt: "描述你想生成的内容", placeholder: "例如：雨后的东京街头，缓慢推进镜头，霓虹倒影在路面流动……", ratio: "画幅", duration: "时长", model: "模型", generate: "开始生成", generating: "正在远端生成", resultSaved: "已保存到 My assets", openAssets: "查看 My assets", puterNote: "视频生成可能需要几分钟，关闭面板不会取消远端任务。", spaceUrl: "Space 地址", spacePlaceholder: "owner/space-name 或 https://…hf.space", connectSpace: "连接 Space", spaceHelp: "支持公开或 Protected 的可嵌入 Space。", embedded: "嵌入式 Space", importUrl: "生成结果地址", importPlaceholder: "粘贴 Space 返回的视频或图片 URL", importAsset: "导入 My assets", hfNote: "不同 Space 的 API 结构不同；当前通过嵌入界面生成，再用结果地址导入。", connectionError: "连接失败", jobError: "任务失败" },
@@ -88,6 +89,26 @@ function getPuterAuthError(copy, connection) {
 }
 
 function AuthDialog({ copy, busy, error, onCancel, onContinue }) {
+  const [adapterState, setAdapterState] = useState("loading");
+  const [attempt, setAttempt] = useState(0);
+  useEffect(() => {
+    let active = true;
+    preparePuterAdapter().then(
+      () => { if (active) setAdapterState("ready"); },
+      () => { if (active) setAdapterState("error"); },
+    );
+    return () => { active = false; };
+  }, [attempt]);
+  const preparing = adapterState === "loading";
+  const loadFailed = adapterState === "error";
+  const continueAuth = () => {
+    if (loadFailed) {
+      setAdapterState("loading");
+      setAttempt((value) => value + 1);
+    } else if (adapterState === "ready") {
+      onContinue();
+    }
+  };
   if (typeof document === "undefined") return null;
   return createPortal(
     <div className="plugin-auth-backdrop" role="presentation">
@@ -103,10 +124,10 @@ function AuthDialog({ copy, busy, error, onCancel, onContinue }) {
           <span><Check size={15} weight="bold" /> {copy.userPays}</span>
         </div>
         <div className="plugin-secure-note"><ShieldCheck size={17} weight="duotone" /><span>{copy.secure}</span></div>
-        {error ? <p className="plugin-error">{copy.connectionError}: {error}</p> : null}
+        {error || loadFailed ? <p className="plugin-error">{error ? `${copy.connectionError}: ${error}` : copy.connectionError}</p> : null}
         <footer>
           <button type="button" className="plugin-button secondary" onClick={onCancel}>{copy.cancel}</button>
-          <button type="button" className="plugin-button primary" disabled={busy} onClick={onContinue}>{busy ? <SpinnerGap className="spin" size={17} /> : <UserCircle size={17} />}{busy ? copy.waitingAuth : error ? copy.retryAuth : copy.continue}</button>
+          <button type="button" className="plugin-button primary" disabled={busy || preparing} aria-busy={busy || preparing} onClick={continueAuth}>{busy || preparing ? <SpinnerGap className="spin" size={17} /> : <UserCircle size={17} />}{busy ? copy.waitingAuth : error || loadFailed ? copy.retryAuth : copy.continue}</button>
         </footer>
       </section>
     </div>,

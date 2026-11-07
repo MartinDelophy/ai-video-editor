@@ -18,6 +18,15 @@ export default defineConfig({
       input: {
         editor: resolve(projectRoot, "index.html"),
       },
+      output: {
+        // These are already startup dependencies. Keep them cacheable across
+        // editor updates without pulling optional features into their chunks.
+        onlyExplicitManualChunks: true,
+        manualChunks(id) {
+          if (/\/node_modules\/(?:react|react-dom|scheduler)\//.test(id)) return "react-runtime";
+          if (/\/src\/(?:i18n|i18nCompletion|i18nMessages|i18nMessageRuntime)\.js$/.test(id)) return "editor-copy";
+        },
+      },
     },
   },
   test: {

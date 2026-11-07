@@ -2,6 +2,7 @@ import { ALL_FORMATS, BlobSource, CanvasSink, Input } from "mediabunny";
 /** Decode causal source timestamps in one pass instead of seeking a video
  * element for every sample. The bounded canvas pool never grows with duration. */
 export async function createFaceAttachmentFrameReader(segment, times, dimensions, signal) {
+  if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
   if (typeof VideoDecoder === "undefined") return null;
   let input;
   try {

@@ -15,7 +15,6 @@ import {
   Output,
   WebMOutputFormat,
 } from "mediabunny";
-import { registerAacEncoder } from "@mediabunny/aac-encoder";
 
 import { throwIfExportAborted } from "./exportCancellation.js";
 import { resolveCaptionStyleForSegment } from "./captionFonts.js";
@@ -384,10 +383,6 @@ export async function exportOfflineVideo(options) {
   const width = Math.max(2, Math.round(Number(settings.width) || options.ratio.width));
   const height = Math.max(2, Math.round(Number(settings.height) || options.ratio.height));
   const codec = getOfflineExportCodec(settings);
-  if (codec.audio === "aac" && !aacFallbackRegistered) {
-    registerAacEncoder();
-    aacFallbackRegistered = true;
-  }
   const canvas = document.createElement("canvas");
   canvas.width = width; canvas.height = height;
   const context = canvas.getContext("2d", { alpha: false, desynchronized: false });
@@ -426,13 +421,6 @@ export async function exportOfflineVideo(options) {
   output.addVideoTrack(videoSource, { frameRate: frames.length / Math.max(options.duration, frames[0].duration) });
   let audioSource = null;
   const audioBitrate = Math.max(96_000, Number(settings.audioBitsPerSecond) || 192_000);
-  if (audioBuffer) {
-    audioSource = new AudioSampleSource({
-      codec: codec.audio,
-      bitrate: audioBitrate,
-    });
-    output.addAudioTrack(audioSource);
-  }
   const encodingController = new AbortController();
   const abortEncoding = () => encodingController.abort();
   options.signal?.addEventListener("abort", abortEncoding, { once: true });
@@ -441,6 +429,21 @@ export async function exportOfflineVideo(options) {
   let audioError = null;
   try {
     throwIfExportAborted(options.signal);
+    if (audioBuffer) {
+      if (codec.audio === "aac" && !aacFallbackRegistered) {
+        const { registerAacEncoder } = await import("@mediabunny/aac-encoder");
+        throwIfExportAborted(options.signal);
+        if (!aacFallbackRegistered) {
+          registerAacEncoder();
+          aacFallbackRegistered = true;
+        }
+      }
+      audioSource = new AudioSampleSource({
+        codec: codec.audio,
+        bitrate: audioBitrate,
+      });
+      output.addAudioTrack(audioSource);
+    }
     await output.start();
     // Audio and video use independent encoders. Observe failures immediately,
     // while allowing the picture pipeline to start before long audio finishes.

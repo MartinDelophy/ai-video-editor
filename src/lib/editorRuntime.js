@@ -1,11 +1,5 @@
 import { RATIO_OPTIONS } from "../config/editor.js";
 import { applyAudioSpatialEffect, createAudioSpatialGraph, normalizeAudioSpatialAmount, normalizeAudioSpatialEffect } from "./audioSpatialEffects.js";
-import {
-  BufferTarget,
-  CanvasSource,
-  Output,
-  WebMOutputFormat,
-} from "mediabunny";
 
 // Preserve display-frame updates for preview effects and keyframes. The
 // timeline playhead paints independently through useTimelinePlayhead.
@@ -123,6 +117,8 @@ export async function encodeAvatarFrames(blobs, width, height, fps, keyframeTime
   const context = canvas.getContext("2d", { alpha: false });
   if (!context) throw new Error("无法创建视频编码画布");
   if (typeof VideoEncoder === "undefined") throw new Error("当前浏览器不支持 WebCodecs 视频编码");
+  const { BufferTarget, CanvasSource, Output, WebMOutputFormat } = await import("mediabunny");
+  if (options.signal?.aborted) throw new DOMException("Canceled", "AbortError");
   const bitmaps = await Promise.all(blobs.map((blob) => createImageBitmap(blob)));
   const totalFrames = Math.max(1, Math.ceil(duration * fps));
   const target = new BufferTarget();

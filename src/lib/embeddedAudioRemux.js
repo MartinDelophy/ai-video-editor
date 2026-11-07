@@ -1,4 +1,3 @@
-import { ALL_FORMATS, BlobSource, BufferTarget, EncodedAudioPacketSource, EncodedPacketSink, Input, Mp4OutputFormat, Output } from "mediabunny";
 import { throwIfExportAborted } from "./exportCancellation.js";
 
 // Copy camera AAC packets without video decode, full-file WASM copies, PCM
@@ -6,6 +5,8 @@ import { throwIfExportAborted } from "./exportCancellation.js";
 const completed = new WeakMap();
 
 export async function remuxEmbeddedAudio(blob, signal) {
+  const { ALL_FORMATS, BlobSource, BufferTarget, EncodedAudioPacketSource, EncodedPacketSink, Input, Mp4OutputFormat, Output } = await import("mediabunny");
+  throwIfExportAborted(signal);
   throwIfExportAborted(signal);
   if (completed.has(blob)) return completed.get(blob);
   const input = new Input({ source: new BlobSource(blob), formats: ALL_FORMATS });

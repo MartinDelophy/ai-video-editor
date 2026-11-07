@@ -1,4 +1,3 @@
-import { isBuiltInPinyinVoice, predictPiperVoice } from "./piperVoiceRuntime.js";
 import { clearKokoroVoiceCacheIfStorageTight, predictKokoroVoice } from "./kokoroVoiceRuntime.js";
 import { predictHojoVoice } from "./hojoTtsRuntime.js";
 import { predictMmsVoice } from "./mmsVoiceRuntime.js";
@@ -32,6 +31,8 @@ async function runBaseVoiceSynthesis({ voice, text, speed = 1, onProgress, onSta
   if (prepared.warningKey) notify?.(t?.(prepared.warningKey) || prepared.warningKey);
   let blob;
   if (voice.engine === "piper") {
+    onStatus?.("ttsStatusPreparingModel");
+    const { isBuiltInPinyinVoice, predictPiperVoice } = await import("./piperVoiceRuntime.js");
     const builtInPinyinVoice = isBuiltInPinyinVoice(voice.id);
     const tts = builtInPinyinVoice ? null : await import("@diffusionstudio/vits-web");
     if (tts && await clearPiperCacheIfStorageTight(tts, voice.id)) notify?.(t?.("ttsNoticePiperCacheCleared") || "ttsNoticePiperCacheCleared");

@@ -1,9 +1,10 @@
-import { ALL_FORMATS, BlobSource, EncodedPacketSink, Input, VideoSampleSink } from "mediabunny";
 
 // Microsecond keys match WebCodecs timestamps without grouping neighboring frames.
 export const repairFrameKey = (time) => Math.round(time * 1e6);
 
 export async function openRepairFrameSource(blob, signal) {
+  const { ALL_FORMATS, BlobSource, EncodedPacketSink, Input, VideoSampleSink } = await import("mediabunny");
+  if (signal?.aborted) throw new DOMException("Canceled", "AbortError");
   const input = new Input({ source: new BlobSource(blob), formats: ALL_FORMATS });
   const aborted = () => { if (signal?.aborted) throw new DOMException("Repair canceled", "AbortError"); };
   try {

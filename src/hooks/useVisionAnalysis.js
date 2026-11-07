@@ -1,10 +1,5 @@
 import { useCallback } from "react";
 import { DEFAULT_VISION_OPTIONS, EMPTY_VISION_OPTIONS, revokeVisionObjectUrls } from "../lib/editorRuntime.js";
-import {
-  analyzeObjectOutlineImage,
-  analyzeObjectOutlineVideo,
-  analyzePersonOutlineVideo,
-} from "../lib/personOutlineAnalysis.js";
 import { analyzeVideoVisualTrack, analyzeVisualSubject, captureVisualFrame } from "../lib/vision.js";
 
 function formatMessage(template, values = {}) {
@@ -97,9 +92,11 @@ export function useVisionAnalysis(deps) {
         );
         const partialSamples = [];
         const useOutlinePipeline = deps.activeTool === "effects";
-        const analyzeVideo = useOutlinePipeline
-          ? analyzingObject ? analyzeObjectOutlineVideo : analyzePersonOutlineVideo
-          : analyzeVideoVisualTrack;
+        let analyzeVideo = analyzeVideoVisualTrack;
+        if (useOutlinePipeline) {
+          const { analyzeObjectOutlineVideo, analyzePersonOutlineVideo } = await import("../lib/personOutlineAnalysis.js");
+          analyzeVideo = analyzingObject ? analyzeObjectOutlineVideo : analyzePersonOutlineVideo;
+        }
         const result = await analyzeVideo({
           src: source,
           duration,
@@ -189,7 +186,7 @@ export function useVisionAnalysis(deps) {
       } else {
         const blob = await captureVisualFrame({ src: source, type, maxDimension: 1024, outputType: "image/png", quality: 0.92, signal: controller.signal });
         const result = analyzingObject && deps.activeTool === "effects"
-          ? await analyzeObjectOutlineImage({
+          ? await (await import("../lib/personOutlineAnalysis.js")).analyzeObjectOutlineImage({
               blob,
               signal: controller.signal,
               onProgress,

@@ -1,15 +1,3 @@
-import {
-  ALL_FORMATS,
-  BlobSource,
-  BufferTarget,
-  CanvasSink,
-  CanvasSource,
-  Input,
-  Output,
-  UrlSource,
-  WebMOutputFormat,
-  AudioBufferSource,
-} from "mediabunny";
 import { getVisualSourceTime } from "./visualEffects.js";
 import { prepareEmbeddedVideoAudio } from "./embeddedVideoAudioExport.js";
 import { mixOfflineAudio } from "./audioExport.js";
@@ -188,6 +176,8 @@ export async function openLineArtSource(segment, signal, maxEdge = 1080) {
       },
     };
   }
+  const { ALL_FORMATS, BlobSource, CanvasSink, Input, UrlSource } = await import("mediabunny");
+  checkAbort(signal);
   const input = new Input({
     source:
       segment.blob instanceof Blob ? new BlobSource(segment.blob) : new UrlSource(segment.src),
@@ -260,6 +250,8 @@ export async function renderLineArtAsset({ segment, options, signal, onProgress 
     const duration = Math.max(0.05, Number(segment.duration) || 3),
       fps = 24,
       count = Math.ceil(duration * fps);
+    const { AudioBufferSource, BufferTarget, CanvasSource, Output, WebMOutputFormat } = await import("mediabunny");
+    checkAbort(signal);
     const target = new BufferTarget();
     output = new Output({ format: new WebMOutputFormat(), target });
     const video = new CanvasSource(canvas, {

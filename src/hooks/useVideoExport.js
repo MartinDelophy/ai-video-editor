@@ -12,8 +12,6 @@ import {
   sanitizeExportFileName,
 } from "../lib/exportSettings.js";
 import { downloadBlob, exportBrowserVideo, transcodeWebmToMp4 } from "../lib/media.js";
-import { exportOfflineVideo } from "../lib/offlineVideoExport.js";
-import { prepareEditorComposition } from "../lib/editorComposition.js";
 import { exportAudioMix } from "../lib/audioExport.js";
 import { serializeSrt } from "../lib/subtitles.js";
 import {
@@ -160,6 +158,8 @@ export function useVideoExport(d) {
         }
         return { fileName, extension, byteSize: blob.size, mimeType: blob.type, sidecars };
       };
+      const { prepareEditorComposition } = await import("../lib/editorComposition.js");
+      throwIfExportAborted(signal);
       const exportOptions = await prepareEditorComposition(d, {
         exportSettings, exportRange, exportAudio, burnCaptions, signal, onProgress: progress,
       });
@@ -190,6 +190,7 @@ export function useVideoExport(d) {
         video = await exportBrowserVideo(exportOptions);
         actualPipeline = "compatible";
       } else try {
+        const { exportOfflineVideo } = await import("../lib/offlineVideoExport.js");
         video = await exportOfflineVideo(exportOptions);
         actualPipeline = "deterministic";
       } catch (offlineError) {

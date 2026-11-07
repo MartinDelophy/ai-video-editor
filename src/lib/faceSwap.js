@@ -1,10 +1,3 @@
-import {
-  ALL_FORMATS,
-  BlobSource,
-  CanvasSink,
-  Input,
-} from "mediabunny";
-
 const SOURCE_TEMPLATE = [
   [38.2946, 51.6963],
   [73.5318, 51.5014],
@@ -536,6 +529,8 @@ async function createFrameReader(blob, times, signal) {
   if (typeof VideoDecoder === "undefined") return null;
   let input;
   try {
+    const { ALL_FORMATS, BlobSource, CanvasSink, Input } = await import("mediabunny");
+    throwIfAborted(signal);
     input = new Input({ source: new BlobSource(blob), formats: ALL_FORMATS });
     const track = await input.getPrimaryVideoTrack();
     if (!track || !(await track.canDecode())) return null;

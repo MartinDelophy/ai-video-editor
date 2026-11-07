@@ -1,5 +1,3 @@
-import { prepareEditorComposition } from "./editorComposition.js";
-import { renderOfflineFrames } from "./offlineVideoExport.js";
 import { mixOfflineAudio } from "./audioExport.js";
 import { encodeAudioBufferAsWav } from "./media.js";
 import { ensureCaptionFontLoaded, resolveCaptionStyleForSegment } from "./captionFonts.js";
@@ -67,11 +65,15 @@ export async function sampleEditorMedia(d, input, { signal } = {}) {
   }
   const rangeStart = input.audio?.start ?? times[0] ?? 0;
   const rangeDuration = input.audio?.duration ?? Math.max(0.001, (times.at(-1) ?? rangeStart) - rangeStart);
+  const { prepareEditorComposition } = await import("./editorComposition.js");
+  throwIfExportAborted(signal);
   const options = await prepareEditorComposition(d, {
     exportSettings: { width, height }, exportRange: { start: rangeStart, end: rangeStart + rangeDuration, duration: rangeDuration },
     exportAudio: Boolean(input.audio), burnCaptions, signal,
   });
-  const frames = times.length ? await renderOfflineFrames(options, times) : [];
+  const frames = times.length
+    ? await (await import("./offlineVideoExport.js")).renderOfflineFrames(options, times)
+    : [];
   let audio;
   if (input.audio) {
     const mixed = await mixOfflineAudio(options);

@@ -4,8 +4,7 @@ import { getVisualSourceTime } from "./visualEffects.js";
 import { getVisualSegmentTimeline } from "./timeline.js";
 import { seekVideoFrame, getVisualDimensions } from "./media.js";
 import { faceSourceKey, resolveFaceAttachmentPose } from "./faceAttachments.js";
-export const FACE_EFFECT_IDS = Object.freeze(["cat-ears", "devil-horns"]);
-export const isFaceEffect = (clip) => FACE_EFFECT_IDS.includes(clip?.effect);
+export { FACE_EFFECT_IDS, isFaceEffect } from "./faceEffectKinds.js";
 const ANALYSIS_VERSION = 9;
 export function faceAnalysisKey(clip, segments) {
   const ranges = getVisualSegmentTimeline(segments);

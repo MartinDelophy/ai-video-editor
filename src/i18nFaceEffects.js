@@ -224,5 +224,22 @@ const rows = {
     "วิเคราะห์เอฟเฟกต์ใบหน้าให้เสร็จก่อนส่งออก",
   ],
 };
-export const faceEffectCopy = (language) =>
-  Object.fromEntries(keys.map((key, i) => [key, (rows[language] || rows.en)[i]]));
+const catFaceNames = {
+  zh: "猫脸",
+  en: "Cat face",
+  ja: "猫フェイス",
+  ko: "고양이 얼굴",
+  es: "Cara de gato",
+  fr: "Visage de chat",
+  de: "Katzengesicht",
+  pt: "Rosto de gato",
+  th: "หน้าแมว",
+  vi: "Mặt mèo",
+  ru: "Кошачья мордочка",
+  it: "Viso da gatto",
+  id: "Wajah kucing",
+};
+export const faceEffectCopy = (language) => ({
+  ...Object.fromEntries(keys.map((key, i) => [key, (rows[language] || rows.en)[i]])),
+  "cat-face": catFaceNames[language] || catFaceNames.en,
+});

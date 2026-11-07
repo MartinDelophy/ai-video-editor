@@ -2,6 +2,9 @@ import { getVisualSegmentTimeline } from "./timeline.js";
 import { getVisualSourceTime } from "./visualEffects.js";
 import { getFaceAttachmentAsset } from "./faceAttachmentAssets.js";
 import { resolveEffectParameters } from "./effectKeyframes.js";
+import { drawCatFace } from "./catFaceEffect.js";
+import { FACE_EFFECT_IDS, isFaceEffect } from "./faceEffectKinds.js";
+export { FACE_EFFECT_IDS, isFaceEffect } from "./faceEffectKinds.js";
 export function facePoseImageRatios(face, width, height) {
   const [left, right, nose] = face.five;
   const dx = (right.x - left.x) * width,
@@ -16,7 +19,7 @@ export function facePoseImageRatios(face, width, height) {
 export function resolveFaceAttachmentPose(face, width, height) {
   if (!face || face.score < 0.7 || face.five?.length !== 5) return null;
   const [left, right, nose] = face.five;
-  if (![left, right, nose].every((p) => Number.isFinite(p.x) && Number.isFinite(p.y))) return null;
+  if (!face.five.every((p) => Number.isFinite(p.x) && Number.isFinite(p.y))) return null;
   const dx = (right.x - left.x) * width,
     dy = (right.y - left.y) * height;
   const eyeDistance = Math.hypot(dx, dy);
@@ -58,6 +61,14 @@ export function resolveFaceAttachmentPose(face, width, height) {
     scale: spatialDistance,
     angle,
     yaw,
+    nose: { x: nose.x * width, y: nose.y * height },
+    mouth: face.five.slice(3).reduce(
+      (center, point) => ({
+        x: center.x + (point.x * width) / 2,
+        y: center.y + (point.y * height) / 2,
+      }),
+      { x: 0, y: 0 },
+    ),
   };
   if (face.poseReference) {
     // Optical flow updates head angles on every sample; sparse detector depth
@@ -84,6 +95,10 @@ export function drawFaceAttachment(
   { opacity = 1, scale = 1, color, yaw = 0, pitch = 0, rotation = 0 } = {},
 ) {
   if (!pose || !FACE_EFFECT_IDS.includes(kind)) return;
+  if (kind === "cat-face") {
+    drawCatFace(context, pose, { opacity, scale, color, yaw, pitch, rotation });
+    return;
+  }
   const image = getFaceAttachmentAsset(kind, color);
   if (!image) return;
   const ry = Math.max(-1.1, Math.min(1.1, pose.yawRadians + (yaw * Math.PI) / 180));
@@ -150,8 +165,6 @@ export function drawAttachmentSprite(
   context.restore();
 }
 
-export const FACE_EFFECT_IDS = Object.freeze(["cat-ears", "devil-horns"]);
-export const isFaceEffect = (clip) => FACE_EFFECT_IDS.includes(clip?.effect);
 export function faceSourceKey(segment) {
   return JSON.stringify([
     segment.id,

@@ -58,6 +58,7 @@ const EFFECT_PREVIEW_IMAGES = Object.freeze({
   chromatic: "/assets/effects/vfx/chromatic.webp",
   "cat-ears": "/assets/effects/vfx/cat-ears-base.webp",
   "devil-horns": "/assets/effects/vfx/devil-horns-base.webp",
+  "cat-face": "/assets/effects/vfx/cat-face-base.webp",
 });
 
 function TimelineEffectCard({ effect, label, onAdd, selected }) {
@@ -419,7 +420,7 @@ export function TimelineEffectInspector({
             />
           </label>
         ) : null}
-        {["glitch", "halo", "cat-ears", "devil-horns"].includes(clip.effect) ? (
+        {["glitch", "halo"].includes(clip.effect) || isFaceEffect(clip) ? (
           <label className="effect-color-field">
             {c.color}
             {keyButton("color", c.color)}

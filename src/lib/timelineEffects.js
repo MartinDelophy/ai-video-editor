@@ -1,6 +1,7 @@
 import { resolveEffectParameters } from "./effectKeyframes.js";
 import { MAX_TIMELINE_DURATION_SECONDS } from "../config/editor.js";
 import { normalizeClickRippleEffect } from "./clickRippleEffect.js";
+import { isFaceEffect } from "./faceEffectKinds.js";
 
 export const TIMELINE_EFFECT_IDS = Object.freeze([
   "ripple",
@@ -13,6 +14,7 @@ export const TIMELINE_EFFECT_IDS = Object.freeze([
   "chromatic",
   "cat-ears",
   "devil-horns",
+  "cat-face",
 ]);
 export const EFFECT_DRAG_TYPE = "application/x-timeline-effect";
 const finite = (value, fallback) => (Number.isFinite(Number(value)) ? Number(value) : fallback);
@@ -31,9 +33,9 @@ export function normalizeEffectClips(items) {
         ),
       ),
       sourceOffset: Math.max(0, finite(item.sourceOffset, 0)),
-      alignmentYaw: Math.max(-45, Math.min(45,finite(item.alignmentYaw,0))),
-      alignmentPitch: Math.max(-30, Math.min(30,finite(item.alignmentPitch,0))),
-      alignmentRoll: Math.max(-45, Math.min(45,finite(item.alignmentRoll,0))),
+      alignmentYaw: Math.max(-45, Math.min(45, finite(item.alignmentYaw, 0))),
+      alignmentPitch: Math.max(-30, Math.min(30, finite(item.alignmentPitch, 0))),
+      alignmentRoll: Math.max(-45, Math.min(45, finite(item.alignmentRoll, 0))),
       intensity: Math.max(0, Math.min(1, finite(item.intensity, 0.5))),
       color: /^#[0-9a-f]{6}$/i.test(item.color) ? item.color : "#35ead9",
       ripple: normalizeClickRippleEffect({ ...item.ripple, enabled: true }),
@@ -51,12 +53,14 @@ export function createEffectClip(effect, start, duration = 3) {
       start,
       duration,
       id: crypto.randomUUID(),
-      intensity: ["cat-ears","devil-horns"].includes(effect) ? (0.86-0.7)/0.6 : 0.5,
+      intensity: effect !== "cat-face" && isFaceEffect({ effect }) ? (0.86 - 0.7) / 0.6 : 0.5,
       ...(effect === "cat-ears"
         ? { color: "#d4b3e7" }
-        : effect === "devil-horns"
-          ? { color: "#a51538" }
-          : {}),
+        : effect === "cat-face"
+          ? { color: "#df8e9f" }
+          : effect === "devil-horns"
+            ? { color: "#a51538" }
+            : {}),
     },
   ])[0];
 }
@@ -82,7 +86,7 @@ export function drawTimelineEffects(ctx, canvas, clips, time, drawRipple) {
     const clip = resolveEffectParameters(rawClip, time);
     const t = time - clip.start + (clip.sourceOffset || 0),
       amount = clip.intensity;
-    if (clip.effect === "cat-ears" || clip.effect === "devil-horns") continue;
+    if (isFaceEffect(clip)) continue;
     ctx.save();
     if (clip.effect === "ripple")
       drawRipple(ctx, canvas, { ...clip.ripple, enabled: true, color: clip.color }, t);

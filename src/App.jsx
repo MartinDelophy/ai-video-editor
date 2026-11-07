@@ -380,6 +380,32 @@ export function App({ hostSession = null }) {
     trackVisibility, visionRecords, visualSegments, visualType, visualOverlaySegments,
   });
   const previewPlaybackSrc = useVideoProxySource(previewVisualSegment, previewVisualSrc, isPlaying || exporting);
+  // Alternate two native players at cuts. Adjacent splits of one continuous
+  // source stay on the same player, and each retired player warms the next cut.
+  const primaryPreviewKeys = useMemo(() => {
+    const keys = new Map();
+    let previous;
+    let slot = 1;
+    for (const segment of visualSegments) {
+      const continuous = segment.type === "video" && previous?.type === "video" && previous.src === segment.src
+        && Math.abs(getVisualSourceTime(previous, previous.duration) - getVisualSourceTime(segment, 0)) < 0.002;
+      if (!continuous) slot = 1 - slot;
+      keys.set(segment.id, slot);
+      previous = segment;
+    }
+    return keys;
+  }, [visualSegments]);
+  const nextPreviewSegment = previewVisualSegmentIndex >= 0 ? visualSegments[previewVisualSegmentIndex + 1] : null;
+  const currentPreviewKey = primaryPreviewKeys.get(previewVisualSegment?.id);
+  const nextPreviewKey = primaryPreviewKeys.get(nextPreviewSegment?.id);
+  const nextPreviewVideo = nextPreviewKey !== currentPreviewKey && nextPreviewSegment?.type === "video"
+    && !nextPreviewSegment.preparing ? nextPreviewSegment : null;
+  const previewProxyAssets = useMemo(() => [...userAssets, ...visualSegments, ...visualOverlaySegments],
+    [userAssets, visualSegments, visualOverlaySegments]);
+  const overlayPreviewQueue = useMemo(() => visualOverlaySegments
+    .filter((item) => item.type === "video" && item.src && !item.hidden && !item.preparing)
+    .sort((a, b) => a.start - b.start), [visualOverlaySegments]);
+
   const previousTimelineContentDurationRef = useRef(estimatedDuration);
   useEffect(() => {
     const previousDuration = previousTimelineContentDurationRef.current;
@@ -1237,7 +1263,7 @@ export function App({ hostSession = null }) {
     audioRef, audioSegmentRefs, audioSegments, currentTime, currentTimeRef, estimatedDuration,
     isPlaying, musicDuration, musicSegments, musicRef, musicStart, musicUrl, musicVolume, pauseTimelineMedia, previewVideoRef,
     previewVisualSegment, previewVisualSourceTime, previewVisualSrc: previewPlaybackSrc, previewVisualType,
-    previewVisualRange,
+    previewVisualRange, previewVisualKey: currentPreviewKey,
     linkedSourceAudioSegments, setCurrentTime, setIsPlaying, setPreviewVideoMediaTime, sourceAudioDuration,
     sourceAudioLinked,
     sourceAudioRef, sourceAudioStart, sourceAudioUrl, sourceAudioVolume, sourceAudioSpatialEffect, sourceAudioSpatialAmount, timelineDuration,
@@ -1987,9 +2013,13 @@ export function App({ hostSession = null }) {
           onPreviewVideoTimeUpdate={previewVisionBaseAnalysis?.kind === "video-timeline" ? setPreviewVideoMediaTime : undefined}
           previewVisualSrc={previewVisualSrc}
           previewPlaybackSrc={previewPlaybackSrc}
-          proxyAssets={[...userAssets, ...visualSegments, ...visualOverlaySegments]}
+          proxyAssets={previewProxyAssets}
           proxyBusy={isPlaying || exporting}
           previewVisualSegment={previewVisualSegment}
+          primaryPreviewKey={currentPreviewKey}
+          nextPreviewVideo={nextPreviewVideo}
+          nextPreviewKey={nextPreviewKey}
+          overlayPreviewQueue={overlayPreviewQueue}
           previewVisualRenderSrc={previewVisualRenderSrc}
           previewVisionMaskUrl={previewVisionMaskUrl}
           previewVisualType={previewVisualType}

@@ -71,7 +71,11 @@ export function TimelineEffectPreview({
         // the actual composition frame, which is also the export aspect ratio.
         const composite = active.some(isCompositionEffect);
         const expensive = composite || active.some((clip) => clip.effect === "ink-print");
-        if (expensive && d.isPlaying && now - lastPaint < 31) {
+        const previous = lastDraw?.data;
+        const sameScene = previous?.effects?.id === d.effects?.id
+          && previous?.overlays.length === d.overlays.length
+          && d.overlays.every((overlay, index) => overlay.id === previous.overlays[index].id);
+        if (expensive && d.isPlaying && sameScene && now - lastPaint < 31) {
           frame = requestAnimationFrame(draw);
           return;
         }
@@ -86,9 +90,12 @@ export function TimelineEffectPreview({
         if (canvas.height !== height) canvas.height = height;
         const overlayLayers = composite ? [...shell.querySelectorAll("[data-composition-overlay]")] : [];
         const overlaySources = overlayLayers.map((layer) => layer.querySelector(":scope > video, :scope > img:not(.visual-overlay-subject-cutout), :scope > .visual-overlay-subject-cutout"));
-        const overlayFrames = overlaySources.map((item) => item && (item.seeking ? "seeking" : item.currentTime ?? item.naturalWidth));
-        const compositeReady = composite && overlayLayers.length === d.overlays.length &&
-          overlaySources.every((item) => item && !item.seeking && (item.naturalWidth || item.readyState >= 2));
+        // An incoming panel can still be decoding on a slower device. Keep
+        // the complete canvas pipeline active and paint the other panels.
+        const overlayFrames = overlaySources.map((item) => item && (
+          !item.seeking && (item.naturalWidth || item.readyState >= 2) ? item.currentTime ?? item.naturalWidth : null
+        ));
+        const compositeReady = composite && overlayLayers.length === d.overlays.length && overlaySources.every(Boolean);
         if (
           lastDraw?.data === d &&
           lastDraw.assetRevision === faceAttachmentAssetRevision() &&
@@ -141,7 +148,7 @@ export function TimelineEffectPreview({
             const overlay = d.overlays.find((item) => String(item.id) === layer.dataset.compositionOverlay);
             return { ...overlay, start: (overlay.start || 0) - (d.time - d.localTime) };
           }) : [],
-          visualOverlaySources: compositeReady ? overlaySources : [],
+          visualOverlaySources: compositeReady ? overlaySources.map((item, index) => overlayFrames[index] !== null ? item : null) : [],
           timelineTime,
         });
         canvas.style.visibility = "visible";

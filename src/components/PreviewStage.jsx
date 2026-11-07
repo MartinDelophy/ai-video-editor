@@ -2,9 +2,9 @@ import { TimelineEffectPreview } from "./TimelineEffectPreview.jsx";
 import { ProxySourceAudio } from "./ProxySourceAudio.jsx";
 import { cancelVideoProxy } from "../lib/videoProxy.js";
 import { useVideoProxyController, useVideoProxySource } from "../hooks/useVideoProxy.js";
-import { requestLatestVideoFrame } from "../lib/videoFrameSync.js";
+import { cancelLatestVideoFrameRequest, requestLatestVideoFrame } from "../lib/videoFrameSync.js";
 import { useRelightCompare } from "../lib/videoRelighting.js";
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   CaretDown,
@@ -75,7 +75,47 @@ function ClickRippleOverlay({ effect: value, time }) {
   );
 }
 
-function VisualOverlayMedia({ overlay, src, style, isPlaying, localTime }) {
+// Keep the same native element from the initial seek through the cut.
+function PreparedPreviewVideo({ activeRef, prepareTime, src, onLoadedMetadata, ...props }) {
+  const elementRef = useRef(null);
+  const attach = useCallback((video) => {
+    elementRef.current = video;
+    if (activeRef) activeRef.current = video;
+  }, [activeRef]);
+  useLayoutEffect(() => {
+    const video = elementRef.current;
+    return () => {
+      video.pause();
+      cancelLatestVideoFrameRequest(video);
+      // Release a retired decoder after the node is removed. Strict Mode can
+      // also clean up effects while keeping the element mounted.
+      queueMicrotask(() => {
+        if (video.isConnected) return;
+        video.removeAttribute("src");
+        video.load();
+      });
+    };
+  }, []);
+  useLayoutEffect(() => {
+    if (prepareTime == null) return;
+    const video = elementRef.current;
+    video.pause();
+    cancelLatestVideoFrameRequest(video);
+    video.__timelinePreparedTime = undefined;
+    const prepare = () => {
+      if (video.readyState < 1 || !Number.isFinite(video.duration)) return;
+      const time = Math.min(prepareTime, Math.max(0, video.duration - 0.001));
+      video.__timelinePreparedTime = time;
+      if (Math.abs(video.currentTime - time) > 0.002) video.currentTime = time;
+    };
+    prepare();
+    video.addEventListener("loadedmetadata", prepare);
+    return () => video.removeEventListener("loadedmetadata", prepare);
+  }, [prepareTime, src]);
+  return <video {...props} ref={attach} src={src} onLoadedMetadata={onLoadedMetadata} />;
+}
+
+function VisualOverlayMedia({ overlay, src, style, isPlaying, localTime, standby = false }) {
   const playbackSrc = useVideoProxySource(overlay, src, isPlaying);
   const videoRef = useRef(null);
   const imageRef = useRef(null);
@@ -90,21 +130,25 @@ function VisualOverlayMedia({ overlay, src, style, isPlaying, localTime }) {
   const [decodedFrameRevision, setDecodedFrameRevision] = useState(0);
   useEffect(() => {
     const video = videoRef.current;
-    if (!video || overlay.type !== "video") return;
+    if (!video || standby || overlay.type !== "video") return;
     const sync = () => {
       const sourceTime = getVisualSourceTime(overlay, localTime);
-      video.playbackRate = getVisualPlaybackRateAtTime(overlay, localTime);
-      if (Number.isFinite(video.duration) && Math.abs(video.currentTime - sourceTime) > (isPlaying ? 0.12 : 0.001)) {
-        video.currentTime = Math.min(sourceTime, Math.max(0, video.duration - 0.01));
+      const rate = getVisualPlaybackRateAtTime(overlay, localTime);
+      if (video.playbackRate !== rate) video.playbackRate = rate;
+      const tolerance = isPlaying ? Math.max(0.1, rate * 0.12) : 0.002;
+      // Do not restart an unfinished decode each time the timeline advances.
+      if (Number.isFinite(video.duration) && Math.abs(video.currentTime - sourceTime) > tolerance
+        && (!video.seeking || !isPlaying)) {
+        requestLatestVideoFrame(video, Math.min(sourceTime, Math.max(0, video.duration - 0.001)));
       }
       setTimelineAudioGain(video, overlay.volume ?? 1, overlay.spatialEffect, overlay.spatialAmount);
-      if (isPlaying) requestTimelineMediaPlay(video);
-      else video.pause();
+      if (isPlaying && video.paused) requestTimelineMediaPlay(video);
+      else if (!isPlaying && !video.paused) video.pause();
     };
     video.addEventListener("loadedmetadata", sync);
     sync();
     return () => video.removeEventListener("loadedmetadata", sync);
-  }, [isPlaying, localTime, overlay, src, playbackSrc]);
+  }, [isPlaying, localTime, overlay, src, playbackSrc, standby]);
   useEffect(() => {
     if (!depthRenderActive || !canvasRef.current) return undefined;
     let canceled = false;
@@ -127,9 +171,15 @@ function VisualOverlayMedia({ overlay, src, style, isPlaying, localTime }) {
   }, [depthEffect, depthRenderActive, depthUrl, overlay.depthAnalysis?.nextDepthUrl, overlay.depthAnalysis?.depthMix, localTime, overlay.type, parallaxActive, parallaxEffect, style?.filter, decodedFrameRevision]);
   return <>
     {overlay.type === "video"
-      ? <video ref={videoRef} onError={() => { if (playbackSrc !== src) cancelVideoProxy(src); }} onSeeked={() => setDecodedFrameRevision((revision) => revision + 1)} onLoadedData={() => setDecodedFrameRevision((revision) => revision + 1)} src={playbackSrc} crossOrigin="anonymous" muted={playbackSrc !== src || overlay.muted === true} playsInline preload={isPlaying ? "auto" : "metadata"} style={{ ...style, opacity: depthRenderActive ? 0 : style?.opacity }} />
+      ? <PreparedPreviewVideo activeRef={standby ? null : videoRef} prepareTime={standby ? getVisualSourceTime(overlay, 0) : null}
+          onError={() => { if (playbackSrc !== src) cancelVideoProxy(src); }}
+          onSeeked={depthRenderActive ? () => setDecodedFrameRevision((revision) => revision + 1) : undefined}
+          onLoadedData={depthRenderActive ? () => setDecodedFrameRevision((revision) => revision + 1) : undefined}
+          src={playbackSrc} crossOrigin="anonymous" muted={standby || playbackSrc !== src || overlay.muted === true}
+          playsInline preload={isPlaying || standby ? "auto" : "metadata"}
+          style={{ ...style, opacity: depthRenderActive ? 0 : style?.opacity }} />
       : <img ref={imageRef} src={src} alt="" crossOrigin="anonymous" draggable={false} style={{ ...style, opacity: depthRenderActive ? 0 : style?.opacity }} />}
-    {overlay.type === "video" && playbackSrc !== src ? <ProxySourceAudio source={src} segment={overlay} videoRef={videoRef} localTime={localTime} isPlaying={isPlaying} muted={overlay.muted === true} /> : null}
+    {!standby && overlay.type === "video" && playbackSrc !== src ? <ProxySourceAudio source={src} segment={overlay} videoRef={videoRef} localTime={localTime} isPlaying={isPlaying} muted={overlay.muted === true} /> : null}
     {depthRenderActive ? <canvas ref={canvasRef} className="cinematic-depth-preview-canvas photo-parallax-preview-canvas" /> : null}
   </>;
 }
@@ -146,6 +196,10 @@ export function PreviewStage({
   onPreviewVideoTimeUpdate,
   previewVisualSrc,
   previewVisualSegment,
+  primaryPreviewKey,
+  nextPreviewVideo,
+  nextPreviewKey,
+  overlayPreviewQueue = [],
   previewVisualRenderSrc,
   previewVisionMaskUrl = "",
   previewVisualType,
@@ -225,6 +279,23 @@ export function PreviewStage({
   const proxy = useVideoProxyController(proxyAssets, proxyBusy);
   const transitionPlaybackSrc = useVideoProxySource(previewTransition?.next, previewTransition?.next?.src || "", isPlaying);
   const playbackSrc = previewPlaybackSrc || previewVisualSrc;
+  const nextPlaybackSrc = useVideoProxySource(nextPreviewVideo, nextPreviewVideo?.src || "", isPlaying);
+  const standbyPlaybackSrc = nextPreviewVideo?.src === previewVisualSrc ? playbackSrc : nextPlaybackSrc;
+  const previewPlayers = [];
+  if (previewVisualType === "video") previewPlayers.push({ key: primaryPreviewKey, src: playbackSrc, standby: false });
+  if (nextPreviewVideo && standbyPlaybackSrc) previewPlayers.push({ key: nextPreviewKey, src: standbyPlaybackSrc, standby: true });
+  previewPlayers.sort((a, b) => (a.key ?? 0) - (b.key ?? 0));
+  // Limit the number of idle decoders even for a project with many overlays.
+  const upcomingOverlays = [];
+  const overlayDecoderSlots = 3 - visualOverlays.filter((overlay) => overlay.type === "video").length;
+  for (const overlay of overlayPreviewQueue) {
+    if (overlay.start <= currentTime) continue;
+    if (overlay.start - currentTime > 0.85 || upcomingOverlays.length >= overlayDecoderSlots) break;
+    upcomingOverlays.push(overlay);
+  }
+  const standbyOverlays = new Set(upcomingOverlays.map(({ id }) => id));
+  const previewOverlays = [...visualOverlays, ...upcomingOverlays].sort((a, b) => (a.layer || 1) - (b.layer || 1));
+
   const previewImageRef = useRef(null);
   const smartBackgroundVideoRef = useRef(null);
   const depthCanvasRef = useRef(null);
@@ -263,6 +334,9 @@ export function PreviewStage({
     if (sourceVideo.paused) backgroundVideo.pause();
     else void backgroundVideo.play().catch(() => {});
   };
+  useLayoutEffect(() => {
+    if (smartContainActive) syncSmartBackgroundVideo(previewVideoRef.current);
+  }, [smartContainActive, primaryPreviewKey, playbackSrc, previewVideoRef]);
   const visualTransform = resolveVisualTransform(visualEffects?.keyframes, visualLocalTime, visualEffects?.baseTransform);
   const visualAnimation = resolveVisualClipAnimation(visualEffects?.animation, visualLocalTime, visualEffects?.duration);
   const visualMask = visualEffects?.mask ?? {};
@@ -597,7 +671,8 @@ export function PreviewStage({
   }, [
     onPreviewVideoTimeUpdate,
     previewVideoRef,
-    previewVisualSrc,
+    playbackSrc,
+    primaryPreviewKey,
     previewVisualType,
     isFocusPreviewOpen,
   ]);
@@ -806,17 +881,22 @@ export function PreviewStage({
                   crossOrigin="anonymous"
                   style={{ ...visualTransformStyle, opacity: depthRenderActive ? 0 : visualTransformStyle.opacity, filter: selectedFilterCss, objectFit: activeObjectFit, objectPosition: activeObjectPosition, background: smartContainActive ? "transparent" : undefined }}
                 /> : null}
-                {previewVisualType === "video" ? <video
-                  key={playbackSrc}
-                  ref={previewVideoRef}
-                  className="preview-video"
-                  onError={() => { if (playbackSrc !== previewVisualSrc) proxy.cancel(previewVisualSrc); }}
-                  src={playbackSrc}
+                {previewPlayers.map(({ key, src, standby }) => <PreparedPreviewVideo
+                  key={`${key ?? "primary"}:${src}`}
+                  activeRef={standby ? null : previewVideoRef}
+                  prepareTime={standby ? getVisualSourceTime(nextPreviewVideo, 0) : null}
+                  className={standby ? "preview-warm-video" : "preview-video"}
+                  aria-hidden={standby ? true : undefined}
+                  onError={() => {
+                    const original = standby ? nextPreviewVideo.src : previewVisualSrc;
+                    if (src !== original) proxy.cancel(original);
+                  }}
+                  src={src}
                   crossOrigin="anonymous"
-                  muted={playbackSrc !== previewVisualSrc || previewVisualMuted}
+                  muted={standby || src !== previewVisualSrc || previewVisualMuted}
                   playsInline
                   preload="auto"
-                  onLoadedMetadata={(event) => {
+                  onLoadedMetadata={standby ? undefined : (event) => {
                     // Entering/leaving the focus portal mounts a new media element.
                     // Restore its source clock and playback even when src/isPlaying
                     // have not changed, so parent synchronization effects stay valid.
@@ -840,11 +920,11 @@ export function PreviewStage({
                       },
                     });
                   }}
-                  onTimeUpdate={(event) => {
+                  onTimeUpdate={standby ? undefined : (event) => {
                     syncSmartBackgroundVideo(event.currentTarget);
                     if (!event.currentTarget.seeking && !event.currentTarget.__timelineFramePending) onPreviewVideoTimeUpdate?.(event.currentTarget.currentTime);
                   }}
-                  onSeeked={(event) => {
+                  onSeeked={standby ? undefined : (event) => {
                     setDecodedFrameRevision((revision) => revision + 1);
                     syncSmartBackgroundVideo(event.currentTarget);
                     // Native seek completion is sufficient to resume decoding,
@@ -858,8 +938,9 @@ export function PreviewStage({
                     event.currentTarget.__timelineFramePending = false;
                     if (latestPlaybackRef.current.isPlaying && latestPlaybackRef.current.trackVisibility.image !== false) requestTimelineMediaPlay(event.currentTarget);
                   }}
-                  style={{
+                  style={standby ? { visibility: "hidden", pointerEvents: "none" } : {
                     ...visualTransformStyle, opacity: depthRenderActive ? 0 : visualTransformStyle.opacity, filter: selectedFilterCss, objectFit: activeObjectFit, objectPosition: activeObjectPosition, background: smartContainActive ? "transparent" : undefined,
+                    zIndex: smartContainActive ? 1 : undefined,
                     WebkitMaskImage: previewVisionMaskUrl ? `url("${previewVisionMaskUrl}")` : undefined,
                     maskImage: previewVisionMaskUrl ? `url("${previewVisionMaskUrl}")` : undefined,
                     WebkitMaskSize: previewVisionMaskUrl ? activeObjectFit : undefined,
@@ -869,7 +950,7 @@ export function PreviewStage({
                     WebkitMaskRepeat: previewVisionMaskUrl ? "no-repeat" : undefined,
                     maskRepeat: previewVisionMaskUrl ? "no-repeat" : undefined,
                   }}
-                /> : null}
+                />)}
                 {depthRenderActive ? <canvas ref={depthCanvasRef} className="cinematic-depth-preview-canvas photo-parallax-preview-canvas" style={visualTransformStyle} /> : null}
                 {showRemasterPreview ? <img
                   className="remaster-preview-frame"
@@ -899,7 +980,8 @@ export function PreviewStage({
               </div>
             ) : null}
             </div>
-            {[...visualOverlays].sort((left, right) => (left.layer || 1) - (right.layer || 1)).map((overlay) => {
+            {previewOverlays.map((overlay) => {
+              const standby = standbyOverlays.has(overlay.id);
               const localTime = Math.max(0, currentTime - (overlay.start || 0));
               const transform = resolveVisualOverlayTransform(overlay, localTime);
               const animation = resolveVisualClipAnimation(overlay.animation, localTime, overlay.duration);
@@ -970,8 +1052,12 @@ export function PreviewStage({
               const splitCell = normalizeSplitScreenRect(overlay.splitScreenRect);
               const splitClip = splitCell ? { clipPath: `inset(${splitCell.y * 100}% ${(1 - splitCell.x - splitCell.width) * 100}% ${(1 - splitCell.y - splitCell.height) * 100}% ${splitCell.x * 100}%)` } : undefined;
               return <Fragment key={overlay.id}>
-                <div className="visual-overlay-viewport" style={splitClip}>
-                <div className="visual-overlay-layer" data-composition-overlay={overlay.id} data-preview-track="overlay" data-preview-clip-id={overlay.id} tabIndex={0} aria-haspopup="menu" aria-label={overlay.name || t("previewMenuTitle")} style={style} onPointerDown={(event) => startOverlayTransform(event, "move", overlay)}>
+                <div className="visual-overlay-viewport" style={standby ? { visibility: "hidden", pointerEvents: "none" } : splitClip} aria-hidden={standby ? true : undefined}>
+                <div className="visual-overlay-layer" data-composition-overlay={standby ? undefined : overlay.id}
+                  data-preview-track={standby ? undefined : "overlay"} data-preview-clip-id={standby ? undefined : overlay.id}
+                  tabIndex={standby ? -1 : 0} aria-haspopup={standby ? undefined : "menu"}
+                  aria-label={overlay.name || t("previewMenuTitle")} style={standby ? undefined : style}
+                  onPointerDown={standby ? undefined : (event) => startOverlayTransform(event, "move", overlay)}>
                   {overlaySubjectActive ? <SubjectMaterialFilterDefs effect={overlaySubjectEffect} filterId={overlaySubjectFilterId} /> : null}
                   {overlaySubjectActive
                     && overlaySubjectEffect.background.visible !== false
@@ -984,7 +1070,7 @@ export function PreviewStage({
                         }}
                       />
                     : null}
-                  {showOverlayOriginal ? <VisualOverlayMedia overlay={overlay} src={overlayRenderSrc} style={mediaStyle} isPlaying={isPlaying} localTime={localTime} /> : null}
+                  {showOverlayOriginal ? <VisualOverlayMedia overlay={overlay} src={overlayRenderSrc} style={mediaStyle} isPlaying={isPlaying} localTime={localTime} standby={standby} /> : null}
                   {overlaySubjectActive
                     && overlaySubjectEffect.background.visible !== false
                     && overlaySubjectEffect.background.mode === "blur"
@@ -1011,7 +1097,7 @@ export function PreviewStage({
                   <ClickRippleOverlay effect={overlay.clickRipple} time={localTime} />
                 </div>
                 </div>
-                {selected && !isPlaying ? <div
+                {selected && !isPlaying && !standby ? <div
                   className="visual-overlay-layer visual-overlay-controls is-selected"
                   data-preview-track="overlay" data-preview-clip-id={overlay.id}
                   style={{ left: style.left, top: style.top, width: style.width, height: style.height, transform: style.transform }}

@@ -49,6 +49,7 @@ export function createPlaybackControls(deps) {
       ? Math.max(0, duration - 0.001)
       : sourceTime;
     const targetTime = Math.max(0, Math.min(sourceTime, maxTime));
+    video.__timelineCatchUp = false;
     video.playbackRate = getVisualPlaybackRateAtTime(segment, localTime);
     if ("preservesPitch" in video) video.preservesPitch = true;
     if (Number.isFinite(targetTime)) {

@@ -1270,6 +1270,12 @@ button:disabled {
   white-space: nowrap;
 }
 
+.rail-tool[data-tool="effects"] span {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+}
+
 .rail-tool:hover,
 .rail-tool.is-active {
   color: #33e8d6;

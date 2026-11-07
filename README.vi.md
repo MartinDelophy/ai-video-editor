@@ -31,7 +31,7 @@ Người dùng tự chịu mọi trách nhiệm pháp lý phát sinh từ việc
 
 ## Cập nhật dự án
 
-- **2026-11-07** — Thêm khu vực hiệu ứng đặc biệt với tám hiệu ứng hình ảnh có thể xếp chồng, tai mèo pha lê và sừng hồng ngọc bám theo khuôn mặt. Kéo, cắt và đặt khung hình chính trên rãnh riêng. Kéo nút trên cung để căn vị trí; kéo dài đoạn vẫn giữ kết quả theo dõi cũ. Thẻ cùng kích thước với danh mục hiệu ứng, có xem trước khi rê chuột và xuất kết quả tương ứng. Thêm mặt mèo với mũi, râu và má hồng nhẹ; dùng chung dữ liệu theo dõi khuôn mặt và có thể kết hợp tai mèo.
+- **2026-11-07** — Thêm khu vực hiệu ứng đặc biệt với tám hiệu ứng hình ảnh có thể xếp chồng, tai mèo pha lê và sừng hồng ngọc bám theo khuôn mặt. Kéo, cắt và đặt khung hình chính trên rãnh riêng. Kéo nút trên cung để căn vị trí; kéo dài đoạn vẫn giữ kết quả theo dõi cũ. Thẻ cùng kích thước với danh mục hiệu ứng, có xem trước khi rê chuột và xuất kết quả tương ứng. Thêm mặt mèo với mũi, râu và má hồng nhẹ; dùng chung dữ liệu theo dõi khuôn mặt và có thể kết hợp tai mèo. Đổi tên mục và bảng xử lý thành Xử lý hình ảnh trong cả 13 ngôn ngữ, phân biệt rõ với hiệu ứng đặc biệt.
 - **2026-11-06** — Thêm thanh cuộn ngang mảnh có thể kéo cho dòng thời gian trên Windows.
 - **2026-11-06** — Chọn nhiều đoạn bằng Shift với dấu chọn đánh số; menu chuột phải xuất từng đoạn thành tệp riêng theo thứ tự, giữ thiết lập và đồng bộ âm thanh.
 - **2026-11-06** — Thêm xuất đoạn phim vào menu chuột phải của hình ảnh chính, lớp phủ và thanh thao tác di động; giữ nguồn gốc, ánh xạ tốc độ, phụ đề và âm thanh trong khoảng thời gian của đoạn. Hỗ trợ đủ 13 ngôn ngữ.

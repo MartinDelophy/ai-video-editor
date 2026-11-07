@@ -466,6 +466,22 @@ export const APP_LANGUAGES = [
   { id: "id", name: "Indonesian", nativeName: "Bahasa Indonesia", hint: "Bahasa Indonesia" },
 ];
 
+const CLIP_PROCESSING_COPY = {
+  zh: { effects: "画面处理", effectSelectClipHint: "在主画面或画中画轨道上选择图片或视频片段。" },
+  en: { effects: "Image & Video Tools", effectSelectClipHint: "Select an image or video clip on the main visuals or picture-in-picture track." },
+  ja: { effects: "映像処理", effectSelectClipHint: "メイン映像またはピクチャーインピクチャートラックで画像や動画のクリップを選択してください。" },
+  ko: { effects: "영상 처리", effectSelectClipHint: "메인 영상 또는 화면 속 화면 트랙에서 이미지나 동영상 클립을 선택하세요." },
+  es: { effects: "Imagen y vídeo", effectSelectClipHint: "Selecciona un clip de imagen o vídeo en la pista principal o en la de imagen en imagen." },
+  fr: { effects: "Image et vidéo", effectSelectClipHint: "Sélectionnez un clip image ou vidéo sur la piste principale ou sur la piste d’incrustation." },
+  de: { effects: "Bild und Video", effectSelectClipHint: "Wähle einen Bild- oder Videoclip auf der Hauptspur oder der Bild-in-Bild-Spur aus." },
+  pt: { effects: "Imagem e vídeo", effectSelectClipHint: "Selecione um clipe de imagem ou vídeo na faixa principal ou na faixa de imagem sobre imagem." },
+  th: { effects: "ปรับภาพ", effectSelectClipHint: "เลือกคลิปรูปภาพหรือวิดีโอบนแทร็กภาพหลักหรือแทร็กภาพซ้อนภาพ" },
+  vi: { effects: "Xử lý hình ảnh", effectSelectClipHint: "Chọn đoạn ảnh hoặc video trên rãnh hình ảnh chính hoặc rãnh hình trong hình." },
+  ru: { effects: "Обработка кадра", effectSelectClipHint: "Выберите изображение или видеоклип на основной дорожке или на дорожке «Картинка в картинке»." },
+  it: { effects: "Immagine e video", effectSelectClipHint: "Seleziona una clip immagine o video sulla traccia principale o su quella Picture-in-Picture." },
+  id: { effects: "Gambar dan video", effectSelectClipHint: "Pilih klip gambar atau video di trek visual utama atau trek gambar dalam gambar." },
+};
+
 const CLICK_RIPPLE_COPY = {
   zh: {
     clickRippleTitle: "节奏点击涟漪", clickRippleHint: "每次命中触发一圈折射水波并传播至整个画面。", clickRippleKicker: "节奏命中",
@@ -3771,7 +3787,7 @@ export function createTranslator(languageId) {
     AUTO_EDIT_RESULT_COPY, IMAGE_AI_CAPTION_COPY, PICTURE_IN_PICTURE_COPY, EFFECTS_WORKSPACE_COPY, VECTOR_STATE_COPY, VECTOR_DOCUMENT_COPY, VECTOR_ADVANCED_COPY,
     SRT_IMPORT_COPY, CLICK_RIPPLE_COPY,
   ].map((source) => ({ ...(source.en ?? {}), ...(source[languageId] ?? {}) })));
-  return (key, fallbackText) => (CLIP_EXPORT_COPY[languageId] ?? CLIP_EXPORT_COPY.en)[key] ?? (LINE_ART_COPY[languageId] ?? LINE_ART_COPY.en)[key] ?? (DESKTOP_MENU_COPY[languageId] ?? DESKTOP_MENU_COPY.en)[key] ?? (VIDEO_PROXY_COPY[languageId] ?? VIDEO_PROXY_COPY.en)[key] ?? (PREVIEW_ALIGNMENT_COPY[languageId] ?? PREVIEW_ALIGNMENT_COPY.en)[key] ?? (DETAIL_ENHANCEMENT_COPY[languageId] ?? DETAIL_ENHANCEMENT_COPY.en)[key] ?? (RELIGHTING_COPY[languageId] ?? RELIGHTING_COPY.en)[key] ?? (DEPTH_MAP_COPY[languageId] ?? DEPTH_MAP_COPY.en)[key] ?? (REPAIR_ITERATION_COPY[languageId] ?? REPAIR_ITERATION_COPY.en)[key] ?? (CAPTION_GROUPING_COPY[languageId] ?? CAPTION_GROUPING_COPY.en)[key] ?? (TIMELINE_GAIN_COPY[languageId] ?? TIMELINE_GAIN_COPY.en)[key] ?? pauseCopy[key] ?? audioExportCopy[key] ?? markerCopy[key] ?? reviewedCopy[key] ?? completionCopy[key] ?? coreLabelCopy[key] ?? repairCopy[key] ?? specializedCopy[key] ?? exportOptionsCopy[key] ?? EXPORT_OPTIONS_COPY.en[key] ?? exportExtraStatusCopy[key] ?? EXPORT_EXTRA_STATUS_COPY.en[key] ?? projectChromeCopy[key] ?? PROJECT_CHROME_COPY.en[key] ?? captionAudioLinkCopy[key] ?? CAPTION_AUDIO_LINK_COPY.en[key] ?? ttsBackendCopy[key] ?? TTS_BACKEND_COPY.en[key] ?? mobileStickerCopy[key] ?? MOBILE_STICKER_COPY.en[key] ?? mobileClipActionCopy[key] ?? MOBILE_CLIP_ACTION_COPY.en[key] ?? mobileDrawerCopy[key] ?? MOBILE_DRAWER_COPY.en[key] ?? srtImportCopy[key] ?? exportCopy[key] ?? EXPORT_RENDER_COPY.en[key] ?? assetPreviewCopy[key] ?? ASSET_PREVIEW_COPY.en[key] ?? assetDropCopy[key] ?? ASSET_DROP_COPY.en[key] ?? autoCaptionStatusCopy[key] ?? AUTO_CAPTION_STATUS_COPY.en[key] ?? copy[key] ?? fallback[key] ?? UI_COPY.zh[key] ?? fallbackText ?? key;
+  return (key, fallbackText) => (CLIP_PROCESSING_COPY[languageId] ?? CLIP_PROCESSING_COPY.en)[key] ?? (CLIP_EXPORT_COPY[languageId] ?? CLIP_EXPORT_COPY.en)[key] ?? (LINE_ART_COPY[languageId] ?? LINE_ART_COPY.en)[key] ?? (DESKTOP_MENU_COPY[languageId] ?? DESKTOP_MENU_COPY.en)[key] ?? (VIDEO_PROXY_COPY[languageId] ?? VIDEO_PROXY_COPY.en)[key] ?? (PREVIEW_ALIGNMENT_COPY[languageId] ?? PREVIEW_ALIGNMENT_COPY.en)[key] ?? (DETAIL_ENHANCEMENT_COPY[languageId] ?? DETAIL_ENHANCEMENT_COPY.en)[key] ?? (RELIGHTING_COPY[languageId] ?? RELIGHTING_COPY.en)[key] ?? (DEPTH_MAP_COPY[languageId] ?? DEPTH_MAP_COPY.en)[key] ?? (REPAIR_ITERATION_COPY[languageId] ?? REPAIR_ITERATION_COPY.en)[key] ?? (CAPTION_GROUPING_COPY[languageId] ?? CAPTION_GROUPING_COPY.en)[key] ?? (TIMELINE_GAIN_COPY[languageId] ?? TIMELINE_GAIN_COPY.en)[key] ?? pauseCopy[key] ?? audioExportCopy[key] ?? markerCopy[key] ?? reviewedCopy[key] ?? completionCopy[key] ?? coreLabelCopy[key] ?? repairCopy[key] ?? specializedCopy[key] ?? exportOptionsCopy[key] ?? EXPORT_OPTIONS_COPY.en[key] ?? exportExtraStatusCopy[key] ?? EXPORT_EXTRA_STATUS_COPY.en[key] ?? projectChromeCopy[key] ?? PROJECT_CHROME_COPY.en[key] ?? captionAudioLinkCopy[key] ?? CAPTION_AUDIO_LINK_COPY.en[key] ?? ttsBackendCopy[key] ?? TTS_BACKEND_COPY.en[key] ?? mobileStickerCopy[key] ?? MOBILE_STICKER_COPY.en[key] ?? mobileClipActionCopy[key] ?? MOBILE_CLIP_ACTION_COPY.en[key] ?? mobileDrawerCopy[key] ?? MOBILE_DRAWER_COPY.en[key] ?? srtImportCopy[key] ?? exportCopy[key] ?? EXPORT_RENDER_COPY.en[key] ?? assetPreviewCopy[key] ?? ASSET_PREVIEW_COPY.en[key] ?? assetDropCopy[key] ?? ASSET_DROP_COPY.en[key] ?? autoCaptionStatusCopy[key] ?? AUTO_CAPTION_STATUS_COPY.en[key] ?? copy[key] ?? fallback[key] ?? UI_COPY.zh[key] ?? fallbackText ?? key;
 }
 
 export function translateOptionName(languageId, name) {

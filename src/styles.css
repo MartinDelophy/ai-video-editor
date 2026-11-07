@@ -7989,7 +7989,9 @@ button:disabled {
 }
 
 .track-scroll.is-trimming,
-.timeline-ruler-canvas.is-trimming {
+.timeline-ruler-canvas.is-trimming,
+.track-scroll.is-revealing-playhead,
+.timeline-ruler-canvas.is-revealing-playhead {
   transition: none;
 }
 

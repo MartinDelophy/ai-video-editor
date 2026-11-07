@@ -56,6 +56,11 @@ export function useTimelinePlayhead(state) {
     };
     const position = (now) => {
       const current = stateRef.current;
+      if (revealRef.current) {
+        // A template can extend the track in the same commit as the seek.
+        trackWidth = track.getBoundingClientRect().width;
+        rulerWidth = ruler.getBoundingClientRect().width;
+      }
       if (current.isPlaying && !wasPlayingRef.current) suspendedRef.current = false;
       wasPlayingRef.current = current.isPlaying;
       const time = scrubTime ?? playbackTime(current, now);
@@ -93,7 +98,7 @@ export function useTimelinePlayhead(state) {
           animationKey = key;
         }
       }
-      if (current.isPlaying && mobile?.matches) {
+      if (mobile?.matches && (current.isPlaying || revealRef.current)) {
         scroll.scrollLeft = ratio * trackWidth;
         // Keep the sticky ruler in the same frame; its normal scroll listener
         // still publishes the lower-frequency viewport/thumbnail state.
@@ -103,18 +108,19 @@ export function useTimelinePlayhead(state) {
         const x = ratio * trackWidth;
         const width = scroll.clientWidth;
         const relative = x - scroll.scrollLeft;
-        if (revealRef.current || (current.isPlaying && !suspendedRef.current
+        const revealOutsideView = revealRef.current && (relative < 12 || relative >= width - 12);
+        if (revealOutsideView || (current.isPlaying && !suspendedRef.current
           && (relative < 0 || relative >= width * 0.85))) {
           scroll.scrollLeft = Math.max(0, Math.min(scroll.scrollWidth - width, x - width * 0.2));
           ruler.style.transform = `translateX(${-scroll.scrollLeft}px)`;
         }
-        revealRef.current = false;
         const outside = suspendedRef.current && (x < scroll.scrollLeft || x > scroll.scrollLeft + width);
         if (outside !== offscreenRef.current) {
           offscreenRef.current = outside;
           setShowReturnToPlayhead(outside);
         }
       }
+      revealRef.current = false;
       const ariaTime = Math.round(time);
       if (ariaTime !== lastAriaTime) {
         line.setAttribute("aria-valuenow", String(ariaTime));
@@ -175,6 +181,22 @@ export function useTimelinePlayhead(state) {
   useLayoutEffect(() => {
     syncRef.current?.();
   }, [state.currentTime, state.isPlaying, state.playbackDuration, state.timelineDuration]);
+
+  useLayoutEffect(() => {
+    if (!state.revealRequest) return undefined;
+    const track = state.trackScrollRef.current;
+    const ruler = state.rulerCanvasRef.current;
+    const elements = [track, ruler].filter(Boolean);
+    const stopReveal = () => elements.forEach((element) => element.classList.remove("is-revealing-playhead"));
+    // Read the final width, not a frame of the ruler's width animation.
+    elements.forEach((element) => element.classList.add("is-revealing-playhead"));
+    returnToPlayhead();
+    const frame = requestAnimationFrame(() => {
+      returnToPlayhead();
+      stopReveal();
+    });
+    return () => { cancelAnimationFrame(frame); stopReveal(); };
+  }, [state.revealRequest, state.trackScrollRef, state.rulerCanvasRef, returnToPlayhead]);
 
   return { playheadRef, rulerPlayheadRef, suspendPlayheadFollow, returnToPlayhead, showReturnToPlayhead };
 }

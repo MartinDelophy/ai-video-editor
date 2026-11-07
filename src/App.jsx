@@ -1,4 +1,4 @@
-import { createBeatTemplate, getBeatTemplateDuration } from "./lib/beatMontage.js";
+import { createBeatTemplate, getBeatTemplateDuration, isUntouchedTemplateSource } from "./lib/beatMontage.js";
 import { templateCopy } from "./i18nTemplates.js";
 import { getAutoRatioSourceKey } from "./lib/editorRuntime.js";
 import { useFaceAttachmentAnalysis } from "./hooks/useFaceAttachmentAnalysis.js";
@@ -92,7 +92,7 @@ import { useMiganRepair } from "./hooks/useMiganRepair.js";
 import { useDetailRestoration } from "./hooks/useDetailRestoration.js";
 import { useSmartDenoise } from "./hooks/useSmartDenoise.js";
 import { useGenerationPlugins } from "./hooks/useGenerationPlugins.js";
-import { getVisualAssetPayload, getVisualSegmentTimeline, getImageThumbnailCount, getVisualSegmentsTotal, normalizeTimedSegmentIds } from "./lib/timeline.js";
+import { getVisualAssetPayload, getVisualSegmentTimeline, getVisualSegmentIndexAtTime, getImageThumbnailCount, getVisualSegmentsTotal, normalizeTimedSegmentIds } from "./lib/timeline.js";
 import { getVisualSourceTime, normalizeVisualTransform, removeVisualPropertyKeyframe, updateVisualSegmentPlaybackRate, upsertVisualKeyframe, upsertVisualPropertyKeyframe } from "./lib/visualEffects.js";
 import { getVisualSpeedCurveTimelineProgress, updateVisualSegmentSpeedCurve } from "./lib/visualSpeedCurve.js";
 import { getLinkedSourceAudioEnd, getLinkedSourceAudioSegments, shouldMuteEmbeddedVideoAudio, sliceSourceAudioPeaks } from "./lib/sourceAudioSync.js";
@@ -219,6 +219,7 @@ export function App({ hostSession = null }) {
   const [exportError, setExportError] = useState(null);
   const [userAssets, setUserAssets] = useState([]);
   const [timelineMarkers, setTimelineMarkers] = useState([]);
+  const [playheadRevealRequest, setPlayheadRevealRequest] = useState(null);
   const [effectClips, setEffectClips] = useState([]);
   const [selectedEffectClipId, setSelectedEffectClipId] = useState("");
   const faceAttachments=useFaceAttachmentAnalysis({clips:effectClips,segments:visualSegments,setClips:setEffectClips,currentTime});
@@ -1638,10 +1639,20 @@ export function App({ hostSession = null }) {
   const templateTracksBlocked = ["image", "overlay", "effects"].some(
     (track) => trackLocks[track] || trackVisibility[track] === false,
   );
+  const shouldAppendBeatTemplate = (mainAsset) => {
+    if (!visualSegments.length) return false;
+    return visualSegments.length !== 1
+      || !isUntouchedTemplateSource(visualSegments[0], mainAsset)
+      || Boolean(visualOverlaySegments.length || effectClips.length || timelineMarkers.length
+        || captionSegments.length || stickerSegments.length || audioSegments.length || sourceAudioBlob
+        || musicBlob || script.trim() || selectedFilterId !== "none"
+        || Object.keys(visionRecords).length || Object.keys(depthRecords).length);
+  };
   const applyBeatTemplate = ({ assets, bpm, music }) => {
     if (templateTracksBlocked) return;
     const copy = templateCopy(activeLanguage);
-    const start = getVisualSegmentsTotal(visualSegments);
+    const previous = shouldAppendBeatTemplate(assets.main) ? visualSegments : [];
+    const start = getVisualSegmentsTotal(previous);
     if (start + getBeatTemplateDuration(bpm) > MAX_TIMELINE_DURATION_SECONDS) {
       notify(copy.tooLong);
       return;
@@ -1668,8 +1679,14 @@ export function App({ hostSession = null }) {
     setTimelineMarkers((items) => [...items, ...result.markers.filter((marker) => !existingBeatTimes.has(Math.round(marker.time * 1000)))]);
     setVisualOverlaySegments((items) => [...items, ...result.overlays]);
     setEffectClips((items) => [...items, ...result.effects]);
-    commitVisualSegments([...visualSegments, ...result.visualSegments], copy.applied, visualSegments.length);
-    seekTo(start, { immediate: true });
+    const selectedIndex = getVisualSegmentIndexAtTime(result.visualSegments, result.previewTime - start);
+    commitVisualSegments([...previous, ...result.visualSegments], copy.applied, previous.length + selectedIndex);
+    // Publish the new clock and the clips together. seekTo still sees the
+    // old timeline until React commits, and would clamp a newly appended time.
+    currentTimeRef.current = result.previewTime;
+    setCurrentTime(result.previewTime);
+    setPlayheadRevealRequest(result.visualSegments[0].id);
+    setShowFirstVisualGuide(false);
     changeMobilePanel("");
   };
   const desktopSelectionLocked = Boolean(trackLocks[selectedTrack]
@@ -1812,7 +1829,7 @@ export function App({ hostSession = null }) {
           selectedVisualSegment, selectedEffectSegment, effectAnalysis, effectRunning, effectProgress, effectPhase,
           effectsPanelMode, setEffectsPanelMode, cinematicDepth, photoParallaxDepth,
           effectClips, setEffectClips, selectedEffectClipId, setSelectedEffectClipId, currentTime,
-          visualSegments, templateTracksBlocked, applyBeatTemplate,
+          visualSegments, templateTracksBlocked, shouldAppendBeatTemplate, applyBeatTemplate,
           visualLocalTime, updateSelectedVisualEffects, updateSelectedSubjectEffect, updateSelectedClickRipple, removeSelectedSubjectEffect, miganRepair, hdRestoration, smartDenoise,
           mobilePanel, setMobilePanel: changeMobilePanel, applyAssetToTrack, handleGeneratedVector, generationPlugins,
         }} />
@@ -2146,6 +2163,7 @@ export function App({ hostSession = null }) {
       </section>
 
       <Timeline
+        playheadRevealRequest={playheadRevealRequest}
         exportClip={handleExportClip}
         exportSelectedClips={handleExportSelectedClips}
         exporting={exporting}

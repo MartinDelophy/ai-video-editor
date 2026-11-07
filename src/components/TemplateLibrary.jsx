@@ -65,7 +65,7 @@ function isReady(asset) {
   return asset.width > 0 && asset.height > 0 && (asset.type === "image" || asset.duration > 0);
 }
 
-export function TemplateLibrary({ language, draft, setDraft, visualSegments, userAssets, hasMusic, musicLocked, hasVisuals, blocked, onUpload, onApply }) {
+export function TemplateLibrary({ language, draft, setDraft, visualSegments, userAssets, hasMusic, musicLocked, shouldAppend, blocked, onUpload, onApply }) {
   const copy = templateCopy(language);
   const title = beatEffectCopy(language)[BEAT_MONTAGE_ID];
   const timelineAssets = new Map();
@@ -121,7 +121,7 @@ export function TemplateLibrary({ language, draft, setDraft, visualSegments, use
         {blocked ? <p role="status">{copy.locked}</p> : null}
         <button type="button" className="template-apply" disabled={blocked || !ready || !validBpm}
           onClick={() => onApply({ assets: { main, detail, alternate }, bpm, music })}>
-          {hasVisuals ? copy.append : copy.apply}
+          {shouldAppend(main) ? copy.append : copy.apply}
         </button>
       </div> : null}
     </section>

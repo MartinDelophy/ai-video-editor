@@ -149,7 +149,7 @@ export function EditorSidebar({ model: d }) {
           />
         ) : d.activeTool === "templates" ? (
           <TemplateLibrary language={d.activeLanguage} draft={templateDraft} setDraft={setTemplateDraft}
-            visualSegments={d.visualSegments} userAssets={d.userAssets} hasVisuals={d.visualSegments.length > 0}
+            visualSegments={d.visualSegments} userAssets={d.userAssets} shouldAppend={d.shouldAppendBeatTemplate}
             hasMusic={Boolean(d.musicBlob)} musicLocked={d.trackLocks.music}
             blocked={d.templateTracksBlocked} onUpload={d.handleFiles} onApply={d.applyBeatTemplate} />
         ) : d.activeTool === "plugins" ? (

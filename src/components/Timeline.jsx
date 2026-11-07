@@ -213,6 +213,7 @@ function getImageTimelineThumbnailCount({ duration, timelineDuration, contentWid
 }
 
 export function Timeline({
+  playheadRevealRequest,
   exportClip,
   exportSelectedClips,
   exporting = false,
@@ -1411,7 +1412,7 @@ export function Timeline({
   progressiveFilmstripStateRef.current = { currentTime, displayedVisualSegments, renderedVisualTimeline };
   const [trimScaleLock, setTrimScaleLock] = useState(null);
   const trimScaleLockRef = useRef(null);
-  const trimScrollSeekGuardUntilRef = useRef(0);
+  const mobileScrollSeekGuardUntilRef = useRef(0);
   const mobileRulerSchemeRef = useRef(null);
   const timelineZoomRef = useRef(timelineZoom);
   const wheelZoomFrameRef = useRef(0);
@@ -1422,9 +1423,13 @@ export function Timeline({
   const rulerViewportSyncRef = useRef(null);
   const rulerViewportRef = useRef(null);
   const rulerCanvasRef = useRef(null);
+  useLayoutEffect(() => {
+    if (playheadRevealRequest) mobileScrollSeekGuardUntilRef.current = performance.now() + 80;
+  }, [playheadRevealRequest]);
   const { playheadRef, rulerPlayheadRef, suspendPlayheadFollow, returnToPlayhead, showReturnToPlayhead } = useTimelinePlayhead({
     currentTime, currentTimeRef, isPlaying, timelineDuration, playbackDuration,
     visualPlaybackStartTimeRef, visualPlaybackStartedAtRef, trackScrollRef, rulerCanvasRef,
+    revealRequest: playheadRevealRequest,
   });
   const zoomReadoutRef = useRef(null);
   const pendingWheelDeltaRef = useRef(0);
@@ -1450,13 +1455,13 @@ export function Timeline({
       if (!(pixelsPerSecond > 0) || !(visibleDuration > 0)) return;
       const lock = { pixelsPerSecond, visibleDuration };
       trimScaleLockRef.current = lock;
-      trimScrollSeekGuardUntilRef.current = Number.POSITIVE_INFINITY;
+      mobileScrollSeekGuardUntilRef.current = Number.POSITIVE_INFINITY;
       mobileRulerSchemeRef.current = null;
       setTrimScaleLock(lock);
     };
     const endTrimScaleLock = () => {
       trimScaleLockRef.current = null;
-      trimScrollSeekGuardUntilRef.current = performance.now() + 80;
+      mobileScrollSeekGuardUntilRef.current = performance.now() + 80;
       setTrimScaleLock(null);
     };
     window.addEventListener(TIMELINE_TRIM_SCALE_START_EVENT, startTrimScaleLock);
@@ -1482,7 +1487,7 @@ export function Timeline({
       const state = mobileTimelineStateRef.current;
       if (
         trimScaleLockRef.current
-        || performance.now() < trimScrollSeekGuardUntilRef.current
+        || performance.now() < mobileScrollSeekGuardUntilRef.current
         || !window.matchMedia?.("(max-width: 760px)").matches
         || state?.isPlaying
         || state?.timelineDuration <= 0

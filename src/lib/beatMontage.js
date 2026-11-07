@@ -62,6 +62,28 @@ export function getBeatTemplateDuration(bpm) {
   return BEAT_TEMPLATE_SECONDS * MONTAGE_BPM / bpm;
 }
 
+export function isUntouchedTemplateSource(clip, asset) {
+  if (!clip?.src || !asset?.src || clip.type !== asset.type || clip.preparing) return false;
+  if (clip.assetId !== asset.id && clip.src !== asset.src) return false;
+  const originalDuration = clip.type === "video"
+    ? asset.trackFrameDuration || clip.trackFrameDuration
+    : 4; // The standard local image import duration.
+  const near = (a, b) => Math.abs(a - b) < 0.001;
+  if (!(originalDuration > 0) || !near(clip.duration, originalDuration)
+    || !near(clip.sourceDuration ?? clip.duration, originalDuration)
+    || !near(clip.sourceStart || 0, 0) || !near(clip.playbackRate ?? 1, 1)
+    || !near(clip.volume ?? 1, 1)) return false;
+  // Keep any edited clip in place, even if it is the only clip in the project.
+  return !(clip.keyframes?.length || clip.baseTransform || clip.splitScreenRect || clip.fitMode
+    || clip.speedCurve?.enabled || clip.sourceAudioDisabled || clip.muted || clip.audioSeparated
+    || clip.hidden || (clip.filterId && clip.filterId !== "none")
+    || (clip.mask?.type && clip.mask.type !== "none")
+    || (clip.transition?.id && clip.transition.id !== "none")
+    || clip.animation || clip.colorGrade || clip.smartFrame || clip.subjectEffect
+    || clip.clickRipple?.enabled || clip.cinematicDepth?.enabled || clip.photoParallax?.enabled
+    || (clip.spatialEffect && clip.spatialEffect !== "original"));
+}
+
 function templateShot(asset, duration, fraction) {
   const available = asset.type === "video" ? asset.sourceDuration ?? asset.duration : 0;
   const sourceDuration = Math.min(available, duration);
@@ -169,5 +191,8 @@ export function createBeatTemplate({ assets, bpm, start, frameRatio, firstLayer 
   }
   for (const time of [10.733, 13, 15.4]) mark(time, "amber");
   markers.sort((a, b) => a.time - b.time).forEach((marker, i) => { marker.title = String(i + 1); });
-  return { visualSegments, overlays, effects, markers, duration };
+  // Land just after the final entrance of the first set of panels, while all
+  // three are still on screen. Scale this time with the rest of the template.
+  const previewTime = at(intro + MONTAGE_DURATION * 0.89);
+  return { visualSegments, overlays, effects, markers, duration, previewTime };
 }

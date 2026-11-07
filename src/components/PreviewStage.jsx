@@ -1,3 +1,4 @@
+import { TimelineEffectPreview } from "./TimelineEffectPreview.jsx";
 import { ProxySourceAudio } from "./ProxySourceAudio.jsx";
 import { cancelVideoProxy } from "../lib/videoProxy.js";
 import { useVideoProxyController, useVideoProxySource } from "../hooks/useVideoProxy.js";
@@ -134,6 +135,7 @@ function VisualOverlayMedia({ overlay, src, style, isPlaying, localTime }) {
 }
 
 export function PreviewStage({
+  effectClips = [], effectVision = null,
   previewPlaybackSrc,
   proxyAssets = [],
   proxyBusy = false,
@@ -878,6 +880,7 @@ export function PreviewStage({
               </div>
             ) : null}
             {previewVisualType === "video" && playbackSrc !== previewVisualSrc && trackVisibility.image ? <ProxySourceAudio source={previewVisualSrc} segment={previewVisualSegment} videoRef={previewVideoRef} localTime={visualLocalTime} isPlaying={isPlaying} muted={previewVisualMuted} /> : null}
+            {effectClips.length > 0 && renderedVisualSrc && trackVisibility.image ? <TimelineEffectPreview clips={effectClips} time={currentTime} localTime={visualLocalTime} videoRef={previewVideoRef} imageRef={previewImageRef} type={previewVisualType} effects={visualEffects} fitMode={fitMode} filter={selectedFilter.css} vision={effectVision} depthRef={depthCanvasRef} shellRef={previewShellRef} transition={previewTransition} /> : null}
             {renderedVisualSrc && trackVisibility.image ? <ClickRippleOverlay effect={visualEffects?.clickRipple} time={visualLocalTime} /> : null}
             {renderedVisualSrc && trackVisibility.image && visualTransformEditable && !visualMaskEditable ? (
               <div className="visual-transform-box" data-preview-track="image" data-preview-clip-id={previewVisualSegment?.id} style={visualTransformBoxStyle} onPointerDown={(event) => startVisualTransform(event, "move")}>

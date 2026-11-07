@@ -42,11 +42,11 @@ Users are solely responsible for any legal liability arising from violations of 
 
 ## Project updates
 
+- **2026-11-07** — Added a separate Special Effects workspace with eight stackable picture effects plus tracked crystal cat ears and ruby horns. Drag, trim and keyframe effects on dedicated timeline lanes. Draggable alignment arcs adjust headwear, and extending a face effect reuses existing tracking. The catalog uses the Effects card sizes, with live hover previews and matching browser export.
 - **2026-11-06** — Added a slim draggable horizontal timeline scrollbar on Windows desktops.
 - **2026-11-06** — Shift-click visual clips to select multiple clips, with numbered selection badges and a right-click action that exports each selected clip to a separate numbered file in timeline order. Existing export settings, composition and audio timing are preserved.
 - **2026-11-06** — Added Export clip to Visuals and Overlay context menus and mobile clip actions. Exports the clip’s timeline interval with the current composition, original media, speed mapping, captions and audio; includes all 13 interface languages.
 - **2026-11-04** — Added Line art beside Depth map in Effects: adjustable detail, line weight and inversion with a live preview. Images become PNG assets and trimmed/speed-mapped videos become 24 fps WebM assets with source audio, saved to My assets without automatic insertion. Includes all 13 interface languages and mobile controls. Fixed playback when only picture-in-picture clips remain on the timeline.
-- **2026-11-03** — Added desktop File, Edit, Clip, View and Help menus wired to existing editing, preview, proxy and help actions, with keyboard navigation and all 13 interface languages. Phones and tablets retain the compact menu layout. Fixed undo/redo during media preparation, source-time preservation when splitting speed curves, and separated-audio playback synchronization. Keyboard menu focus is now assigned after the dropdown mounts. Proxy controls now live in View, with actual playback-source status, separate cache management, distinct icons across every menu, and a mobile sheet localized in all 13 languages.
 See the public [Roadmap](ROADMAP.md) for planned work, [Releases](https://github.com/MartinDelophy/ai-video-editor/releases) for shipped changes, and [Issues](https://github.com/MartinDelophy/ai-video-editor/issues) for focused tasks and bugs.
 
 ## What can it produce?

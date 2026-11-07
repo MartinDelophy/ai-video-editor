@@ -1,3 +1,4 @@
+import { ensureFaceAttachmentAssets } from "./faceAttachmentAssets.js";
 import {
   AudioSample,
   AudioSampleSource,
@@ -318,6 +319,7 @@ async function renderCompositionAt(context, canvas, prepared, options, time) {
   }));
   try {
     drawPreviewFrame(context, frameVisual, canvas, {
+      effectClips: options.effectClips, timelineTime: time,
       subtitle: caption, fitMode: options.fitMode, filter: options.filter,
       captionsEnabled: options.captionsEnabled, captionPosition: options.captionPosition,
       captionPlacement: resolveCaptionSegmentPlacement(activeCaptionSegment, options.captionPlacement),
@@ -351,6 +353,7 @@ function disposeComposition(prepared) {
 
 /** Render bounded review images through exactly the exported composition. */
 export async function renderOfflineFrames(options, times) {
+  await ensureFaceAttachmentAssets(options.effectClips || []);
   throwIfExportAborted(options.signal);
   const canvas = document.createElement("canvas");
   canvas.width = options.exportSettings.width;
@@ -375,6 +378,7 @@ export async function renderOfflineFrames(options, times) {
 
 export async function exportOfflineVideo(options) {
   throwIfExportAborted(options.signal);
+  await ensureFaceAttachmentAssets(options.effectClips || []);
   if (typeof VideoEncoder === "undefined") throw new Error("当前浏览器不支持 WebCodecs 离线编码。");
   const settings = options.exportSettings || {};
   const width = Math.max(2, Math.round(Number(settings.width) || options.ratio.width));

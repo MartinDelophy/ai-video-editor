@@ -9,7 +9,7 @@ import { getLinkedSourceAudioSegments } from "./sourceAudioSync.js";
 
 const TIME_EPSILON = 0.000001;
 const MEDIA_FIELDS = ["blob", "src", "url", "originalSrc", "thumbnail", "originalBlob", "originalPeaks", "compatibilityAudioBlob", "voiceColorOriginalBlob", "processingOriginalBlob", "peaks", "trackFrames", "trackFrameDuration", "trackFrameSampling", "trackFrameImportBudget", "cutoutVisual", "enhancement", "assetId", "archiveMediaId", "integrity"];
-const RIPPLE_ARRAY_FIELDS = ["audioSegments", "captionSegments", "visualOverlaySegments", "stickerSegments", "musicSegments"];
+const RIPPLE_ARRAY_FIELDS = ["effectClips", "audioSegments", "captionSegments", "visualOverlaySegments", "stickerSegments", "musicSegments"];
 const RIPPLE_FIELDS = [...RIPPLE_ARRAY_FIELDS, "musicStart", "sourceAudioStart"];
 const runtimeIdentities = new WeakMap();
 let nextRuntimeIdentity = 0;
@@ -413,7 +413,7 @@ function audioLaneMap(project) {
 
 function assertClipUnlocked(project, clipId, originalLocks, originalAudioLanes) {
   const { key } = findProjectClip(project, clipId);
-  const stateKey = { visualSegments: "image", visualOverlaySegments: "overlay", captionSegments: "caption", musicSegments: "music", stickerSegments: "sticker", audioSegments: "audio" }[key];
+  const stateKey = { effectClips: "effects", visualSegments: "image", visualOverlaySegments: "overlay", captionSegments: "caption", musicSegments: "music", stickerSegments: "sticker", audioSegments: "audio" }[key];
   if (originalLocks[stateKey] || (key === "audioSegments" && originalLocks[originalAudioLanes.get(clipId) || getTimedSegmentLaneStateKey(project.audioSegments, clipId)])) reject("BROWSER_EDIT_TRACK_LOCKED");
 }
 

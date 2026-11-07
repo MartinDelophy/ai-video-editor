@@ -34,6 +34,7 @@ export function collectTimelineSnapPoints(d, exclude = {}) {
   });
   materializeCaptionTimings(d.captionSegments ?? [], d.captionTargetDuration ?? d.timelineDuration ?? 0)
     .forEach((segment) => addRange(points, "caption", segment.id, segment.start, segment.end - segment.start));
+  (d.effectClips ?? []).forEach((segment) => addRange(points, "effects", segment.id, segment.start, segment.duration));
   (d.stickerSegments ?? []).forEach((segment) => addRange(points, "sticker", segment.id, segment.start, segment.duration));
   (d.audioSegments ?? []).forEach((segment) => addRange(points, "audio", segment.id, segment.start, segment.duration));
   if (d.sourceAudioLinked && Array.isArray(d.linkedSourceAudioSegments) && d.linkedSourceAudioSegments.length) {

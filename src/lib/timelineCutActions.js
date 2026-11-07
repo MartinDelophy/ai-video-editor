@@ -189,6 +189,16 @@ export function createTimelineCutActions(d) {
     d.notify("已在播放头位置切开视觉片段");
   };
   const handleCutTrack = () => {
+    if (d.selectedTrack === "effects") {
+      if (d.trackLocks.effects) return;
+      const source = d.effectClips.find(item => item.id === d.selectedEffectClipId);
+      if (!source || d.currentTime <= source.start + 0.1 || d.currentTime >= source.start + source.duration - 0.1) return;
+      const firstDuration = d.currentTime - source.start;
+      const second = { ...structuredClone(source), id: makeId("effect"), start: d.currentTime, duration: source.duration - firstDuration, sourceOffset: (source.sourceOffset || 0) + firstDuration };
+      d.setEffectClips(items => items.flatMap(item => item.id === source.id ? [{ ...item, duration: firstDuration }, second] : [item]));
+      d.setSelectedEffectClipId(second.id);
+      return;
+    }
     if (d.selectedTrack === "image") return void handleCutVisualSegment();
     if (d.selectedTrack === "overlay" && d.selectedVisualOverlayId) return void handleCutOverlaySegment();
     if (d.selectedTrack === "caption" && d.selectedSegmentId) return void handleCutCaption();

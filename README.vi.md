@@ -31,11 +31,11 @@ Người dùng tự chịu mọi trách nhiệm pháp lý phát sinh từ việc
 
 ## Cập nhật dự án
 
+- **2026-11-07** — Thêm khu vực hiệu ứng đặc biệt với tám hiệu ứng hình ảnh có thể xếp chồng, tai mèo pha lê và sừng hồng ngọc bám theo khuôn mặt. Kéo, cắt và đặt khung hình chính trên rãnh riêng. Kéo nút trên cung để căn vị trí; kéo dài đoạn vẫn giữ kết quả theo dõi cũ. Thẻ cùng kích thước với danh mục hiệu ứng, có xem trước khi rê chuột và xuất kết quả tương ứng.
 - **2026-11-06** — Thêm thanh cuộn ngang mảnh có thể kéo cho dòng thời gian trên Windows.
 - **2026-11-06** — Chọn nhiều đoạn bằng Shift với dấu chọn đánh số; menu chuột phải xuất từng đoạn thành tệp riêng theo thứ tự, giữ thiết lập và đồng bộ âm thanh.
 - **2026-11-06** — Thêm xuất đoạn phim vào menu chuột phải của hình ảnh chính, lớp phủ và thanh thao tác di động; giữ nguồn gốc, ánh xạ tốc độ, phụ đề và âm thanh trong khoảng thời gian của đoạn. Hỗ trợ đủ 13 ngôn ngữ.
 - **2026-11-04** — Thêm Hình nét trong Hiệu ứng, với chi tiết, độ dày, đảo trắng đen và xem trước. Lưu ảnh PNG và video WebM 24 fps giữ phần cắt, tốc độ và âm thanh nguồn vào Tài nguyên của tôi, không tự chèn. Hỗ trợ 13 ngôn ngữ và di động. Sửa phát dòng thời gian chỉ có đoạn hình trong hình mà không có hình chính.
-- **2026-11-03** — Thêm menu máy tính Tệp, Chỉnh sửa, Đoạn, Hiển thị và Trợ giúp, nối với các thao tác chỉnh sửa, xem trước, proxy và trợ giúp hiện có, hỗ trợ bàn phím và đủ 13 ngôn ngữ. Điện thoại và máy tính bảng giữ menu gọn. Sửa hoàn tác/làm lại khi chuẩn bị phương tiện, giữ thời gian nguồn khi cắt đường cong tốc độ và đồng bộ phát âm thanh đã tách. Đặt tiêu điểm bàn phím sau khi menu thả xuống được hiển thị. Đưa thao tác proxy vào Hiển thị, kèm nguồn phát thực tế, quản lý bộ nhớ đệm riêng, biểu tượng theo chức năng và bảng di động đủ 13 ngôn ngữ.
 Xem [Roadmap](ROADMAP.md) cho công việc dự kiến, [Releases](https://github.com/MartinDelophy/ai-video-editor/releases) cho thay đổi đã phát hành và [Issues](https://github.com/MartinDelophy/ai-video-editor/issues) cho nhiệm vụ và lỗi.
 
 ## Có thể tạo ra những gì?

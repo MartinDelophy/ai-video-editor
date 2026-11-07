@@ -1,3 +1,4 @@
+import { useFaceAttachmentAnalysis } from "./hooks/useFaceAttachmentAnalysis.js";
 import { exportClipJobs, getClipExportSettings, getSelectedClipExportJobs } from "./lib/clipExport.js";
 import { useVideoProxySource } from "./hooks/useVideoProxy.js";
 import { applyProcessedSourceMedia, getSourceProcessingLane } from "./lib/sourceAudioProcessing.js";
@@ -95,6 +96,8 @@ import { getLinkedSourceAudioEnd, getLinkedSourceAudioSegments, shouldMuteEmbedd
 import { getTimelineInitialContentZoom } from "./lib/timelineScale.js";
 import { getVisionKey } from "./lib/vision.js";
 import { DEFAULT_SUBJECT_EFFECT, normalizeSubjectEffect } from "./lib/subjectEffects.js";
+import { SPECIAL_EFFECTS_LABELS } from "./i18nEffectClips.js";
+import { TimelineEffectInspector } from "./components/TimelineEffects.jsx";
 import { normalizeClickRippleEffect } from "./lib/clickRippleEffect.js";
 import { normalizeCinematicDepth, resolveDepthAnalysisAtTime } from "./lib/depthOfField.js";
 import { normalizePhotoParallax } from "./lib/photoParallax.js";
@@ -213,6 +216,9 @@ export function App({ hostSession = null }) {
   const [exportError, setExportError] = useState(null);
   const [userAssets, setUserAssets] = useState([]);
   const [timelineMarkers, setTimelineMarkers] = useState([]);
+  const [effectClips, setEffectClips] = useState([]);
+  const [selectedEffectClipId, setSelectedEffectClipId] = useState("");
+  const faceAttachments=useFaceAttachmentAnalysis({clips:effectClips,segments:visualSegments,setClips:setEffectClips,currentTime});
   const timelineMarkerEnd = useMemo(() => timelineMarkers.reduce(
     (end, marker) => Math.max(end, marker.type === "range" ? marker.endTime : marker.time), 0,
   ), [timelineMarkers]);
@@ -235,7 +241,7 @@ export function App({ hostSession = null }) {
     script, imageSrc, visualType, imageDuration, captionPlacement, selectedVoiceId, speed,
     volume, musicName, musicDuration, musicStart, musicVolume, sourceAudioName, sourceAudioDuration,
     sourceAudioStart, sourceAudioVolume, sourceAudioSpatialEffect, sourceAudioSpatialAmount, ratioId, fitMode, selectedFilterId, selectedStickerId,
-    captionSegments, visualSegments, visualOverlaySegments, visionRecords, timelineZoom, timelineMarkers,
+    captionSegments, visualSegments, visualOverlaySegments, visionRecords, timelineZoom, timelineMarkers, effectClips,
   ]);
 
   const {
@@ -262,6 +268,7 @@ export function App({ hostSession = null }) {
   });
   const { redo, undo, checkpoint: checkpointHistory, signature: historySignature, reset: resetHistory } = useEditorHistory({
     autoRatioSourceKeyRef,
+    effectClips, setEffectClips,
     timelineMarkers, setTimelineMarkers, ratioId, setRatioId,
     captionStylePresetId, captionStylePresets, setCaptionStylePresetId, setCaptionStylePresets,
     audioSegments, captionPlacement, captionPosition, captionSegments, captionSize,
@@ -331,7 +338,7 @@ export function App({ hostSession = null }) {
     : musicStart + musicDuration;
 
   const rippleTimelineAfter = (boundary, delta) => applyTimelineRipple({
-    rippleEditing, audioSegments, captionSegments, musicBlob, musicSegments, musicStart,
+    effectClips, setEffectClips, rippleEditing, audioSegments, captionSegments, musicBlob, musicSegments, musicStart,
     sourceAudioBlob, sourceAudioLinked, sourceAudioStart, stickerSegments, trackLocks,
     visualOverlaySegments, setAudioSegments, setCaptionSegments, setMusicSegments,
     setMusicStart, setSourceAudioStart, setStickerSegments, setVisualOverlaySegments,
@@ -350,7 +357,7 @@ export function App({ hostSession = null }) {
     selectedSticker, selectedStickerSegmentIndex, selectedVisualSegmentIndex, selectedVoice,
     stickerDuration, timelineDuration, visualTimeline, voiceTrackDuration,
   } = useTimelineModel({
-    timelineMarkers,
+    effectClips, timelineMarkers,
     audioSegments, captionSegments, currentTime, imageDuration, imageSrc, musicBlob,
     musicDuration, musicTimelineEnd, musicUrl, ratioId, script, selectedAudioSegmentId, selectedFilterId,
     selectedSegmentId, selectedStickerId, selectedStickerSegmentId,
@@ -1156,6 +1163,7 @@ export function App({ hostSession = null }) {
   });
 
   const { handleDeleteTrack, handleDuplicateTrack } = createTimelineClipboardActions({
+    effectClips, setEffectClips, selectedEffectClipId, setSelectedEffectClipId,
     audioBlob, audioSegments, captionSegments, clearImageTrack, clearMusicTrack, clearSourceAudioTrack,
     commitCaptionSegments, commitStickerSegments, commitVisualSegments,
     currentStickerSegmentIndex, currentVisualSegmentIndex, deleteAudioSegment,
@@ -1171,6 +1179,7 @@ export function App({ hostSession = null }) {
   });
 
   useEditorLifecycle({
+    effectClips, selectedEffectClipId,
     activeLanguage, audioSegments, audioUrlRef, autoRatioSourceKeyRef,
     avatarMotionWorkerRef, avatarRenderWorkerRef, captionSegments, currentVisualSegment, handleDeleteTrack,
     imageUrlRefs, musicBlob, musicUrlRef, notify, ratioId, replaceAudio,
@@ -1185,6 +1194,7 @@ export function App({ hostSession = null }) {
   });
 
   const { handleCutTrack } = createTimelineCutActions({
+    effectClips, setEffectClips, selectedEffectClipId, setSelectedEffectClipId,
     audioSegments, captionSegments, captionTargetDuration, commitCaptionSegments, commitStickerSegments, commitVisualSegments,
     currentStickerSegmentIndex, currentTime, focusedSegmentIndex,
     getCurrentVisualAssetSnapshot, imageDuration, imageSrc, notify,
@@ -1388,7 +1398,7 @@ export function App({ hostSession = null }) {
   }), [currentTime, depthRecords, previewVisualOverlays]);
 
   const { projectImportProgress, getProjectSnapshot, createCurrentArchive, handleExportProject, handleImportProject, handleNewProject, captureCompleteProject, prepareCompleteProject } = useProjectFiles({
-    sourceVoiceColorOriginalRef,
+    sourceVoiceColorOriginalRef, effectClips, setEffectClips,
     language: activeLanguage, pauseTimelineMedia, setIsPlaying,
     imageSrc, imageName, imageMeta, visualType, imageDuration, imageClipCount,
     audioUrl, musicUrl, sourceAudioUrl, userAssets, timelineHorizon, currentTime,
@@ -1447,6 +1457,7 @@ export function App({ hostSession = null }) {
     sourceAudioTimelineEnd, stickerDuration, visualOverlaySegments, voiceTrackDuration,
   ]);
   const videoCompositionContext = {
+    effectClips,
     audioSegments, captionDuration, captionPlacement, captionPosition, captionSegments, captionTargetDuration,
     captionSize, captionStyle, captionsEnabled, exporting, exportAbortControllerRef, exportStartRef, fitMode,
     imageDuration, imageSrc, musicBlob, musicDuration, musicSegments, musicStart, musicTimelineEnd, musicVolume, notify,
@@ -1525,6 +1536,7 @@ export function App({ hostSession = null }) {
     setAudioSegments(next.audioSegments);
     setCaptionSegments(next.captionSegments);
     setTimelineMarkers(next.timelineMarkers);
+    setEffectClips(next.effectClips || []);
     setCaptionsEnabled(next.captionsEnabled);
     setCaptionStyle(next.captionStyle);
     setCaptionSize(next.captionSize);
@@ -1726,7 +1738,7 @@ export function App({ hostSession = null }) {
       <ProjectImportOverlay progress={projectImportProgress} language={activeLanguage} />
       <section className={`editor-grid ${compactRail ? "is-compact-rail" : ""}`}>
         <EditorSidebar model={{
-          activeLanguage, activeTool, analyzeCurrentVisual, analyzeEffectVisual, audioBlob, audioDuration,
+          trackLocks, activeLanguage, activeTool, analyzeCurrentVisual, analyzeEffectVisual, audioBlob, audioDuration,
           builtInAssets, captionPosition, captionSegments, captionSize, captionStyle,
           captionStylePresetId, captionStylePresets,
           captionTargetDuration, captionsEnabled, clearMusicTrack, clearSourceAudioTrack,
@@ -1759,11 +1771,14 @@ export function App({ hostSession = null }) {
           updateScript, userAssets, visionJob, aiMusic, smartFrame,
           selectedVisualSegment, selectedEffectSegment, effectAnalysis, effectRunning, effectProgress, effectPhase,
           effectsPanelMode, setEffectsPanelMode, cinematicDepth, photoParallaxDepth,
+          effectClips, setEffectClips, selectedEffectClipId, setSelectedEffectClipId, currentTime,
           visualLocalTime, updateSelectedVisualEffects, updateSelectedSubjectEffect, updateSelectedClickRipple, removeSelectedSubjectEffect, miganRepair, hdRestoration, smartDenoise,
           mobilePanel, setMobilePanel: changeMobilePanel, applyAssetToTrack, handleGeneratedVector, generationPlugins,
         }} />
 
         <PreviewStage
+          effectClips={trackVisibility.effects === false ? [] : faceAttachments.previewClips}
+          effectVision={previewVisionAnalysis}
           alignmentPrimaryRange={previewVisualRange}
           alignmentMainRange={previewVisualSegment?.type === "video" ? previewVisualRange : null}
           alignmentLocks={trackLocks}
@@ -1924,7 +1939,9 @@ export function App({ hostSession = null }) {
           })}
         />
 
-        <VoicePanel
+        {activeTool === "specialEffects" ? (
+        <TimelineEffectInspector onAlignmentStart={() => { if (isPlaying) { pauseTimelineMedia(); setIsPlaying(false); } }} visualSegments={visualSegments} currentTime={currentTime} onSeek={(time) => { pauseTimelineMedia(); setIsPlaying(false); seekTo(time, { immediate: true }); }} hasVisual={visualSegments.length>0} faceAttachments={faceAttachments} clips={effectClips} setClips={setEffectClips} selectedId={selectedTrack === "effects" ? selectedEffectClipId : ""} language={activeLanguage} t={t} locked={trackLocks.effects} onClose={() => setSelectedEffectClipId("")} />
+        ) : <VoicePanel
           captionHighlightDisabled={trackLocks.caption}
           t={t}
           activeTool={activeTool}
@@ -2076,7 +2093,7 @@ export function App({ hostSession = null }) {
           onLineArtAssetReady={(draft) => { const asset = handleDepthMapAssetReady(draft); notify(t("lineArtAssetReady")); return asset; }}
           onOpticalFlowAssetReady={handleOpticalFlowAssetReady}
           generationPlugins={generationPlugins}
-        />
+        />}
       </section>
 
       <Timeline
@@ -2084,6 +2101,7 @@ export function App({ hostSession = null }) {
         exportSelectedClips={handleExportSelectedClips}
         exporting={exporting}
         audioProcessingLabel={getAudioProcessingCopy(uiLanguage).processing}
+        effectClips={effectClips} setEffectClips={setEffectClips} selectedEffectClipId={selectedEffectClipId} onSelectEffectClip={(id) => { setSelectedEffectClipId(id); setSelectedTrack("effects"); setActiveTool("specialEffects"); changeMobilePanel("inspector"); }} effectLanguage={activeLanguage}
         timelineMarkers={timelineMarkers}
         setTimelineMarkers={setTimelineMarkers}
         t={t}
@@ -2258,7 +2276,7 @@ export function App({ hostSession = null }) {
                   ? t("pictureInPicture", "画中画")
                   : mobilePanelOrigin === "caption-clip"
                     ? t("caption")
-                    : t(activeTool))}</strong>
+                    : activeTool === "specialEffects" ? SPECIAL_EFFECTS_LABELS[activeLanguage] : t(activeTool))}</strong>
           <div className="mobile-sheet-nav-actions">
             {!mobilePanelOrigin.endsWith("-clip") ? <div className="mobile-sheet-tabs" role="tablist" aria-label={t("mobilePanelView")}>
               <button className={mobilePanel === "tools" ? "is-active" : ""} type="button" role="tab" aria-selected={mobilePanel === "tools"} onClick={() => changeMobilePanel("tools")}>{t("mobileDrawerTools")}</button>

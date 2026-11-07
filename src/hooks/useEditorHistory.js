@@ -38,6 +38,7 @@ function createSnapshot(d) {
     ratioId: d.ratioId,
     selectedFilterId: d.selectedFilterId,
     selectedTransitionId: d.selectedTransitionId,
+    effectClips: structuredClone(d.effectClips || []),
     stickerSegments: cloneItems(d.stickerSegments),
     timelineMarkers: normalizeTimelineMarkers(d.timelineMarkers),
     selectedStickerId: d.selectedStickerId,
@@ -110,6 +111,7 @@ export function createEditorSnapshotSignature(snapshot) {
       filter: snapshot.selectedFilterId,
       transition: snapshot.selectedTransitionId,
     },
+    effects: snapshot.effectClips,
     stickers: snapshot.stickerSegments,
     timelineMarkers: snapshot.timelineMarkers ?? [],
     selectedStickerId: snapshot.selectedStickerId,
@@ -194,6 +196,7 @@ function restoreSnapshot(snapshot, d) {
   if (snapshot.ratioId) d.setRatioId?.(snapshot.ratioId);
   d.setSelectedFilterId(snapshot.selectedFilterId);
   d.setSelectedTransitionId(snapshot.selectedTransitionId);
+  d.setEffectClips(structuredClone(snapshot.effectClips || []));
   d.setStickerSegments(cloneItems(snapshot.stickerSegments));
   d.setTimelineMarkers?.(normalizeTimelineMarkers(snapshot.timelineMarkers));
   d.setSelectedStickerId(snapshot.selectedStickerId);
@@ -263,6 +266,7 @@ export function useEditorHistory(d) {
     ratioId: d.ratioId,
     selectedFilterId: d.selectedFilterId,
     selectedTransitionId: d.selectedTransitionId,
+    effectClips: d.effectClips,
     stickerSegments: d.stickerSegments,
     timelineMarkers: d.timelineMarkers,
     selectedStickerId: d.selectedStickerId,
@@ -294,7 +298,7 @@ export function useEditorHistory(d) {
     d.captionsEnabled, d.visualSegments, d.visualOverlaySegments, d.imageSrc,
     d.imageName, d.imageMeta, d.visualType, d.imageDuration, d.imageClipCount,
     d.fitMode, d.ratioId, d.selectedFilterId, d.selectedTransitionId, d.stickerSegments,
-    d.timelineMarkers, d.selectedStickerId, d.audioSegments, d.timelineHorizon,
+    d.effectClips, d.timelineMarkers, d.selectedStickerId, d.audioSegments, d.timelineHorizon,
     d.musicBlob, d.musicSegments, d.musicStart, d.musicUrl, d.musicName,
     d.musicDuration, d.musicPeaks, d.musicVolume, d.sourceAudioBlob,
     d.sourceAudioUrl, d.sourceAudioName, d.sourceAudioDuration, d.sourceAudioPeaks,

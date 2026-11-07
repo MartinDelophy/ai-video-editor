@@ -1,6 +1,6 @@
 // Complete-project snapshots retain media separately from editor runtime objects.
 const stateFields = [
-  "script", "commandState", "selectedVoiceId", "speed", "volume", "captionSegments", "captionPosition",
+  "effectClips", "script", "commandState", "selectedVoiceId", "speed", "volume", "captionSegments", "captionPosition",
   "captionPlacement", "captionSize", "captionStyle", "captionStylePresetId", "captionStylePresets", "captionsEnabled",
   "visualSegments", "visualOverlaySegments", "imageName", "imageMeta", "visualType", "imageDuration", "imageClipCount",
   "fitMode", "ratioId", "selectedFilterId", "selectedTransitionId", "stickerSegments", "timelineMarkers", "selectedStickerId",

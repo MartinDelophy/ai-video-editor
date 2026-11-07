@@ -85,6 +85,7 @@ export function applyTimelineRipple(d, boundary, delta) {
     return next;
   };
 
+  if (d.setEffectClips) shiftCollection(d.effectClips, d.trackLocks.effects, d.setEffectClips);
   shiftCollection(d.visualOverlaySegments, d.trackLocks.overlay, d.setVisualOverlaySegments);
   shiftCollection(d.stickerSegments, d.trackLocks.sticker, d.setStickerSegments);
 

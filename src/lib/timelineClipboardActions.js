@@ -27,6 +27,7 @@ export function createTimelineClipboardActions(d) {
       d.setSelectedVisualOverlayId("");
       return void d.notify("已删除画中画片段");
     }
+    if (d.selectedTrack === "effects") { d.setEffectClips(items => items.filter(item => item.id !== d.selectedEffectClipId)); d.setSelectedEffectClipId(""); return; }
     if (d.selectedTrack === "sticker") return void deleteSticker();
     if (d.selectedTrack === "image") {
       if (!d.imageSrc || d.imageClipCount === 0) return void d.notify("当前没有视觉片段可删除");
@@ -93,6 +94,11 @@ export function createTimelineClipboardActions(d) {
       ? isTimedSegmentLaneLocked(d.audioSegments, d.selectedAudioSegmentId || d.selectedAudioSegment?.id, d.trackLocks)
       : d.trackLocks[d.selectedTrack];
     if (selectedTrackLocked) return void d.notify("当前轨道已锁定，无法复制");
+    if (d.selectedTrack === "effects") {
+      const source = d.effectClips.find(item => item.id === d.selectedEffectClipId);
+      if (source) { const copy = { ...structuredClone(source), id: makeId("effect"), start: source.start + source.duration }; d.setEffectClips(items => [...items, copy]); d.setSelectedEffectClipId(copy.id); }
+      return;
+    }
     if (d.selectedTrack === "overlay") {
       const source = d.visualOverlaySegments.find((segment) => segment.id === d.selectedVisualOverlayId);
       if (!source) return void d.notify("请先选择一个画中画片段");

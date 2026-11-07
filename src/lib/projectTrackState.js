@@ -1,4 +1,5 @@
 export const DEFAULT_TRACK_VISIBILITY = Object.freeze({
+  effects: true,
   image: true,
   overlay: true,
   caption: true,
@@ -9,6 +10,7 @@ export const DEFAULT_TRACK_VISIBILITY = Object.freeze({
 });
 
 export const DEFAULT_TRACK_LOCKS = Object.freeze({
+  effects: false,
   image: false,
   overlay: false,
   caption: false,

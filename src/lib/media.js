@@ -1,3 +1,5 @@
+import { ensureFaceAttachmentAssets } from "./faceAttachmentAssets.js";
+import { drawTrackedFaceAttachments } from "./faceAttachments.js";
 import { normalizeSplitScreenRect } from "./previewAlignment.js";
 import { composeRepairWithWebCodecs } from "./repairVideoComposition.js";
 import { createRepairRangeEncoding } from "./repairRangeEncoding.js";
@@ -45,6 +47,7 @@ import { prepareDepthFrame, getDepthFrame, drawCinematicDepthFrame, normalizeCin
 import { drawPhotoParallaxFrame, normalizePhotoParallax } from "./photoParallax.js";
 import { createVideoTrackFrame } from "./videoTrackFrames.js";
 import { composeColorGradeFilter, resolveColorGrade } from "./colorGrade.js";
+import { drawTimelineEffects } from "./timelineEffects.js";
 import { normalizeClickRippleEffect, resolveClickRippleState } from "./clickRippleEffect.js";
 
 export function getAudioRecordingFormat() {
@@ -1250,7 +1253,9 @@ export function drawPreviewFrame(context, visual, canvas, options) {
     }
     const smartFrameSourceTime = getVisualSourceTime(visualEffects, visualTime);
     const smartFrameCrop = resolveSmartFrameCropAtTime(visualEffects?.smartFrame, smartFrameSourceTime);
-    return drawFittedVisual(targetContext, visual, targetCanvas, primaryFitMode, primaryFilter, vision, visualEffects?.subjectEffect, smartFrameCrop);
+    const layout = drawFittedVisual(targetContext, visual, targetCanvas, primaryFitMode, primaryFilter, vision, visualEffects?.subjectEffect, smartFrameCrop);
+    drawTrackedFaceAttachments(targetContext,targetCanvas,options.effectClips,options.timelineTime || 0,visualEffects,smartFrameSourceTime,layout);
+    return layout;
   };
   if (usesAlphaMask) {
     const layers = getVisualEffectsLayers(canvas);
@@ -1312,7 +1317,8 @@ export function drawPreviewFrame(context, visual, canvas, options) {
     const nextFilter = transitionId === "blur" ? `${nextBaseFilter === "none" ? "" : nextBaseFilter} blur(${Math.max(0, (1 - amount) * 14)}px)`.trim() : nextBaseFilter;
     const nextSourceTime = getVisualSourceTime(transitionNext.visualEffects, transitionNext.visualTime || 0);
     const nextSmartFrameCrop = resolveSmartFrameCropAtTime(transitionNext.visualEffects?.smartFrame, nextSourceTime);
-    drawFittedVisual(context, transitionNext.visual, canvas, primaryFitMode, nextFilter, transitionNext.vision || null, null, nextSmartFrameCrop);
+    const nextLayout=drawFittedVisual(context, transitionNext.visual, canvas, primaryFitMode, nextFilter, transitionNext.vision || null, null, nextSmartFrameCrop);
+    drawTrackedFaceAttachments(context,canvas,options.effectClips,options.timelineTime || 0,transitionNext.visualEffects,nextSourceTime,nextLayout);
     context.restore();
     if (transitionId === "flash") {
       context.fillStyle = `rgba(255,255,255,${Math.max(0, 1 - Math.abs(amount - 0.5) * 2) * 0.7})`;
@@ -1325,6 +1331,8 @@ export function drawPreviewFrame(context, visual, canvas, options) {
   }
 
   context.restore();
+
+  drawTimelineEffects(context, canvas, options.effectClips || [], options.timelineTime || 0, drawClickRippleEffect);
 
   visualOverlays.forEach((overlay, index) => {
     const overlayVisual = visualOverlaySources[index];
@@ -1553,6 +1561,7 @@ function createVideoRecorder(outputStream, {
 }
 
 export async function exportBrowserVideo({
+  effectClips = [],
   imageSrc,
   visualType,
   visualSegments = [],
@@ -1591,6 +1600,7 @@ export async function exportBrowserVideo({
   timelineOffset = 0,
   captionTargetDuration: providedCaptionTargetDuration = 0,
 }) {
+  await ensureFaceAttachmentAssets(effectClips);
   throwIfExportAborted(signal);
   if (!window.MediaRecorder) {
     throw new Error("当前浏览器不支持 MediaRecorder，无法导出视频。");
@@ -2048,6 +2058,7 @@ export async function exportBrowserVideo({
       transitionProgress,
       vision: frameVision,
       depth: frameDepth,
+      effectClips, timelineTime,
       visualEffects: visualItem.segment,
       visualTime: localTime,
       visualOverlays: renderedVisualOverlays.map(({ segment, renderSegment }) => ({
@@ -2129,6 +2140,7 @@ export async function exportBrowserVideo({
       transitionId,
       vision: finalFrameVision,
       depth: finalFrameDepth,
+      effectClips, timelineTime: rangeStart + totalDuration,
       visualEffects: finalVisualItem.segment,
       visualTime: finalLocalTime,
       visualOverlays: finalVisualOverlays.map(({ segment }) => ({

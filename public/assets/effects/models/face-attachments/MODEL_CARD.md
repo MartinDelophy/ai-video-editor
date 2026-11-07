@@ -1,0 +1,13 @@
+# Face attachments: MediaPipe Face Landmarker v1
+
+This independent model detects face landmarks for editable cat ears and devil horns. It does not load the face-swap identity, conditioner, or generator models, and it does not identify people.
+
+- Upstream version: `face_landmarker/float16/1`
+- Original artifact: https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task
+- SHA-256: `64184e229b263107bc2b804c6625db1341ff2bb731874b0bcc2fe6544e0bc9ff`
+- Official model documentation: https://ai.google.dev/edge/mediapipe/solutions/vision/face_landmarker
+- FaceMesh V2 model card (Apache 2.0): https://storage.googleapis.com/mediapipe-assets/Model%20Card%20MediaPipe%20Face%20Mesh%20V2.pdf
+- BlazeFace short-range model card (Apache 2.0): https://storage.googleapis.com/mediapipe-assets/MediaPipe%20BlazeFace%20Model%20Card%20%28Short%20Range%29.pdf
+- Runtime: installed `@mediapipe/tasks-vision` with its Apache-2.0 license; CPU WASM in a dedicated worker, loaded only when needed.
+
+The pinned bundle is included locally so analysis needs no inference service and does not send user images or videos to a third party. Tracking stores five normalized facial landmarks plus a forehead anchor (including the detector’s normalized depth) per sampled frame in the project. Sparse detections establish a head coordinate frame; optical flow propagates the source-space anchors between detections. Cranial roots are projected behind the facial forehead plane, with independent near/far attachment planes, then mapped through the same source crop, fit rectangle and visual transform as the video. Crystal raster materials, color, fit offsets and keyframes share that projection in preview and export. MediaPipe first publishes the current playhead face. A shared forward/backward PyrLK worker then propagates landmarks at 24 timeline samples per second with sparse 2.5-second anchors, quality-triggered redetection and shot-cut resets. WebCodecs decodes source-time-mapped frames sequentially into a bounded canvas pool; video-element seeking is only a compatibility fallback. Equal analysis ranges share the same job and completed cache. Both preview and browser export interpolate the same saved data. Invalid or missing faces are omitted; a failed anchor releases the previous geometric lock so a new shot or close-up can be reacquired. The first eligible largest face is the target; this is geometric tracking, not identity recognition, and extreme poses or crowded occlusions can require reanalysis.

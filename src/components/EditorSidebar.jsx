@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CaretDown } from "@phosphor-icons/react";
 import { COMPACT_WORKSPACE_QUERY, TOOL_RAIL } from "../config/editor.js";
+import { SPECIAL_EFFECTS_LABELS } from "../i18nEffectClips.js";
+import { TimelineEffectCatalog } from "./TimelineEffects.jsx";
+import { createEffectClip } from "../lib/timelineEffects.js";
 import { MediaPanel, ToolPanel } from "./panels.jsx";
 import { PluginCatalogPanel } from "./GenerationPlugins.jsx";
 
@@ -51,6 +54,8 @@ export function EditorSidebar({ model: d }) {
               className={`rail-tool ${d.activeTool === id ? "is-active" : ""}`}
               type="button"
               key={id}
+              data-tool={id}
+              aria-label={id === "specialEffects" ? SPECIAL_EFFECTS_LABELS[d.activeLanguage] || SPECIAL_EFFECTS_LABELS.en : d.t(id, label)}
               onClick={() => {
                 d.selectTool(id);
                 if (window.matchMedia?.(COMPACT_WORKSPACE_QUERY).matches) {
@@ -60,7 +65,7 @@ export function EditorSidebar({ model: d }) {
               }}
             >
               <Icon size={23} />
-              <span>{d.t(id, label)}</span>
+              <span>{id === "specialEffects" ? SPECIAL_EFFECTS_LABELS[d.activeLanguage] || SPECIAL_EFFECTS_LABELS.en : d.t(id, label)}</span>
             </button>
           ))}
         </aside>
@@ -121,6 +126,8 @@ export function EditorSidebar({ model: d }) {
               if (window.matchMedia?.(COMPACT_WORKSPACE_QUERY).matches) d.setMobilePanel?.("inspector");
             }}
           />
+        ) : d.activeTool === "specialEffects" ? (
+          <TimelineEffectCatalog selectedEffect={d.effectClips.find(clip=>clip.id===d.selectedEffectClipId)?.effect} language={d.activeLanguage} onAdd={effect => { if(d.trackLocks?.effects) return; const clip=createEffectClip(effect,d.currentTime); d.setEffectClips(items=>[...items,clip]); d.setSelectedEffectClipId(clip.id); d.setSelectedTrack("effects"); d.setMobilePanel?.("inspector"); }} />
         ) : d.activeTool === "plugins" ? (
           <PluginCatalogPanel
             language={d.activeLanguage}

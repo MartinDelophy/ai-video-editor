@@ -3,6 +3,7 @@ import {
   PencilLine,
   Sun,
   CaretRight,
+  CaretDown,
   Check,
   CircleNotch,
   Cube,
@@ -33,11 +34,11 @@ import {
   SubjectMaterialFilterDefs,
 } from "./SubjectMaterialFilter.jsx";
 
-function EffectRange({ label, value, min, max, step = 1, suffix = "", lowLabel = "", highLabel = "", onChange }) {
+function EffectRange({ label, value, min, max, step = 1, suffix = "", lowLabel = "", highLabel = "", onChange, bare = false }) {
   return (
     <label className="subject-effect-range">
       <span>{label}<output>{suffix === "%" ? `${Math.round(value * 100)}%` : `${value}${suffix}`}</output></span>
-      <input type="range" min={min} max={max} step={step} value={value} onChange={(event) => onChange(Number(event.target.value))} />
+      <input type="range" min={min} max={max} step={step} value={value} style={bare ? {background:`linear-gradient(to right,#6be7df 0%,#6be7df ${100*(value-min)/Math.max(.0001,max-min)}%,#303940 ${100*(value-min)/Math.max(.0001,max-min)}%,#303940 100%)`} : undefined} onChange={(event) => onChange(Number(event.target.value))} />
       {lowLabel || highLabel ? <small><span>{lowLabel}</span><span>{highLabel}</span></small> : null}
     </label>
   );
@@ -151,28 +152,28 @@ function ClickRippleEffectCard({ t, active, onClick }) {
   );
 }
 
-function ClickRippleControls({ t, effect, onChange, showRemove = false }) {
+function ClickRippleControls({ t, effect, onChange, showRemove = false, bare = false }) {
   const patch = (next) => onChange?.(updateClickRippleEffect(effect, next));
   return (
-    <section className="click-ripple-controls">
-      <header>
+    <section className={`click-ripple-controls ${bare ? "is-bare" : ""}`}>
+      {!bare ? <header>
         <div><CursorClick size={18} weight="duotone" /><span><strong>{t("clickRippleTitle")}</strong><small>{t("clickRippleControlsHint")}</small></span></div>
         <label className="mini-switch"><input type="checkbox" checked={effect.enabled} onChange={(event) => patch({ enabled: event.target.checked })} /><i /></label>
-      </header>
+      </header> : null}
       <label className="click-ripple-meter-row"><span>{t("clickRippleMeter")}</span><select value={effect.meter} onChange={(event) => patch({ meter: event.target.value })}>{["2/4", "3/4", "4/4", "5/4", "6/8", "7/8", "9/8", "12/8"].map((meter) => <option value={meter} key={meter}>{meter}</option>)}</select></label>
-      <EffectRange label={t("clickRippleTempo")} value={effect.bpm} min={30} max={180} step={1} suffix=" BPM" onChange={(bpm) => patch({ bpm })} />
-      <EffectRange label={t("clickRippleRadius")} value={effect.radius / 100} min={0.02} max={0.18} step={0.01} suffix="%" onChange={(radius) => patch({ radius: radius * 100 })} />
-      <EffectRange label={t("clickRippleSpreadDuration")} value={effect.rippleDuration} min={Math.min(0.3, effect.interval * 0.92)} max={Math.min(1.4, effect.interval * 0.92)} step={0.01} suffix="s" onChange={(rippleDuration) => patch({ rippleDuration })} />
-      <EffectRange label={t("clickRippleGlow")} value={effect.glow} min={0} max={1} step={0.01} suffix="%" onChange={(glow) => patch({ glow })} />
-      <label className="click-ripple-color-row"><span>{t("clickRippleColor")}</span><input type="color" value={effect.color} onChange={(event) => patch({ color: event.target.value })} /></label>
+      <EffectRange bare={bare} label={t("clickRippleTempo")} value={effect.bpm} min={30} max={180} step={1} suffix=" BPM" onChange={(bpm) => patch({ bpm })} />
+      <EffectRange bare={bare} label={t("clickRippleRadius")} value={effect.radius / 100} min={0.02} max={0.18} step={0.01} suffix="%" onChange={(radius) => patch({ radius: radius * 100 })} />
+      <EffectRange bare={bare} label={t("clickRippleSpreadDuration")} value={effect.rippleDuration} min={Math.min(0.3, effect.interval * 0.92)} max={Math.min(1.4, effect.interval * 0.92)} step={0.01} suffix="s" onChange={(rippleDuration) => patch({ rippleDuration })} />
+      <EffectRange bare={bare} label={t("clickRippleGlow")} value={effect.glow} min={0} max={1} step={0.01} suffix="%" onChange={(glow) => patch({ glow })} />
+      <label className="click-ripple-color-row"><span>{t("clickRippleColor")}</span>{bare ? <span className="face-color-picker"><input type="color" value={effect.color} onChange={(event)=>patch({color:event.target.value})}/><CaretDown size={13}/></span> : <input type="color" value={effect.color} onChange={(event) => patch({ color: event.target.value })} />}</label>
       {showRemove ? <button className="subject-remove-effect" type="button" onClick={() => patch({ enabled: false })}><Trash size={16} />{t("effectRemove")}</button> : null}
     </section>
   );
 }
 
-export function ClickRippleInspector({ t, segment, onChange }) {
+export function ClickRippleInspector({ t, segment, onChange, bare = false }) {
   if (!segment) return <div className="visual-context-empty"><ImageSquare size={30} weight="duotone" /><strong>{t("effectSelectClip")}</strong><span>{t("effectSelectClipHint")}</span></div>;
-  return <div className="subject-effects-inspector"><ClickRippleControls t={t} effect={normalizeClickRippleEffect(segment.clickRipple)} onChange={onChange} showRemove /></div>;
+  return <div className={bare ? "special-ripple-inspector" : "subject-effects-inspector"}><ClickRippleControls t={t} effect={normalizeClickRippleEffect(segment.clickRipple)} onChange={onChange} bare={bare} showRemove={!bare} /></div>;
 }
 
 function ObjectOutlineCard({ t, active, running, progress, analysis, onClick }) {

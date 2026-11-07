@@ -113,12 +113,13 @@ export function useTimelineModel(d) {
   const timelineDuration = useMemo(() => Math.min(
         MAX_TIMELINE_DURATION_SECONDS,
         Math.max(
+          ...(d.effectClips || []).map(clip => clip.start + clip.duration),
           markerExtent > 0 ? markerExtent + Math.min(2, getTimelineVisibleDuration(d.timelineZoom) / 10) : 0,
           estimatedDuration > 0 ? d.timelineHorizon : DEFAULT_TIMELINE_DURATION_SECONDS,
           estimatedDuration > 0 ? getTimelineProjectDuration(estimatedDuration) : 0,
           getTimelineVisibleDuration(d.timelineZoom),
         ),
-      ), [estimatedDuration, d.timelineHorizon, d.timelineZoom, markerExtent]);
+      ), [estimatedDuration, d.timelineHorizon, d.timelineZoom, markerExtent, d.effectClips]);
   d.timelineDurationRef.current = timelineDuration;
 
   const currentSegmentIndex = getSegmentIndexAtTime(

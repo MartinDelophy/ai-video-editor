@@ -92,6 +92,9 @@ import { TimelineAudioClip, TimelineCaptionClip } from "./TimelineClips.jsx";
 import { TimelineMarkerRail, TimelineMarkerToolbar } from "./TimelineMarkers.jsx";
 import { useTimelineMarkers } from "../hooks/useTimelineMarkers.js";
 import { useTimelinePlayhead } from "../hooks/useTimelinePlayhead.js";
+import { TimelineEffectLane } from "./TimelineEffects.jsx";
+import { packEffectLanes, EFFECT_ASSET_DRAG_EVENT } from "../lib/timelineEffects.js";
+import { effectCopy } from "../i18nEffectClips.js";
 import { PLAYBACK_UI_FRAME_MS } from "../lib/editorRuntime.js";
 
 const TIMELINE_WHEEL_ZOOM_SENSITIVITY = 0.00056;
@@ -104,6 +107,7 @@ const VIDEO_THUMBNAIL_DISPLAY_MAX_COUNT = 480;
 const IMAGE_THUMBNAIL_TARGET_WIDTH = 84;
 const IMAGE_THUMBNAIL_MAX_COUNT = 240;
 const TIMELINE_WHEEL_ZOOM_CONTENT_SELECTOR = [
+  ".timeline-effect-clip",
   ".image-clip",
   ".visual-overlay-clip",
   ".caption-segment",
@@ -214,6 +218,7 @@ export function Timeline({
   exporting = false,
   t,
   audioProcessingLabel,
+  effectClips = [], setEffectClips, selectedEffectClipId, onSelectEffectClip, effectLanguage,
   timelineMarkers = [],
   setTimelineMarkers,
   trOption,
@@ -1115,10 +1120,22 @@ export function Timeline({
     () => packCaptionSegmentsIntoLanes(displayedCaptionSegments, displayedCaptionTimeline),
     [displayedCaptionSegments, displayedCaptionTimeline],
   );
+  const [effectDragPreview, setEffectDragPreview] = useState(null);
+  const [effectAssetDragging, setEffectAssetDragging] = useState(false);
+  useEffect(() => {
+    const update=event=>{setEffectAssetDragging(event.detail || "");if(!event.detail)setEffectDragPreview(null);};
+    window.addEventListener(EFFECT_ASSET_DRAG_EVENT,update);
+    return ()=>window.removeEventListener(EFFECT_ASSET_DRAG_EVENT,update);
+  },[]);
+  const effectLanes = packEffectLanes(effectClips);
+  const occupiedEffectClips=effectLanes.flat();
+  const effectLaneCount=effectLanes.length;
+  if(effectAssetDragging || effectDragPreview?.id) effectLanes.push([]);
   const contentRows = [
     displayedVisualSegments.some((item) => item.type === "video") ? "var(--timeline-visual-row-height, 80px)" : TIMELINE_TRACK_ROW_HEIGHT,
     ...overlayLanes.map((lane) => lane.some((item) => item.type === "video") ? "var(--timeline-visual-row-height, 80px)" : TIMELINE_TRACK_ROW_HEIGHT),
     ...(showStickerTrack ? stickerLanes.map(() => TIMELINE_TRACK_ROW_HEIGHT) : []),
+    ...effectLanes.map(() => TIMELINE_TRACK_ROW_HEIGHT),
     ...captionLanes.map(() => TIMELINE_TRACK_ROW_HEIGHT),
     ...(showSourceTrack ? [TIMELINE_TRACK_ROW_HEIGHT] : []),
     ...audioLanes.map(() => TIMELINE_TRACK_ROW_HEIGHT),
@@ -1130,6 +1147,7 @@ export function Timeline({
     ["image", t("imageTrack")],
     ...overlayLanes.map((_, index) => ["overlay", `${t("overlayTrack", "Overlay")} ${index + 1}`, `overlay-${index}`, `overlay-${index}`]),
     ...(showStickerTrack ? stickerLanes.map((_, index) => ["sticker", `${t("stickerTrack")} ${index + 1}`, `sticker-${index}`]) : []),
+    ...effectLanes.map((_, index) => ["effects", `${effectCopy(effectLanguage).title} ${index + 1}`, `effects-${index}`, "effects", "effects"]),
     ...captionLanes.map((_, index) => ["caption", `${t("caption")} ${index + 1}`, `caption-${index}`, `caption-${index}`]),
     ...(showSourceTrack ? [["source", t("sourceTrack")]] : []),
     ...audioLanes.map((_, index) => ["audio", `${t("voiceTrack")} ${index + 1}`, `audio-${index}`, `audio-${index}`, `audio-${index}`]),
@@ -3496,6 +3514,7 @@ export function Timeline({
             </div>
             {overlayLanes.map((lane, laneIndex) => renderOverlayTrack(lane, laneIndex))}
             {showStickerTrack ? stickerLanes.map((lane, laneIndex) => renderStickerTrack(lane, laneIndex)) : null}
+            {effectLanes.map((lane,index) => <TimelineEffectLane key={`effects-${index}`} clips={lane} allClips={occupiedEffectClips} laneIndex={index} laneCount={effectLaneCount} assetEffect={effectAssetDragging} sharedPreview={effectDragPreview} onDragPreview={setEffectDragPreview} setClips={setEffectClips} duration={timelineDuration} language={effectLanguage} selectedId={selectedEffectClipId} onSelect={onSelectEffectClip} locked={trackLocks.effects} hidden={!isRowVisible("effects")} snapPoints={collectTimelineSnapPoints({timelineDuration,currentTime,visualSegments:displayedVisualSegments,visualOverlaySegments,timelineMarkers,captionSegments:displayedCaptionSegments,stickerSegments,audioSegments})} setSnapGuide={setSnapGuide} setTimelineHorizon={setTimelineHorizon} pauseForEdit={() => { if(isPlaying) handlePlayToggle(); }} />)}
             {captionLanes.map((lane, laneIndex) => (
               <div
                 className={`caption-track ${selectedTrack === "caption" ? "is-selected" : ""} ${

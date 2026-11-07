@@ -22,6 +22,7 @@ export function createEditorCommandActions(d) {
       if (video?.type !== "video") d.setSelectedTrack("audio");
       d.setVoiceTab("synthesis");
     }
+    if (toolId === "specialEffects") d.setSelectedTrack("effects");
     if (toolId === "media") d.setSelectedTrack("image");
     if (toolId === "caption") d.setSelectedTrack("caption");
     if (toolId === "effects" && !["image", "overlay"].includes(d.selectedTrack)) d.setSelectedTrack("image");

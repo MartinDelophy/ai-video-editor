@@ -31,11 +31,11 @@ El usuario será el único responsable de cualquier consecuencia legal derivada 
 
 ## Novedades del proyecto
 
+- **2026-11-07** — Nuevo espacio de efectos especiales con ocho efectos de imagen combinables, orejas de cristal y cuernos de rubí que siguen el rostro. Arrastra, recorta y anima los efectos con fotogramas clave en pistas propias. Arrastra los arcos para ajustar la posición; al alargar un efecto se conserva el seguimiento existente. Las tarjetas mantienen el tamaño del catálogo de efectos y la vista previa coincide con la exportación.
 - **2026-11-06** — Añadida una barra horizontal fina que se puede arrastrar en la línea de tiempo de Windows.
 - **2026-11-06** — Selección múltiple con Mayús y marcadores numerados; el menú contextual exporta cada clip seleccionado a un archivo independiente en orden, conservando ajustes y sincronía de audio.
 - **2026-11-06** — Se añadió la exportación de clips a los menús de Visuales y Superposición y a las acciones móviles, conservando originales, cambios de velocidad, subtítulos y audio en el intervalo del clip. Disponible en los 13 idiomas.
 - **2026-11-04** — Añadido Dibujo lineal en Efectos, con detalle, grosor, inversión y vista previa. Guarda imágenes PNG y vídeos WebM a 24 fps con recorte, velocidad y audio de origen en Mis recursos, sin inserción automática. Compatible con 13 idiomas y móviles. Corregida la reproducción de líneas de tiempo con solo clips de imagen en imagen.
-- **2026-11-03** — Añadidos menús de escritorio Archivo, Editar, Clip, Ver y Ayuda, conectados a las acciones existentes de edición, vista previa, proxies y ayuda, con navegación por teclado y los 13 idiomas. Móviles y tabletas conservan los menús compactos. Corregidos deshacer/rehacer durante la preparación, los tiempos fuente al dividir curvas de velocidad y la sincronización del audio separado. El foco del teclado se asigna tras montar el menú desplegable. Los controles de proxy pasan a Ver, con origen real de reproducción, gestión de caché separada, iconos distintos por acción y panel móvil en los 13 idiomas.
 Consulta el [Roadmap](ROADMAP.md) para el trabajo planificado, [Releases](https://github.com/MartinDelophy/ai-video-editor/releases) para los cambios publicados e [Issues](https://github.com/MartinDelophy/ai-video-editor/issues) para tareas y errores.
 
 ## ¿Qué puede producir?

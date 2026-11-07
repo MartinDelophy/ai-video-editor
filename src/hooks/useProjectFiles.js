@@ -6,6 +6,7 @@ import { createCaptionSegments, getImageThumbnailCount, getVisualSegmentsTotal }
 import { normalizeSmartFrame } from "../lib/smartFrame.js";
 import { normalizeTrackLocks, normalizeTrackVisibility } from "../lib/projectTrackState.js";
 import { normalizeTimelineMarkers } from "../lib/timelineMarkers.js";
+import { normalizeEffectClips } from "../lib/timelineEffects.js";
 import { PROJECT_IMPORT_COPY } from "../i18nProjectImport.js";
 import { hostText } from "../i18nHost.js";
 import { captureProjectState, loadProjectMediaBlob, restoreProjectSnapshot } from "../lib/projectSnapshot.js";
@@ -23,6 +24,7 @@ export function useProjectFiles(deps) {
   }), [deps]);
   const prepareCompleteProject = useCallback(async (saved, projectId) => {
     const restored = await restoreProjectSnapshot(saved, projectId);
+    restored.effectClips = normalizeEffectClips(restored.effectClips);
     if (typeof restored.script !== "string" || !Array.isArray(restored.visualSegments) ||
         !Array.isArray(restored.audioSegments) || !Array.isArray(restored.userAssets)) throw new Error("项目缺少完整编辑状态。");
     // Active audio needs bytes for the existing audio controls; unused library media stays lazy.
@@ -89,7 +91,7 @@ export function useProjectFiles(deps) {
       captionPlacement: deps.captionPlacement, captionSize: deps.captionSize, captionStyle: deps.captionStyle,
       captionStylePresetId: deps.captionStylePresetId, captionStylePresets: deps.captionStylePresets,
       captionsEnabled: deps.captionsEnabled, captionSegments: deps.captionSegments, audioSegments, musicSegments, visualSegments, visualOverlaySegments,
-      stickerSegments: deps.stickerSegments, selectedFilterId: deps.selectedFilterId,
+      effectClips: deps.effectClips, stickerSegments: deps.stickerSegments, selectedFilterId: deps.selectedFilterId,
       timelineMarkers: normalizeTimelineMarkers(deps.timelineMarkers),
       selectedTransitionId: deps.selectedTransitionId, selectedStickerId: deps.selectedStickerId,
       trackVisibility: deps.trackVisibility, trackLocks: deps.trackLocks, timelineZoom: deps.timelineZoom, audioDuration: deps.audioDuration,
@@ -128,7 +130,7 @@ export function useProjectFiles(deps) {
     deps.setScript(DEFAULT_SCRIPT); deps.setCaptionSegments(createCaptionSegments(DEFAULT_SCRIPT));
     deps.setSelectedSegmentId(""); deps.clearImageTrack(""); deps.clearAudioTrack("");
     deps.setVisualOverlaySegments([]); deps.setSelectedVisualOverlayId("");
-    deps.clearSourceAudioTrack(""); deps.clearMusicTrack(""); deps.setStickerSegments([]);
+    deps.clearSourceAudioTrack(""); deps.clearMusicTrack(""); deps.setStickerSegments([]); deps.setEffectClips([]);
     if (deps.sourceVoiceColorOriginalRef) deps.sourceVoiceColorOriginalRef.current = null;
     deps.setTimelineMarkers?.([]);
     deps.setSelectedStickerSegmentId(""); deps.clearAllVisionState(); deps.setCurrentTime(0);
@@ -297,6 +299,7 @@ export function useProjectFiles(deps) {
       deps.setCaptionsEnabled(data.captionsEnabled !== false);
       deps.setTrackVisibility(normalizeTrackVisibility(data.trackVisibility)); deps.setTrackLocks(normalizeTrackLocks(data.trackLocks)); deps.setTimelineZoom(Number(data.timelineZoom) || 1);
       deps.setSelectedFilterId(data.selectedFilterId || "none"); deps.setSelectedTransitionId(data.selectedTransitionId || "none");
+      deps.setEffectClips(normalizeEffectClips(data.effectClips));
       deps.setSelectedStickerId(data.selectedStickerId || "none"); deps.setStickerSegments(Array.isArray(data.stickerSegments) ? data.stickerSegments : []);
       for (const url of visualUrls.values()) deps.imageUrlRefs.current.add(url);
       for (const segment of [...visuals, ...overlays]) {

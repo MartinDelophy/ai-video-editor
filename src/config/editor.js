@@ -3,6 +3,7 @@ import {
   ImageSquare,
   MusicNote,
   MagicWand,
+  Sparkle,
   PlugsConnected,
   Scan,
   Sticker,
@@ -239,7 +240,8 @@ export const TOOL_RAIL = [
   { id: "caption", label: "字幕", icon: ClosedCaptioning },
   { id: "smart", label: "智能", icon: Scan },
   { id: "audio", label: "音频", icon: MusicNote },
-  { id: "effects", label: "特效", icon: MagicWand },
+  { id: "effects", label: "画面处理", icon: MagicWand },
+  { id: "specialEffects", label: "特效", icon: Sparkle },
   { id: "plugins", label: "插件", icon: PlugsConnected },
   { id: "stickers", label: "贴纸", icon: Sticker },
 ];

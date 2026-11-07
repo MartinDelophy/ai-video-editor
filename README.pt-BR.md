@@ -31,11 +31,11 @@ O usuário é o único responsável por quaisquer consequências legais decorren
 
 ## Novidades do projeto
 
+- **2026-11-07** — Nova área de efeitos especiais com oito efeitos de imagem sobreponíveis, orelhas de cristal e chifres de rubi que acompanham o rosto. Arraste, corte e use quadros-chave em faixas dedicadas. Arraste os arcos para ajustar a posição; ao prolongar o efeito, o rastreamento anterior é preservado. Os cartões seguem o tamanho do catálogo de efeitos, com prévia ao passar o cursor e exportação correspondente.
 - **2026-11-06** — Adicionada uma barra horizontal fina e arrastável na linha do tempo no Windows.
 - **2026-11-06** — Seleção múltipla com Shift e marcações numeradas; o menu de contexto exporta cada clipe em arquivo separado na ordem da linha do tempo, preservando configurações e sincronização de áudio.
 - **2026-11-06** — Adicionada a exportação de clipes aos menus de Visuais e Sobreposição e às ações móveis, preservando originais, velocidade, legendas e áudio no intervalo do clipe. Disponível nos 13 idiomas.
 - **2026-11-04** — Adicionado Desenho de linhas em Efeitos, com detalhes, espessura, inversão e prévia. Salva imagens PNG e vídeos WebM de 24 fps com corte, velocidade e áudio de origem em Meus recursos, sem inserção automática. Suporte aos 13 idiomas e dispositivos móveis. Corrigida a reprodução de linhas do tempo com apenas clipes de imagem em imagem.
-- **2026-11-03** — Adicionados menus de desktop Arquivo, Editar, Clipe, Exibir e Ajuda, ligados às ações existentes de edição, prévia, proxies e ajuda, com navegação por teclado e os 13 idiomas. Celulares e tablets mantêm menus compactos. Corrigidos desfazer/refazer durante a preparação, os tempos de origem ao dividir curvas de velocidade e a sincronização do áudio separado. O foco do teclado é definido após montar o menu suspenso. Os controles de proxy ficam em Exibir, com a fonte real de reprodução, gerenciamento separado do cache, ícones por ação e painel móvel nos 13 idiomas.
 Consulte o [Roadmap](ROADMAP.md) para o trabalho planejado, [Releases](https://github.com/MartinDelophy/ai-video-editor/releases) para mudanças publicadas e [Issues](https://github.com/MartinDelophy/ai-video-editor/issues) para tarefas e erros.
 
 ## O que ele pode produzir?

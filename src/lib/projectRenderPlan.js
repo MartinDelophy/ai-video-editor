@@ -32,6 +32,7 @@ function atempoChain(rate) {
 
 function assertSupportedProject(project) {
   const unsupported = [];
+  if ((project.effectClips || []).length) unsupported.push("timeline effects (use browser export)");
   if ((project.captionSegments || []).some((item) => !item.hidden)) unsupported.push("captions");
   if ((project.stickerSegments || []).length) unsupported.push("stickers");
   if ((project.visualOverlaySegments || []).length) unsupported.push("overlays");

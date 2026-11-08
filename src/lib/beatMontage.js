@@ -12,7 +12,7 @@ const rows = [
   { beat: 6, y: 0, enterX: 0, enterY: 0 },
 ];
 
-function createBeatPanel(asset, { start, duration, layer = 1, frameRatio = 1, width = 0.64, height = 0.26, x = 0, y = 0, focusX = 50, focusY = 50, frames = [], rate = 1 }) {
+export function createBeatPanel(asset, { start, duration, layer = 1, frameRatio = 1, width = 0.64, height = 0.26, x = 0, y = 0, focusX = 50, focusY = 50, frames = [], rate = 1 }) {
   const box = getVisualOverlayContainBox(asset, frameRatio);
   const scale = Math.max(width * 100 / box.widthPercent, height * 100 / box.heightPercent);
   const maskWidth = Math.min(100, width * 10000 / (box.widthPercent * scale));

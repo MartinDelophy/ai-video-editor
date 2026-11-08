@@ -287,6 +287,10 @@ export const TRANSITIONS = [
   { id: "blur", name: "模糊切" },
   { id: "split", name: "双开门" },
   { id: "glitch", name: "故障闪" },
+  { id: "diagonal-fold", name: "斜向折叠" },
+  { id: "ripple-mask", name: "同心波纹" },
+  { id: "step-mask", name: "阶梯蒙版" },
+  { id: "shutter-mask", name: "双侧快门" },
 ];
 
 export const STICKER_PAGE_SIZE = 9;

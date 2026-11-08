@@ -1,3 +1,4 @@
+import { REFERENCE_FRAME_EFFECTS } from "./referenceTemplateEffects.js";
 import { drawPreviewFrame } from "./media.js";
 import {
   isFaceEffect,
@@ -36,6 +37,8 @@ const CAT_FACE_COVER = {
 export function drawEffectCardPreview(canvas, image, clip, { live = false, time = 0 } = {}) {
   const context = canvas.getContext("2d");
   if (clip.effect === "shape-flash") time = live ? time % 1.35 : clip.duration * 0.25;
+  const referenceEffect = REFERENCE_FRAME_EFFECTS.includes(clip.effect);
+  if (referenceEffect) time = live ? time % clip.duration : clip.duration * (clip.effect === "film-orbit" ? 0.58 : 0.64);
   const person = isFaceEffect(clip);
   const makeup = clip.effect === "cat-face";
   const sprite = person && !makeup && live ? getFaceAttachmentAsset(clip.effect, clip.color) : null;
@@ -43,7 +46,7 @@ export function drawEffectCardPreview(canvas, image, clip, { live = false, time 
   drawPreviewFrame(context, image, canvas, {
     fitMode: "cover",
     captionsEnabled: false,
-    effectClips: !person && (live || clip.effect === "ink-print" || clip.effect === "shape-flash") ? [clip] : [],
+    effectClips: !person && (live || clip.effect === "ink-print" || clip.effect === "shape-flash" || referenceEffect) ? [clip] : [],
     timelineTime: time,
   });
   if (makeup) {

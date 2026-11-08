@@ -1,3 +1,4 @@
+import { MASK_TRANSITION_IDS } from "./maskTransitions.js";
 import { applySplitScreenLayout, applyReferenceFrameSync } from "./visualLayoutCommands.js";
 import { applyRelightPatch } from "./relightCommand.js";
 import { reconcileVisualAssociations } from "./visualAssociations.js";
@@ -472,7 +473,7 @@ function addOverlay(project, operation) {
 }
 
 function setTransition(project, operation) {
-  const transitions = new Set(["none", "fade", "zoom", "flash", "wipe-left", "wipe-up", "blur", "split", "glitch"]);
+  const transitions = new Set(["none", "fade", "zoom", "flash", "wipe-left", "wipe-up", "blur", "split", "glitch", ...MASK_TRANSITION_IDS]);
   if (!transitions.has(operation.transitionId)) throw Object.assign(new Error(`Unknown transition: ${operation.transitionId}`), { code: "INVALID_TRANSITION" });
   const visuals = Array.isArray(project.visualSegments) ? project.visualSegments : [];
   const index = visuals.findIndex((clip) => clip.id === operation.clipId);

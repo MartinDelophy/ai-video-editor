@@ -1,3 +1,5 @@
+import { isMaskTransition } from "../lib/maskTransitions.js";
+import { REFERENCE_FRAME_EFFECTS } from "../lib/referenceTemplateEffects.js";
 import {
   ensureFaceAttachmentAssets,
   faceAttachmentAssetRevision,
@@ -72,7 +74,7 @@ export function TimelineEffectPreview({
         // The shell includes editor padding and letterboxed workspace. Rasterize
         // the actual composition frame, which is also the export aspect ratio.
         const composite = active.some(isCompositionEffect);
-        const expensive = composite || active.some((clip) => clip.effect === "ink-print");
+        const expensive = composite || active.some((clip) => clip.effect === "ink-print" || REFERENCE_FRAME_EFFECTS.includes(clip.effect));
         const previous = lastDraw?.data;
         const sameScene = previous?.effects?.id === d.effects?.id
           && previous?.overlays.length === d.overlays.length
@@ -143,10 +145,10 @@ export function TimelineEffectPreview({
             : d.effects,
           visualTime,
           vision: d.vision,
-          transitionId: d.transition?.id,
+          transitionId: isMaskTransition(d.transition?.id) && !compositeReady ? "none" : d.transition?.id,
           transitionProgress: d.transition?.progress,
           transitionNext:
-            next && (next.videoWidth || next.naturalWidth)
+            next && !next.seeking && (next.naturalWidth || next.readyState >= 2)
               ? { visual: next, visualEffects: d.transition?.next }
               : null,
           effectClips: compositeReady ? d.clips : d.clips.filter((clip) => !isCompositionEffect(clip)),

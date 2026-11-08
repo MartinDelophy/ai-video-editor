@@ -28,6 +28,7 @@ import { resolveVisionAnalysisAtTime } from "./vision.js";
 import { getVisualFitRect } from "./visualGeometry.js";
 import { resolveSmartFrameCropAtTime, smartFrameCropToPixels } from "./smartFrame.js";
 import {
+  getTaperedMaskPoints,
   getVisualMaskFeatherPixels,
   getVisualMaskGeometry,
   getVisualPlaybackRateAtTime,
@@ -47,6 +48,7 @@ import { prepareDepthFrame, getDepthFrame, drawCinematicDepthFrame, normalizeCin
 import { drawPhotoParallaxFrame, normalizePhotoParallax } from "./photoParallax.js";
 import { createVideoTrackFrame } from "./videoTrackFrames.js";
 import { composeColorGradeFilter, resolveColorGrade } from "./colorGrade.js";
+import { isMaskTransition, maskTransitionPaths, strokeMaskTransition } from "./maskTransitions.js";
 import { drawTimelineEffects } from "./timelineEffects.js";
 import { normalizeClickRippleEffect, resolveClickRippleState } from "./clickRippleEffect.js";
 
@@ -800,6 +802,23 @@ function getVisualEffectsLayers(canvas) {
   return layers;
 }
 
+function traceVisualMask(context, mask, geometry, x = 0, y = 0) {
+  const taper = getTaperedMaskPoints(mask, geometry);
+  context.beginPath();
+  if (taper) {
+    taper.forEach(([px, py], index) => {
+      if (index === 0) context.moveTo(px + x, py + y);
+      else context.lineTo(px + x, py + y);
+    });
+    context.closePath();
+  } else if (mask.type === "circle") {
+    context.arc(x + geometry.centerX, y + geometry.centerY, geometry.radius, 0, Math.PI * 2);
+  } else {
+    context.roundRect(x + geometry.centerX - geometry.width / 2, y + geometry.centerY - geometry.height / 2,
+      geometry.width, geometry.height, geometry.cornerRadius);
+  }
+}
+
 function drawVisualEffectsMask(context, mask, canvas) {
   const geometry = getVisualMaskGeometry(mask, canvas);
   const feather = getVisualMaskFeatherPixels(mask, canvas);
@@ -812,18 +831,7 @@ function drawVisualEffectsMask(context, mask, canvas) {
   }
   context.fillStyle = "#fff";
   context.filter = feather ? `blur(${feather}px)` : "none";
-  context.beginPath();
-  if (mask.type === "circle") {
-    context.arc(geometry.centerX, geometry.centerY, geometry.radius, 0, Math.PI * 2);
-  } else {
-    context.roundRect(
-      geometry.centerX - geometry.width / 2,
-      geometry.centerY - geometry.height / 2,
-      geometry.width,
-      geometry.height,
-      geometry.cornerRadius,
-    );
-  }
+  traceVisualMask(context, mask, geometry);
   context.fill();
   context.restore();
 }
@@ -832,18 +840,7 @@ function traceOverlayMaskShape(context, mask, canvas, visual) {
   const visualSize = getVisualDimensions(visual);
   const box = getVisualFitRect(visualSize, canvas, "contain");
   const geometry = getVisualMaskGeometry(mask, { width: box.width, height: box.height });
-  context.beginPath();
-  if (mask.type === "circle") {
-    context.arc(box.x + geometry.centerX, box.y + geometry.centerY, geometry.radius, 0, Math.PI * 2);
-  } else {
-    context.roundRect(
-      box.x + geometry.centerX - geometry.width / 2,
-      box.y + geometry.centerY - geometry.height / 2,
-      geometry.width,
-      geometry.height,
-      geometry.cornerRadius,
-    );
-  }
+  traceVisualMask(context, mask, geometry, box.x, box.y);
 }
 
 function getMaskedVisualLayer(canvas) {
@@ -1279,7 +1276,8 @@ export function drawPreviewFrame(context, visual, canvas, options) {
       context.ellipse(maskCenterX, maskCenterY, maskWidth / 2, maskHeight / 2, 0, 0, Math.PI * 2);
       context.clip();
     } else if (["rectangle", "rounded"].includes(mask.type)) {
-      context.beginPath(); context.roundRect(maskCenterX - maskWidth / 2, maskCenterY - maskHeight / 2, maskWidth, maskHeight, mask.type === "rounded" ? Math.min(maskWidth, maskHeight) * (Number.isFinite(mask.cornerRadius) ? mask.cornerRadius : 12) / 100 : 0); context.clip();
+      traceVisualMask(context, mask, getVisualMaskGeometry(mask, canvas));
+      context.clip();
     }
     context.globalAlpha = animatedTransform.opacity;
     context.translate(width / 2 + (animatedTransform.x / 100) * width, height / 2 + (animatedTransform.y / 100) * height);
@@ -1292,16 +1290,20 @@ export function drawPreviewFrame(context, visual, canvas, options) {
 
   drawClickRippleEffect(context, canvas, visualEffects?.clickRipple, visualTime);
 
-  if (transitionNext?.visual && transitionId !== "none" && transitionProgress > 0) {
+  const transitionActive = Boolean(transitionNext?.visual && transitionId !== "none" && transitionProgress > 0);
+  const transitionAboveOverlays = isMaskTransition(transitionId);
+  const paintTransition = () => {
     const amount = Math.max(0, Math.min(1, transitionProgress));
     context.save();
+    const transitionMask = isMaskTransition(transitionId) ? maskTransitionPaths(transitionId, amount, width, height) : null;
+    if (transitionMask) context.clip(new Path2D(transitionMask.path), transitionMask.evenOdd ? "evenodd" : "nonzero");
     if (transitionId === "wipe-left") context.rect(width * (1 - amount), 0, width * amount, height);
     else if (transitionId === "wipe-up") context.rect(0, height * (1 - amount), width, height * amount);
     else if (transitionId === "split") {
       context.rect(width * (0.5 - amount / 2), 0, width * amount, height);
     }
     if (["wipe-left", "wipe-up", "split"].includes(transitionId)) context.clip();
-    context.globalAlpha = transitionId === "flash" ? Math.max(0, (amount - 0.35) / 0.65) : amount;
+    context.globalAlpha = transitionMask ? 1 : transitionId === "flash" ? Math.max(0, (amount - 0.35) / 0.65) : amount;
     if (transitionId === "zoom") {
       const scale = 1.12 - amount * 0.12;
       context.translate(width / 2, height / 2); context.scale(scale, scale); context.translate(-width / 2, -height / 2);
@@ -1313,9 +1315,10 @@ export function drawPreviewFrame(context, visual, canvas, options) {
     const nextFilter = transitionId === "blur" ? `${nextBaseFilter === "none" ? "" : nextBaseFilter} blur(${Math.max(0, (1 - amount) * 14)}px)`.trim() : nextBaseFilter;
     const nextSourceTime = getVisualSourceTime(transitionNext.visualEffects, transitionNext.visualTime || 0);
     const nextSmartFrameCrop = resolveSmartFrameCropAtTime(transitionNext.visualEffects?.smartFrame, nextSourceTime);
-    const nextLayout=drawFittedVisual(context, transitionNext.visual, canvas, primaryFitMode, nextFilter, transitionNext.vision || null, null, nextSmartFrameCrop);
+    const nextLayout=drawFittedVisual(context, transitionNext.visual, canvas, (transitionMask && transitionNext.visualEffects?.fitMode) || primaryFitMode, nextFilter, transitionNext.vision || null, null, nextSmartFrameCrop);
     drawTrackedFaceAttachments(context,canvas,options.effectClips,options.timelineTime || 0,transitionNext.visualEffects,nextSourceTime,nextLayout);
     context.restore();
+    if (transitionMask) strokeMaskTransition(context, transitionMask.edge, width, height);
     if (transitionId === "flash") {
       context.fillStyle = `rgba(255,255,255,${Math.max(0, 1 - Math.abs(amount - 0.5) * 2) * 0.7})`;
       context.fillRect(0, 0, width, height);
@@ -1324,8 +1327,8 @@ export function drawPreviewFrame(context, visual, canvas, options) {
       context.fillStyle = `rgba(53,234,217,${Math.sin(amount * Math.PI * 8) * 0.12})`;
       context.fillRect(0, 0, width, height);
     }
-  }
-
+  };
+  if (transitionActive && !transitionAboveOverlays) paintTransition();
   context.restore();
 
   drawTimelineEffects(context, canvas, options.effectClips || [], options.timelineTime || 0, drawClickRippleEffect, { markers: options.timelineMarkers });
@@ -1459,6 +1462,7 @@ export function drawPreviewFrame(context, visual, canvas, options) {
   });
 
   drawTimelineEffects(context, canvas, options.effectClips || [], options.timelineTime || 0, drawClickRippleEffect, { composition: true, markers: options.timelineMarkers, scrubbing: options.scrubbing });
+  if (transitionActive && transitionAboveOverlays) paintTransition();
 
   if (captionsEnabled && subtitle) {
     const captionLayout = getCaptionTextLayout({
@@ -2024,7 +2028,7 @@ export async function exportBrowserVideo({
     const nextVisualItem = transitionDuration > 0 && timelineTime >= transitionStart ? visualItems[visualIndex + 1] : null;
     const transitionProgress = nextVisualItem ? (timelineTime - transitionStart) / transitionDuration : 0;
     if (nextVisualItem?.segment.type === "video") {
-      const nextTime = Math.max(0, Number(nextVisualItem.segment.sourceStart) || 0) + transitionProgress * transitionDuration;
+      const nextTime = getVisualSourceTime(nextVisualItem.segment, isMaskTransition(junction?.id) ? 0 : transitionProgress * transitionDuration);
       if (!nextVisualItem.visual.seeking && Math.abs(nextVisualItem.visual.currentTime - nextTime) > 0.05) nextVisualItem.visual.currentTime = nextTime;
     }
     const resolvedVision = resolveVisionAnalysisAtTime(
@@ -2062,7 +2066,7 @@ export async function exportBrowserVideo({
       transitionNext: nextVisualItem ? {
         visual: nextVisualItem.cutoutVisual || nextVisualItem.visual,
         visualEffects: nextVisualItem.segment,
-        visualTime: transitionProgress * transitionDuration,
+        visualTime: isMaskTransition(junction?.id) ? 0 : transitionProgress * transitionDuration,
       } : null,
       transitionProgress,
       vision: frameVision,

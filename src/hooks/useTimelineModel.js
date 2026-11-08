@@ -1,3 +1,4 @@
+import { isMaskTransition } from "../lib/maskTransitions.js";
 import { useMemo } from "react";
 
 import {
@@ -224,7 +225,7 @@ export function useTimelineModel(d) {
     const junction = previewVisualSegment?.transition;
     const next = d.visualSegments[previewVisualSegmentIndex + 1];
     if (!next || !junction?.id || junction.id === "none" || !previewVisualRange) return null;
-    const duration = Math.max(0.1, Math.min(Number(junction.duration) || 0.5, previewVisualSegment.duration || 0.5, next.duration || 0.5));
+    const duration = Math.max(0.1, Math.min(Number(junction.duration) || 0.5, previewVisualSegment.duration || 0.5, isMaskTransition(junction.id) ? Infinity : next.duration || 0.5));
     const start = previewVisualRange.end - duration;
     if (d.currentTime < start || d.currentTime >= previewVisualRange.end) return null;
     return { id: junction.id, duration, progress: (d.currentTime - start) / duration, next };

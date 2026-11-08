@@ -1,3 +1,4 @@
+import { REFERENCE_FRAME_EFFECTS, drawReferenceFrameEffect } from "./referenceTemplateEffects.js";
 import { BEAT_EFFECT_IDS, FLASH_SHAPES, normalizeBeatSettings, resolveBeatAge, isCompositionEffect, drawBeatEffect } from "./beatEffects.js";
 import { resolveEffectParameters } from "./effectKeyframes.js";
 import { MAX_TIMELINE_DURATION_SECONDS } from "../config/editor.js";
@@ -14,6 +15,7 @@ export const TIMELINE_EFFECT_IDS = Object.freeze([
   "grain",
   "chromatic",
   ...BEAT_EFFECT_IDS,
+  ...REFERENCE_FRAME_EFFECTS,
   "cat-ears",
   "devil-horns",
   "cat-face",
@@ -51,7 +53,7 @@ export function activeEffectClips(clips, time) {
     (clip) => !clip.hidden && time >= clip.start && time < clip.start + clip.duration,
   );
 }
-export const getDefaultEffectDuration = (effect) => effect === "shape-flash" ? 0.62 : 3;
+export const getDefaultEffectDuration = (effect) => effect === "shape-flash" ? 0.62 : effect === "seven-slat-reveal" ? 6.13 : 3;
 export function createEffectClip(effect, start, duration = getDefaultEffectDuration(effect)) {
   return normalizeEffectClips([
     {
@@ -60,7 +62,9 @@ export function createEffectClip(effect, start, duration = getDefaultEffectDurat
       duration,
       id: crypto.randomUUID(),
       intensity: effect !== "cat-face" && isFaceEffect({ effect }) ? (0.86 - 0.7) / 0.6 : 0.5,
-      ...(effect === "cat-ears"
+      ...(effect === "seven-slat-reveal" ? { color: "#f3fbff", intensity: 0.9 }
+      : effect === "film-orbit" ? { color: "#f463ca", intensity: 0.88 }
+      : effect === "cat-ears"
         ? { color: "#d4b3e7" }
         : effect === "cat-face"
           ? { color: "#df8e9f" }
@@ -98,6 +102,8 @@ export function drawTimelineEffects(ctx, canvas, clips, time, drawRipple, { comp
     ctx.save();
     if (BEAT_EFFECT_IDS.includes(clip.effect))
       drawBeatEffect(ctx, canvas, clip, time, markers, copyFrame, scrubbing);
+    else if (REFERENCE_FRAME_EFFECTS.includes(clip.effect))
+      drawReferenceFrameEffect(ctx, canvas, clip, time, copyFrame, scrubbing);
     else if (clip.effect === "ripple")
       drawRipple(ctx, canvas, { ...clip.ripple, enabled: true, color: clip.color }, t);
     else if (clip.effect === "vignette") {

@@ -235,6 +235,13 @@ export function getExportTechnicalSummary(settings, ratio) {
   };
 }
 
+export function getExportFrameCount(duration, frameRate) {
+  const frames = duration * frameRate;
+  const integer = Math.round(frames);
+  // Summing frame-aligned clip durations can leave a tiny floating-point tail.
+  return Math.abs(frames - integer) < 1e-8 ? integer : Math.ceil(frames);
+}
+
 export function getExportEstimate(settings, ratio, duration) {
   const safeDuration = getExportRange(settings, duration).duration;
   if (settings.mediaType === "audio") {
@@ -255,7 +262,7 @@ export function getExportEstimate(settings, ratio, duration) {
     : Number(settings.audioBitsPerSecond) || 192_000;
   return {
     duration: safeDuration,
-    frameCount: Math.ceil(safeDuration * summary.frameRate),
+    frameCount: getExportFrameCount(safeDuration, summary.frameRate),
     estimatedBytes: Math.ceil(((videoBitsPerSecond + audioBitsPerSecond) * safeDuration / 8) * 1.03),
   };
 }

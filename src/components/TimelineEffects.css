@@ -958,3 +958,5 @@
   border-radius: 7px;
   font: inherit;
 }
+.preview-canvas .preview-mask-transition-front { z-index: 4; }
+.preview-canvas.has-timeline-effects:not(.has-composition-effects) .preview-mask-transition-front { visibility: visible; }

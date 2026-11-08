@@ -61,15 +61,15 @@ export function createCardRotationTemplate({ assets, bpm, start, intro, copy }) 
   const sourceDuration = CARD_ROTATION_INTRO_SECONDS;
   const introClip = {
     ...createVisualSegment(introDuration, {
-      id: "card-rotation-intro",
+      id: intro.personalized ? crypto.randomUUID() : "card-rotation-intro",
       type: "video",
       generatedBy: CARD_ROTATION_ID,
-      src: CARD_ROTATION_INTRO_URL,
+      src: intro.src || CARD_ROTATION_INTRO_URL,
       blob: intro.blob,
       trackFrames: intro.trackFrames,
       trackFrameSampling: "exact-pts-hq-v5-seed",
       trackFrameDuration: sourceDuration,
-      thumbnail: `${CARD_ROTATION_MEDIA}/cover.webp`,
+      thumbnail: intro.trackFrames?.[0]?.src || `${CARD_ROTATION_MEDIA}/cover.webp`,
       name: copy.intro,
       width: 768,
       height: 768,

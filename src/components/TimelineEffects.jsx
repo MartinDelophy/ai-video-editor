@@ -1,3 +1,5 @@
+import { referenceEffectsCopy } from "../i18nReferenceTemplates.js";
+import { REFERENCE_FRAME_EFFECTS } from "../lib/referenceTemplateEffects.js";
 import { beatEffectCopy } from "../i18nBeatEffects.js";
 import { BEAT_SOURCES, FLASH_SHAPES, normalizeBeatSettings } from "../lib/beatEffects.js";
 import { FaceAlignmentArcs } from "./FaceAlignmentArcs.jsx";
@@ -63,6 +65,8 @@ const EFFECT_PREVIEW_IMAGES = Object.freeze({
   "beat-zoom": "/assets/effects/vfx/shake.webp",
   "ink-print": "/assets/effects/vfx/grain.webp",
   "shape-flash": "/assets/effects/vfx/chromatic.webp",
+  "seven-slat-reveal": "/assets/effects/vfx/halo.webp",
+  "film-orbit": "/assets/effects/vfx/glitch.webp",
   "cat-ears": "/assets/effects/vfx/cat-ears-base.webp",
   "devil-horns": "/assets/effects/vfx/devil-horns-base.webp",
   "cat-face": "/assets/effects/vfx/cat-face-base.webp",
@@ -78,7 +82,7 @@ function TimelineEffectCard({ effect, label, onAdd, selected }) {
     const source = EFFECT_PREVIEW_IMAGES[effect];
     const image = imageRef.current?.getAttribute("src") === source ? imageRef.current : new Image();
     imageRef.current = image;
-    const clip = createEffectClip(effect, 0, effect === "shape-flash" ? 0.62 : 60);
+    const clip = createEffectClip(effect, 0, effect === "shape-flash" || REFERENCE_FRAME_EFFECTS.includes(effect) ? getDefaultEffectDuration(effect) : 60);
     if (!isFaceEffect(clip)) clip.intensity = 0.65;
     let canceled = false,
       frame = 0,
@@ -176,7 +180,7 @@ function TimelineEffectCard({ effect, label, onAdd, selected }) {
   );
 }
 export function TimelineEffectCatalog({ language, onAdd, selectedEffect }) {
-  const c = { ...effectCopy(language), ...faceEffectCopy(language), ...beatEffectCopy(language) };
+  const c = { ...effectCopy(language), ...faceEffectCopy(language), ...beatEffectCopy(language), ...referenceEffectsCopy(language) };
   const gridRef = useRef(null);
   const [category, setCategory] = useState(
     isFaceEffect({ effect: selectedEffect }) ? "person" : "frame",
@@ -255,7 +259,7 @@ export function TimelineEffectInspector({
       ...effectCopy(language),
       ...faceEffectCopy(language),
       ...faceAppearanceCopy(language),
-      ...beatEffectCopy(language),
+      ...beatEffectCopy(language), ...referenceEffectsCopy(language),
     },
     clip = clips.find((item) => item.id === selectedId);
   const panelRef = useRef(null);
@@ -468,7 +472,7 @@ export function TimelineEffectInspector({
             />
           </label>
         ) : null}
-        {["glitch", "halo", "beat-backdrop", "shape-flash"].includes(clip.effect) || isFaceEffect(clip) ? (
+        {["glitch", "halo", "beat-backdrop", "shape-flash", ...REFERENCE_FRAME_EFFECTS].includes(clip.effect) || isFaceEffect(clip) ? (
           <label className="effect-color-field">
             {c.color}
             {keyButton("color", c.color)}
@@ -635,7 +639,7 @@ export function TimelineEffectLane({
   setTimelineHorizon,
   pauseForEdit,
 }) {
-  const c = { ...effectCopy(language), ...faceEffectCopy(language), ...beatEffectCopy(language) },
+  const c = { ...effectCopy(language), ...faceEffectCopy(language), ...beatEffectCopy(language), ...referenceEffectsCopy(language) },
     ref = useRef(null),
     gesture = useRef(null);
   const preview = sharedPreview;

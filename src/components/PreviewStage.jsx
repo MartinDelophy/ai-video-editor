@@ -1,3 +1,4 @@
+import { isMaskTransition, maskTransitionAppearance } from "../lib/maskTransitions.js";
 import { TimelineEffectPreview } from "./TimelineEffectPreview.jsx";
 import { ProxySourceAudio } from "./ProxySourceAudio.jsx";
 import { cancelVideoProxy } from "../lib/videoProxy.js";
@@ -22,7 +23,7 @@ import {
 
 import { requestTimelineMediaPlay, setTimelineAudioGain } from "../lib/editorRuntime.js";
 import { formatTime } from "../lib/timeline.js";
-import { getVisualMaskGeometry, getVisualMaskSvgDataUrl, getVisualSourceTime, getVisualPlaybackRateAtTime, resolveVisualTransform, snapVisualScaleToFrameEdges } from "../lib/visualEffects.js";
+import { getTaperedMaskPoints, getVisualMaskGeometry, getVisualMaskSvgDataUrl, getVisualSourceTime, getVisualPlaybackRateAtTime, resolveVisualTransform, snapVisualScaleToFrameEdges } from "../lib/visualEffects.js";
 import { resolveVisualClipAnimation } from "../lib/visualClipAnimations.js";
 import { getStickerBaseSize } from "../lib/stickerGeometry.js";
 import { resolveCaptionStyleForSegment } from "../lib/captionFonts.js";
@@ -47,7 +48,10 @@ import { composeColorGradeFilter, resolveColorGrade } from "../lib/colorGrade.js
 
 function getSharpMaskClipPath(mask, frame) {
   if (!mask.type || mask.type === "none") return undefined;
-  const { centerX, centerY, width, height, radius, cornerRadius } = getVisualMaskGeometry(mask, frame);
+  const geometry = getVisualMaskGeometry(mask, frame);
+  const { centerX, centerY, width, height, radius, cornerRadius } = geometry;
+  const taper = getTaperedMaskPoints(mask, geometry);
+  if (taper) return `polygon(${taper.map(([x, y]) => `${x}px ${y}px`).join(",")})`;
   if (mask.type === "circle") return `circle(${radius}px at ${centerX}px ${centerY}px)`;
   const top = centerY - height / 2;
   const right = frame.width - centerX - width / 2;
@@ -776,6 +780,31 @@ export function PreviewStage({
       x: Number.isFinite(event.clientX) ? event.clientX : rect.left + rect.width / 2,
       y: Number.isFinite(event.clientY) ? event.clientY : rect.top + rect.height / 2 });
   };
+  const geometricTransition = isMaskTransition(previewTransition?.id)
+    ? maskTransitionAppearance(previewTransition.id, previewTransition.progress, frameWidth, frameHeight) : null;
+
+  const transitionLayer = previewTransition?.next?.src && trackVisibility.image ? (
+    <div className={`preview-transition-layer type-${previewTransition.id}${geometricTransition ? " preview-mask-transition-front" : ""}`} style={{ "--transition-progress": previewTransition.progress, ...(geometricTransition ? { opacity: 1 } : {}) }}>
+      {previewTransition.next.type === "video" ? (
+        <video key={geometricTransition ? previewTransition.next.id : undefined}
+          onLoadedMetadata={geometricTransition ? ({ currentTarget: video }) => {
+            video.style.visibility = "hidden";
+            const time = Math.min(Math.max(0, video.duration - 0.001), getVisualSourceTime(previewTransition.next, 0));
+            if (Math.abs(video.currentTime - time) > 0.002) video.currentTime = time;
+          } : undefined}
+          onLoadedData={geometricTransition ? ({ currentTarget: video }) => { if (!video.seeking) video.style.visibility = ""; } : undefined}
+          onSeeked={geometricTransition ? ({ currentTarget: video }) => { video.style.visibility = ""; } : undefined}
+          onError={() => { if (transitionPlaybackSrc !== previewTransition.next.src) proxy.cancel(previewTransition.next.src); }}
+          src={transitionPlaybackSrc} crossOrigin="anonymous" muted playsInline autoPlay={!geometricTransition} preload="auto"
+          style={{ objectFit: geometricTransition ? previewTransition.next.fitMode || activeObjectFit : activeObjectFit, objectPosition: activeObjectPosition, maskImage: geometricTransition?.maskImage, maskSize: "100% 100%" }} />
+      ) : (
+        <img src={previewTransition.next.src} alt="" crossOrigin="anonymous" style={{ objectFit: geometricTransition ? previewTransition.next.fitMode || activeObjectFit : activeObjectFit, objectPosition: activeObjectPosition, maskImage: geometricTransition?.maskImage, maskSize: "100% 100%" }} />
+      )}
+      {previewTransition.id === "flash" ? <i /> : null}
+      {geometricTransition?.edgeImage ? <span className="preview-mask-transition-edge" style={{ backgroundImage: geometricTransition.edgeImage }} /> : null}
+    </div>
+  ) : null;
+
   const previewStage = (
     <section
       className={`preview-stage ${isFocusPreviewOpen ? `is-focus-preview is-focus-${focusPreviewOrientation}` : ""}`}
@@ -1004,16 +1033,7 @@ export function PreviewStage({
                 {['nw', 'ne', 'sw', 'se'].map((corner) => <button key={corner} className={`visual-transform-handle is-${corner}`} type="button" aria-label={t("visualScale", "缩放")} onPointerDown={(event) => startVisualTransform(event, `scale-${corner}`)} />)}
               </div>
             ) : null}
-            {previewTransition?.next?.src && trackVisibility.image ? (
-              <div className={`preview-transition-layer type-${previewTransition.id}`} style={{ "--transition-progress": previewTransition.progress }}>
-                {previewTransition.next.type === "video" ? (
-                  <video onError={() => { if (transitionPlaybackSrc !== previewTransition.next.src) proxy.cancel(previewTransition.next.src); }} src={transitionPlaybackSrc} crossOrigin="anonymous" muted playsInline autoPlay preload="auto" style={{ objectFit: activeObjectFit, objectPosition: activeObjectPosition }} />
-                ) : (
-                  <img src={previewTransition.next.src} alt="" crossOrigin="anonymous" style={{ objectFit: activeObjectFit, objectPosition: activeObjectPosition }} />
-                )}
-                {previewTransition.id === "flash" ? <i /> : null}
-              </div>
-            ) : null}
+            {!geometricTransition ? transitionLayer : null}
             </div>
             {renderedVisualSrc && trackVisibility.image && timelineVisualSelected && !isPlaying && !visualTransformEditable && !visualMaskEditable ? (
               <TimelineVisualHighlight id={previewVisualSegment.id}
@@ -1176,6 +1196,7 @@ export function PreviewStage({
                 ) : null}
               </Fragment>;
             })}
+            {geometricTransition ? transitionLayer : null}
             {overlaySnapGuides.map((guide) => <div className={`visual-snap-guide is-${guide}`} key={guide} />)}
             {showVisionOverlays
               ? visionOverlayBoxes.map((detection, index) => (

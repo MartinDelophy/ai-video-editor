@@ -1,4 +1,6 @@
-import { useEffect, useId, useState } from "react";
+import { loadReferenceDemoAssets } from "../lib/referenceTemplates.js";
+import { referenceTemplateCopy } from "../i18nReferenceTemplates.js";
+import { useEffect, useId, useRef, useState } from "react";
 import { CaretRight, FilmStrip, ImageSquare, MusicNote, UploadSimple, X } from "@phosphor-icons/react";
 import { beatEffectCopy } from "../i18nBeatEffects.js";
 import { templateCopy } from "../i18nTemplates.js";
@@ -12,8 +14,13 @@ import { getMediaFileKind } from "../lib/mediaCompatibility.js";
 import "./TemplateLibrary.css";
 
 const BUILT_IN_MUSIC = "built-in-beat-score";
+// Keep the slots in the same order as the stage's projected faces.
+const FACE_SLOTS = [["diamond", "♦"], ["club", "♣"], ["heart", "♥"], ["spade", "♠"]];
+const DEMO_FACES = ["shake", "glow", "glitch", "halo"].map((name) => ({
+  type: "image", src: `/assets/effects/vfx/${name}.webp`, width: 640, height: 480,
+}));
 
-function AssetSlot({ copy, title, items, selected, onChange, onUpload, optional, audio = false }) {
+function AssetSlot({ copy, title, items, selected, onChange, onUpload, optional, audio = false, allowShort = false }) {
   const id = useId();
   const asset = items.find((item) => item.id === selected);
   const choice = audio && selected === BUILT_IN_MUSIC ? BUILT_IN_MUSIC : asset?.id || "";
@@ -50,7 +57,7 @@ function AssetSlot({ copy, title, items, selected, onChange, onUpload, optional,
         </select>
         {invalid || asset?.mediaUnavailable ? <small role="status">{copy.failed}</small>
           : asset && !isReady(asset) ? <small role="status">{copy.reading}</small>
-          : asset?.type === "video" && asset.duration < 1 ? <small role="status">{copy.tooShort}</small> : null}
+          : !allowShort && asset?.type === "video" && asset.duration < 1 ? <small role="status">{copy.tooShort}</small> : null}
       </div>
       <label className="template-upload">
         <UploadSimple size={16} />
@@ -77,28 +84,31 @@ function isReady(asset) {
 export function TemplateLibrary({ language, selected, onSelect }) {
   const copy = templateCopy(language);
   const card = cardRotationCopy(language);
-  const [cardPreview, setCardPreview] = useState(false);
-  const playCard = () => {
-    if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) setCardPreview(true);
+  const [hovered, setHovered] = useState("");
+  const startPreview = (id) => {
+    if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) setHovered(id);
   };
   return (
     <section className="subject-effect-capability-grid template-library mobile-panel-scroll-body" aria-label={copy.title}>
       {TIMELINE_TEMPLATES.map(({ id }) => {
         const isCard = id === CARD_ROTATION_ID;
-        const title = isCard ? card.title : beatEffectCopy(language)[BEAT_MONTAGE_ID];
-        const summary = isCard ? card.summary : copy.description;
+        const reference = referenceTemplateCopy(id, language);
+        const title = reference?.title ?? (isCard ? card.title : beatEffectCopy(language)[BEAT_MONTAGE_ID]);
+        const summary = reference?.description ?? (isCard ? card.summary : copy.description);
+        const media = isCard ? CARD_ROTATION_MEDIA : reference ? `/assets/templates/${id}` : "";
+        const preview = isCard ? CARD_ROTATION_INTRO_URL : `${media}/preview.mp4`;
         return (
           <button key={id} type="button" className={`subject-outline-entry template-card ${selected === id ? "is-active" : ""}`}
             aria-pressed={selected === id} onClick={() => onSelect(id)}
-            onMouseEnter={isCard ? playCard : undefined}
-            onMouseLeave={isCard ? () => setCardPreview(false) : undefined}
-            onFocus={isCard ? playCard : undefined}
-            onBlur={isCard ? () => setCardPreview(false) : undefined}>
+            onMouseEnter={media ? () => startPreview(id) : undefined}
+            onMouseLeave={media ? () => setHovered("") : undefined}
+            onFocus={media ? () => startPreview(id) : undefined}
+            onBlur={media ? () => setHovered("") : undefined}>
             <span className="subject-outline-entry-preview" aria-hidden="true">
-              {isCard
-                ? cardPreview
-                  ? <video src={CARD_ROTATION_INTRO_URL} poster={`${CARD_ROTATION_MEDIA}/cover.webp`} autoPlay muted loop playsInline />
-                  : <img src={`${CARD_ROTATION_MEDIA}/cover.webp`} alt="" />
+              {media
+                ? hovered === id
+                  ? <video src={preview} poster={`${media}/cover.webp`} autoPlay muted loop playsInline />
+                  : <img src={`${media}/cover.webp`} alt="" />
                 : <span className="template-card-cover">
                     <img src="/assets/effects/vfx/halo.webp" alt="" />
                     <img src="/assets/effects/vfx/glow.webp" alt="" />
@@ -139,13 +149,21 @@ function useCardIntro(enabled) {
   return intro;
 }
 
-export function TemplateInspector({ template, language, closeLabel, onClose, draft, setDraft, visualSegments, userAssets, hasMusic, musicLocked, shouldAppend, blocked, onUpload, onApply }) {
+export function TemplateInspector({ template, language, closeLabel, cancelLabel, onClose, draft, setDraft, visualSegments, userAssets, hasMusic, musicLocked, shouldAppend, blocked, onUpload, onApply }) {
   const copy = templateCopy(language);
   const card = cardRotationCopy(language);
   const isCard = template.id === CARD_ROTATION_ID;
   const intro = useCardIntro(isCard);
-  const title = isCard ? card.title : beatEffectCopy(language)[BEAT_MONTAGE_ID];
-  const fromTimeline = getTimelineVisualAssets(visualSegments).filter((asset) => asset.generatedBy !== CARD_ROTATION_ID);
+  const job = useRef(null);
+  const apply = useRef(onApply);
+  const [progress, setProgress] = useState(null);
+  const [renderFailed, setRenderFailed] = useState(false);
+  useEffect(() => { apply.current = onApply; }, [onApply]);
+  useEffect(() => () => job.current?.abort(), []);
+  const reference = referenceTemplateCopy(template.id, language);
+  const manySlots = isCard || Boolean(reference);
+  const title = reference?.title ?? (isCard ? card.title : beatEffectCopy(language)[BEAT_MONTAGE_ID]);
+  const fromTimeline = getTimelineVisualAssets(visualSegments).filter((asset) => ![CARD_ROTATION_ID, "template-demo"].includes(asset.generatedBy));
   const assets = [...new Map([...fromTimeline, ...userAssets].map((item) => [item.id, item])).values()];
   const visuals = assets.filter((item) => item.type === "image" || item.type === "video");
   const audio = assets.filter((item) => item.type === "audio");
@@ -162,14 +180,55 @@ export function TemplateInspector({ template, language, closeLabel, onClose, dra
   const bpm = Number(draft.bpm ?? template.defaultBpm);
   const duration = template.getDuration(bpm);
   const validBpm = Number.isInteger(bpm) && bpm >= MIN_TEMPLATE_BPM && bpm <= MAX_TEMPLATE_BPM;
-  const ready = (isCard ? Boolean(intro?.blob) : Boolean(main))
+  const faceOverrides = isCard ? FACE_SLOTS.map(([key]) => visuals.find((asset) => asset.id === draft[key])) : [];
+  const faceCuts = isCard ? template.slots.slice(0, FACE_SLOTS.length).map((slot) => chosenAssets[slot]) : [];
+  const firstFace = Object.values(chosenAssets).find(Boolean);
+  const faces = isCard && (firstFace || faceOverrides.some(Boolean))
+    ? faceOverrides.map((asset, index) => asset || faceCuts[index] || firstFace || DEMO_FACES[index]) : [];
+  const ready = (isCard ? faces.length > 0 || Boolean(intro?.blob) : Boolean(reference || main))
     && Object.values(chosenAssets).every((item) => !item || (isReady(item) && (item.type !== "video" || (item.sourceDuration ?? item.duration) >= 1)))
-    && (!music || isReady(music));
-  const change = (key, value) => setDraft((prev) => ({ ...prev, [key]: value }));
+    && faces.every(isReady) && (!music || isReady(music));
+  const change = (key, value) => {
+    job.current?.abort();
+    setRenderFailed(false);
+    setDraft((prev) => ({ ...prev, [key]: value }));
+  };
+  const submit = async () => {
+    if (job.current) return;
+    const options = { assets: chosenAssets, bpm, music, builtInMusic, intro };
+    if (!faces.length && !reference) {
+      onApply(options);
+      return;
+    }
+    const controller = new AbortController();
+    const { signal } = controller;
+    job.current = controller;
+    setProgress(0);
+    setRenderFailed(false);
+    try {
+      if (reference) {
+        const assets = await loadReferenceDemoAssets(template, chosenAssets, signal, card.slot);
+        if (!signal.aborted) apply.current({ ...options, assets });
+        return;
+      }
+      const { renderCardFaceIntro } = await import("../lib/cardFaceIntro.js");
+      const blob = await renderCardFaceIntro(faces, { signal, onProgress: setProgress });
+      const trackFrames = await extractVideoTrackFrames(blob, { duration: CARD_ROTATION_INTRO_SECONDS, width: 768, height: 768, maxFrames: 12, signal }).catch(() => []);
+      if (!signal.aborted) apply.current({ ...options, intro: { blob, trackFrames, personalized: true } });
+    } catch {
+      if (!signal.aborted) setRenderFailed(true);
+    } finally {
+      if (job.current === controller) {
+        job.current = null;
+        setProgress(null);
+      }
+    }
+  };
   const renderSlot = (slot, index) => (
-    <AssetSlot key={slot} copy={copy} title={isCard ? `${card.slot} ${String(index + 1).padStart(2, "0")}` : copy[slot]} items={visuals}
+    <AssetSlot key={slot} copy={copy} title={manySlots ? `${card.slot} ${String(index + 1).padStart(2, "0")}` : copy[slot]} items={visuals}
       selected={slot === "main" ? mainId : draft[slot]} onChange={(id) => change(slot, id)} onUpload={onUpload}
-      optional={isCard ? (slot === "main" ? card.placeholder : card.reuse) : slot === "main" ? "" : copy.reuseMain} />
+      optional={reference ? (slot === "main" ? reference.demo : copy.reuseMain)
+        : isCard ? (slot === "main" ? card.placeholder : card.reuse) : slot === "main" ? "" : copy.reuseMain} />
   );
   return (
     <aside className="voice-panel template-inspector" aria-label={title}>
@@ -178,14 +237,21 @@ export function TemplateInspector({ template, language, closeLabel, onClose, dra
         <button type="button" aria-label={closeLabel} onClick={onClose}><X size={17} /></button>
       </header>
       <div className="voice-tab-body template-setup">
-        <p>{isCard ? card.description : copy.description}</p>
-        {isCard ? <>
+        <p>{reference?.description ?? (isCard ? card.description : copy.description)}</p>
+        {manySlots ? <>
           {renderSlot("main", 0)}
-          <details className="template-extra-slots">
+          {template.slots.length > 1 ? <details className="template-extra-slots">
             <summary>{card.slots}<span>{template.slots.length - 1}</span></summary>
             <div>{template.slots.slice(1).map((slot, index) => renderSlot(slot, index + 1))}</div>
-          </details>
-          {!intro?.blob ? <p role="status">{intro?.failed ? copy.failed : copy.reading}</p> : null}
+          </details> : null}
+          {isCard ? <details className="template-extra-slots template-card-faces">
+            <summary>{card.faces}<span>{FACE_SLOTS.length}</span></summary>
+            <div>{FACE_SLOTS.map(([key, symbol]) => (
+              <AssetSlot key={key} copy={copy} title={`${symbol} ${card[key]}`} items={visuals}
+                selected={draft[key]} onChange={(id) => change(key, id)} onUpload={onUpload} optional={card.followCuts} allowShort />
+            ))}</div>
+          </details> : null}
+          {isCard && !faces.length && !intro?.blob ? <p role="status">{intro?.failed ? copy.failed : copy.reading}</p> : null}
         </> : template.slots.map(renderSlot)}
         {hasMusic ? <p>{copy.musicOccupied}</p> : musicLocked ? null : <AssetSlot copy={copy} title={copy.music} items={audio}
           selected={musicChoice} onChange={(id) => change("music", id)} onUpload={onUpload} audio optional={copy.noMusic} />}
@@ -195,11 +261,19 @@ export function TemplateInspector({ template, language, closeLabel, onClose, dra
             onChange={(event) => change("bpm", event.target.value)} />
           {validBpm ? <output>{new Intl.NumberFormat(language, { maximumFractionDigits: 1 }).format(duration)} s</output> : null}
         </label>
-        {blocked ? <p role="status">{isCard ? card.locked : copy.locked}</p> : null}
-        <button type="button" className="template-apply" disabled={blocked || !ready || !validBpm}
-          onClick={() => onApply({ assets: chosenAssets, bpm, music, builtInMusic, intro })}>
-          {shouldAppend(main) ? copy.append : copy.apply}
-        </button>
+        {blocked ? <p role="status">{reference?.locked ?? (isCard ? card.locked : copy.locked)}</p> : null}
+        {renderFailed ? <p role="alert">{reference ? copy.failed : card.renderFailed}</p> : null}
+        {progress === null ? (
+          <button type="button" className="template-apply" disabled={blocked || !ready || !validBpm} onClick={submit}>
+            {shouldAppend(main) ? copy.append : copy.apply}
+          </button>
+        ) : (
+          <div className="template-render">
+            <span role="status">{reference ? copy.reading : card.rendering}</span>
+            <button type="button" onClick={() => job.current?.abort()}>{cancelLabel}</button>
+            <progress value={reference ? undefined : progress} max={100} aria-label={reference ? copy.reading : card.rendering} />
+          </div>
+        )}
       </div>
     </aside>
   );

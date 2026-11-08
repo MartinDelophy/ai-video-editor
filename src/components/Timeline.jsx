@@ -1,3 +1,5 @@
+import { referenceEffectsCopy } from "../i18nReferenceTemplates.js";
+import { isMaskTransition } from "../lib/maskTransitions.js";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
@@ -3528,7 +3530,7 @@ export function Timeline({
                     className={`visual-junction ${transition.id !== "none" ? "has-transition" : ""}`}
                     key={`junction-${segment.id}`}
                     type="button"
-                    aria-label={`${t("transition")}: ${trOption(TRANSITIONS.find((item) => item.id === transition.id)?.name || "无转场")}`}
+                    aria-label={`${t("transition")}: ${referenceEffectsCopy(effectLanguage)[transition.id] || trOption(TRANSITIONS.find((item) => item.id === transition.id)?.name || "无转场")}`}
                     title={t("transitionSettings")}
                     style={{ left: `${(((range?.end || 0) + insertionPreviewOffset) / Math.max(0.01, timelineDuration)) * 100}%` }}
                     onPointerDown={(event) => event.stopPropagation()}
@@ -3904,14 +3906,15 @@ export function Timeline({
       {transitionEditor ? (() => {
         const segment = displayedVisualSegments[transitionEditor.index];
         const transition = segment?.transition || { id: "none", duration: 0.5 };
-        const maxDuration = Math.max(0.1, Math.min(2, (segment?.duration || 0.5) / 2, (displayedVisualSegments[transitionEditor.index + 1]?.duration || 0.5) / 2));
+        const maxDuration = isMaskTransition(transition.id) ? Math.max(0.1, segment?.duration || 0.5)
+          : Math.max(0.1, Math.min(2, (segment?.duration || 0.5) / 2, (displayedVisualSegments[transitionEditor.index + 1]?.duration || 0.5) / 2));
         return (
           <div className="transition-popover" role="dialog" aria-label={t("transitionSettings")} style={{ left: transitionEditor.x, top: transitionEditor.y }} onPointerDown={(event) => event.stopPropagation()}>
             <div className="transition-popover-head"><strong>{t("transition")}</strong><button type="button" onClick={() => setTransitionEditor(null)} aria-label={t("close")}><X size={17} /></button></div>
             <div className="transition-presets">
               {TRANSITIONS.map((option) => (
                 <button type="button" className={transition.id === option.id ? "is-selected" : ""} key={option.id} onClick={() => updateJunctionTransition(transitionEditor.index, { id: option.id })}>
-                  <i className={`transition-preview preview-${option.id}`} /><span>{trOption(option.name, option)}</span>
+                  <i className={`transition-preview preview-${option.id}`} /><span>{referenceEffectsCopy(effectLanguage)[option.id] || trOption(option.name, option)}</span>
                 </button>
               ))}
             </div>

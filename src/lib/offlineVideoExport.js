@@ -1,3 +1,5 @@
+import { isMaskTransition } from "./maskTransitions.js";
+import { getExportFrameCount } from "./exportSettings.js";
 import { ensureFaceAttachmentAssets } from "./faceAttachmentAssets.js";
 import {
   AudioSample,
@@ -50,7 +52,7 @@ let aacFallbackRegistered = false;
 export function createOfflineFramePlan(duration, frameRate, keyFrameInterval = 2) {
   const fps = clamp(Math.round(Number(frameRate) || 30), 24, 60);
   const safeDuration = Math.max(1 / fps, Number(duration) || 0);
-  const frameCount = Math.max(1, Math.ceil(safeDuration * fps));
+  const frameCount = Math.max(1, getExportFrameCount(safeDuration, fps));
   const keyFrameEvery = Math.max(1, Math.round(fps * clamp(Number(keyFrameInterval) || 2, 0.25, 10)));
   return Array.from({ length: frameCount }, (_, index) => ({
     index,
@@ -337,7 +339,8 @@ async function renderCompositionAt(context, canvas, prepared, options, time) {
   const transitionProgress = transitionDuration && time >= range.end - transitionDuration
     ? clamp((time - (range.end - transitionDuration)) / transitionDuration, 0, 1) : 0;
   const next = transitionProgress > 0 ? prepared.items[index + 1] : null;
-  if (next?.segment.type === "video") await seekVideoFrame(next.visual, getVisualSourceTime(next.segment, transitionProgress * transitionDuration));
+  const nextLocalTime = isMaskTransition(junction?.id) ? 0 : transitionProgress * transitionDuration;
+  if (next?.segment.type === "video") await seekVideoFrame(next.visual, getVisualSourceTime(next.segment, nextLocalTime));
   const captionSegments = options.captionSegments?.length ? options.captionSegments : createCaptionSegments(options.text);
   const captionIndex = getSegmentIndexAtTime(captionSegments, time, options.captionTargetDuration || 0);
   const activeCaptionSegment = captionIndex >= 0 ? captionSegments[captionIndex] : null;
@@ -386,7 +389,7 @@ async function renderCompositionAt(context, canvas, prepared, options, time) {
       transitionNext: next ? {
         visual: next.cutoutVisual || next.visual,
         visualEffects: next.segment,
-        visualTime: transitionProgress * transitionDuration,
+        visualTime: nextLocalTime,
       } : null,
       transitionProgress, vision: frameVision, depth: frameDepth, visualEffects: item.segment, visualTime: localTime,
       visualOverlays: renderedOverlayItems.map((item) => ({ ...item.renderSegment, start: item.segment.start - (range?.start || 0) })),

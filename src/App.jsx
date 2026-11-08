@@ -1,3 +1,4 @@
+import { referenceTemplateCopy } from "./i18nReferenceTemplates.js";
 import { isUntouchedTemplateSource } from "./lib/beatMontage.js";
 import { CARD_ROTATION_ID } from "./lib/cardRotationTemplate.js";
 import { cardRotationCopy } from "./i18nCardRotationTemplate.js";
@@ -1719,9 +1720,14 @@ export function App({ hostSession = null }) {
       notify(copy.tooLong);
       return;
     }
-    const useSquareCanvas = !visualSegments.length || (card && !previous.length);
+    if (intro?.personalized) {
+      const src = URL.createObjectURL(intro.blob);
+      imageUrlRefs.current.add(src);
+      intro = { ...intro, src };
+    }
+    const targetRatio = !previous.length && (selectedTemplate.aspectRatio || ((!visualSegments.length || card) ? "1:1" : null));
     const result = selectedTemplate.create({
-      assets, bpm, start, intro, copy: card, frameRatio: useSquareCanvas ? 1 : ratio.width / ratio.height,
+      assets, bpm, start, intro, copy: card, frameRatio: targetRatio === "1:1" ? 1 : targetRatio === "16:9" ? 16 / 9 : ratio.width / ratio.height,
       firstLayer: Math.max(0, ...visualOverlaySegments.map((item) => item.layer || 0)) + 1,
     });
     const canAddMusic = !musicBlob && !trackLocks.music && trackVisibility.music !== false;
@@ -1736,9 +1742,9 @@ export function App({ hostSession = null }) {
     }
     checkpointHistory();
     pauseForTimelineEdit();
-    if (useSquareCanvas) {
+    if (targetRatio) {
       autoRatioSourceKeyRef.current = getAutoRatioSourceKey(result.visualSegments);
-      setRatioId("1:1");
+      setRatioId(targetRatio);
     }
     if (music && canAddMusic) {
       replaceMusic(music.blob, music.duration, music.peaks || [], music.name, "", { start, focusAudio: false });
@@ -1752,7 +1758,7 @@ export function App({ hostSession = null }) {
     setVisualOverlaySegments((items) => [...items, ...result.overlays]);
     setEffectClips((items) => [...items, ...result.effects]);
     const selectedIndex = getVisualSegmentIndexAtTime(result.visualSegments, result.previewTime - start);
-    commitVisualSegments([...previous, ...result.visualSegments], card?.applied || copy.applied, previous.length + selectedIndex);
+    commitVisualSegments([...previous, ...result.visualSegments], card?.applied || referenceTemplateCopy(selectedTemplate.id, activeLanguage)?.applied || copy.applied, previous.length + selectedIndex);
     // Publish the new clock and the clips together. seekTo still sees the
     // old timeline until React commits, and would clamp a newly appended time.
     currentTimeRef.current = result.previewTime;
@@ -2172,7 +2178,7 @@ export function App({ hostSession = null }) {
         />
 
         {inspectorTool === "templates" && selectedTemplate ? (
-          <TemplateInspector key={selectedTemplateId} template={selectedTemplate} language={activeLanguage} closeLabel={t("close")}
+          <TemplateInspector key={selectedTemplateId} template={selectedTemplate} language={activeLanguage} closeLabel={t("close")} cancelLabel={t("cancel")}
             onClose={() => setSelectedTemplateId("")}
             draft={templateDrafts[selectedTemplateId] || {}}
             setDraft={(update) => setTemplateDrafts((drafts) => ({ ...drafts, [selectedTemplateId]: update(drafts[selectedTemplateId] || {}) }))}

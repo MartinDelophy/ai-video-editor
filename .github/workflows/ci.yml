@@ -40,6 +40,9 @@ jobs:
       - name: Install media tooling
         run: sudo apt-get update && sudo apt-get install --yes ffmpeg
       - run: npm ci
+        env:
+          # Lint, type checks and builds do not exercise the native CUDA provider.
+          ONNXRUNTIME_NODE_INSTALL_CUDA: skip
       - run: npm run lint
       - run: npm run typecheck
       - run: npm run typecheck:host

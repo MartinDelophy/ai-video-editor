@@ -339,8 +339,18 @@ async function renderCompositionAt(context, canvas, prepared, options, time) {
   const transitionProgress = transitionDuration && time >= range.end - transitionDuration
     ? clamp((time - (range.end - transitionDuration)) / transitionDuration, 0, 1) : 0;
   const next = transitionProgress > 0 ? prepared.items[index + 1] : null;
-  const nextLocalTime = isMaskTransition(junction?.id) ? 0 : transitionProgress * transitionDuration;
-  if (next?.segment.type === "video") await seekVideoFrame(next.visual, getVisualSourceTime(next.segment, nextLocalTime));
+  const holdIncomingFrame = isMaskTransition(junction?.id);
+  const nextLocalTime = holdIncomingFrame ? 0 : transitionProgress * transitionDuration;
+  if (next?.segment.type === "video") {
+    const sourceTime = getVisualSourceTime(next.segment, nextLocalTime);
+    const heldTime = Math.min(sourceTime, Math.max(0, (next.visual.duration || sourceTime) - 0.04));
+    // Masks reveal a single incoming frame. Waiting on another native
+    // video-frame callback at the same seek position otherwise incurs a
+    // timeout on each output frame of every transition.
+    const alreadyReady = holdIncomingFrame && next.visual.readyState >= 2 && !next.visual.seeking
+      && Math.abs(next.visual.currentTime - heldTime) < 0.002;
+    if (!alreadyReady) await seekVideoFrame(next.visual, sourceTime, holdIncomingFrame ? 0.002 : undefined);
+  }
   const captionSegments = options.captionSegments?.length ? options.captionSegments : createCaptionSegments(options.text);
   const captionIndex = getSegmentIndexAtTime(captionSegments, time, options.captionTargetDuration || 0);
   const activeCaptionSegment = captionIndex >= 0 ? captionSegments[captionIndex] : null;

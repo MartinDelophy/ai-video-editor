@@ -161,7 +161,7 @@ export function getVideoTrackSampleCount(duration, maxFrames = VIDEO_TRACK_FRAME
   return Math.max(1, Math.min(maxFrames, Math.ceil(safeDuration / targetStep)));
 }
 
-export function seekVideoFrame(video, time) {
+export function seekVideoFrame(video, time, tolerance = 0.015) {
   const safeTime = Math.max(0, Math.min(time, Math.max(0, (video.duration || time) - 0.04)));
   return new Promise((resolve, reject) => {
     let callbackId = 0;
@@ -201,7 +201,7 @@ export function seekVideoFrame(video, time) {
 
     video.addEventListener("seeked", handleSeeked, { once: true });
     video.addEventListener("error", handleError, { once: true });
-    if (video.readyState >= 2 && Math.abs(video.currentTime - safeTime) < 0.015) {
+    if (video.readyState >= 2 && Math.abs(video.currentTime - safeTime) < tolerance) {
       resolvePresentedFrame();
     } else {
       video.currentTime = safeTime;

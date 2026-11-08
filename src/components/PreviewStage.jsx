@@ -22,7 +22,7 @@ import {
 
 import { requestTimelineMediaPlay, setTimelineAudioGain } from "../lib/editorRuntime.js";
 import { formatTime } from "../lib/timeline.js";
-import { getVisualMaskInsets, getVisualMaskSvgDataUrl, getVisualSourceTime, getVisualPlaybackRateAtTime, resolveVisualTransform, snapVisualScaleToFrameEdges } from "../lib/visualEffects.js";
+import { getVisualMaskGeometry, getVisualMaskSvgDataUrl, getVisualSourceTime, getVisualPlaybackRateAtTime, resolveVisualTransform, snapVisualScaleToFrameEdges } from "../lib/visualEffects.js";
 import { resolveVisualClipAnimation } from "../lib/visualClipAnimations.js";
 import { getStickerBaseSize } from "../lib/stickerGeometry.js";
 import { resolveCaptionStyleForSegment } from "../lib/captionFonts.js";
@@ -44,6 +44,17 @@ import { SubjectMaterialFilterDefs } from "./SubjectMaterialFilter.jsx";
 import { loadPreviewDepthFrame, drawCinematicDepthFrame, normalizeCinematicDepth } from "../lib/depthOfField.js";
 import { drawPhotoParallaxFrame, normalizePhotoParallax } from "../lib/photoParallax.js";
 import { composeColorGradeFilter, resolveColorGrade } from "../lib/colorGrade.js";
+
+function getSharpMaskClipPath(mask, frame) {
+  if (!mask.type || mask.type === "none") return undefined;
+  const { centerX, centerY, width, height, radius, cornerRadius } = getVisualMaskGeometry(mask, frame);
+  if (mask.type === "circle") return `circle(${radius}px at ${centerX}px ${centerY}px)`;
+  const top = centerY - height / 2;
+  const right = frame.width - centerX - width / 2;
+  const bottom = frame.height - centerY - height / 2;
+  const left = centerX - width / 2;
+  return `inset(${top}px ${right}px ${bottom}px ${left}px round ${cornerRadius}px)`;
+}
 
 function ClickRippleOverlay({ effect: value, time }) {
   const effect = normalizeClickRippleEffect(value);
@@ -390,8 +401,6 @@ export function PreviewStage({
   const maskWidth = visualMask.type === "circle" ? (circleSize * frameMinDimension) / frameWidth : Number.isFinite(visualMask.width) ? visualMask.width : 80;
   const maskHeight = visualMask.type === "circle" ? (circleSize * frameMinDimension) / frameHeight : Number.isFinite(visualMask.height) ? visualMask.height : 80;
   const shapeMaskUrl = getVisualMaskSvgDataUrl(visualMask, { width: frameWidth, height: frameHeight });
-  const usesAlphaMask = Boolean(shapeMaskUrl);
-  const maskInsets = getVisualMaskInsets(visualMask);
   const roundedRadius = Math.min(maskWidth / 100 * frameWidth, maskHeight / 100 * frameHeight) * (Number.isFinite(visualMask.cornerRadius) ? visualMask.cornerRadius : 12) / 100;
   const visualTransformStyle = {
     transform: `translate(${visualTransform.x + visualAnimation.x}%, ${visualTransform.y + visualAnimation.y}%) scale(${visualTransform.scale * visualAnimation.scale}) rotate(${visualTransform.rotation}deg)`,
@@ -417,11 +426,7 @@ export function PreviewStage({
     opacity: visualTransform.opacity * visualAnimation.opacity,
   };
   const visualMaskStyle = {
-    clipPath: ["rectangle", "rounded"].includes(visualMask.type) && !usesAlphaMask
-      ? `inset(${maskInsets.top}% ${maskInsets.right}% ${maskInsets.bottom}% ${maskInsets.left}%${visualMask.type === "rounded" ? ` round ${roundedRadius}px` : ""})`
-      : visualMask.type === "circle" && !usesAlphaMask
-        ? `ellipse(${maskWidth / 2}% ${maskHeight / 2}% at ${maskCenterX}% ${maskCenterY}%)`
-        : undefined,
+    clipPath: shapeMaskUrl ? undefined : getSharpMaskClipPath(visualMask, { width: frameWidth, height: frameHeight }),
     WebkitMaskImage: shapeMaskUrl ? `url("${shapeMaskUrl}")` : undefined,
     maskImage: shapeMaskUrl ? `url("${shapeMaskUrl}")` : undefined,
     WebkitMaskSize: shapeMaskUrl ? "100% 100%" : undefined,
@@ -711,6 +716,12 @@ export function PreviewStage({
   }, [isFocusPreviewOpen]);
 
   useEffect(() => { setContextMenu(null); }, [currentTime, previewVisualSegment?.id, isFocusPreviewOpen]);
+  const selectPrimaryVisual = (event) => {
+    if (event.button !== 0) return;
+    event.stopPropagation();
+    if (visualTransformEditable) startVisualTransform(event, "move");
+    else onSelectVisual?.();
+  };
   const openContextMenu = event => {
     let hit = event.target.closest?.("[data-preview-clip-id]");
     // The main picture's selection frame can cover an overlay. Resolve the
@@ -813,7 +824,8 @@ export function PreviewStage({
             <div className="caption-canvas-guide is-horizontal" aria-hidden="true" />
             <div className="primary-split-viewport" style={primarySplitStyle}>
             {renderedVisualSrc && trackVisibility.image && subjectEffectActive ? (
-              <div className={`subject-effect-preview is-background-${normalizedSubjectEffect.background.mode}`} data-preview-track="image" data-preview-clip-id={previewVisualSegment?.id} aria-hidden="true">
+              <div className={`subject-effect-preview is-background-${normalizedSubjectEffect.background.mode}`} data-preview-track="image" data-preview-clip-id={previewVisualSegment?.id} aria-hidden="true"
+                onPointerDown={replacesBackground ? selectPrimaryVisual : undefined}>
                 {replacesBackground ? <div
                   className="subject-effect-background"
                   style={normalizedSubjectEffect.background.visible === false
@@ -848,13 +860,7 @@ export function PreviewStage({
                 tabIndex={0} aria-haspopup="menu" aria-label={previewVisualSegment?.name || t("previewMenuTitle")}
                 style={visualMaskStyle}
                 aria-hidden={replacesBackground ? "true" : undefined}
-                onPointerDown={(event) => {
-                  if (event.button !== 0) return;
-                  if (replacesBackground) return;
-                  event.stopPropagation();
-                  onSelectVisual?.();
-                  if (visualTransformEditable) startVisualTransform(event, "move");
-                }}
+                onPointerDown={replacesBackground ? undefined : selectPrimaryVisual}
               >
                 {smartContainActive && previewVisualType === "image" ? <img
                   className="smart-frame-fill-background"
@@ -1006,17 +1012,17 @@ export function PreviewStage({
               );
               const overlayMask = overlay.mask ?? { type: "none" };
               const hasOverlayMask = overlayMask.type && overlayMask.type !== "none";
-              const overlayMaskUrl = hasOverlayMask
-                ? getVisualMaskSvgDataUrl(overlayMask, {
-                    width: Math.max(1, containBox.width * animatedTransform.scale),
-                    height: Math.max(1, containBox.height * animatedTransform.scale),
-                  })
-                : "";
+              const overlayBox = {
+                width: containBox.width * animatedTransform.scale,
+                height: containBox.height * animatedTransform.scale,
+              };
+              const overlayMaskUrl = hasOverlayMask ? getVisualMaskSvgDataUrl(overlayMask, overlayBox) : "";
               const style = {
                 left: `${50 + animatedTransform.x}%`,
                 top: `${50 + animatedTransform.y}%`,
-                width: `${containBox.width * animatedTransform.scale}px`,
-                height: `${containBox.height * animatedTransform.scale}px`,
+                width: `${overlayBox.width}px`,
+                height: `${overlayBox.height}px`,
+                clipPath: overlayMaskUrl ? undefined : getSharpMaskClipPath(overlayMask, overlayBox),
                 transform: `translate(-50%, -50%) rotate(${animatedTransform.rotation}deg)`,
                 opacity: animatedTransform.opacity * (isVector ? vectorAppearance.opacity : 1),
                 mixBlendMode: isVector ? vectorAppearance.cssBlendMode : undefined,

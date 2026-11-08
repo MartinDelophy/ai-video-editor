@@ -57,7 +57,6 @@
 .visual-replacement-dialog :is(.replacement-close, .replacement-footer button) {
   display: grid;
   place-items: center;
-  padding: 7px 15px;
   min-height: 38px;
   color: inherit;
   background: #212932;
@@ -66,6 +65,7 @@
   cursor: pointer;
 }
 .visual-replacement-dialog .replacement-close { padding: 0; width: 38px; flex: 0 0 38px; }
+.visual-replacement-dialog .replacement-footer button { padding: 7px 15px; }
 .replacement-source-picker {
   min-width: 0;
   display: grid;
@@ -210,6 +210,9 @@
 }
 .replacement-trim-rail { inset-inline: 0; background: #343e48; border: 1px solid #77848c; }
 .replacement-trim-selection { background: var(--replace-accent); }
+.replacement-trim-selection[role="slider"] { cursor: grab; }
+.replacement-trim-selection[role="slider"]::after { content: ""; position: absolute; inset: -11px 0; }
+.replacement-trim:active .replacement-trim-selection[role="slider"] { cursor: grabbing; }
 .replacement-trim-handle {
   position: absolute;
   top: 50%;

@@ -152,9 +152,7 @@ export function EditorSidebar({ model: d }) {
           <PluginCatalogPanel
             language={d.activeLanguage}
             plugins={d.generationPlugins}
-            onOpenInspector={() => {
-              if (window.matchMedia?.(COMPACT_WORKSPACE_QUERY).matches) d.setMobilePanel?.("inspector");
-            }}
+            onOpenInspector={d.showPluginInspector}
           />
         ) : (
           <ToolPanel

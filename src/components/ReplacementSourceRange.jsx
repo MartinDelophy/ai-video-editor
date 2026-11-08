@@ -15,6 +15,17 @@ function parseTimecode(text) {
   return parts.reduce((seconds, part) => seconds * 60 + Number(part), 0);
 }
 
+function keyTarget(event, value, min, max) {
+  const step = event.shiftKey ? 0.1 : 0.01;
+  const targets = {
+    ArrowLeft: value - step, ArrowDown: value - step, ArrowRight: value + step, ArrowUp: value + step,
+    PageDown: value - 1, PageUp: value + 1, Home: min, End: max,
+  };
+  if (!Object.hasOwn(targets, event.key)) return undefined;
+  event.preventDefault();
+  return targets[event.key];
+}
+
 function TimecodeField({ label, value, onChange }) {
   const id = useId();
   const [draft, setDraft] = useState(null);
@@ -42,15 +53,24 @@ export function ReplacementSourceRange({ start, end, max, onChange, copy, equati
   const handles = useRef({});
   const fallbackStart = Number.isFinite(start) ? Math.max(0, Math.min(max, start)) : 0;
   const fallbackEnd = Number.isFinite(end) ? Math.max(0, Math.min(max, end)) : max;
+  const canMoveRange = start >= 0 && end <= max && end > start;
+  const latestStart = max - (fallbackEnd - fallbackStart);
   const fraction = (time) => max > 0 ? time / max : 0;
   const readPointer = (event) => {
     const rect = event.currentTarget.getBoundingClientRect();
-    return max * Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
+    return max * (event.clientX - rect.left) / rect.width;
+  };
+  const changeEdge = (key, value) => onChange({ start, end, [key]: value }, value);
+  const moveRange = (originStart, originEnd, distance) => {
+    const delta = Math.max(-originStart, Math.min(max - originEnd, distance));
+    const nextStart = originStart + delta;
+    onChange({ start: nextStart, end: Math.min(max, originEnd + delta) }, nextStart);
   };
   const moveHandle = (key, rawValue) => {
-    const limit = key === "start" ? fallbackEnd : fallbackStart;
-    const value = Math.max(0, Math.min(max, Math.round(rawValue * 100) / 100));
-    onChange(key, key === "start" ? Math.min(value, limit) : Math.max(value, limit));
+    const min = key === "start" ? 0 : fallbackStart;
+    const upper = key === "start" ? fallbackEnd : max;
+    const value = rawValue <= min ? min : rawValue >= upper ? upper : Math.round(rawValue * 100) / 100;
+    changeEdge(key, Math.max(min, Math.min(upper, value)));
   };
 
   return (
@@ -60,22 +80,47 @@ export function ReplacementSourceRange({ start, end, max, onChange, copy, equati
         onPointerDown={(event) => {
           if (event.button !== 0 || !event.isPrimary) return;
           const time = readPointer(event);
-          const handle = event.target.closest("[data-handle]")?.dataset.handle;
-          const key = handle || (Math.abs(time - fallbackStart) < Math.abs(time - fallbackEnd) ? "start" : "end");
-          active.current = { key, id: event.pointerId, offset: handle ? time - (key === "start" ? fallbackStart : fallbackEnd) : 0 };
+          const hitHandle = Boolean(event.target.closest("[data-handle]"));
+          const inside = canMoveRange && time > start && time < end;
+          // Keep the center reachable when the handles' hit areas overlap.
+          const inCenter = inside && Math.min(time - start, end - time) >= (end - start) / 3;
+          const moveSelection = inside && (!hitHandle || inCenter);
+          const key = moveSelection ? "range"
+            : Math.abs(time - fallbackStart) < Math.abs(time - fallbackEnd) ? "start" : "end";
+          if (moveSelection) {
+            active.current = { key, id: event.pointerId, anchor: time, start, end };
+          } else {
+            const edge = key === "start" ? fallbackStart : fallbackEnd;
+            active.current = { key, id: event.pointerId, offset: hitHandle ? time - edge : 0 };
+          }
           handles.current[key]?.focus({ preventScroll: true });
           event.currentTarget.setPointerCapture(event.pointerId);
-          if (!handle) moveHandle(key, time);
+          if (!moveSelection && !hitHandle) moveHandle(key, time);
         }}
         onPointerMove={(event) => {
-          if (active.current?.id === event.pointerId) {
-            moveHandle(active.current.key, readPointer(event) - active.current.offset);
+          const drag = active.current;
+          if (drag?.id !== event.pointerId) return;
+          const time = readPointer(event);
+          if (drag.key === "range") {
+            moveRange(drag.start, drag.end, Math.round((time - drag.anchor) * 100) / 100);
+          } else {
+            moveHandle(drag.key, time - drag.offset);
           }
         }}
         onLostPointerCapture={() => { active.current = null; }}>
         <span className="replacement-trim-rail" aria-hidden="true" />
-        <span className="replacement-trim-selection" aria-hidden="true"
-          style={{ left: `${fraction(fallbackStart) * 100}%`, right: `${(1 - fraction(Math.max(fallbackStart, fallbackEnd))) * 100}%` }} />
+        <span className="replacement-trim-selection" ref={(element) => { handles.current.range = element; }}
+          role={canMoveRange ? "slider" : undefined} tabIndex={canMoveRange ? 0 : undefined}
+          aria-label={canMoveRange ? copy.range : undefined} aria-hidden={!canMoveRange || undefined}
+          aria-valuemin={canMoveRange ? 0 : undefined} aria-valuemax={canMoveRange ? latestStart : undefined}
+          aria-valuenow={canMoveRange ? start : undefined}
+          aria-valuetext={canMoveRange ? `${formatTimecode(start)} – ${formatTimecode(end)}` : undefined}
+          style={{ left: `${fraction(fallbackStart) * 100}%`, right: `${(1 - fraction(Math.max(fallbackStart, fallbackEnd))) * 100}%` }}
+          onKeyDown={(event) => {
+            if (!canMoveRange) return;
+            const target = keyTarget(event, start, 0, latestStart);
+            if (target !== undefined) moveRange(start, end, target - start);
+          }} />
         {[["start", fallbackStart, 0, fallbackEnd], ["end", fallbackEnd, fallbackStart, max]].map(([key, value, min, upper]) => (
           <span key={key} className="replacement-trim-handle" data-handle={key} role="slider" tabIndex={0}
             ref={(element) => { handles.current[key] = element; }} aria-label={copy[key]}
@@ -83,20 +128,14 @@ export function ReplacementSourceRange({ start, end, max, onChange, copy, equati
             aria-valuenow={value} aria-valuetext={formatTimecode(value)}
             style={{ left: `${fraction(value) * 100}%` }}
             onKeyDown={(event) => {
-              const step = event.shiftKey ? 0.1 : 0.01;
-              const targets = {
-                ArrowLeft: value - step, ArrowDown: value - step, ArrowRight: value + step, ArrowUp: value + step,
-                PageDown: value - 1, PageUp: value + 1, Home: min, End: upper,
-              };
-              if (!(event.key in targets)) return;
-              event.preventDefault();
-              moveHandle(key, targets[event.key]);
+              const target = keyTarget(event, value, min, upper);
+              if (target !== undefined) moveHandle(key, target);
             }} />
         ))}
       </div>
       <div className="replacement-range-details">
-        <TimecodeField label={copy.start} value={start} onChange={(value) => onChange("start", value)} />
-        <TimecodeField label={copy.end} value={end} onChange={(value) => onChange("end", value)} />
+        <TimecodeField label={copy.start} value={start} onChange={(value) => changeEdge("start", value)} />
+        <TimecodeField label={copy.end} value={end} onChange={(value) => changeEdge("end", value)} />
         <div className="replacement-timing" role="status">
           <span>{copy.fixed}</span>
           {valid ? <b dir="ltr" title={copy.equation}>{equation}</b> : <b className="replacement-range-error">{copy.invalid}</b>}

@@ -136,9 +136,9 @@ export function VisualReplacementDialog({ language, t, clip, assets, onUpload, o
           ) : null}
           {videoSrc ? <ReplacementSourceRange key={selected} start={start} end={end} max={sourceLength} copy={copy}
             equation={equation} valid={Boolean(timing)}
-            onChange={(edge, value) => {
-              setSourceRange({ start, end, [edge]: value });
-              previewAt(value);
+            onChange={(nextRange, previewTime) => {
+              setSourceRange(nextRange);
+              previewAt(previewTime);
             }} /> : assetReady ? <p className="replacement-status">{copy.fixed}</p> : null}
         </div>
         <footer className="replacement-footer">

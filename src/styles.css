@@ -4068,7 +4068,8 @@ button:disabled {
   padding: 0;
   overflow: hidden;
 }
-.voice-panel.is-visual-context .voice-tab-body {
+.voice-panel.is-visual-context .voice-tab-body,
+.voice-panel:not(.is-focused-mobile-section) > .voice-tab-body:has(> .visual-overlay-inspector) {
   padding-top: 4px;
   padding-right: 0;
   padding-bottom: 0;
@@ -5257,12 +5258,12 @@ button:disabled {
   z-index: 7;
   border: 1.5px dashed rgba(255, 255, 255, .94);
   box-shadow: 0 0 0 1px rgba(5, 10, 18, .55), 0 0 20px rgba(53, 234, 217, .13);
-  cursor: move;
-  pointer-events: auto;
+  pointer-events: none;
   transform-origin: center;
   touch-action: none;
 }
 
+.visual-transform-box > button { pointer-events: auto; }
 .visual-transform-handle,
 .visual-transform-rotate {
   position: absolute;
@@ -5367,6 +5368,10 @@ button:disabled {
 .visual-overlay-resize.is-end { right: 2px; }
 .visual-overlay-clip.is-selected-segment .visual-overlay-resize { opacity: 1; }
 .visual-overlay-inspector { display: grid; gap: 12px; }
+.voice-panel:not(.is-focused-mobile-section) .visual-overlay-inspector {
+  height: 100%;
+  grid-template-rows: auto minmax(0, 1fr);
+}
 .visual-overlay-inspector > label,
 .visual-overlay-timing-card > label { display: grid; grid-template-columns: minmax(0,1fr) 82px; align-items: center; gap: 10px; color: #9ba8b5; font-size: 12px; }
 .visual-overlay-inspector > label > input,
@@ -12787,7 +12792,6 @@ canvas.relight-position { width:100%; height:auto; display:block; }
 .visual-overlay-viewport > .visual-overlay-layer { pointer-events: auto; }
 .primary-split-viewport { position: absolute; inset: 0; pointer-events: none; }
 .primary-split-viewport > .visual-media-layer,
-.primary-split-viewport > .visual-transform-box,
 .primary-split-viewport > .subject-effect-preview { pointer-events: auto; }
 .primary-split-viewport > .click-ripple-preview { z-index: 3; }
 

@@ -33,14 +33,15 @@ export function createPlaybackControls(deps) {
   };
   const syncPreviewVideoTime = (timelineTime, { immediate = false } = {}) => {
     const video = deps.previewVideoRef.current;
-    if (!video || deps.previewVisualType !== "video") return;
+    if (!video) return;
     const index = getVisualSegmentIndexAtTime(deps.visualSegments, timelineTime);
     if (index < 0) return;
     const segment = deps.visualSegments[index];
     // When a seek crosses into another clip React will replace/update the
     // preview element on the next render. Do not apply the new clip's source
     // time to the element that still belongs to the previous clip.
-    if (deps.previewVisualSegment?.id && segment?.id !== deps.previewVisualSegment.id) return;
+    const displayedId = video.closest("[data-preview-clip-id]")?.dataset.previewClipId;
+    if (displayedId && segment?.id !== displayedId) return;
     const range = deps.visualTimeline[index];
     const localTime = range ? Math.max(0, timelineTime - range.start) : timelineTime;
     const sourceTime = getVisualSourceTime(segment, localTime);
@@ -63,7 +64,7 @@ export function createPlaybackControls(deps) {
     const clamped = Math.max(0, Math.min(deps.timelineDurationRef.current || MAX_TIMELINE_DURATION_SECONDS, time));
     const shouldPlay = deps.isPlaying && !options.pause;
     deps.currentTimeRef.current = clamped;
-    if (options.updateUi !== false) deps.setCurrentTime(clamped);
+    deps.setCurrentTime(clamped);
     // Seeking while playback is active must also move the fallback timeline
     // clock. This matters after trimming: the video element can briefly be
     // paused/ended while its new source range is applied, so the animation
@@ -118,6 +119,7 @@ export function createPlaybackControls(deps) {
       pauseTimelineMedia();
       deps.setIsPlaying(false);
     }
+    deps.timelineScrubbingRef.current = true;
     window.dispatchEvent(new CustomEvent("timeline-seek-state", { detail: { active: true } }));
     // Pointer devices can deliver several moves per display frame. Keep only
     // the newest position before doing layout reads, React updates and media
@@ -127,6 +129,7 @@ export function createPlaybackControls(deps) {
     let lastUiUpdate = -Infinity;
     let lastUiSegment = -1;
     let bypassSnap = event.altKey;
+    let lastSnap = null;
     const snapPoints = normalizeTimelineMarkers(deps.timelineMarkers).flatMap((marker) => [
       { time: marker.time, track: "marker", id: marker.id, edge: "start" },
       ...(marker.type === "range" ? [{ time: marker.endTime, track: "marker", id: marker.id, edge: "end" }] : []),
@@ -137,13 +140,26 @@ export function createPlaybackControls(deps) {
       const width = deps.trackScrollRef.current?.getBoundingClientRect().width;
       const snap = !bypassSnap && width > 0
         ? findClosestTimelineSnap(time, snapPoints, 10 / width * deps.timelineDurationRef.current) : null;
-      deps.setSnapGuide?.(createTimelineSnapGuide(snap, "playhead"));
+      if (snap?.time !== lastSnap?.time || snap?.edge !== lastSnap?.edge) {
+        deps.setSnapGuide?.(createTimelineSnapGuide(snap, "playhead"));
+        lastSnap = snap;
+      }
       const targetTime = snap?.time ?? time;
       const segment = getVisualSegmentIndexAtTime(deps.visualSegments, targetTime);
       const now = performance.now();
-      const updateUi = immediate || segment !== lastUiSegment || now - lastUiUpdate >= 1000 / 30;
-      if (updateUi) { lastUiUpdate = now; lastUiSegment = segment; }
-      seekTo(targetTime, { immediate, pause: true, updateUi });
+      if (immediate) {
+        seekTo(targetTime, { immediate: true, pause: true });
+      } else {
+        deps.currentTimeRef.current = targetTime;
+        // The preview synchronizes from this committed time. Sending every
+        // pointer position directly to the decoder can keep the compositor
+        // waiting for a seek while React still shows an older clip.
+        if (segment !== lastUiSegment || now - lastUiUpdate >= 32) {
+          deps.setCurrentTime(targetTime);
+          lastUiUpdate = now;
+          lastUiSegment = segment;
+        }
+      }
       window.dispatchEvent(new CustomEvent("timeline-seek-position", { detail: { time: targetTime } }));
     };
     commit(true);
@@ -168,6 +184,7 @@ export function createPlaybackControls(deps) {
       removeEventListener("blur", cancel);
       removeEventListener("keydown", modifier);
       removeEventListener("keyup", modifier);
+      deps.timelineScrubbingRef.current = false;
       window.dispatchEvent(new CustomEvent("timeline-seek-state", { detail: { active: false } }));
     };
     const up = (upEvent) => {

@@ -1458,7 +1458,7 @@ export function drawPreviewFrame(context, visual, canvas, options) {
     context.restore();
   });
 
-  drawTimelineEffects(context, canvas, options.effectClips || [], options.timelineTime || 0, drawClickRippleEffect, { composition: true, markers: options.timelineMarkers });
+  drawTimelineEffects(context, canvas, options.effectClips || [], options.timelineTime || 0, drawClickRippleEffect, { composition: true, markers: options.timelineMarkers, scrubbing: options.scrubbing });
 
   if (captionsEnabled && subtitle) {
     const captionLayout = getCaptionTextLayout({

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   ArrowClockwise,
@@ -12,6 +12,7 @@ import {
   CaretDown,
   CopySimple,
   Crop,
+  Diamond,
   CircleNotch,
   ClosedCaptioning,
   Eye,
@@ -52,7 +53,7 @@ import {
   reorderSingleVisualOverlayLane,
 } from "../lib/visualOverlayTimeline.js";
 import { extractVideoTrackFrames, getVideoTrackSampleCount } from "../lib/media.js";
-import { getVisualSourceTime } from "../lib/visualEffects.js";
+import { getVisualSourceTime, normalizeVisualKeyframes } from "../lib/visualEffects.js";
 import { normalizeVisualSpeedCurve } from "../lib/visualSpeedCurve.js";
 import { rollVisualBoundary, slideVisualSegment, slipVisualSegment } from "../lib/fineEdit.js";
 import { collectTimelineSnapPoints, createTimelineSnapGuide, findClosestTimelineSnap, snapTimelineRange } from "../lib/timelineSnap.js";
@@ -96,8 +97,21 @@ import { useTimelineMarkers } from "../hooks/useTimelineMarkers.js";
 import { useTimelinePlayhead } from "../hooks/useTimelinePlayhead.js";
 import { TimelineEffectLane } from "./TimelineEffects.jsx";
 import { packEffectLanes, EFFECT_ASSET_DRAG_EVENT } from "../lib/timelineEffects.js";
-import { effectCopy } from "../i18nEffectClips.js";
+import { SPECIAL_EFFECTS_LABELS } from "../i18nEffectClips.js";
 import { PLAYBACK_UI_FRAME_MS } from "../lib/editorRuntime.js";
+
+const VisualClipKeyframes = memo(function VisualClipKeyframes({ keyframes, duration, label }) {
+  if (!keyframes?.length || !(duration > 0)) return null;
+  const frames = normalizeVisualKeyframes(keyframes).filter(({ time }) => time <= duration + 1e-6);
+  if (!frames.length) return null;
+  return (
+    <div className="visual-clip-keyframe-markers" role="img" aria-label={`${label} · ${frames.length}`}>
+      {frames.map(({ time }) => (
+        <Diamond key={time} size={11} weight="fill" style={{ "--clip-keyframe-position": `${time / duration * 100}%` }} />
+      ))}
+    </div>
+  );
+});
 
 const TIMELINE_WHEEL_ZOOM_SENSITIVITY = 0.00056;
 const TIMELINE_WHEEL_ZOOM_COMMIT_DELAY = 180;
@@ -1149,11 +1163,12 @@ export function Timeline({
   ];
   const timelineTrackRows = contentRows.join(" ");
   const timelineLabelRows = contentRows.join(" ");
+  const effectTrackName = SPECIAL_EFFECTS_LABELS[effectLanguage] || SPECIAL_EFFECTS_LABELS.en;
   const timelineTrackLabels = [
     ["image", t("imageTrack")],
     ...overlayLanes.map((_, index) => ["overlay", `${t("overlayTrack", "Overlay")} ${index + 1}`, `overlay-${index}`, `overlay-${index}`]),
     ...(showStickerTrack ? stickerLanes.map((_, index) => ["sticker", `${t("stickerTrack")} ${index + 1}`, `sticker-${index}`]) : []),
-    ...effectLanes.map((_, index) => ["effects", `${effectCopy(effectLanguage).title} ${index + 1}`, `effects-${index}`, "effects", "effects"]),
+    ...effectLanes.map((_, index) => ["effects", `${effectTrackName} ${index + 1}`, `effects-${index}`, "effects", "effects"]),
     ...captionLanes.map((_, index) => ["caption", `${t("caption")} ${index + 1}`, `caption-${index}`, `caption-${index}`]),
     ...(showSourceTrack ? [["source", t("sourceTrack")]] : []),
     ...audioLanes.map((_, index) => ["audio", `${t("voiceTrack")} ${index + 1}`, `audio-${index}`, `audio-${index}`, `audio-${index}`]),
@@ -2870,6 +2885,7 @@ export function Timeline({
           {segment.type === "video" && !segment.audioSeparated ? <VideoClipAudio segment={segment} disabled={trackLocks.overlay || !isOverlayLaneVisible(lane)} muted={segment.muted} t={t} onChange={(volume) => setVisualOverlaySegments((items) => items.map((item) => item.id === segment.id ? { ...item, volume } : item))} /> : null}
           <span className={segment.type === "video" ? "video-clip-name" : undefined}>{segment.name || t("overlayTrack", "Overlay")}</span>
           {segment.type === "video" ? <span className="image-clip-duration">{formatClock(segment.duration)}</span> : null}
+          <VisualClipKeyframes keyframes={segment.keyframes} duration={segment.duration} label={t("visualKeyframes")} />
           {renderExportSelectionBadge("overlay", segment.id)}
           <i className="visual-overlay-resize is-start" onPointerDown={(event) => startOverlayEdit(event, "resize-start")} />
           <i className="visual-overlay-resize is-end" onPointerDown={(event) => startOverlayEdit(event, "resize-end")} />
@@ -3218,8 +3234,8 @@ export function Timeline({
               >
                 {rowLocked ? <LockKey size={15} /> : <LockKeyOpen size={15} />}
               </button>
-              <button className="track-name-button" type="button" disabled={!rowVisible} onClick={() => setSelectedTrack(track)}>
-                {label}
+              <button className="track-name-button" type="button" title={label} disabled={!rowVisible} onClick={() => setSelectedTrack(track)}>
+                <span>{label}</span>
               </button>
               </div>
             );
@@ -3439,7 +3455,10 @@ export function Timeline({
                             ))}
                           </span>
                         ) : null}
-                        {!segment.preparing ? <span className="image-clip-duration">{formatClock(segment.duration)}</span> : null}
+                        {!segment.preparing ? <>
+                          <span className="image-clip-duration">{formatClock(segment.duration)}</span>
+                          <VisualClipKeyframes keyframes={segment.keyframes} duration={segment.duration} label={t("visualKeyframes")} />
+                        </> : null}
                         {!segment.preparing && activeFineEdit?.index === index ? (
                           <span className="fine-edit-readout">
                             {t(activeFineEdit.mode === "slip" ? "timelineSlip" : "timelineSlide", activeFineEdit.mode === "slip" ? "滑移" : "滑动")}

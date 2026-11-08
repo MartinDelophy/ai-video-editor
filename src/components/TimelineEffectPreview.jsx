@@ -9,6 +9,7 @@ import { activeEffectClips } from "../lib/timelineEffects.js";
 import { getVisualPlaybackRateAtTime, getVisualSourceTime } from "../lib/visualEffects.js";
 
 const COMPOSITION_PREVIEW_MAX_EDGE = 960;
+const COMPOSITION_SCRUB_MAX_EDGE = 640;
 
 // Use the same primary-picture compositor and post-process as offline export.
 // The underlying video remains mounted for audio, seeking and frame observers.
@@ -19,6 +20,7 @@ export function TimelineEffectPreview({
   time,
   localTime,
   isPlaying,
+  timelineScrubbingRef,
   videoRef,
   imageRef,
   type,
@@ -81,8 +83,10 @@ export function TimelineEffectPreview({
         }
         const rect = canvas.getBoundingClientRect();
         const pixelRatio = window.devicePixelRatio || 1;
+        const scrubbing = timelineScrubbingRef.current;
+        const maxEdge = scrubbing ? COMPOSITION_SCRUB_MAX_EDGE : COMPOSITION_PREVIEW_MAX_EDGE;
         const density = expensive
-          ? Math.min(pixelRatio, COMPOSITION_PREVIEW_MAX_EDGE / Math.max(1, rect.width, rect.height))
+          ? Math.min(pixelRatio, maxEdge / Math.max(1, rect.width, rect.height))
           : pixelRatio;
         const width = Math.max(2, Math.round(rect.width * density));
         const height = Math.max(2, Math.round(rect.height * density));
@@ -103,6 +107,7 @@ export function TimelineEffectPreview({
           lastDraw.mediaTime === source.currentTime &&
           lastDraw.width === width &&
           lastDraw.height === height &&
+          lastDraw.scrubbing === scrubbing &&
           lastDraw.compositeReady === compositeReady &&
           overlayFrames.every((value, index) => value === lastDraw.overlayFrames[index] && overlaySources[index] === lastDraw.overlaySources[index])
         ) {
@@ -117,6 +122,7 @@ export function TimelineEffectPreview({
           mediaTime: source.currentTime,
           width,
           height,
+          scrubbing,
           compositeReady, overlayFrames, overlaySources,
         };
         const next = shell.querySelector(
@@ -129,6 +135,7 @@ export function TimelineEffectPreview({
           (d.effects?.cinematicDepth?.enabled || d.effects?.photoParallax?.enabled);
         drawPreviewFrame(canvas.getContext("2d"), useDepth ? depth : source, canvas, {
           captionsEnabled: false,
+          scrubbing,
           fitMode: useDepth ? "contain" : d.fitMode,
           filter: useDepth ? "none" : d.filter,
           visualEffects: useDepth
@@ -165,7 +172,7 @@ export function TimelineEffectPreview({
       cancelAnimationFrame(frame);
       shell.classList.remove("has-timeline-effects", "has-composition-effects");
     };
-  }, [videoRef, imageRef, shellRef, depthRef, type]);
+  }, [videoRef, imageRef, shellRef, depthRef, type, timelineScrubbingRef]);
   return (
     <canvas
       ref={ref}

@@ -63,9 +63,9 @@ const inkStamps = Array.from({ length: 2 }, (_, parity) =>
   }),
 );
 const printSamples = new WeakMap();
-function printInk(ctx, canvas, source, amount) {
+function printInk(ctx, canvas, source, amount, scrubbing) {
   const { width, height } = canvas;
-  const step = Math.max(3, Math.min(width, height) / 142);
+  const step = Math.max(scrubbing ? 6 : 3, Math.min(width, height) / (scrubbing ? 72 : 142));
   const cols = Math.ceil(width / step), rows = Math.ceil(height / step);
   let buffers = printSamples.get(canvas);
   if (!buffers || buffers.sample.width !== cols || buffers.sample.height !== rows) {
@@ -143,7 +143,7 @@ function drawFlash(ctx, canvas, clip, time) {
   }
 }
 
-export function drawBeatEffect(ctx, canvas, clip, time, markers, copyFrame) {
+export function drawBeatEffect(ctx, canvas, clip, time, markers, copyFrame, scrubbing = false) {
   const { width: w, height: h } = canvas;
   if (clip.intensity <= 0) return;
   const age = resolveBeatAge(clip, time, markers);
@@ -164,7 +164,7 @@ export function drawBeatEffect(ctx, canvas, clip, time, markers, copyFrame) {
     ctx.globalAlpha = strength * 0.19;
     ctx.drawImage(source, (w - w * scale) / 2 - shiftX, (h - h * scale) / 2 + shiftY, w * scale, h * scale);
   } else if (clip.effect === "ink-print") {
-    printInk(ctx, canvas, copyFrame(canvas), clip.intensity);
+    printInk(ctx, canvas, copyFrame(canvas), clip.intensity, scrubbing);
   } else if (clip.effect === "shape-flash") {
     drawFlash(ctx, canvas, clip, time);
   }

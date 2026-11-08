@@ -45,10 +45,17 @@ function applyLatestSeek(video, state) {
   const hasFrameCallback = typeof video.requestVideoFrameCallback === "function";
   let earlyMediaTime = null;
   let finished = false;
+  let decoded = false;
+  const confirmDecode = () => {
+    if (decoded) return;
+    decoded = true;
+    request.onDecoded?.();
+  };
   const finish = (mediaTime) => {
     if (state.version !== version || finished) return;
     finished = true;
     state.presentedTime = mediaTime;
+    confirmDecode();
     clearObservation(video, state);
     state.active = null;
     try { if (!state.pending) request.onPresented?.(mediaTime); }
@@ -68,6 +75,7 @@ function applyLatestSeek(video, state) {
   };
   const onSeeked = () => {
     if (state.version !== version || finished) return;
+    if (!video.seeking && video.readyState >= 2) confirmDecode();
     // A completed native seek has freed the decoder. During scrubbing there
     // is no reason to spend two compositor frames observing an obsolete
     // target before starting the latest one. Do not interrupt an active
@@ -76,7 +84,10 @@ function applyLatestSeek(video, state) {
       finished = true;
       clearObservation(video, state);
       state.active = null;
-      applyLatestSeek(video, state);
+      // Keep the decoded frame available for the compositor's next paint
+      // before applying another scrub target.
+      if (state.pending.scrubbing) scheduleLatestSeek(video, state);
+      else applyLatestSeek(video, state);
       return;
     }
     // Decoder completion and compositor confirmation are separate signals.
@@ -139,12 +150,15 @@ export function requestLatestVideoFrame(video, targetTime, options = {}) {
   const state = getSeekState(video);
   const request = {
     targetTime: Math.max(0, targetTime),
+    scrubbing: options.scrubbing === true,
+    onDecoded: typeof options.onDecoded === "function" ? options.onDecoded : null,
     onPresented: typeof options.onPresented === "function" ? options.onPresented : null,
   };
   if (state.active && Math.abs(state.active.targetTime - request.targetTime) <= SEEK_TIME_EPSILON) {
     // React synchronization can repeat the controller's request. Preserve its
     // observer, and discard any intermediate target that is no longer wanted.
-    state.active.onPresented = request.onPresented;
+    state.active.onDecoded = request.onDecoded || state.active.onDecoded;
+    state.active.onPresented = request.onPresented || state.active.onPresented;
     state.pending = null;
     return;
   }
@@ -160,7 +174,8 @@ export function requestLatestVideoFrame(video, targetTime, options = {}) {
     // The decoder may already be idle without a new seeked/rVFC event (for
     // example after a same-frame seek). New pointer input must still advance.
     if (state.active && !video.seeking && video.readyState >= 2) state.active = null;
-    scheduleLatestSeek(video, state);
+    if (request.scrubbing && !state.active && !state.frameRequest && !video.seeking) applyLatestSeek(video, state);
+    else scheduleLatestSeek(video, state);
   }
 }
 

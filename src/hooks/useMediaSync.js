@@ -204,9 +204,18 @@ export function useMediaSync(d) {
     }
     // Metadata restoration queues the same target after the source is ready.
     if (v.readyState < 1) return;
-    if (clipChanged || shouldCorrectPreviewMediaTime({ isPlaying: d.isPlaying, currentTime: v.currentTime, targetTime: time })) {
+    const scrubbing = d.timelineScrubbingRef.current;
+    if (clipChanged || shouldCorrectPreviewMediaTime({
+      isPlaying: d.isPlaying, currentTime: v.currentTime, targetTime: time, threshold: scrubbing ? 0.002 : undefined,
+    })) {
       requestLatestVideoFrame(v, time, {
         immediate: clipChanged,
+        scrubbing,
+        onDecoded: () => {
+          if (d.previewVideoRef.current === v && videoClipRef.current?.id === d.previewVisualSegment?.id) {
+            v.__timelineFramePending = false;
+          }
+        },
         onPresented: mediaTime => {
           if (d.previewVideoRef.current !== v || videoClipRef.current?.id !== d.previewVisualSegment?.id) return;
           v.__timelineFramePending = false;

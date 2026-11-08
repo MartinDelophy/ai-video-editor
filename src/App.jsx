@@ -253,6 +253,7 @@ export function App({ hostSession = null }) {
   ), [timelineMarkers]);
   const { notify, toast } = useToast(2600, uiLanguage || "zh");
   const [previewVideoMediaTime, setPreviewVideoMediaTime] = useState(0);
+  const timelineScrubbingRef = useRef(false);
   const [sourceAudioDragTargetLane, setSourceAudioDragTargetLane] = useState(null);
   const sourceVoiceColorOriginalRef = useRef(null);
   const [visionRecords, setVisionRecords] = useState({});
@@ -1266,7 +1267,7 @@ export function App({ hostSession = null }) {
   });
 
   const { getTimelineTimeFromClientX, handlePlayToggle, pauseTimelineMedia, seekTo, startTimelineSeek } = createPlaybackControls({
-    timelineMarkers, setSnapGuide,
+    timelineMarkers, setSnapGuide, timelineScrubbingRef,
     audioSegmentRefs, audioSegments, canPreview, currentTimeRef, currentVisualRange,
     estimatedDuration, isPlaying, musicDuration, musicSegments, musicRef, musicStart, musicUrl, notify,
     linkedSourceAudioSegments, previewVideoRef, previewVisualType, setCurrentTime, setIsPlaying, setPreviewVideoMediaTime, sourceAudioDuration,
@@ -1282,7 +1283,7 @@ export function App({ hostSession = null }) {
   };
 
   useMediaSync({
-    audioRef, audioSegmentRefs, audioSegments, currentTime, currentTimeRef, estimatedDuration,
+    audioRef, audioSegmentRefs, audioSegments, currentTime, currentTimeRef, estimatedDuration, timelineScrubbingRef,
     isPlaying, musicDuration, musicSegments, musicRef, musicStart, musicUrl, musicVolume, pauseTimelineMedia, previewVideoRef,
     previewVisualSegment, previewVisualSourceTime, previewVisualSrc: previewPlaybackSrc, previewVisualType,
     previewVisualRange, previewVisualKey: currentPreviewKey,
@@ -1988,6 +1989,7 @@ export function App({ hostSession = null }) {
 
         <PreviewStage
           timelineMarkers={timelineMarkers}
+          timelineScrubbingRef={timelineScrubbingRef}
           effectClips={trackVisibility.effects === false ? [] : faceAttachments.previewClips}
           effectVision={previewVisionAnalysis}
           alignmentPrimaryRange={previewVisualRange}
@@ -2076,6 +2078,7 @@ export function App({ hostSession = null }) {
             : previewVisualLocalTime}
           visualMaskEditable={selectedTrack === "image" && Boolean(selectedVisualSegment) && visualCanvasEditMode === "mask"}
           onUpdateVisualMask={(mask) => updateSelectedVisualEffects({ mask })}
+          timelineVisualSelected={selectedTrack === "image" && selectedVisualSegmentId === previewVisualSegment?.id}
           visualTransformEditable={canvasVisualTarget === `visual:${previewVisualSegment?.id ?? ""}` && visualCanvasEditMode !== "mask" && !isPlaying}
           onSelectVisual={() => {
             if (!previewVisualSegment?.id) return;
@@ -2142,6 +2145,7 @@ export function App({ hostSession = null }) {
           applyAssetToTrack={applyAssetToTrack}
           addVisualOverlay={addVisualOverlay}
           visualOverlays={previewVisualOverlaysWithDepth}
+          timelineSelectedOverlayId={selectedTrack === "overlay" ? selectedVisualOverlayId : ""}
           selectedVisualOverlayId={canvasVisualTarget === `overlay:${selectedVisualOverlayId}` ? selectedVisualOverlayId : ""}
           onSelectVisualOverlay={(id) => {
             setSelectedVisualOverlayId(id);

@@ -1,7 +1,7 @@
 import { RELIGHT_PROPERTY_SCHEMA } from "./relightCommand.js";
 import { MAX_TIMELINE_DURATION_SECONDS, MIN_VISUAL_SEGMENT_SECONDS } from "../config/editor.js";
 import { MAX_TIMELINE_MARKER_SECONDS, TIMELINE_MARKER_COLORS, TIMELINE_MARKER_TYPES } from "./timelineMarkers.js";
-import { CAPTION_STYLE_PROPERTY_SCHEMA } from "./projectCommandEngine.js";
+import { CAPTION_STYLE_PROPERTY_SCHEMA, PROJECT_TRANSITION_IDS } from "./projectCommandEngine.js";
 
 const id = { type: "string", minLength: 1, maxLength: 256 };
 const time = { type: "number", minimum: 0, maximum: MAX_TIMELINE_DURATION_SECONDS };
@@ -61,6 +61,7 @@ export const WEB_MCP_OPERATION_SCHEMA = {
     operation("clip.delete", { track: timedTrack, clipId: id }, ["track", "clipId"]),
     operation("project.split_screen", { clipIds: { type: "array", minItems: 2, maxItems: 100, uniqueItems: true, items: id }, layout: { type: "string", enum: ["columns", "rows", "grid"] }, time }, ["clipIds", "layout", "time"]),
     operation("overlay.sync_reference", { clipId: id, referenceClipId: id, targetTime: time, referenceTime: time }, ["clipId", "referenceClipId", "targetTime", "referenceTime"]),
+    operation("transition.set", { clipId: id, transitionId: { type: "string", enum: PROJECT_TRANSITION_IDS }, duration: { ...time, minimum: 0.1 } }, ["clipId", "transitionId"]),
     operation("overlay.set_transform", { clipId: id, transform: { ...transform, minProperties: 1 } }, ["clipId", "transform"]),
     operation("project.set_ratio", { ratio: { type: "string", enum: ["16:9", "9:16", "1:1", "4:5"] } }, ["ratio"]),
     operation("project.set_fit", { fitMode: { type: "string", enum: ["contain", "cover"] } }, ["fitMode"]),

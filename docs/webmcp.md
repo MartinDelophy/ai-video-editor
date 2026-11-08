@@ -1,6 +1,6 @@
 # WebMCP integration
 
-Timeline Studio exposes the project open in the editor as 21 structured browser tools. Agents can inspect the timeline and available assets, review and apply supported multi-track edits, inspect rendered frame/audio samples, run browser-local voiceover and transcription jobs, seek and undo, save an editable `.timeline` copy, and run a real browser video export with progress and cancellation. The root URL continues to open the editor directly.
+Timeline Studio exposes the project open in the editor as structured browser tools. Agents can inspect the timeline and available assets, review and apply supported multi-track edits, inspect rendered frame/audio samples, run browser-local voiceover and transcription jobs, seek and undo, save an editable `.timeline` copy, and run a real browser video export with progress and cancellation. The root URL continues to open the editor directly.
 
 This is a progressive enhancement for browsers and agent hosts that provide a compatible WebMCP API. Unsupported browsers keep the normal editor. Registration is not proof that a particular agent host can discover or invoke tools. WebMCP is experimental; the current [specification](https://webmachinelearning.github.io/webmcp/) is a Community Group draft, not a W3C Standard.
 
@@ -31,7 +31,7 @@ Discover the current page schemas before invoking tools. Browser tools share som
 | `timeline_transcript_inspect` | Optional `audioClipId`, `offset`, `limit` | Existing caption text and timing; does not run speech recognition |
 | `timeline_assets_inspect` | Optional `query`, `type`, `readyOnly`, `offset`, `limit` | Available asset metadata, readiness, `assetId`, and `insertableTracks`; no media bytes or URLs |
 | `timeline_markers_inspect` | Optional `markerId`, `offset`, `limit` | Point/range markers, chapters and notes |
-| `timeline_edit_preview` | `stateToken`, either `operations` or legacy `clips`, optional `summary` | Semantic changes and `previewId`; the timeline is unchanged |
+| `timeline_edit_preview` | `stateToken`, exactly one of `operations`, `template` or legacy `clips`, optional `summary` | Semantic changes and `previewId`; the timeline is unchanged |
 | `timeline_edit_apply` | `previewId` | Applies that exact pending plan as one undoable transaction; returns `transactionId` |
 | `timeline_media_sample` | `stateToken`, optional `times` (1–4), `maxDimension` (256–1024), `audio: {start, duration}` (up to 10 seconds); requires frames or audio | Rendered JPEG frames and/or a WAV timeline mix, returned as data URLs without moving the playhead |
 | `timeline_ai_capabilities` | Optional interface `language` code | Supported built-in voices, local runtime requirements, model-readiness disclosure and task limits; no model execution |
@@ -47,11 +47,29 @@ Discover the current page schemas before invoking tools. Browser tools share som
 | `timeline_export_inspect` | `jobId` | Progress, status, reviewed settings and actual output receipt or failure |
 | `timeline_export_cancel` | `jobId` | Requests cancellation through the real exporter; inspect until it acknowledges completion |
 
-Track names are `visuals`, `overlays`, `audio`, `captions`, `stickers`, and `music`. Source-audio presence and link state are reported in the project summary; a separate source-audio track read is not exposed. Paginated reads default to 50 entries, with a maximum of 100; follow `nextOffset` until null. A preview accepts at most 500 operations or 500 legacy main-visual entries, and never both payload forms.
+Track names are `visuals`, `overlays`, `audio`, `captions`, `stickers`, `music`, and `effects`. Source-audio presence and link state are reported in the project summary; a separate source-audio track read is not exposed. Paginated reads default to 50 entries, with a maximum of 100; follow `nextOffset` until null. A preview accepts at most 500 operations or 500 legacy main-visual entries, or one template request. Send exactly one of the three payload forms.
 
 Transcript filtering follows a caption's active audio link, or its remembered source when no active link exists. `audioClipId` is the active movement link and `detachedAudioClipId` is the remembered source. Querying a transcript never relinks captions. Project saving also supports projects containing only overlays, stickers, or audio; video rendering requires a usable main visual.
 
 `stateToken`, `previewId`, `transactionId`, `exportId`, `aiId` and `jobId` are session-issued opaque values. Do not construct them or reuse them after reloading. In contrast, an export or AI `requestId` is a caller-chosen unique retry key; reuse it for retries of that same start. Tool results include success or structured failure information; a completed invocation does not establish successful editing or rendering.
+
+## Reviewed template append
+
+`timeline_project_inspect` exposes `capabilities.templates` with catalog IDs, available and required slot keys, face slots, default BPM, duration and required tracks. Use asset IDs from `timeline_assets_inspect`. Here is a Spinning Cards preview with a separate heart asset.
+
+```json
+{
+  "stateToken": "<from timeline_project_inspect>",
+  "template": {
+    "templateId": "card-rotation",
+    "slots": { "main": "<ready visual asset ID>" },
+    "faces": { "heart": "<ready heart asset ID>" },
+    "soundtrack": "built-in"
+  }
+}
+```
+
+Optional `bpm` is an integer from 60 to 180. The default comes from the catalog. The preview appends at the end of Visuals, returns the new track/marker changes and reports whether it added the score. An omitted soundtrack defaults to `none`; a requested built-in score preserves an existing Music source. Locked or hidden required tracks reject preparation. A card intro is rendered in the browser before the preview is returned. Use the same `timeline_edit_apply` and undo as other edits. See the [beat template workflow](../skills/edit-timeline-studio/references/beat-templates.md).
 
 ## Reviewed editing operations
 
@@ -69,6 +87,7 @@ Use `operations` for targeted or combined edits. Operations run in order on a te
 | `timed.resize` | Timed `track`, `clipId`, `duration`, optional timeline `start`; retains the source start and respects the retained source range for audio/video |
 | `timed.trim` | `track` of `audio`, `music` or `overlays`, `clipId`, absolute original-source `sourceIn`/`sourceOut` within the retained range; trims both ends, keeps timeline start and derives duration from fixed playback speed |
 | `clip.delete` | Timed `track` and `clipId`; removes that exact audio/music/overlay/sticker segment |
+| `transition.set` | Outgoing main visual `clipId`, `transitionId`, optional `duration` in seconds. Mask presets can use the full outgoing duration. |
 | `overlay.set_transform` | Existing overlay `clipId`, nonempty `transform` containing `x`, `y`, `scale`, `rotation` and/or `opacity` |
 | `project.set_ratio` | `ratio` of `"16:9"`, `"9:16"`, `"1:1"` or `"4:5"` |
 | `project.set_fit` | `fitMode` of `"contain"` or `"cover"` |
@@ -85,7 +104,7 @@ Use `operations` for targeted or combined edits. Operations run in order on a te
 | `overlay.add` | New `clipId`, timeline `start`, either `assetId` or `sourceClipId`; optional `duration`, `layer`, `muted`, `transform` |
 | `asset.insert` | Inspected `assetId`, new `clipId`, destination `track`; main visuals use `atIndex`, timed tracks use `start`. Optional duration, lane/layer, muting and overlay transform depend on the destination |
 
-The 27 operations share the same preview/apply path. Caption style uses `captionSize`, `fontId`, `textColor`, `backgroundColor`, `backgroundOpacity`, `borderColor`, `borderWidth`, `radius`, `paddingX`, `paddingY`, `shadowOpacity`, `effect`, `textStrokeColor` and `textStrokeWidth`; discover the schema for allowed values. Caption size is 12–42; colors are six-digit `#RRGGBB`; opacity is 0–1; stroke width is 0–6, border width 0–8, radius 0–28, horizontal padding 0–52 and vertical padding 0–32; effects are `normal` or `neon`. Font IDs come from the actual catalog enum. Editing the default style clears overrides only for the edited fields and preserves unrelated overrides. Current-caption changes remain explicit. Audio moves without an explicit layer preserve their current lane when free and choose a new lane when needed; existing audio stays in its lanes. An explicit overlapping layer is rejected. Layer indices are one-based from 1 to 1000. Timed-clip moves preserve active caption/audio associations and obey track locks; remembered detached links remain independent. Timed resizing does not shift the source start or invent additional source media. Use `timed.trim` for actual source-range trimming. It rejects unsupported speed curves, reversal and video effects; linked captions move by the removed leading duration and are clipped to the new audio range. If that would create a caption shorter than 0.2 seconds, revise or delete that caption first in the plan.
+The operations share the same preview/apply path. Caption style uses `captionSize`, `fontId`, `textColor`, `backgroundColor`, `backgroundOpacity`, `borderColor`, `borderWidth`, `radius`, `paddingX`, `paddingY`, `shadowOpacity`, `effect`, `textStrokeColor` and `textStrokeWidth`; discover the schema for allowed values. Caption size is 12–42; colors are six-digit `#RRGGBB`; opacity is 0–1; stroke width is 0–6, border width 0–8, radius 0–28, horizontal padding 0–52 and vertical padding 0–32; effects are `normal` or `neon`. Font IDs come from the actual catalog enum. Editing the default style clears overrides only for the edited fields and preserves unrelated overrides. Current-caption changes remain explicit. Audio moves without an explicit layer preserve their current lane when free and choose a new lane when needed; existing audio stays in its lanes. An explicit overlapping layer is rejected. Layer indices are one-based from 1 to 1000. Timed-clip moves preserve active caption/audio associations and obey track locks; remembered detached links remain independent. Timed resizing does not shift the source start or invent additional source media. Use `timed.trim` for actual source-range trimming. It rejects unsupported speed curves, reversal and video effects; linked captions move by the removed leading duration and are clipped to the new audio range. If that would create a caption shorter than 0.2 seconds, revise or delete that caption first in the plan.
 
 For overlay insertion or `overlay.set_transform`, `transform` can set `x`, `y`, `scale`, `rotation` and `opacity`; discover the schema for numeric bounds. Main-track indices are zero-based. Overlay and requested audio layers are one-based. Inserting an asset references media already available in the editor; it does not fetch an arbitrary URL or read an arbitrary local path. Read `status` and `insertableTracks` first. AI Music assets belong on Music, not a voice lane. Music insertion respects the current single-source music model and rejects incompatible additional sources or overlapping music pieces.
 

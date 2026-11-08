@@ -5,21 +5,15 @@ import { CaretRight, FilmStrip, ImageSquare, MusicNote, UploadSimple, X } from "
 import { beatEffectCopy } from "../i18nBeatEffects.js";
 import { templateCopy } from "../i18nTemplates.js";
 import { BEAT_MONTAGE_ID, MAX_TEMPLATE_BPM, MIN_TEMPLATE_BPM } from "../lib/beatMontage.js";
-import { CARD_ROTATION_ID, CARD_ROTATION_INTRO_SECONDS, CARD_ROTATION_INTRO_URL, CARD_ROTATION_MEDIA } from "../lib/cardRotationTemplate.js";
+import { CARD_ROTATION_ID, CARD_ROTATION_INTRO_URL, CARD_ROTATION_MEDIA } from "../lib/cardRotationTemplate.js";
 import { TIMELINE_TEMPLATES } from "../lib/templateCatalog.js";
 import { cardRotationCopy } from "../i18nCardRotationTemplate.js";
-import { extractVideoTrackFrames } from "../lib/media.js";
+import { prepareTemplateCardIntro, resolveTemplateCardFaces, TEMPLATE_CARD_FACES as FACE_SLOTS } from "../lib/templateMedia.js";
 import { getTimelineVisualAssets } from "../lib/visualReplacement.js";
 import { getMediaFileKind } from "../lib/mediaCompatibility.js";
 import "./TemplateLibrary.css";
 
 const BUILT_IN_MUSIC = "built-in-beat-score";
-// Keep the slots in the same order as the stage's projected faces.
-const FACE_SLOTS = [["diamond", "♦"], ["club", "♣"], ["heart", "♥"], ["spade", "♠"]];
-const DEMO_FACES = ["shake", "glow", "glitch", "halo"].map((name) => ({
-  type: "image", src: `/assets/effects/vfx/${name}.webp`, width: 640, height: 480,
-}));
-
 function AssetSlot({ copy, title, items, selected, onChange, onUpload, optional, audio = false, allowShort = false }) {
   const id = useId();
   const asset = items.find((item) => item.id === selected);
@@ -133,12 +127,8 @@ function useCardIntro(enabled) {
     const controller = new AbortController();
     const load = async () => {
       try {
-        const response = await fetch(CARD_ROTATION_INTRO_URL, { signal: controller.signal });
-        if (!response.ok) throw Error("Intro unavailable");
-        const blob = await response.blob();
-        if (!blob.size || blob.type === "text/html") throw Error("Intro unavailable");
-        const trackFrames = await extractVideoTrackFrames(blob, { duration: CARD_ROTATION_INTRO_SECONDS, width: 768, height: 768, maxFrames: 12, signal: controller.signal }).catch(() => []);
-        if (!controller.signal.aborted) setIntro({ blob, trackFrames });
+        const value = await prepareTemplateCardIntro([], { signal: controller.signal });
+        if (!controller.signal.aborted) setIntro(value);
       } catch {
         if (!controller.signal.aborted) setIntro({ failed: true });
       }
@@ -180,11 +170,8 @@ export function TemplateInspector({ template, language, closeLabel, cancelLabel,
   const bpm = Number(draft.bpm ?? template.defaultBpm);
   const duration = template.getDuration(bpm);
   const validBpm = Number.isInteger(bpm) && bpm >= MIN_TEMPLATE_BPM && bpm <= MAX_TEMPLATE_BPM;
-  const faceOverrides = isCard ? FACE_SLOTS.map(([key]) => visuals.find((asset) => asset.id === draft[key])) : [];
-  const faceCuts = isCard ? template.slots.slice(0, FACE_SLOTS.length).map((slot) => chosenAssets[slot]) : [];
-  const firstFace = Object.values(chosenAssets).find(Boolean);
-  const faces = isCard && (firstFace || faceOverrides.some(Boolean))
-    ? faceOverrides.map((asset, index) => asset || faceCuts[index] || firstFace || DEMO_FACES[index]) : [];
+  const faceOverrides = Object.fromEntries(FACE_SLOTS.map(([key]) => [key, visuals.find((asset) => asset.id === draft[key])]));
+  const faces = resolveTemplateCardFaces(template, chosenAssets, faceOverrides);
   const ready = (isCard ? faces.length > 0 || Boolean(intro?.blob) : Boolean(reference || main))
     && Object.values(chosenAssets).every((item) => !item || (isReady(item) && (item.type !== "video" || (item.sourceDuration ?? item.duration) >= 1)))
     && faces.every(isReady) && (!music || isReady(music));
@@ -211,10 +198,8 @@ export function TemplateInspector({ template, language, closeLabel, cancelLabel,
         if (!signal.aborted) apply.current({ ...options, assets });
         return;
       }
-      const { renderCardFaceIntro } = await import("../lib/cardFaceIntro.js");
-      const blob = await renderCardFaceIntro(faces, { signal, onProgress: setProgress });
-      const trackFrames = await extractVideoTrackFrames(blob, { duration: CARD_ROTATION_INTRO_SECONDS, width: 768, height: 768, maxFrames: 12, signal }).catch(() => []);
-      if (!signal.aborted) apply.current({ ...options, intro: { blob, trackFrames, personalized: true } });
+      const intro = await prepareTemplateCardIntro(faces, { signal, onProgress: setProgress });
+      if (!signal.aborted) apply.current({ ...options, intro });
     } catch {
       if (!signal.aborted) setRenderFailed(true);
     } finally {

@@ -349,6 +349,7 @@ export const BROWSER_OPERATION_FIELDS = Object.freeze({
   "timed.trim": ["track", "clipId", "sourceIn", "sourceOut"],
   "clip.delete": ["track", "clipId"],
   "overlay.set_transform": ["clipId", "transform"],
+  "transition.set": ["clipId", "transitionId", "duration"],
   "project.split_screen": ["clipIds", "layout", "time"],
   "overlay.sync_reference": ["clipId", "referenceClipId", "targetTime", "referenceTime"],
   "project.set_ratio": ["ratio"],
@@ -438,7 +439,7 @@ function validateBrowserOperation(operation) {
   }
   if (Object.hasOwn(operation, "text") && (typeof operation.text !== "string" || operation.text.length > 20000)) reject("BROWSER_EDIT_INVALID_PLAN");
   if (Object.hasOwn(operation, "muted") && typeof operation.muted !== "boolean") reject("BROWSER_EDIT_INVALID_PLAN");
-  if (Object.hasOwn(operation, "duration")) validTime(operation.duration, MIN_VISUAL_SEGMENT_SECONDS);
+  if (Object.hasOwn(operation, "duration")) validTime(operation.duration, operation.type === "transition.set" ? 0.1 : MIN_VISUAL_SEGMENT_SECONDS);
   for (const field of ["start", "end", "at"]) if (Object.hasOwn(operation, field)) validTime(operation[field]);
   for (const field of ["sourceIn", "sourceOut"]) if (Object.hasOwn(operation, field)) validSourceTime(operation[field]);
   if (Object.hasOwn(operation, "layer") && (!Number.isInteger(operation.layer) || operation.layer < 1 || operation.layer > 1000)) reject("BROWSER_EDIT_INVALID_PLAN");
@@ -583,6 +584,7 @@ export function buildBrowserOperationReview(inputProject, response, options = {}
       if (operation.type === "caption.add") reserve(operation.clipId);
     }
     if (operation.type === "marker.add") reserve(operation.markerId);
+    if (operation.type === "transition.set" && locks.image) reject("BROWSER_EDIT_TRACK_LOCKED");
     if (operation.type.startsWith("timed.") || operation.type === "clip.delete" || operation.type === "overlay.set_transform") {
       const { key, clip } = findProjectClip(next, operation.clipId);
       const expected = operation.type === "overlay.set_transform" ? "visualOverlaySegments"
@@ -765,6 +767,12 @@ export function buildBrowserOperationReview(inputProject, response, options = {}
       }
     }
   }
+  return finishBrowserOperationReview(inputProject, original, next, response, options, { commands, origins, focusTime, musicAdded: Boolean(musicAssetId) });
+}
+
+export function finishBrowserOperationReview(inputProject, original, next, response, options, {
+  commands = [], origins = {}, focusTime, musicAdded = false,
+} = {}) {
   const diff = diffProjects(original, next);
   for (const field of ["musicStart", "sourceAudioStart", "musicName", "musicDuration"]) {
     if (original[field] !== next[field]) diff.projectFields.push({ field, before: original[field] ?? null, after: next[field] ?? null });
@@ -782,7 +790,7 @@ export function buildBrowserOperationReview(inputProject, response, options = {}
     ...diff.projectFields.map((entry) => ({ track: "project", action: "modified", fields: [entry.field] })),
   ];
   const hasChanges = changes.length > 0;
-  if (hasChanges) next.commandState.revision = (original.commandState?.revision || 0) + 1;
+  if (hasChanges) next.commandState = { ...next.commandState, revision: (original.commandState?.revision || 0) + 1 };
   else next = structuredClone(original);
   let beforeCursor = 0;
   const beforeById = new Map(original.visualSegments.map((clip, index) => {
@@ -802,7 +810,7 @@ export function buildBrowserOperationReview(inputProject, response, options = {}
   return { project: next, beforeProject: original, operations: commands, mediaOrigins: origins, rows, diff, changes, hasChanges,
     visualsChanged: Boolean(diff.tracks.visuals), summary: response.summary || "", title: "",
     changeSummary: { reordered: rows.filter((row) => row.reordered).length, trimmed: rows.filter((row) => row.trimmed).length },
-    beforeDuration: projectDuration(original, options), duration: projectDuration(next, { ...options, hasMusic: options.hasMusic || Boolean(musicAssetId) }),
+    beforeDuration: projectDuration(original, options), duration: projectDuration(next, { ...options, hasMusic: options.hasMusic || musicAdded }),
     fingerprint: browserProjectFingerprint(inputProject, options.rippleEditing, options.visualSegments, options.runtimeProject),
     ...(focusTime === undefined ? {} : { focusTime: Math.min(focusTime, projectDuration(next, options)) }) };
 }

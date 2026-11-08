@@ -1,4 +1,4 @@
-import { MASK_TRANSITION_IDS } from "./maskTransitions.js";
+import { isMaskTransition, MASK_TRANSITION_IDS } from "./maskTransitions.js";
 import { applySplitScreenLayout, applyReferenceFrameSync } from "./visualLayoutCommands.js";
 import { applyRelightPatch } from "./relightCommand.js";
 import { reconcileVisualAssociations } from "./visualAssociations.js";
@@ -472,9 +472,10 @@ function addOverlay(project, operation) {
   project.visualOverlaySegments = [...(project.visualOverlaySegments || []), overlay];
 }
 
+export const PROJECT_TRANSITION_IDS = Object.freeze(["none", "fade", "zoom", "flash", "wipe-left", "wipe-up", "blur", "split", "glitch", ...MASK_TRANSITION_IDS]);
+
 function setTransition(project, operation) {
-  const transitions = new Set(["none", "fade", "zoom", "flash", "wipe-left", "wipe-up", "blur", "split", "glitch", ...MASK_TRANSITION_IDS]);
-  if (!transitions.has(operation.transitionId)) throw Object.assign(new Error(`Unknown transition: ${operation.transitionId}`), { code: "INVALID_TRANSITION" });
+  if (!PROJECT_TRANSITION_IDS.includes(operation.transitionId)) throw Object.assign(new Error(`Unknown transition: ${operation.transitionId}`), { code: "INVALID_TRANSITION" });
   const visuals = Array.isArray(project.visualSegments) ? project.visualSegments : [];
   const index = visuals.findIndex((clip) => clip.id === operation.clipId);
   if (index < 0) throw Object.assign(new Error(`Visual clip not found: ${operation.clipId}`), { code: "CLIP_NOT_FOUND" });
@@ -482,9 +483,10 @@ function setTransition(project, operation) {
     throw Object.assign(new Error("A transition requires a following visual clip"), { code: "INVALID_TRANSITION_TARGET" });
   }
   const maximum = index < visuals.length - 1
-    ? Math.max(0.1, Math.min(2, Number(visuals[index].duration) / 2, Number(visuals[index + 1].duration) / 2))
+    ? isMaskTransition(operation.transitionId) ? Math.max(0.1, Number(visuals[index].duration))
+      : Math.max(0.1, Math.min(2, Number(visuals[index].duration) / 2, Number(visuals[index + 1].duration) / 2))
     : 0.5;
-  const duration = Object.hasOwn(operation, "duration") ? finitePositive(operation.duration, "duration") : 0.5;
+  const duration = Object.hasOwn(operation, "duration") ? finitePositive(operation.duration, "duration") : Math.min(0.5, maximum);
   if (duration > maximum) throw Object.assign(new Error(`Transition duration cannot exceed ${maximum}`), { code: "INVALID_RANGE" });
   visuals[index].transition = { id: operation.transitionId, duration: Math.min(duration, maximum) };
 }
@@ -741,7 +743,7 @@ const TRACK_STATE_KEYS = Object.freeze({
   stickers: "sticker", sticker: "sticker",
   overlays: "overlay", overlay: "overlay",
   source: "source",
-  music: "music",
+  music: "music", effects: "effects",
 });
 
 function setTrackState(project, operation, stateKey) {
@@ -938,7 +940,7 @@ export function inspectProject(project) {
     revision: state.revision,
     duration,
     ratio: project?.ratioId || "16:9",
-    tracks: { captions: captions.length, audio: audio.length, visuals: visuals.length, stickers: stickers.length, overlays: overlays.length, music: music.length },
+    tracks: { captions: captions.length, audio: audio.length, visuals: visuals.length, stickers: stickers.length, overlays: overlays.length, music: music.length, effects: project?.effectClips?.length || 0 },
     markers: { count: markers.length, byType: Object.fromEntries(TIMELINE_MARKER_TYPES.map((type) => [type, markers.filter((marker) => marker.type === type).length])) },
     appliedOperationIds: state.appliedOperationIds,
     warnings: audio.length ? [] : ["Project has no serialized voiceover clips"],
@@ -952,6 +954,7 @@ const TRACK_COLLECTIONS = Object.freeze({
   stickers: "stickerSegments",
   overlays: "visualOverlaySegments",
   music: "musicSegments",
+  effects: "effectClips",
 });
 
 function clipSummary(track, clip, index, visualStart = 0) {
@@ -967,7 +970,7 @@ function clipSummary(track, clip, index, visualStart = 0) {
   }
   const start = Math.max(0, Number(clip.start) || 0);
   const duration = Math.max(0, Number(clip.duration) || 0);
-  return { id: clip.id, index, start, end: start + duration, duration, name: clip.name || "" };
+  return { id: clip.id, index, start, end: start + duration, duration, name: clip.name || "", ...(track === "effects" ? { effect: clip.effect } : {}) };
 }
 
 export function inspectTrack(project, track) {

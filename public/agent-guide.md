@@ -6,17 +6,18 @@ Timeline Studio is a free, open-source, local-first browser video editor. Its ca
 
 The editor registers structured WebMCP tools when the browser provides a supported native API. A compatible agent host can inspect the actual project, preview a supported edit, apply that preview, and continue in the same visible timeline as the user. WebMCP remains experimental; a page advertising these tools does not guarantee that every browser or agent can discover or invoke them.
 
-- Read the project, tracks, clips, existing transcript, timeline markers and available editor assets.
+- Read the project, tracks, clips, existing transcript, timeline markers, template catalog and available editor assets.
 - Preview caption text, style and center-point placement; project aspect ratio and fit; audio/music volume and fades; muting; markers; and main-visual split/delete/duplicate/reorder/trim.
 - Move, resize, source-trim or delete supported timed clips and adjust an existing picture-in-picture transform.
 - Insert ready editor assets into supported tracks and add picture-in-picture clips with an initial transform.
+- Preview and append a beat template using ready media, including separate suit bindings for Spinning Cards. Inspect its effects and set mask transitions at individual junctions.
 - Review the semantic diff before applying. A changed project invalidates the preview.
 - Seek the preview playhead, undo the latest unchanged agent edit, and download a new editable `.timeline` project copy.
 - Explicitly request up to four rendered frames and a ten-second audio mix for review, without moving the playhead. These media bytes are returned to the agent.
 - Prepare browser-local voiceover, transcription, relighting-analysis or depth-video jobs, then start with explicit model-download permission, inspect progress and cancel. Voiceovers go to My assets; transcription returns proposed caption edits.
 - Prepare video export settings, then start the real browser export with a retry key, inspect progress and actual output metadata, or cancel the running job.
 
-The 21 browser tools do not expose arbitrary JavaScript execution, arbitrary URL or filesystem imports, remote generation, media upload, or arbitrary AI model execution. Local AI jobs use the editor’s existing voiceover, transcription and depth-analysis/rendering services; they never insert results into the timeline automatically. Asset insertion uses media already available in the editor. Project saving creates a `.timeline` archive; video export separately renders a finished file through the shared editor pipeline. Export receipts report the actual format and bytes, including a WebM fallback when an MP4 compatibility transcode fails. A triggered browser download is not proof that the host has verified the file on disk.
+The browser tools do not expose arbitrary JavaScript execution, arbitrary URL or filesystem imports, remote generation, media upload, or arbitrary AI model execution. Local AI jobs use the editor’s existing voiceover, transcription and depth-analysis/rendering services; they never insert results into the timeline automatically. Asset insertion uses media already available in the editor. Project saving creates a `.timeline` archive; video export separately renders a finished file through the shared editor pipeline. Export receipts report the actual format and bytes, including a WebM fallback when an MP4 compatibility transcode fails. A triggered browser download is not proof that the host has verified the file on disk.
 
 Use the [browser editing Skill](/.well-known/agent-skills/edit-timeline-studio-browser/SKILL.md) for the tool workflow. Discover the actual page tool schemas for parameters and current availability. The [integration reference](https://github.com/MartinDelophy/ai-video-editor/blob/main/docs/webmcp.md) documents the implementation and supported editing subset.
 

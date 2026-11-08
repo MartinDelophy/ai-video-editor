@@ -1,3 +1,4 @@
+import { buildBrowserTemplateReview, inspectBrowserTemplates, WEB_MCP_TEMPLATE_SCHEMA } from "./webMcpTemplates.js";
 import { getDepthAnalysisSignature, normalizeCinematicDepth } from "./depthOfField.js";
 import { getVisionKey } from "./vision.js";
 import { inspectClip, inspectMarkers, inspectProject, inspectTrack, inspectTranscript } from "./projectCommandEngine.js";
@@ -8,7 +9,7 @@ import { createWebMcpExportJobs, WEB_MCP_EXPORT_SETTINGS_SCHEMA } from "./webMcp
 import { validateMediaSample, WEB_MCP_MEDIA_SAMPLE_SCHEMA } from "./webMcpMediaSample.js";
 import { createWebMcpAiJobs, WEB_MCP_AI_REQUEST_SCHEMA } from "./webMcpAiJobs.js";
 
-const TRACKS = ["visuals", "overlays", "audio", "captions", "stickers", "music"];
+const TRACKS = ["visuals", "overlays", "audio", "captions", "stickers", "music", "effects"];
 const MAX_PAGE = 100;
 const MAX_CLIPS = 500;
 const ERROR_KEYS = {
@@ -93,7 +94,7 @@ export function createWebMcpEditorSession(getEditor, { publish = () => {}, publi
     historyVersion: editor.historyVersion,
     media: [...(editor.audioSegments || []), ...(editor.visualOverlaySegments || [])].map((clip) => [clip.id, identity(clip.blob), clip.url || clip.src]),
     sourceAudio: identity(editor.sourceAudioBlob), music: identity(editor.musicBlob), audio: identity(editor.audioBlob),
-    assets: (editor.assets || []).map((asset) => [asset.id, asset.assetId, asset.type, asset.kind, asset.name, asset.duration, asset.width, asset.height, asset.preparing, identity(asset.blob), asset.src]),
+    assets: (editor.assets || []).map((asset) => [asset.id, asset.assetId, asset.type, asset.kind, asset.name, asset.duration, asset.width, asset.height, asset.preparing, asset.mediaUnavailable, identity(asset.blob), asset.src]),
   });
   const capture = () => {
     if (closed) fail("SESSION_CLOSED");
@@ -123,6 +124,7 @@ export function createWebMcpEditorSession(getEditor, { publish = () => {}, publi
       sourceAudio: { present: Boolean(state.editor.sourceAudioBlob), linked: state.project.sourceAudioLinked, start: state.project.sourceAudioStart, duration: state.project.sourceAudioDuration },
       capabilities: {
         edit: [...WEB_MCP_EDIT_CAPABILITIES], maxPlanClips: MAX_CLIPS, maxOperations: MAX_CLIPS,
+        templates: inspectBrowserTemplates(state.editor.language),
         requiresPreview: true, projectSave: "download-timeline-archive", videoExport: Boolean(state.editor.exportVideo),
         assets: "existing-local-assets", exportRequiresPrepare: true,
         mediaSample: Boolean(state.editor.sampleMedia),
@@ -136,6 +138,7 @@ export function createWebMcpEditorSession(getEditor, { publish = () => {}, publi
   const previewSummary = (draft) => ({
     previewId: draft.id, stateToken: draft.stateToken, hasChanges: draft.review.hasChanges,
     beforeDuration: draft.review.beforeDuration, afterDuration: draft.review.duration,
+    ...(draft.review.template ? { template: draft.review.template } : {}),
     rows: draft.review.rows, diff: browserReviewDiff(draft.review.diff),
     entities: { before: browserReviewEntities(draft.before), after: browserReviewEntities(draft.review.project) },
   });
@@ -283,12 +286,12 @@ export function createWebMcpEditorSession(getEditor, { publish = () => {}, publi
           break;
         }
         case "timeline_edit_preview": {
-          object(input, ["stateToken", "clips", "operations", "summary"]);
+          object(input, ["stateToken", "clips", "operations", "template", "summary"]);
           guard(signal, true);
           requireState(state, input.stateToken);
-          if ((input.operations === undefined) === (input.clips === undefined)) fail("INVALID_ARGUMENT");
+          if ([input.operations, input.clips, input.template].filter((value) => value !== undefined).length !== 1) fail("INVALID_ARGUMENT");
           const plan = input.operations ?? input.clips;
-          if (!Array.isArray(plan) || !plan.length || plan.length > MAX_CLIPS) fail("INVALID_ARGUMENT");
+          if (input.template === undefined && (!Array.isArray(plan) || !plan.length || plan.length > MAX_CLIPS)) fail("INVALID_ARGUMENT");
           for (const clip of input.clips || []) {
             object(clip, ["clipId", "sourceIn", "sourceOut"]);
             text(clip.clipId);
@@ -302,9 +305,19 @@ export function createWebMcpEditorSession(getEditor, { publish = () => {}, publi
             hasMusic: Boolean(state.editor.musicBlob), hasSourceAudio: Boolean(state.editor.sourceAudioBlob),
             runtimeProject: runtimeProject(state.editor, state.project), assets: state.editor.assets || [],
           };
-          const review = input.operations ? buildBrowserOperationReview(state.project, input, options) : buildBrowserTimelineReview(state.project, input, options);
+          let review;
+          if (input.template !== undefined) {
+            const templateSignal = signal ? AbortSignal.any([signal, sessionController.signal]) : sessionController.signal;
+            review = await buildBrowserTemplateReview(state.project, input.template, options, {
+              language: state.editor.language, ratio: state.editor.ratio, signal: templateSignal,
+            });
+            guard(signal, true);
+            if (capture().fingerprint !== state.fingerprint) fail("STALE_STATE");
+          } else {
+            review = input.operations ? buildBrowserOperationReview(state.project, input, options) : buildBrowserTimelineReview(state.project, input, options);
+          }
           pending = { id: makeId(), stateToken: state.stateToken, fingerprint: state.fingerprint, before: review.beforeProject || state.project, review };
-          publish({ status: "pending", preview: previewSummary(pending), summary: input.summary || "" });
+          publish({ status: "pending", preview: previewSummary(pending), summary: input.summary || review.title || "" });
           result = previewSummary(pending);
           break;
         }
@@ -525,8 +538,9 @@ export function createWebMcpTools(session, t) {
     stateToken: stringSchema, summary: { type: "string", maxLength: 2000 },
     clips: { type: "array", minItems: 1, maxItems: MAX_CLIPS, items: schema({ clipId: stringSchema, sourceIn: { type: "number", minimum: 0, description: t("sourceInDescription") }, sourceOut: { type: "number", minimum: 0, description: t("sourceOutDescription") } }, ["clipId"]) },
     operations: { type: "array", minItems: 1, maxItems: MAX_CLIPS, items: WEB_MCP_OPERATION_SCHEMA },
+    template: WEB_MCP_TEMPLATE_SCHEMA,
   }, ["stateToken"]);
-  editSchema.oneOf = [{ required: ["clips"] }, { required: ["operations"] }];
+  editSchema.oneOf = [{ required: ["clips"] }, { required: ["operations"] }, { required: ["template"] }];
   const tools = [
     ["timeline_project_inspect", "Project", schema(), true],
     ["timeline_track_inspect", "Track", schema({ track: { type: "string", enum: TRACKS }, ...pagination }, ["track"]), true],

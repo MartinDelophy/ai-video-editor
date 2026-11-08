@@ -1,11 +1,9 @@
-import { referenceTemplateCopy } from "./i18nReferenceTemplates.js";
 import { isUntouchedTemplateSource } from "./lib/beatMontage.js";
 import { CARD_ROTATION_ID } from "./lib/cardRotationTemplate.js";
-import { cardRotationCopy } from "./i18nCardRotationTemplate.js";
 import { getTimelineTemplate } from "./lib/templateCatalog.js";
 import { getTimelineVisualAssets, replaceVisualClipMedia } from "./lib/visualReplacement.js";
 import { replacementCopy } from "./i18nVisualReplacement.js";
-import { renderBeatTemplateMusic } from "./lib/beatTemplateMusic.js";
+import { createTemplateComposition } from "./lib/templateComposition.js";
 import { templateCopy } from "./i18nTemplates.js";
 import { getAutoRatioSourceKey } from "./lib/editorRuntime.js";
 import { useFaceAttachmentAnalysis } from "./hooks/useFaceAttachmentAnalysis.js";
@@ -95,7 +93,7 @@ import { createAssetDropActions } from "./lib/assetDropActions.js";
 import { createEditorCommandActions } from "./lib/editorCommandActions.js";
 import { useTimelineViewModel } from "./lib/timelineViewModel.js";
 import { createTranslator, getStoredLanguage, translateOptionName } from "./i18n.js";
-import { decodeWaveform, downloadBlob, encodeAudioBufferAsWav, getAudioWaveformPeaks } from "./lib/media.js";
+import { decodeWaveform, downloadBlob } from "./lib/media.js";
 import { useAiMusicGeneration } from "./hooks/useAiMusicGeneration.js";
 import { useMiganRepair } from "./hooks/useMiganRepair.js";
 import { useDetailRestoration } from "./hooks/useDetailRestoration.js";
@@ -1588,6 +1586,25 @@ export function App({ hostSession = null }) {
       throw Object.assign(new Error(), { code: "BROWSER_EDIT_STALE_PLAN" });
     }
     const firstChanged = review.rows?.find((row) => row.changed);
+    const templateMedia = review.templateMedia;
+    if (templateMedia) {
+      // Prepared clips stay private to the reviewed transaction. Create the
+      // personalized intro's object URL only when the user applies it.
+      const added = templateMedia.visuals.map((clip) => {
+        if (clip.id !== templateMedia.personalizedIntroId) return clip;
+        const src = URL.createObjectURL(clip.blob);
+        imageUrlRefs.current.add(src);
+        return { ...clip, src };
+      });
+      runtime.visualSegments = [...runtime.visualSegments, ...added];
+      runtime.visualOverlaySegments = [...runtime.visualOverlaySegments, ...templateMedia.overlays];
+      if (templateMedia.music) {
+        runtime.musicSegments = review.project.musicSegments.map((clip) => ({ ...clip, peaks: templateMedia.music.peaks }));
+        runtime.musicBlob = templateMedia.music.blob;
+        runtime.musicUrl = "";
+        runtime.musicPeaks = templateMedia.music.peaks;
+      }
+    }
     const next = restoreBrowserProjectMedia(review.project, runtime, review.mediaOrigins, userAssets);
     const nextVisuals = next.visualSegments;
     const visualsChanged = JSON.stringify(snapshot.visualSegments) !== JSON.stringify(review.project.visualSegments);
@@ -1628,7 +1645,10 @@ export function App({ hostSession = null }) {
     setSourceAudioStart(next.sourceAudioStart);
     setTrackVisibility(next.trackVisibility);
     if (visualsChanged) {
-      if (nextVisuals.length) commitVisualSegments(nextVisuals, message, firstChanged?.index ?? 0);
+      if (nextVisuals.length) {
+        const selectedIndex = templateMedia ? getVisualSegmentIndexAtTime(nextVisuals, review.focusTime) : firstChanged?.index ?? 0;
+        commitVisualSegments(nextVisuals, message, selectedIndex);
+      }
       else clearImageTrack(message);
     } else notify(message);
     const focusTime = Number.isFinite(review.focusTime) ? review.focusTime : firstChanged?.start ?? currentTime;
@@ -1713,7 +1733,7 @@ export function App({ hostSession = null }) {
   const applyTimelineTemplate = ({ assets, bpm, music, builtInMusic, intro }) => {
     if (!selectedTemplate || templateTracksBlocked) return;
     const copy = templateCopy(activeLanguage);
-    const card = selectedTemplate.id === CARD_ROTATION_ID ? cardRotationCopy(activeLanguage) : null;
+    const isCard = selectedTemplate.id === CARD_ROTATION_ID;
     const previous = shouldAppendTemplate(assets.main) ? visualSegments : [];
     const start = getVisualSegmentsTotal(previous);
     if (start + selectedTemplate.getDuration(bpm) > MAX_TIMELINE_DURATION_SECONDS) {
@@ -1725,21 +1745,13 @@ export function App({ hostSession = null }) {
       imageUrlRefs.current.add(src);
       intro = { ...intro, src };
     }
-    const targetRatio = !previous.length && (selectedTemplate.aspectRatio || ((!visualSegments.length || card) ? "1:1" : null));
-    const result = selectedTemplate.create({
-      assets, bpm, start, intro, copy: card, frameRatio: targetRatio === "1:1" ? 1 : targetRatio === "16:9" ? 16 / 9 : ratio.width / ratio.height,
-      firstLayer: Math.max(0, ...visualOverlaySegments.map((item) => item.layer || 0)) + 1,
-    });
+    const targetRatio = !previous.length && (selectedTemplate.aspectRatio || ((!visualSegments.length || isCard) ? "1:1" : null));
     const canAddMusic = !musicBlob && !trackLocks.music && trackVisibility.music !== false;
-    if (canAddMusic && builtInMusic) {
-      const score = renderBeatTemplateMusic({ bpm, start, duration: result.duration, markers: result.markers });
-      music = {
-        blob: encodeAudioBufferAsWav(score), duration: result.duration,
-        name: copy.builtInMusic,
-        peaks: getAudioWaveformPeaks(score.getChannelData(0), score.duration),
-        volume: 0.72,
-      };
-    }
+    const result = createTemplateComposition(selectedTemplate, {
+      assets, bpm, intro, language: activeLanguage, start, ratio, targetRatio,
+      overlays: visualOverlaySegments, markers: timelineMarkers, builtInMusic: canAddMusic && builtInMusic,
+    });
+    music = result.music || music;
     checkpointHistory();
     pauseForTimelineEdit();
     if (targetRatio) {
@@ -1753,12 +1765,11 @@ export function App({ hostSession = null }) {
         return { ...item, duration, sourceDuration: duration, ...(builtInMusic ? { volume: music.volume } : {}) };
       }));
     }
-    const existingBeatTimes = new Set(timelineMarkers.filter((marker) => marker.type === "marker").map((marker) => Math.round(marker.time * 1000)));
-    setTimelineMarkers((items) => [...items, ...result.markers.filter((marker) => !existingBeatTimes.has(Math.round(marker.time * 1000)))]);
+    setTimelineMarkers((items) => [...items, ...result.markers]);
     setVisualOverlaySegments((items) => [...items, ...result.overlays]);
     setEffectClips((items) => [...items, ...result.effects]);
     const selectedIndex = getVisualSegmentIndexAtTime(result.visualSegments, result.previewTime - start);
-    commitVisualSegments([...previous, ...result.visualSegments], card?.applied || referenceTemplateCopy(selectedTemplate.id, activeLanguage)?.applied || copy.applied, previous.length + selectedIndex);
+    commitVisualSegments([...previous, ...result.visualSegments], result.message, previous.length + selectedIndex);
     // Publish the new clock and the clips together. seekTo still sees the
     // old timeline until React commits, and would clamp a newly appended time.
     currentTimeRef.current = result.previewTime;

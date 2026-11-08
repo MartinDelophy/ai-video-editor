@@ -1,10 +1,11 @@
 import { ArrowCounterClockwise, CheckCircle, CircleNotch, Robot, X } from "@phosphor-icons/react";
 import "./WebMcpReview.css";
 
-const TRACK_LABELS = { visuals: "trackVisuals", overlays: "trackOverlays", audio: "trackAudio", captions: "trackCaptions", stickers: "trackStickers", music: "trackMusic", markers: "trackMarkers" };
+const TRACK_LABELS = { visuals: "trackVisuals", overlays: "trackOverlays", audio: "trackAudio", captions: "trackCaptions", stickers: "trackStickers", music: "trackMusic", markers: "trackMarkers", effects: "trackEffects" };
 const FIELD_LABELS = {
   splitScreenRect: "fieldSplitScreen", width: "fieldWidth", height: "fieldHeight",
   quality: "fieldDepthQuality", output: "fieldEffect", cinematicDepth: "relightTitle", relight: "relightTitle", strength: "relightStrength", range: "relightRange", softness: "relightSoftness", distance: "relightDistance",
+  transition: "fieldEffect", mask: "fieldEffect", intensity: "fieldOpacity",
   name: "fieldName", title: "fieldName", text: "fieldText", script: "fieldText", note: "fieldNote", notes: "fieldNote", description: "fieldNote",
   time: "fieldStart", start: "fieldStart", end: "fieldEnd", rangeEnd: "fieldEnd", endTime: "fieldEnd", duration: "fieldDuration",
   sourceStart: "fieldSourceStart", sourceDuration: "fieldSourceDuration", volume: "fieldVolume", fadeIn: "fieldFadeIn", fadeOut: "fieldFadeOut",
@@ -23,7 +24,7 @@ const FIELD_LABELS = {
   shadowOpacity: "fieldShadowOpacity", effect: "fieldEffect", textStrokeColor: "fieldTextStrokeColor", textStrokeWidth: "fieldTextStrokeWidth",
 };
 const TIME_FIELDS = new Set(["time", "start", "end", "rangeEnd", "endTime", "duration", "sourceStart", "sourceDuration", "fadeIn", "fadeOut"]);
-const SUMMARY_FIELDS = ["type", "text", "note", "notes", "start", "time", "end", "endTime", "duration", "sourceStart", "sourceDuration", "volume", "fadeIn", "fadeOut", "muted", "layer", "lane", "baseTransform", "splitScreenRect", "audioSegmentId", "sourceAudioDisabled", "sourceAudioUnmapped", "color"];
+const SUMMARY_FIELDS = ["type", "transition", "mask", "intensity", "text", "note", "notes", "start", "time", "end", "endTime", "duration", "sourceStart", "sourceDuration", "volume", "fadeIn", "fadeOut", "muted", "layer", "lane", "baseTransform", "splitScreenRect", "audioSegmentId", "sourceAudioDisabled", "sourceAudioUnmapped", "color"];
 // Raw media and runtime metadata must never reach a review value. Text, names,
 // and marker notes are deliberately rendered as React text, never as markup.
 const PRIVATE_FIELDS = /^(?:blob|src|url|file|path|archivePath|integrity|archiveMediaId|assetId|originalAssetId|thumbnail.*|poster.*|waveform.*|media.*|cache.*|.*token|.*credential|.*secret)$/i;
@@ -98,7 +99,7 @@ function EntityChange({ id, before, after, fields, status, t, time, number }) {
   const visibleFields = (fields || SUMMARY_FIELDS.filter((field) => Object.hasOwn(entity, field))).filter((field) => !PRIVATE_FIELDS.test(field));
   return (
     <li>
-      <div className="webmcp-review-item-heading"><span className="webmcp-review-name" title={entity.name || entity.title || id}>{entity.name || entity.title || id}</span><span className={`webmcp-review-badge webmcp-review-badge-${status}`}>{t(`change${status[0].toUpperCase()}${status.slice(1)}`)}</span></div>
+      <div className="webmcp-review-item-heading"><span className="webmcp-review-name" title={entity.name || entity.title || id}>{entity.name || entity.title || (entity.effect ? t(entity.effect) : id)}</span><span className={`webmcp-review-badge webmcp-review-badge-${status}`}>{t(`change${status[0].toUpperCase()}${status.slice(1)}`)}</span></div>
       {visibleFields.length ? <dl className="webmcp-review-fields">{visibleFields.map((field) => <FieldChange key={field} field={field} before={before?.[field]} after={after?.[field]} status={status} t={t} time={time} number={number} />)}</dl> : null}
     </li>
   );

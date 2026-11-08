@@ -1,3 +1,5 @@
+import { SPECIAL_EFFECTS_LABELS } from "./i18nEffectClips.js";
+import { referenceEffectsCopy } from "./i18nReferenceTemplates.js";
 import { WEBMCP_DEPTH_COPY } from "./i18nWebMcpDepth.js";
 import { WEBMCP_EXTENDED_COPY } from "./i18nWebMcpExtended.js";
 import { WEBMCP_MEDIA_COPY } from "./i18nWebMcpMedia.js";
@@ -255,5 +257,6 @@ for (const [locale, [fieldSplitScreen, fieldWidth, fieldHeight]] of Object.entri
 export function createWebMcpTranslator(language) {
   const locale = String(language || "en").toLowerCase().split(/[-_]/)[0];
   const copy = WEBMCP_COPY[locale] || WEBMCP_COPY.en;
-  return (key, values = {}) => String(copy[key] ?? key).replace(/\{(\w+)\}/g, (match, name) => Object.prototype.hasOwnProperty.call(values, name) ? String(values[name]) : match);
+  const effects = referenceEffectsCopy(locale);
+  return (key, values = {}) => String(key === "trackEffects" ? SPECIAL_EFFECTS_LABELS[locale] || SPECIAL_EFFECTS_LABELS.en : copy[key] ?? effects[key] ?? key).replace(/\{(\w+)\}/g, (match, name) => Object.prototype.hasOwnProperty.call(values, name) ? String(values[name]) : match);
 }

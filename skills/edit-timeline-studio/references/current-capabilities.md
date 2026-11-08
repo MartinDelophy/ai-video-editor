@@ -16,7 +16,7 @@
 ## Available to an Agent today
 
 - Repository inspection and code changes
-- Fifteen native browser WebMCP tools for the open project: project/asset/marker inspection, preview seeking, reviewed caption/audio/marker changes, supported main-visual split/delete/duplicate/reorder/trim, existing-asset and picture-in-picture insertion, guarded undo, editable `.timeline` downloads, and real video export with prepared settings, progress receipts and cancellation
+- Native browser WebMCP for the open project covers metadata and media inspection, reviewed edits and asset insertion, beat template appends, mask junctions, local AI jobs, save, undo and export. Discover the current schema and see [beat-templates.md](beat-templates.md) for template inputs and renderer limits.
 - Browser-driven operation of the running editor
 - Import and export through visible file controls
 - Pure timeline helper functions in `src/lib/`

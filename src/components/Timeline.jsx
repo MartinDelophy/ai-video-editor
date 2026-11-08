@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   ArrowClockwise,
@@ -12,7 +12,6 @@ import {
   CaretDown,
   CopySimple,
   Crop,
-  Diamond,
   CircleNotch,
   ClosedCaptioning,
   Eye,
@@ -53,7 +52,7 @@ import {
   reorderSingleVisualOverlayLane,
 } from "../lib/visualOverlayTimeline.js";
 import { extractVideoTrackFrames, getVideoTrackSampleCount } from "../lib/media.js";
-import { getVisualSourceTime, normalizeVisualKeyframes } from "../lib/visualEffects.js";
+import { getVisualSourceTime } from "../lib/visualEffects.js";
 import { normalizeVisualSpeedCurve } from "../lib/visualSpeedCurve.js";
 import { rollVisualBoundary, slideVisualSegment, slipVisualSegment } from "../lib/fineEdit.js";
 import { collectTimelineSnapPoints, createTimelineSnapGuide, findClosestTimelineSnap, snapTimelineRange } from "../lib/timelineSnap.js";
@@ -100,18 +99,7 @@ import { packEffectLanes, EFFECT_ASSET_DRAG_EVENT } from "../lib/timelineEffects
 import { SPECIAL_EFFECTS_LABELS } from "../i18nEffectClips.js";
 import { PLAYBACK_UI_FRAME_MS } from "../lib/editorRuntime.js";
 
-const VisualClipKeyframes = memo(function VisualClipKeyframes({ keyframes, duration, label }) {
-  if (!keyframes?.length || !(duration > 0)) return null;
-  const frames = normalizeVisualKeyframes(keyframes).filter(({ time }) => time <= duration + 1e-6);
-  if (!frames.length) return null;
-  return (
-    <div className="visual-clip-keyframe-markers" role="img" aria-label={`${label} · ${frames.length}`}>
-      {frames.map(({ time }) => (
-        <Diamond key={time} size={11} weight="fill" style={{ "--clip-keyframe-position": `${time / duration * 100}%` }} />
-      ))}
-    </div>
-  );
-});
+import { VisualClipKeyframes } from "./VisualClipKeyframes.jsx";
 
 const TIMELINE_WHEEL_ZOOM_SENSITIVITY = 0.00056;
 const TIMELINE_WHEEL_ZOOM_COMMIT_DELAY = 180;
@@ -278,6 +266,7 @@ export function Timeline({
   toggleTrackLock,
   trackScrollRef,
   startTimelineSeek,
+  onMoveVisualKeyframe,
   timelineDuration,
   timelineContentDuration = timelineDuration,
   setTimelineHorizon,
@@ -866,6 +855,17 @@ export function Timeline({
     if (except !== "voice") setSelectedAudioSegmentId("");
     if (except !== "source") setSelectedSourceAudioSegmentId("");
     if (except !== "music") setSelectedMusicSegmentId?.("");
+  };
+  const keyframeActions = useRef(null);
+  keyframeActions.current = {
+    select(track, id) {
+      clearClipSelections(track === "image" ? "visual" : "overlay");
+      if (track === "image") setSelectedVisualSegmentId(id);
+      else setSelectedVisualOverlayId?.(id);
+      setSelectedTrack(track);
+    },
+    seek: seekTo,
+    move: onMoveVisualKeyframe,
   };
   const clearTimelineClipFocus = () => {
     clearClipSelections();
@@ -2885,7 +2885,8 @@ export function Timeline({
           {segment.type === "video" && !segment.audioSeparated ? <VideoClipAudio segment={segment} disabled={trackLocks.overlay || !isOverlayLaneVisible(lane)} muted={segment.muted} t={t} onChange={(volume) => setVisualOverlaySegments((items) => items.map((item) => item.id === segment.id ? { ...item, volume } : item))} /> : null}
           <span className={segment.type === "video" ? "video-clip-name" : undefined}>{segment.name || t("overlayTrack", "Overlay")}</span>
           {segment.type === "video" ? <span className="image-clip-duration">{formatClock(segment.duration)}</span> : null}
-          <VisualClipKeyframes keyframes={segment.keyframes} duration={segment.duration} label={t("visualKeyframes")} />
+          <VisualClipKeyframes keyframes={segment.keyframes} duration={segment.duration} label={t("visualKeyframes")}
+            id={segment.id} track="overlay" start={segment.start} locked={isTimelineRowLocked("overlay", `overlay-${laneIndex}`)} actions={keyframeActions} />
           {renderExportSelectionBadge("overlay", segment.id)}
           <i className="visual-overlay-resize is-start" onPointerDown={(event) => startOverlayEdit(event, "resize-start")} />
           <i className="visual-overlay-resize is-end" onPointerDown={(event) => startOverlayEdit(event, "resize-end")} />
@@ -3457,7 +3458,8 @@ export function Timeline({
                         ) : null}
                         {!segment.preparing ? <>
                           <span className="image-clip-duration">{formatClock(segment.duration)}</span>
-                          <VisualClipKeyframes keyframes={segment.keyframes} duration={segment.duration} label={t("visualKeyframes")} />
+                          <VisualClipKeyframes keyframes={segment.keyframes} duration={segment.duration} label={t("visualKeyframes")}
+                            id={segment.id} track="image" start={segmentRange?.start ?? 0} locked={trackLocks.image} actions={keyframeActions} />
                         </> : null}
                         {!segment.preparing && activeFineEdit?.index === index ? (
                           <span className="fine-edit-readout">

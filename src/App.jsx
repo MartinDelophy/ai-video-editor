@@ -1,4 +1,7 @@
-import { createBeatTemplate, getBeatTemplateDuration, isUntouchedTemplateSource } from "./lib/beatMontage.js";
+import { isUntouchedTemplateSource } from "./lib/beatMontage.js";
+import { CARD_ROTATION_ID } from "./lib/cardRotationTemplate.js";
+import { cardRotationCopy } from "./i18nCardRotationTemplate.js";
+import { getTimelineTemplate } from "./lib/templateCatalog.js";
 import { getTimelineVisualAssets, replaceVisualClipMedia } from "./lib/visualReplacement.js";
 import { replacementCopy } from "./i18nVisualReplacement.js";
 import { renderBeatTemplateMusic } from "./lib/beatTemplateMusic.js";
@@ -98,7 +101,7 @@ import { useDetailRestoration } from "./hooks/useDetailRestoration.js";
 import { useSmartDenoise } from "./hooks/useSmartDenoise.js";
 import { useGenerationPlugins } from "./hooks/useGenerationPlugins.js";
 import { getVisualAssetPayload, getVisualSegmentTimeline, getVisualSegmentIndexAtTime, getImageThumbnailCount, getVisualSegmentsTotal, normalizeTimedSegmentIds, packTimedSegmentsIntoLanes } from "./lib/timeline.js";
-import { getVisualSourceTime, normalizeVisualTransform, removeVisualPropertyKeyframe, updateVisualSegmentPlaybackRate, upsertVisualKeyframe, upsertVisualPropertyKeyframe } from "./lib/visualEffects.js";
+import { moveVisualKeyframe, getVisualSourceTime, normalizeVisualTransform, removeVisualPropertyKeyframe, updateVisualSegmentPlaybackRate, upsertVisualKeyframe, upsertVisualPropertyKeyframe } from "./lib/visualEffects.js";
 import { getVisualSpeedCurveTimelineProgress, updateVisualSegmentSpeedCurve } from "./lib/visualSpeedCurve.js";
 import { getLinkedSourceAudioEnd, getLinkedSourceAudioSegments, shouldMuteEmbeddedVideoAudio, sliceSourceAudioPeaks } from "./lib/sourceAudioSync.js";
 import { getTimelineInitialContentZoom } from "./lib/timelineScale.js";
@@ -242,8 +245,9 @@ export function App({ hostSession = null }) {
   const [userAssets, setUserAssets] = useState([]);
   const [timelineMarkers, setTimelineMarkers] = useState([]);
   const [playheadRevealRequest, setPlayheadRevealRequest] = useState(null);
-  const [templateDraft, setTemplateDraft] = useState({});
-  const [templateSelected, setTemplateSelected] = useState(false);
+  const [templateDrafts, setTemplateDrafts] = useState({});
+  const [selectedTemplateId, setSelectedTemplateId] = useState("");
+  const selectedTemplate = getTimelineTemplate(selectedTemplateId);
   const [visualReplacement, setVisualReplacement] = useState(null);
   const [effectClips, setEffectClips] = useState([]);
   const [selectedEffectClipId, setSelectedEffectClipId] = useState("");
@@ -1693,10 +1697,10 @@ export function App({ hostSession = null }) {
   const generateCaptionsWhenIdle = guardAgentAi(generateCaptionsFromSourceAudio);
 
   const desktopSelectionId = ({ image: selectedVisualSegmentId, overlay: selectedVisualOverlayId, caption: selectedSegmentId, audio: selectedAudioSegmentId, sticker: selectedStickerSegmentId, source: selectedSourceAudioSegmentId, music: selectedMusicSegmentId })[selectedTrack];
-  const templateTracksBlocked = ["image", "overlay", "effects"].some(
+  const templateTracksBlocked = selectedTemplate?.requiredTracks.some(
     (track) => trackLocks[track] || trackVisibility[track] === false,
   );
-  const shouldAppendBeatTemplate = (mainAsset) => {
+  const shouldAppendTemplate = (mainAsset) => {
     if (!visualSegments.length) return false;
     return visualSegments.length !== 1
       || !isUntouchedTemplateSource(visualSegments[0], mainAsset)
@@ -1705,18 +1709,19 @@ export function App({ hostSession = null }) {
         || musicBlob || script.trim() || selectedFilterId !== "none"
         || Object.keys(visionRecords).length || Object.keys(depthRecords).length);
   };
-  const applyBeatTemplate = ({ assets, bpm, music, builtInMusic }) => {
-    if (templateTracksBlocked) return;
+  const applyTimelineTemplate = ({ assets, bpm, music, builtInMusic, intro }) => {
+    if (!selectedTemplate || templateTracksBlocked) return;
     const copy = templateCopy(activeLanguage);
-    const previous = shouldAppendBeatTemplate(assets.main) ? visualSegments : [];
+    const card = selectedTemplate.id === CARD_ROTATION_ID ? cardRotationCopy(activeLanguage) : null;
+    const previous = shouldAppendTemplate(assets.main) ? visualSegments : [];
     const start = getVisualSegmentsTotal(previous);
-    if (start + getBeatTemplateDuration(bpm) > MAX_TIMELINE_DURATION_SECONDS) {
+    if (start + selectedTemplate.getDuration(bpm) > MAX_TIMELINE_DURATION_SECONDS) {
       notify(copy.tooLong);
       return;
     }
-    const empty = !visualSegments.length;
-    const result = createBeatTemplate({
-      assets, bpm, start, frameRatio: empty ? 1 : ratio.width / ratio.height,
+    const useSquareCanvas = !visualSegments.length || (card && !previous.length);
+    const result = selectedTemplate.create({
+      assets, bpm, start, intro, copy: card, frameRatio: useSquareCanvas ? 1 : ratio.width / ratio.height,
       firstLayer: Math.max(0, ...visualOverlaySegments.map((item) => item.layer || 0)) + 1,
     });
     const canAddMusic = !musicBlob && !trackLocks.music && trackVisibility.music !== false;
@@ -1731,7 +1736,7 @@ export function App({ hostSession = null }) {
     }
     checkpointHistory();
     pauseForTimelineEdit();
-    if (empty) {
+    if (useSquareCanvas) {
       autoRatioSourceKeyRef.current = getAutoRatioSourceKey(result.visualSegments);
       setRatioId("1:1");
     }
@@ -1747,7 +1752,7 @@ export function App({ hostSession = null }) {
     setVisualOverlaySegments((items) => [...items, ...result.overlays]);
     setEffectClips((items) => [...items, ...result.effects]);
     const selectedIndex = getVisualSegmentIndexAtTime(result.visualSegments, result.previewTime - start);
-    commitVisualSegments([...previous, ...result.visualSegments], copy.applied, previous.length + selectedIndex);
+    commitVisualSegments([...previous, ...result.visualSegments], card?.applied || copy.applied, previous.length + selectedIndex);
     // Publish the new clock and the clips together. seekTo still sees the
     // old timeline until React commits, and would clamp a newly appended time.
     currentTimeRef.current = result.previewTime;
@@ -1795,7 +1800,7 @@ export function App({ hostSession = null }) {
     currentTimeRef.current = preview;
     setCurrentTime(preview);
     setPlayheadRevealRequest(crypto.randomUUID());
-    setTemplateSelected(false);
+    setSelectedTemplateId("");
     setVisualReplacement(null);
   };
   const desktopSelectionLocked = Boolean(trackLocks[selectedTrack]
@@ -1973,10 +1978,10 @@ export function App({ hostSession = null }) {
           },
           cinematicDepth, photoParallaxDepth,
           effectClips, setEffectClips, selectedEffectClipId, setSelectedEffectClipId, currentTime,
-          templateSelected,
-          selectBeatTemplate: () => {
+          selectedTemplateId,
+          selectTemplate: (id) => {
             showToolInspector();
-            setTemplateSelected(true);
+            setSelectedTemplateId(id);
             if (isCompactViewport) changeMobilePanel("inspector");
           },
           visualLocalTime, updateSelectedVisualEffects, updateSelectedSubjectEffect, updateSelectedClickRipple, removeSelectedSubjectEffect, miganRepair, hdRestoration, smartDenoise,
@@ -2166,12 +2171,15 @@ export function App({ hostSession = null }) {
           })}
         />
 
-        {inspectorTool === "templates" && templateSelected ? (
-          <TemplateInspector language={activeLanguage} closeLabel={t("close")} onClose={() => setTemplateSelected(false)}
-            draft={templateDraft} setDraft={setTemplateDraft} visualSegments={visualSegments} userAssets={userAssets}
-            shouldAppend={shouldAppendBeatTemplate} hasMusic={Boolean(musicBlob)}
+        {inspectorTool === "templates" && selectedTemplate ? (
+          <TemplateInspector key={selectedTemplateId} template={selectedTemplate} language={activeLanguage} closeLabel={t("close")}
+            onClose={() => setSelectedTemplateId("")}
+            draft={templateDrafts[selectedTemplateId] || {}}
+            setDraft={(update) => setTemplateDrafts((drafts) => ({ ...drafts, [selectedTemplateId]: update(drafts[selectedTemplateId] || {}) }))}
+            visualSegments={visualSegments} userAssets={userAssets}
+            shouldAppend={shouldAppendTemplate} hasMusic={Boolean(musicBlob)}
             musicLocked={trackLocks.music || trackVisibility.music === false} blocked={templateTracksBlocked}
-            onUpload={handleFiles} onApply={applyBeatTemplate} />
+            onUpload={handleFiles} onApply={applyTimelineTemplate} />
         ) : inspectorTool === "specialEffects" ? (
         <TimelineEffectInspector onAlignmentStart={() => { if (isPlaying) { pauseTimelineMedia(); setIsPlaying(false); } }} visualSegments={visualSegments} currentTime={currentTime} onSeek={(time) => { pauseTimelineMedia(); setIsPlaying(false); seekTo(time, { immediate: true }); }} hasVisual={visualSegments.length>0} faceAttachments={faceAttachments} clips={effectClips} setClips={setEffectClips} selectedId={selectedTrack === "effects" ? selectedEffectClipId : ""} language={activeLanguage} t={t} locked={trackLocks.effects} onClose={() => setSelectedEffectClipId("")} />
         ) : <VoicePanel
@@ -2377,6 +2385,23 @@ export function App({ hostSession = null }) {
         toggleTrackLock={toggleTrackLock}
         trackScrollRef={trackScrollRef}
         startTimelineSeek={startTimelineSeek}
+        onMoveVisualKeyframe={(track, id, from, to) => {
+          const overlay = track === "overlay";
+          const segments = overlay ? visualOverlaySegments : visualSegments;
+          const segment = segments.find((item) => item.id === id);
+          if (!segment || trackLocks[track]) return;
+          if (overlay) {
+            const lane = packTimedSegmentsIntoLanes(segments, { preferredLaneKey: "lane" })
+              .findIndex((items) => items.some((item) => item.id === id));
+            if (trackLocks[`overlay-${lane}`]) return;
+          }
+          const keyframes = moveVisualKeyframe(segment.keyframes, from, to, segment.duration);
+          if (keyframes === segment.keyframes) return;
+          checkpointHistory();
+          const update = overlay ? setVisualOverlaySegments : setVisualSegments;
+          update((items) => items.map((item) => item.id === id
+            ? { ...item, keyframes: moveVisualKeyframe(item.keyframes, from, to, item.duration) } : item));
+        }}
         timelineDuration={timelineDuration}
         timelineContentDuration={Math.max(estimatedDuration, timelineHorizon, timelineMarkerEnd)}
         setTimelineHorizon={setTimelineHorizon}

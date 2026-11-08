@@ -8246,7 +8246,7 @@ button:disabled {
 
 .image-track {
   position: relative;
-  gap: 2px;
+  gap: 0;
   overflow: hidden;
   padding: 4px 0;
 }
@@ -8365,7 +8365,7 @@ button:disabled {
   align-items: stretch;
   flex: 0 0 var(--image-clip-width, auto);
   width: var(--image-clip-width, auto);
-  min-width: 68px;
+  min-width: 0;
   max-width: 100%;
   height: 36px;
   overflow: hidden;
@@ -8606,12 +8606,27 @@ button:disabled {
   pointer-events: none;
 }
 
-.visual-clip-keyframe-markers > svg {
+.visual-clip-keyframe-markers > .visual-clip-keyframe {
   position: absolute;
+  top: 50%;
   left: clamp(5px, var(--clip-keyframe-position), calc(100% - 5px));
-  transform: translateX(-50%);
-  filter: drop-shadow(0 0 1px #110619) drop-shadow(0 1px 1px #110619);
+  display: grid;
+  place-items: center;
+  width: 17px;
+  height: 19px;
+  padding: 0;
+  border: 0;
+  translate: -50% -50%;
+  color: inherit;
+  background: transparent;
+  cursor: ew-resize;
+  pointer-events: auto;
+  touch-action: none;
 }
+
+.visual-clip-keyframe:disabled { pointer-events: none; }
+.visual-clip-keyframe:is(:hover, :focus-visible) { color: #61f6e5; }
+.visual-clip-keyframe > svg { filter: drop-shadow(0 0 1px #110619) drop-shadow(0 1px 1px #110619); }
 
 .is-selected-segment > .visual-clip-keyframe-markers { color: #bffff8; }
 

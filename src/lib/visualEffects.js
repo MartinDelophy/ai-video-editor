@@ -146,6 +146,24 @@ export function normalizeVisualKeyframes(keyframes = []) {
     }, []);
 }
 
+export function clampVisualKeyframeTime(frames, index, value, duration) {
+  const time = frames[index].time;
+  const gap = KEYFRAME_TIME_TOLERANCE + 0.001;
+  const min = Math.min(time, Math.max(0, (frames[index - 1]?.time ?? -gap) + gap));
+  const max = Math.max(time, Math.min(duration, (frames[index + 1]?.time ?? duration + gap) - gap));
+  return Math.max(min, Math.min(max, Math.round(value * 1000) / 1000));
+}
+
+export function moveVisualKeyframe(keyframes, from, to, duration) {
+  const frames = normalizeVisualKeyframes(keyframes);
+  const index = frames.findIndex((frame) => frame.time === from);
+  if (index < 0) return keyframes;
+  const time = clampVisualKeyframeTime(frames, index, to, duration);
+  if (time === from) return keyframes;
+  frames[index] = { ...frames[index], time };
+  return frames;
+}
+
 export function resolveVisualTransform(keyframes = [], time = 0, baseTransform = DEFAULT_TRANSFORM) {
   const safeTime = Math.max(0, Number(time) || 0);
   const normalizedKeyframes = normalizeVisualKeyframes(keyframes);

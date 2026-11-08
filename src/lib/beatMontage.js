@@ -84,7 +84,7 @@ export function isUntouchedTemplateSource(clip, asset) {
     || (clip.spatialEffect && clip.spatialEffect !== "original"));
 }
 
-function templateShot(asset, duration, fraction) {
+export function getTemplateShotAsset(asset, duration, fraction) {
   const available = asset.type === "video" ? asset.sourceDuration ?? asset.duration : 0;
   const sourceDuration = Math.min(available, duration);
   return {
@@ -129,7 +129,7 @@ export function createBeatTemplate({ assets, bpm, start, frameRatio, firstLayer 
   const beat = { source: "markers", bpm, subdivision: 2 };
   const visualSegments = roles.map((role, i) => {
     const length = span(cuts[i + 1] - cuts[i]);
-    const shot = templateShot(assets[role], length, portions[i]);
+    const shot = getTemplateShotAsset(assets[role], length, portions[i]);
     const zoom = (time, scale, y = 0, opacity = 1) => ({ time, scale, y, opacity });
     const keyframes = i === 0
       ? [zoom(0, 1.08, 0, 0), zoom(span(0.36), 1.08)]
@@ -156,7 +156,7 @@ export function createBeatTemplate({ assets, bpm, start, frameRatio, firstLayer 
   const panelPortions = [[0.08, 0.72, 0.40], [0.21, 0.54, 0.78], [0.31, 0.88, 0.46], [0.14, 0.6, 0.93]];
   groups.forEach((group, i) => {
     const available = span(MONTAGE_DURATION);
-    const panels = panelRoles[i].map((role, index) => templateShot(assets[role], available * (8 - rows[index].beat) / 8, panelPortions[i][index]));
+    const panels = panelRoles[i].map((role, index) => getTemplateShotAsset(assets[role], available * (8 - rows[index].beat) / 8, panelPortions[i][index]));
     overlays.push(...createTriptych({ start: at(group), duration: available, frameRatio, firstLayer, panelAssets: panels }));
     effect("ink-print", group, MONTAGE_DURATION, { intensity: 0.85 });
     effect("beat-backdrop", group, MONTAGE_DURATION, { beat, intensity: 0.48 });
@@ -168,7 +168,7 @@ export function createBeatTemplate({ assets, bpm, start, frameRatio, firstLayer 
     effect("beat-backdrop", scene.start, scene.end - scene.start, { beat, intensity: 0.33 });
     scene.panels.forEach((panel, i) => {
       const time = scene.start + (panel.delay || 0), length = span(scene.end - time);
-      const shot = templateShot(assets[panel.slot], length, panel.portion);
+      const shot = getTemplateShotAsset(assets[panel.slot], length, panel.portion);
       overlays.push(createBeatPanel(shot, {
         start: at(time), duration: length, frameRatio, layer: firstLayer + i, rate: shot.playbackRate,
         width: panel.w, height: panel.h, x: panel.x, y: panel.y, focusY: 44,

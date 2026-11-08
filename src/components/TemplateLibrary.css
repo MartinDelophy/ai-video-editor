@@ -1,31 +1,24 @@
 .template-library {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+  align-content: start;
   min-height: 0;
   overflow-y: auto;
   scrollbar-width: none;
 }
-.template-card {
-  display: grid;
-  flex: 0 0 auto;
+.template-card { min-width: 0; }
+.template-card .subject-outline-entry-footer { grid-template-columns: minmax(0, 1fr) 16px; gap: 6px; padding: 9px; }
+.template-card .subject-outline-entry-state { min-width: 0; }
+.template-card .subject-outline-entry-preview > video {
+  display: block;
   width: 100%;
-  padding: 0;
-  overflow: hidden;
-  text-align: start;
-  color: inherit;
-  background: #181d23;
-  border: 1px solid #303940;
-  border-radius: 12px;
-  cursor: pointer;
+  height: 100%;
+  object-fit: cover;
 }
-.template-card:is(:hover, [aria-pressed="true"]) { border-color: #41d4cd; }
 .template-card-cover {
   display: grid;
   grid-template-rows: repeat(3, minmax(0, 1fr));
   gap: 4px;
-  height: clamp(110px, 17vh, 160px);
-  padding: 9px 0;
+  height: 100%;
+  padding: 8px 0;
   background: radial-gradient(ellipse, #32454d, #0b1116 75%);
   overflow: hidden;
 }
@@ -41,13 +34,6 @@
 .template-card-cover > img:first-child { transform: translateX(7%); }
 .template-card-cover > img:last-child { transform: translateX(-7%); }
 .template-card:is(:hover, :focus-visible) .template-card-cover > img { transform: translateX(0); }
-.template-card-title {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px;
-}
 .template-setup, .template-slot-fields { display: grid; gap: 6px; min-width: 0; }
 
 .template-inspector-heading {
@@ -73,6 +59,22 @@
 @media (max-width: 1279px) {
   .mobile-panel-inspector .template-inspector-heading > button { display: none; }
 }
+.template-extra-slots {
+  min-width: 0;
+  padding: 0 8px;
+  border: 1px solid #2a333d;
+  border-radius: 9px;
+  background: #171c22;
+}
+.template-extra-slots > summary {
+  min-height: 32px;
+  padding: 7px 2px;
+  color: #c2d0d6;
+  font-size: 12px;
+  cursor: pointer;
+}
+.template-extra-slots > summary > span { float: inline-end; color: #80d6cd; font-variant-numeric: tabular-nums; }
+.template-extra-slots > div { display: grid; gap: 6px; padding-bottom: 8px; }
 .template-setup > p { margin: 0; color: #b4c0cc; font-size: 12px; line-height: 1.55; }
 .template-slot {
   display: grid;

@@ -147,7 +147,7 @@ export function EditorSidebar({ model: d }) {
             }}
           />
         ) : d.activeTool === "templates" ? (
-          <TemplateLibrary language={d.activeLanguage} selected={d.templateSelected} onSelect={d.selectBeatTemplate} />
+          <TemplateLibrary language={d.activeLanguage} selected={d.selectedTemplateId} onSelect={d.selectTemplate} />
         ) : d.activeTool === "plugins" ? (
           <PluginCatalogPanel
             language={d.activeLanguage}

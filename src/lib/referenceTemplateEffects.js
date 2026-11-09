@@ -163,12 +163,15 @@ function drawFilmOrbit(ctx, { width: w, height: h }, source, clip, localTime, sc
   filmStrip(ctx, source, x, y, apertureWidth, apertureHeight, rotate, { flash });
 }
 
-export function drawReferenceFrameEffect(ctx, canvas, clip, time, copyFrame, scrubbing) {
+export function drawReferenceFrameEffect(ctx, canvas, clip, time, copyFrame, scrubbing, referenceSource) {
   if (!(clip.intensity > 0)) return;
   const localTime = Math.max(0, time - clip.start + (clip.sourceOffset || 0));
   const source = copyFrame(canvas);
   if (clip.effect === "seven-slat-reveal") drawSlats(ctx, canvas, source, clip, localTime, scrubbing);
   else if (clip.effect === "film-orbit") drawFilmOrbit(ctx, canvas, source, clip, localTime, scrubbing);
   else if (clip.effect === "beat-strip") drawBeatStrip(ctx, canvas, source, clip, localTime);
-  else if (clip.effect === "memory-vortex") drawMemoryVortex(ctx, canvas, source, clip, localTime);
+  else if (clip.effect === "memory-vortex") {
+    const texture = clip.textureAssetId && clip.textureAssetId === referenceSource?.assetId ? referenceSource.visual : null;
+    drawMemoryVortex(ctx, canvas, source, clip, localTime, texture);
+  }
 }

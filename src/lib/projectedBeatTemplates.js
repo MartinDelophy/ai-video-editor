@@ -95,15 +95,22 @@ export function addProjectedCardGroups({ source, main, effect, mark, overlays, f
   return 59;
 }
 
-export function addMemoryVortex({ main, effect, mark, span }) {
-  main(0, 0, MEMORY_VORTEX_INTRO);
-  effect("memory-vortex", 0, MEMORY_VORTEX_INTRO, { color: "#e892ac", intensity: 0.82 });
-  [0, 5, 10, 19, 31, 40, 46, 54, 62].forEach((frame, index) => mark(frame, index === 0 ? "amber" : "cyan"));
+export function getMemoryVortexCuts() {
   const boundaries = vortexBeats.map((frame, index) => frame + (index === 0 ? 0 : 2));
   boundaries.push(MEMORY_VORTEX_LENGTH);
-  vortexBeats.forEach((beat, index) => {
-    const transition = index < vortexBeats.length - 1 ? { id: "fade", duration: span(5) } : null;
-    main(index, boundaries[index], boundaries[index + 1], transition ? { transition } : {});
+  return vortexBeats.map((beat, index) => ({ beat, from: boundaries[index], to: boundaries[index + 1] }));
+}
+
+export function addMemoryVortex({ main, effect, mark, span, addIntro, intro }) {
+  addIntro(intro, MEMORY_VORTEX_INTRO);
+  effect("memory-vortex", 0, MEMORY_VORTEX_INTRO, {
+    color: "#e892ac", intensity: 0.82, textureAssetId: intro.id,
+  });
+  [0, 5, 10, 19, 31, 40, 46, 54, 62].forEach((frame, index) => mark(frame, index === 0 ? "amber" : "cyan"));
+  const cuts = getMemoryVortexCuts();
+  cuts.forEach(({ beat, from, to }, index) => {
+    const transition = index < cuts.length - 1 ? { id: "fade", duration: span(5) } : null;
+    main(index, from, to, transition ? { transition } : {});
     mark(beat, index % 4 === 0 ? "violet" : "amber");
   });
   return 70;

@@ -94,7 +94,7 @@ function copyFrame(canvas) {
   return copy;
 }
 // All animation uses clip-local timeline seconds, never wall time or Math.random().
-export function drawTimelineEffects(ctx, canvas, clips, time, drawRipple, { composition = false, markers = [], scrubbing = false } = {}) {
+export function drawTimelineEffects(ctx, canvas, clips, time, drawRipple, { composition = false, markers = [], scrubbing = false, referenceSource } = {}) {
   const w = canvas.width,
     h = canvas.height;
   for (const rawClip of activeEffectClips(clips, time)) {
@@ -106,7 +106,7 @@ export function drawTimelineEffects(ctx, canvas, clips, time, drawRipple, { comp
     if (BEAT_EFFECT_IDS.includes(clip.effect))
       drawBeatEffect(ctx, canvas, clip, time, markers, copyFrame, scrubbing);
     else if (REFERENCE_FRAME_EFFECTS.includes(clip.effect))
-      drawReferenceFrameEffect(ctx, canvas, clip, time, copyFrame, scrubbing);
+      drawReferenceFrameEffect(ctx, canvas, clip, time, copyFrame, scrubbing, referenceSource);
     else if (clip.effect === "ripple")
       drawRipple(ctx, canvas, { ...clip.ripple, enabled: true, color: clip.color }, t);
     else if (clip.effect === "vignette") {

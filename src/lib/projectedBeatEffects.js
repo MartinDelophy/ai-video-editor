@@ -39,8 +39,14 @@ const PALETTE = ["#e98e75", "#efbd6b", "#e595b9", "#a2cfee", "#a8d8a5", "#e8d470
 const RINGS = [0.96, 0.67, 0.47, 0.334, 0.237, 0.166, 0.113, 0.074, 0.047];
 const SECTORS = 12;
 const TURN = Math.PI * 2;
+const FIRST_VISIBLE_RING = 3;
+export const MEMORY_VORTEX_TEXTURE = Object.freeze({ columns: 8, rows: 6, tileWidth: 224, tileHeight: 280 });
 
-export function drawMemoryVortex(context, canvas, source, clip, localTime) {
+export function drawMemoryVortex(context, canvas, source, clip, localTime, texture = null) {
+  const { columns, rows, tileWidth, tileHeight } = MEMORY_VORTEX_TEXTURE;
+  const textureRingCount = columns * rows / SECTORS;
+  const useTexture = texture && (texture.naturalWidth || texture.width) === columns * tileWidth
+    && (texture.naturalHeight || texture.height) === rows * tileHeight;
   const { width, height } = canvas;
   const t = clamp(localTime / clip.duration);
   const centerX = width * (0.5 + 0.024 * Math.sin(t * 4));
@@ -76,7 +82,7 @@ export function drawMemoryVortex(context, canvas, source, clip, localTime) {
       const left = Math.min(...tile.map((p) => p.x)), right = Math.max(...tile.map((p) => p.x));
       const top = Math.min(...tile.map((p) => p.y)), bottom = Math.max(...tile.map((p) => p.y));
       if (right <= 0 || bottom <= 0 || left >= width || top >= height) continue;
-      const color = ring === 3 && t < 0.42
+      const color = ring === FIRST_VISIBLE_RING && t < 0.42
         ? PALETTE[sector % 2]
         : PALETTE[(sector * 5 + ring * 3) % PALETTE.length];
       const light = rise * (0.93 - z * 0.43) * (0.47 + clip.intensity * 0.53);
@@ -86,15 +92,24 @@ export function drawMemoryVortex(context, canvas, source, clip, localTime) {
       context.globalAlpha = light;
       context.fillStyle = color;
       context.fillRect(left, top, right - left, bottom - top);
-      // Repeat the actual source in the glass panes with alternating crops.
-      context.globalAlpha = light * (0.39 - z * 0.09);
-      const cropW = source.width * 0.40;
-      const cropH = source.height * 0.40;
-      const u = ((sector * 3 + ring) % 6) / 5;
-      const v = ((sector * 2 + ring * 3) % 6) / 5;
-      context.drawImage(source, (source.width - cropW) * u, (source.height - cropH) * v,
-        cropW, cropH, left, top, right - left, bottom - top);
-      context.globalAlpha = 0.17 * light;
+      if (useTexture) {
+        const textureRing = (FIRST_VISIBLE_RING - ring + 2 * textureRingCount) % textureRingCount;
+        const tileIndex = textureRing * SECTORS + sector;
+        const x = (tileIndex % columns) * tileWidth;
+        const y = Math.floor(tileIndex / columns) * tileHeight;
+        context.globalAlpha = light * (0.96 - z * 0.13);
+        context.drawImage(texture, x, y, tileWidth, tileHeight, left, top, right - left, bottom - top);
+      } else {
+        // Existing projects and the standalone effect use the current frame.
+        context.globalAlpha = light * (0.39 - z * 0.09);
+        const cropW = source.width * 0.40;
+        const cropH = source.height * 0.40;
+        const u = ((sector * 3 + ring) % 6) / 5;
+        const v = ((sector * 2 + ring * 3) % 6) / 5;
+        context.drawImage(source, (source.width - cropW) * u, (source.height - cropH) * v,
+          cropW, cropH, left, top, right - left, bottom - top);
+      }
+      context.globalAlpha = (useTexture ? 0.10 : 0.17) * light;
       context.fillStyle = clip.color;
       context.fillRect(left, top, right - left, bottom - top);
       context.restore();

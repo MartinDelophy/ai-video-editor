@@ -6,7 +6,7 @@
       "type": "skill-md",
       "description": "Use native WebMCP tools to edit the project open in Timeline Studio. Inspect clips and available assets, preview and apply multi-track, caption style/position and project framing edits; append beat templates and set transitions; sample rendered media; run local voiceover, transcription, relighting analysis and depth-video jobs; insert media; undo; save; or export video with progress and cancellation. Use for the live browser editor, not local project-file editing.",
       "url": "/.well-known/agent-skills/edit-timeline-studio-browser/SKILL.md",
-      "digest": "sha256:1beb55a4e3608e4aa9a275e95f578221319b8afcdcbf6da179bf9a51f4a95d17"
+      "digest": "sha256:23059d7034228c77cfd7b89fe36401964ea5c3f8c3c9c8a8d3c45f21b08a60ba"
     }
   ]
 }

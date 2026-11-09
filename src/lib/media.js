@@ -1372,7 +1372,10 @@ export function drawPreviewFrame(context, visual, canvas, options) {
   if (transitionActive && !transitionAboveOverlays) paintTransition();
   context.restore();
 
-  drawTimelineEffects(context, canvas, options.effectClips || [], options.timelineTime || 0, drawClickRippleEffect, { markers: options.timelineMarkers });
+  drawTimelineEffects(context, canvas, options.effectClips || [], options.timelineTime || 0, drawClickRippleEffect, {
+    markers: options.timelineMarkers, scrubbing: options.scrubbing,
+    referenceSource: { visual, assetId: visualEffects?.assetId },
+  });
 
   visualOverlays.forEach((overlay, index) => {
     const overlayVisual = visualOverlaySources[index];

@@ -5,7 +5,7 @@ import { referenceTemplateCopy } from "../i18nReferenceTemplates.js";
 import { BEAT_MONTAGE_ID, MIN_TEMPLATE_BPM, MAX_TEMPLATE_BPM } from "./beatMontage.js";
 import { CARD_ROTATION_ID } from "./cardRotationTemplate.js";
 import { finishBrowserOperationReview } from "./browserEditPlan.js";
-import { loadReferenceDemoAssets } from "./referenceTemplates.js";
+import { prepareReferenceTemplate } from "./referenceTemplates.js";
 import { getTimelineTemplate, TIMELINE_TEMPLATES } from "./templateCatalog.js";
 import { createTemplateComposition } from "./templateComposition.js";
 import { prepareTemplateCardIntro, resolveTemplateCardFaces, TEMPLATE_CARD_FACES } from "./templateMedia.js";
@@ -95,7 +95,9 @@ export async function buildBrowserTemplateReview(project, request, options, { la
   if (isCard) {
     intro = await prepareTemplateCardIntro(resolveTemplateCardFaces(template, assets, overrides), { signal });
   } else if (isReference) {
-    assets = await loadReferenceDemoAssets(template, assets, signal, cardRotationCopy(language).slot);
+    ({ assets, intro } = await prepareReferenceTemplate(template, assets, {
+      bpm, language, label: cardRotationCopy(language).slot, signal,
+    }));
   }
   signal?.throwIfAborted();
   const targetRatio = project.visualSegments?.length ? undefined : template.aspectRatio || "1:1";

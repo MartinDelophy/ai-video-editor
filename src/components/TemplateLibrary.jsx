@@ -1,4 +1,5 @@
-import { loadReferenceDemoAssets } from "../lib/referenceTemplates.js";
+import { MEMORY_VORTEX_ID } from "../lib/projectedBeatTemplates.js";
+import { prepareReferenceTemplate } from "../lib/referenceTemplates.js";
 import { referenceTemplateCopy } from "../i18nReferenceTemplates.js";
 import { useEffect, useId, useRef, useState } from "react";
 import { CaretRight, FilmStrip, ImageSquare, MusicNote, UploadSimple, X } from "@phosphor-icons/react";
@@ -90,7 +91,10 @@ export function TemplateLibrary({ language, selected, onSelect }) {
         const title = reference?.title ?? (isCard ? card.title : beatEffectCopy(language)[BEAT_MONTAGE_ID]);
         const summary = reference?.description ?? (isCard ? card.summary : copy.description);
         const media = isCard ? CARD_ROTATION_MEDIA : reference ? `/assets/templates/${id}` : "";
-        const preview = isCard ? CARD_ROTATION_INTRO_URL : `${media}/preview.mp4`;
+        // The service worker caches preview videos by URL.
+        const revision = id === MEMORY_VORTEX_ID ? "?v=2" : "";
+        const cover = `${media}/cover.webp${revision}`;
+        const preview = isCard ? CARD_ROTATION_INTRO_URL : `${media}/preview.mp4${revision}`;
         return (
           <button key={id} type="button" className={`subject-outline-entry template-card ${selected === id ? "is-active" : ""}`}
             aria-pressed={selected === id} onClick={() => onSelect(id)}
@@ -101,8 +105,8 @@ export function TemplateLibrary({ language, selected, onSelect }) {
             <span className="subject-outline-entry-preview" aria-hidden="true">
               {media
                 ? hovered === id
-                  ? <video src={preview} poster={`${media}/cover.webp`} autoPlay muted loop playsInline />
-                  : <img src={`${media}/cover.webp`} alt="" />
+                  ? <video src={preview} poster={cover} autoPlay muted loop playsInline />
+                  : <img src={cover} alt="" />
                 : <span className="template-card-cover">
                     <img src="/assets/effects/vfx/halo.webp" alt="" />
                     <img src="/assets/effects/vfx/glow.webp" alt="" />
@@ -143,6 +147,7 @@ export function TemplateInspector({ template, language, closeLabel, cancelLabel,
   const copy = templateCopy(language);
   const card = cardRotationCopy(language);
   const isCard = template.id === CARD_ROTATION_ID;
+  const isVortex = template.id === MEMORY_VORTEX_ID;
   const intro = useCardIntro(isCard);
   const job = useRef(null);
   const apply = useRef(onApply);
@@ -153,7 +158,7 @@ export function TemplateInspector({ template, language, closeLabel, cancelLabel,
   const reference = referenceTemplateCopy(template.id, language);
   const manySlots = isCard || Boolean(reference);
   const title = reference?.title ?? (isCard ? card.title : beatEffectCopy(language)[BEAT_MONTAGE_ID]);
-  const fromTimeline = getTimelineVisualAssets(visualSegments).filter((asset) => ![CARD_ROTATION_ID, "template-demo"].includes(asset.generatedBy));
+  const fromTimeline = getTimelineVisualAssets(visualSegments).filter((asset) => ![CARD_ROTATION_ID, MEMORY_VORTEX_ID, "template-demo"].includes(asset.generatedBy));
   const assets = [...new Map([...fromTimeline, ...userAssets].map((item) => [item.id, item])).values()];
   const visuals = assets.filter((item) => item.type === "image" || item.type === "video");
   const audio = assets.filter((item) => item.type === "audio");
@@ -194,8 +199,10 @@ export function TemplateInspector({ template, language, closeLabel, cancelLabel,
     setRenderFailed(false);
     try {
       if (reference) {
-        const assets = await loadReferenceDemoAssets(template, chosenAssets, signal, card.slot);
-        if (!signal.aborted) apply.current({ ...options, assets });
+        const prepared = await prepareReferenceTemplate(template, chosenAssets, {
+          bpm, language, label: card.slot, signal, onProgress: setProgress,
+        });
+        if (!signal.aborted) apply.current({ ...options, ...prepared });
         return;
       }
       const intro = await prepareTemplateCardIntro(faces, { signal, onProgress: setProgress });
@@ -256,7 +263,7 @@ export function TemplateInspector({ template, language, closeLabel, cancelLabel,
           <div className="template-render">
             <span role="status">{reference ? copy.reading : card.rendering}</span>
             <button type="button" onClick={() => job.current?.abort()}>{cancelLabel}</button>
-            <progress value={reference ? undefined : progress} max={100} aria-label={reference ? copy.reading : card.rendering} />
+            <progress value={reference && !isVortex ? undefined : progress} max={100} aria-label={reference ? copy.reading : card.rendering} />
           </div>
         )}
       </div>

@@ -1,5 +1,6 @@
+import { referenceEffectsCopy } from "../i18nReferenceTemplates.js";
 import {
-  addMemoryVortex, addProjectedCardGroups, MEMORY_VORTEX_ID, MEMORY_VORTEX_LENGTH,
+  addMemoryVortex, addProjectedCardGroups, getMemoryVortexCuts, MEMORY_VORTEX_ID, MEMORY_VORTEX_LENGTH,
   THREE_D_TRANSFORM_ID, THREE_D_TRANSFORM_LENGTH,
 } from "./projectedBeatTemplates.js";
 import { createBeatPanel, getTemplateShotAsset } from "./beatMontage.js";
@@ -37,7 +38,7 @@ const demos = {
   "staggered-mask-beat": ["halo", "glow", "shake", "vignette", "glow", "halo", "ripple", "chromatic", "grain", "shake", "glow", "glitch", "halo", "ripple", "grain", "vignette"],
 };
 
-export async function loadReferenceDemoAssets(template, selected, signal, label) {
+async function loadReferenceDemoAssets(template, selected, signal, label) {
   const reads = new Map();
   const first = selected.main;
   const assets = await Promise.all(template.slots.map(async (slot, index) => {
@@ -59,16 +60,35 @@ export async function loadReferenceDemoAssets(template, selected, signal, label)
   return Object.fromEntries(assets);
 }
 
-function createReferenceTemplate(spec, { assets, bpm, start, frameRatio, firstLayer }) {
+function templateShot(assets, ids, index, duration) {
+  const asset = assets[ids[index]];
+  return getTemplateShotAsset(asset, duration, asset === assets.main && ids.length > 1 ? index / (ids.length - 1) : 0);
+}
+
+export async function prepareReferenceTemplate(template, selected, { bpm, language, label, signal, onProgress }) {
+  const assets = await loadReferenceDemoAssets(template, selected, signal, label);
+  if (template.id !== MEMORY_VORTEX_ID) return { assets };
+  const { prepareMemoryVortexIntro } = await import("./memoryVortexIntro.js");
+  const shots = getMemoryVortexCuts().map(({ from, to }, index) => {
+    const duration = (to - from) * template.defaultBpm / bpm / fps;
+    return { ...templateShot(assets, template.slots, index, duration), duration };
+  });
+  const intro = await prepareMemoryVortexIntro(shots, {
+    signal, onProgress, name: referenceEffectsCopy(language)["memory-vortex"],
+  });
+  return { assets, intro };
+}
+
+function createReferenceTemplate(spec, { assets, bpm, start, frameRatio, firstLayer, intro }) {
   const factor = spec.defaultBpm / bpm / fps;
   const span = (frames) => frames * factor;
   const at = (frame) => start + span(frame);
   const ids = slots(spec.count);
   const visuals = [], overlays = [], effects = [], ticks = new Map();
   const mark = (frame, color = "cyan") => ticks.set(frame, color);
-  const source = (index, duration) => {
-    const asset = assets[ids[index]];
-    return getTemplateShotAsset(asset, duration, asset === assets.main && spec.count > 1 ? index / (spec.count - 1) : 0);
+  const source = (index, duration) => templateShot(assets, ids, index, duration);
+  const addIntro = (asset, frames) => {
+    visuals.push({ ...createVisualSegment(span(frames), asset), fitMode: "contain", sourceAudioDisabled: true });
   };
   const main = (index, from, to, extra = {}) => {
     const duration = span(to - from);
@@ -99,7 +119,7 @@ function createReferenceTemplate(spec, { assets, bpm, start, frameRatio, firstLa
   if (spec.type === "projected-cards") {
     previewFrame = addProjectedCardGroups({ source, main, effect, mark, overlays, firstLayer, at, span });
   } else if (spec.type === "vortex") {
-    previewFrame = addMemoryVortex({ main, effect, mark, span });
+    previewFrame = addMemoryVortex({ main, effect, mark, span, addIntro, intro });
   } else if (spec.type === "slats") {
     main(0, 0, spec.end);
     effect("seven-slat-reveal", 0, spec.end, { intensity: 0.92 });

@@ -2306,6 +2306,11 @@ export function App({ hostSession = null }) {
           onApplyVoiceColor={applyVoiceColorToSelectedAudio}
           onRestoreVoiceColor={restoreSelectedAudioVoiceColor}
           selectedVisualSegment={selectedVisualSegment}
+          getColorScopeSource={(clipId) => {
+            if (!trackVisibility.image || previewVisualSegment?.id !== clipId) return null;
+            return previewVisualType === "video" ? previewVideoRef.current
+              : previewCanvasRef.current?.querySelector(".visual-media-layer > img:not(.smart-frame-fill-background)");
+          }}
           selectedStickerSegment={selectedStickerSegment}
           updateStickerSegment={updateSelectedStickerSegment}
           deleteStickerSegment={deleteSelectedStickerSegment}

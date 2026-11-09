@@ -1,3 +1,4 @@
+import { ColorGradeScope } from "./ColorGradeScope.jsx";
 import { CaptionGroupingControl } from "./CaptionGroupingControl.jsx";
 import { getCaptionEditingCopy, getCaptionSpacingCopy } from "../i18nCaptionEditing.js";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -1770,7 +1771,7 @@ function ColorGradeWheel({ label, value, keyframePrefix, keyframes, localTime, o
   );
 }
 
-function ColorWheelsPanel({ t, value, keyframes = [], localTime = 0, onChange }) {
+function ColorWheelsPanel({ t, value, keyframes = [], localTime = 0, onChange, getScopeSource }) {
   const baseGrade = normalizeColorGrade(value);
   const grade = resolveColorGrade(keyframes, localTime, baseGrade);
   const updateBasic = (key, nextValue) => {
@@ -1802,6 +1803,7 @@ function ColorWheelsPanel({ t, value, keyframes = [], localTime = 0, onChange })
       <div className="color-grade-wheel-grid">
         {[["shadows", t("colorGradeShadows")], ["midtones", t("colorGradeMidtones")], ["highlights", t("colorGradeHighlights")], ["offset", t("colorGradeOffset")]].map(([key, label]) => <ColorGradeWheel key={key} label={label} value={grade[key]} keyframePrefix={`colorGrade.${key}`} keyframes={keyframes} localTime={localTime} onKeyframeChange={onChange} t={t} onChange={(wheel) => updateWheel(key, wheel)} onReset={() => updateWheel(key, DEFAULT_COLOR_GRADE[key])} />)}
       </div>
+      {getScopeSource && <ColorGradeScope t={t} getSource={getScopeSource} />}
     </section>
   );
 }
@@ -1994,6 +1996,7 @@ function VisualSpeedCurvePanel({ t, segment, localTime, onChange }) {
 export function VisualEffectsPanel({
   t,
   segment,
+  getColorScopeSource,
   localTime,
   onChange,
   onSeek,
@@ -2229,7 +2232,7 @@ export function VisualEffectsPanel({
           </div>
           {activeAnimation.id !== "none" ? <div className="slider-field compact-slider visual-animation-duration"><div><label>{t("visualAnimationDuration")}</label><strong>{activeAnimation.duration.toFixed(1)}s</strong></div><input aria-label={t("visualAnimationDuration")} type="range" min="0.1" max={Math.min(3, Math.max(0.1, Number(segment.duration) || 0.1))} step="0.1" value={activeAnimation.duration} onChange={(event) => onChange?.({ animation: { ...clipAnimation, [animationSection]: { ...activeAnimation, duration: Number(event.target.value) } } })} /></div> : null}
         </section> : null}
-        {activeTab === "colorWheels" ? <ColorWheelsPanel t={t} value={segment.colorGrade} keyframes={keyframes} localTime={localTime} onChange={onChange} /> : null}
+        {activeTab === "colorWheels" ? <ColorWheelsPanel key={segment.id} t={t} value={segment.colorGrade} keyframes={keyframes} localTime={localTime} onChange={onChange} getScopeSource={getColorScopeSource ? () => getColorScopeSource(segment.id) : undefined} /> : null}
         {activeTab === "vector" ? <section className="visual-editor-card visual-vector-card">{vectorEditor}</section> : null}
         {activeTab === "timing" ? <section className="visual-editor-card visual-overlay-timing-card">
           {!singleSection ? <div className="visual-editor-heading"><strong>{t("overlayTiming", "Timing & layer")}</strong><em>{t("visualClipScoped")}</em></div> : null}

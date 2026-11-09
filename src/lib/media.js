@@ -8,7 +8,7 @@ import ffmpegCoreWasmURL from "@ffmpeg/core/wasm?url";
 import ffmpegClassWorkerURL from "@ffmpeg/ffmpeg/worker?worker&url";
 
 import { AUDIO_RECORDING_FORMATS, EXPORT_RECORDING_FORMATS, FILTER_OPTIONS } from "../config/editor.js";
-import { throwIfExportAborted, waitForExportTimeout } from "./exportCancellation.js";
+import { createExportAbortError, throwIfExportAborted, waitForExportTimeout } from "./exportCancellation.js";
 import {
   createCaptionSegments,
   getSegmentIndexAtTime,
@@ -161,20 +161,28 @@ export function getVideoTrackSampleCount(duration, maxFrames = VIDEO_TRACK_FRAME
   return Math.max(1, Math.min(maxFrames, Math.ceil(safeDuration / targetStep)));
 }
 
-export function seekVideoFrame(video, time, tolerance = 0.015) {
+export function seekVideoFrame(video, time, tolerance = 0.015, signal) {
   const safeTime = Math.max(0, Math.min(time, Math.max(0, (video.duration || time) - 0.04)));
   return new Promise((resolve, reject) => {
+    throwIfExportAborted(signal);
+    let animationId = 0;
     let callbackId = 0;
     let timeoutId = 0;
     const cleanup = () => {
+      signal?.removeEventListener("abort", abort);
+      if (animationId) window.cancelAnimationFrame(animationId);
       video.removeEventListener("seeked", handleSeeked);
       video.removeEventListener("error", handleError);
       if (callbackId) video.cancelVideoFrameCallback?.(callbackId);
       if (timeoutId) window.clearTimeout(timeoutId);
     };
+    const abort = () => {
+      cleanup();
+      reject(createExportAbortError());
+    };
     const resolvePresentedFrame = () => {
       if (typeof video.requestVideoFrameCallback !== "function") {
-        window.requestAnimationFrame(() => {
+        animationId = window.requestAnimationFrame(() => {
           cleanup();
           resolve(video.currentTime);
         });
@@ -199,12 +207,14 @@ export function seekVideoFrame(video, time, tolerance = 0.015) {
       reject(new Error("Video frame seek failed"));
     };
 
+    signal?.addEventListener("abort", abort, { once: true });
     video.addEventListener("seeked", handleSeeked, { once: true });
     video.addEventListener("error", handleError, { once: true });
     if (video.readyState >= 2 && Math.abs(video.currentTime - safeTime) < tolerance) {
       resolvePresentedFrame();
     } else {
-      video.currentTime = safeTime;
+      try { video.currentTime = safeTime; }
+      catch (error) { cleanup(); reject(error); }
     }
   });
 }
@@ -760,15 +770,29 @@ export function createTemporalMaskCache(urls, maxEntries = 8) {
   };
 }
 
-export function loadVideo(src) {
+export function loadVideo(src, { signal } = {}) {
   return new Promise((resolve, reject) => {
+    throwIfExportAborted(signal);
     const video = document.createElement("video");
     video.crossOrigin = "anonymous";
     video.muted = true;
     video.playsInline = true;
     video.preload = "auto";
-    video.onloadedmetadata = () => resolve(video);
-    video.onerror = reject;
+    const cleanup = () => {
+      signal?.removeEventListener("abort", abort);
+      video.onloadedmetadata = null;
+      video.onerror = null;
+    };
+    const fail = (error) => {
+      cleanup();
+      video.removeAttribute("src");
+      video.load();
+      reject(error);
+    };
+    const abort = () => fail(createExportAbortError());
+    video.onloadedmetadata = () => { cleanup(); resolve(video); };
+    video.onerror = fail;
+    signal?.addEventListener("abort", abort, { once: true });
     video.src = src;
   });
 }

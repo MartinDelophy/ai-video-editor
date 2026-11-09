@@ -13000,3 +13000,60 @@ canvas.relight-position { width:100%; height:auto; display:block; }
 .transition-preview.preview-ripple-mask { background: radial-gradient(circle, #66d2d1 20%, #2a687a 24%, #6bdedd 28%, #377992 36%, #253656 39%); }
 .transition-preview.preview-step-mask { background: linear-gradient(90deg, #60cfc6 66%, #4a4971 67%) top / 100% 50% no-repeat, linear-gradient(90deg, #60cfc6 42%, #4a4971 43%) bottom / 100% 50% no-repeat; }
 .transition-preview.preview-shutter-mask { background: linear-gradient(90deg, #466681 26%, #88d8d3 28% 72%, #466681 74%); }
+
+.color-grade-scope {
+  border-top: 1px solid #293942;
+  padding-top: 8px;
+  font-size: 12px;
+}
+
+.color-grade-scope summary {
+  color: #d6e4ea;
+  cursor: pointer;
+}
+
+.color-grade-scope-body p {
+  margin: 8px 0;
+  color: #a6b6c0;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.color-grade-scope-plot {
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr);
+  position: relative;
+}
+
+.color-grade-scope-scale {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  color: #a6b6c0;
+  font: 10px/1 monospace;
+}
+
+.color-grade-scope-plot canvas {
+  width: 100%;
+  aspect-ratio: 288 / 128;
+  background: #101920;
+}
+
+.color-grade-scope-empty {
+  position: absolute;
+  inset: 0 0 0 26px;
+  display: grid;
+  place-items: center;
+  padding: 8px;
+  color: #a6b6c0;
+  text-align: center;
+  font-size: 11px;
+}
+
+.color-grade-scope-channels {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  margin: 4px 0 0 26px;
+  text-align: center;
+  font: 10px/1 monospace;
+}

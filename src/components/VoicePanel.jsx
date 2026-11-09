@@ -1527,6 +1527,7 @@ export function VoicePanel({
   onApplyVoiceColor,
   onRestoreVoiceColor,
   selectedVisualSegment,
+  getColorScopeSource,
   selectedStickerSegment,
   updateStickerSegment,
   deleteStickerSegment,
@@ -1833,6 +1834,7 @@ export function VoicePanel({
             audioEditor={selectedTrackAudioSegment?.embeddedVideo ? <AudioClipContextPanel t={t} language={uiLanguage} visualAssociation={audioVisualAssociation} segment={{ ...selectedTrackAudioSegment, id: selectedTrackAudioSegment.segmentId }} updateAudioSegment={updateSelectedTrackAudioSegment} /> : null}
             t={t}
             segment={selectedVisualSegment}
+            getColorScopeSource={getColorScopeSource}
             localTime={visualLocalTime}
             onChange={updateSelectedVisualEffects}
             onPreviewAnimation={onPreviewAnimation}

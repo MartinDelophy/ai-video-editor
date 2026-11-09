@@ -1,3 +1,7 @@
+import {
+  addMemoryVortex, addProjectedCardGroups, MEMORY_VORTEX_ID, MEMORY_VORTEX_LENGTH,
+  THREE_D_TRANSFORM_ID, THREE_D_TRANSFORM_LENGTH,
+} from "./projectedBeatTemplates.js";
 import { createBeatPanel, getTemplateShotAsset } from "./beatMontage.js";
 import { createVisualSegment } from "./timeline.js";
 import { createEffectClip } from "./timelineEffects.js";
@@ -10,19 +14,23 @@ const specs = [
   { id: "film-orbit-beat", defaultBpm: 106, end: 392, count: 6, tracks: ["image", "effects"], type: "film" },
   { id: "ripple-mask-beat", defaultBpm: 86, end: 418, count: 10, tracks: ["image"], type: "ripple" },
   { id: "staggered-mask-beat", defaultBpm: 120, end: 323, count: 16, tracks: ["image", "overlay"], type: "masks" },
+  { id: THREE_D_TRANSFORM_ID, defaultBpm: 75, end: THREE_D_TRANSFORM_LENGTH, count: 20, tracks: ["image", "overlay", "effects"], type: "projected-cards" },
+  { id: MEMORY_VORTEX_ID, defaultBpm: 106, end: MEMORY_VORTEX_LENGTH, count: 48, tracks: ["image", "effects"], type: "vortex", ratio: "4:5" },
 ];
 
 export const REFERENCE_TEMPLATES = specs.map((spec) => ({
   id: spec.id,
   slots: slots(spec.count),
   defaultBpm: spec.defaultBpm,
-  aspectRatio: "16:9",
+  aspectRatio: spec.ratio || "16:9",
   requiredTracks: spec.tracks,
   getDuration: (bpm) => spec.end / fps * spec.defaultBpm / bpm,
   create: (options) => createReferenceTemplate(spec, options),
 }));
 
 const demos = {
+  [THREE_D_TRANSFORM_ID]: ["glitch", "halo", "vignette", "glow", "shake", "halo", "ripple", "chromatic", "grain", "glitch", "grain", "shake", "halo", "glow", "ripple", "vignette", "chromatic", "glow", "glitch", "halo"],
+  [MEMORY_VORTEX_ID]: ["glow", "halo", "grain", "shake", "ripple", "glitch", "vignette", "chromatic"],
   "seven-slat-intro": ["halo"],
   "film-orbit-beat": ["glitch", "shake", "halo", "glow", "vignette", "chromatic"],
   "ripple-mask-beat": ["vignette", "glow", "halo", "shake", "ripple", "chromatic", "grain", "glitch", "glow", "halo"],
@@ -34,7 +42,8 @@ export async function loadReferenceDemoAssets(template, selected, signal, label)
   const first = selected.main;
   const assets = await Promise.all(template.slots.map(async (slot, index) => {
     if (selected[slot] || first) return [slot, selected[slot] || first];
-    const name = demos[template.id][index];
+    const choices = demos[template.id];
+    const name = choices[index % choices.length];
     const src = `/assets/effects/vfx/${name}.webp`;
     if (!reads.has(name)) reads.set(name, (async () => {
       const response = await fetch(src, { signal });
@@ -87,7 +96,11 @@ function createReferenceTemplate(spec, { assets, bpm, start, frameRatio, firstLa
   };
 
   let previewFrame;
-  if (spec.type === "slats") {
+  if (spec.type === "projected-cards") {
+    previewFrame = addProjectedCardGroups({ source, main, effect, mark, overlays, firstLayer, at, span });
+  } else if (spec.type === "vortex") {
+    previewFrame = addMemoryVortex({ main, effect, mark, span });
+  } else if (spec.type === "slats") {
     main(0, 0, spec.end);
     effect("seven-slat-reveal", 0, spec.end, { intensity: 0.92 });
     SEVEN_SLAT_TICKS.forEach((frame) => mark(frame, frame === 0 || frame > SEVEN_SLAT_TICKS[6] ? "violet" : "cyan"));

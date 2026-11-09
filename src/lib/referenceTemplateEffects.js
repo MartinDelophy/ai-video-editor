@@ -1,6 +1,7 @@
+import { drawBeatStrip, drawMemoryVortex } from "./projectedBeatEffects.js";
 import { drawImageTriangle } from "./canvasPerspective.js";
 
-export const REFERENCE_FRAME_EFFECTS = ["seven-slat-reveal", "film-orbit"];
+export const REFERENCE_FRAME_EFFECTS = ["seven-slat-reveal", "film-orbit", "beat-strip", "memory-vortex"];
 export const SEVEN_SLAT_TICKS = [0, 17, 39, 57, 75, 92, 109, 127, 145, 162, 180];
 export const SEVEN_SLAT_LENGTH = 184;
 const slatOrder = [0, 1, 2, 3, 4, 5, 6, 3, 4, 5, 6];
@@ -167,5 +168,7 @@ export function drawReferenceFrameEffect(ctx, canvas, clip, time, copyFrame, scr
   const localTime = Math.max(0, time - clip.start + (clip.sourceOffset || 0));
   const source = copyFrame(canvas);
   if (clip.effect === "seven-slat-reveal") drawSlats(ctx, canvas, source, clip, localTime, scrubbing);
-  else drawFilmOrbit(ctx, canvas, source, clip, localTime, scrubbing);
+  else if (clip.effect === "film-orbit") drawFilmOrbit(ctx, canvas, source, clip, localTime, scrubbing);
+  else if (clip.effect === "beat-strip") drawBeatStrip(ctx, canvas, source, clip, localTime);
+  else if (clip.effect === "memory-vortex") drawMemoryVortex(ctx, canvas, source, clip, localTime);
 }

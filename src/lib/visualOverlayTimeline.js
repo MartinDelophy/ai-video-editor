@@ -1,3 +1,4 @@
+import { getTemplateCardBox, hasTemplateCardCorners } from "./templateCardProjection.js";
 import { normalizeVisualKeyframes, resolveVisualTransform, upsertVisualKeyframe } from "./visualEffects.js";
 import { createVisualSegment, packTimedSegmentsIntoLanes } from "./timeline.js";
 import { normalizeVectorDesign } from "./vectorDesign.js";
@@ -60,6 +61,7 @@ export function getVisualOverlayContainBox(overlay, frameAspectRatio) {
 export function getVisualOverlayPixelBox(overlay, frameSize) {
   const frameWidth = Math.max(1, Number(frameSize?.width) || 1);
   const frameHeight = Math.max(1, Number(frameSize?.height) || 1);
+  if (hasTemplateCardCorners(overlay?.templateCardCorners)) return getTemplateCardBox(frameHeight);
   const sourceAspectRatio = overlay?.width > 0 && overlay?.height > 0
     ? overlay.width / overlay.height
     : 1;

@@ -15,12 +15,39 @@ const names = {
   it: [["Intro a sette pannelli", "Una foto o un video si apre in sette strisce che lampeggiano a tempo."], ["Orbita di pellicola al neon", "Sei riprese ruotano tra scie al neon e lampi bianchi."], ["Tagli con maschera a onde", "Una piega diagonale precede otto onde concentriche che rivelano le riprese."], ["Tagli con maschere sfalsate", "Le riprese sovrapposte cambiano con maschere a gradini e un otturatore a due lati."], ["Apertura a sette pannelli", "Orbita di pellicola", "Piega diagonale", "Onda concentrica", "Maschera a gradini", "Otturatore a due lati"], "Usa contenuti di esempio", "Modello aggiunto", "Mostra e sblocca le tracce richieste dal modello."],
   id: [["Pembuka tujuh panel", "Satu foto atau video terbuka menjadi tujuh panel yang berkilat mengikuti ketukan."], ["Orbit film neon", "Enam cuplikan berputar di antara jejak neon dan kilat putih."], ["Potongan dengan masker riak", "Lipatan diagonal disusul delapan riak konsentris yang menampilkan cuplikan berikutnya."], ["Potongan dengan masker bertingkat", "Cuplikan bertumpuk berganti lewat masker bertingkat dan rana dua sisi."], ["Buka tujuh panel", "Orbit film", "Lipatan diagonal", "Riak konsentris", "Masker bertingkat", "Rana dua sisi"], "Gunakan media contoh", "Templat ditambahkan", "Tampilkan dan buka kunci trek yang diperlukan templat."],
 };
+const measuredTemplates = {
+  zh: [["3D 透视卡点", "四组横幅收放，十六张透视素材卡按节拍飞入。"], ["回忆漩涡卡点", "彩色玻璃漩涡开场，接 48 段节拍叠化。"], "横幅收放", "彩色漩涡"],
+  en: [["3D perspective beats", "Four horizontal strips open and close as sixteen perspective cards fly in on the beat."], ["Memory vortex beats", "A stained-glass tunnel opens the edit, followed by 48 shots with beat-timed dissolves."], "Opening strip", "Stained-glass vortex"],
+  ja: [["3Dパースのビート編集", "4本の帯が開閉し、16枚の素材カードが奥行きのある動きで飛び込みます。"], ["記憶の渦のビート編集", "ステンドグラスの渦で始まり、48カットがビートに合わせて溶け合います。"], "帯の開閉", "ステンドグラスの渦"],
+  ko: [["3D 원근 비트 컷", "네 개의 가로 띠가 열리고 닫히며, 원근감이 있는 카드 열여섯 장이 박자에 맞춰 들어옵니다."], ["기억의 소용돌이 비트 컷", "스테인드글라스 터널로 시작해 48개의 장면이 박자에 맞춰 디졸브됩니다."], "가로 띠 열기", "스테인드글라스 소용돌이"],
+  es: [["Cortes rítmicos en perspectiva 3D", "Cuatro franjas se abren y cierran mientras dieciséis tarjetas entran en perspectiva al ritmo."], ["Vórtice de recuerdos", "Un túnel de vidrieras abre el montaje y da paso a 48 planos unidos con fundidos al ritmo."], "Apertura en franja", "Vórtice de vidrieras"],
+  fr: [["Coupes rythmées en perspective 3D", "Quatre bandes s’ouvrent et se ferment, tandis que seize cartes surgissent en perspective au rythme."], ["Tourbillon de souvenirs", "Un tunnel de vitraux ouvre le montage, suivi de 48 plans en fondu au rythme."], "Ouverture en bande", "Tourbillon de vitraux"],
+  de: [["3D-Perspektivschnitte im Takt", "Vier horizontale Streifen öffnen und schließen sich, während sechzehn Karten perspektivisch ins Bild fliegen."], ["Strudel der Erinnerungen", "Ein Buntglastunnel eröffnet den Schnitt, gefolgt von 48 Aufnahmen mit Überblendungen im Takt."], "Streifenblende", "Buntglasstrudel"],
+  pt: [["Cortes no ritmo em perspectiva 3D", "Quatro faixas se abrem e fecham enquanto dezesseis cartões entram em perspectiva no ritmo."], ["Redemoinho de memórias", "Um túnel de vitrais abre a edição, seguido por 48 cenas com transições suaves no ritmo."], "Abertura em faixa", "Redemoinho de vitrais"],
+  th: [["ตัดต่อเข้าจังหวะแบบสามมิติ", "แถบแนวนอนสี่ชุดเปิดปิดพร้อมการ์ดมุมมองสามมิติสิบหกใบที่เลื่อนเข้ามาตามจังหวะ"], ["อุโมงค์ความทรงจำตามจังหวะ", "เปิดด้วยอุโมงค์กระจกสี แล้วเปลี่ยนผ่าน 48 ช็อตแบบจางซ้อนตามจังหวะ"], "แถบเปิดปิด", "อุโมงค์กระจกสี"],
+  vi: [["Cắt theo nhịp phối cảnh 3D", "Bốn dải ngang mở rồi khép, mười sáu thẻ phối cảnh bay vào theo nhịp."], ["Vòng xoáy ký ức", "Mở đầu bằng đường hầm kính màu, sau đó là 48 cảnh chuyển mờ theo nhịp."], "Dải mở khép", "Xoáy kính màu"],
+  ru: [["Монтаж с 3D-перспективой в такт", "Четыре горизонтальные полосы раскрываются и сжимаются, а шестнадцать карточек влетают в кадр в такт."], ["Вихрь воспоминаний", "Монтаж открывает витражный тоннель, за которым следуют 48 кадров с наплывами в такт."], "Раскрытие полосы", "Витражный вихрь"],
+  it: [["Tagli ritmici in prospettiva 3D", "Quattro fasce si aprono e chiudono mentre sedici schede entrano in prospettiva a ritmo."], ["Vortice dei ricordi", "Un tunnel di vetrate apre il montaggio, seguito da 48 riprese con dissolvenze a ritmo."], "Apertura a fascia", "Vortice di vetrate"],
+  id: [["Potongan berirama perspektif 3D", "Empat pita mendatar membuka dan menutup saat enam belas kartu masuk dalam perspektif mengikuti ketukan."], ["Pusaran kenangan", "Terowongan kaca patri membuka edit, diikuti 48 cuplikan dengan transisi larut mengikuti ketukan."], "Bukaan pita", "Pusaran kaca patri"],
+};
+const measuredIds = ["3d-transform-beat", "memory-vortex-beat"];
 const row = (language) => names[language] || names.en;
-export const referenceEffectsCopy = (language) => Object.fromEntries(effectIds.map((id, index) => [id, row(language)[4][index]]));
+const measured = (language) => measuredTemplates[language] || measuredTemplates.en;
+
+export function referenceEffectsCopy(language) {
+  return {
+    ...Object.fromEntries(effectIds.map((id, index) => [id, row(language)[4][index]])),
+    "beat-strip": measured(language)[2],
+    "memory-vortex": measured(language)[3],
+  };
+}
+
 export function referenceTemplateCopy(id, language) {
-  const index = templateIds.indexOf(id);
-  if (index < 0) return null;
   const values = row(language);
-  const [title, description] = values[index];
+  const index = templateIds.indexOf(id);
+  const measuredIndex = measuredIds.indexOf(id);
+  const entry = index >= 0 ? values[index] : measuredIndex >= 0 ? measured(language)[measuredIndex] : null;
+  if (!entry) return null;
+  const [title, description] = entry;
   return { title, description, demo: values[5], applied: values[6], locked: values[7] };
 }

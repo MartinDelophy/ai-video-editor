@@ -33,6 +33,7 @@ import { CaptionOverlay } from "./CaptionOverlay.jsx";
 import { IconButton } from "./ui.jsx";
 import { normalizeSplitScreenRect } from "../lib/previewAlignment.js";
 import { PreviewContextMenu } from "./PreviewContextMenu.jsx";
+import { hasTemplateCardCorners, templateCardCssTransform } from "../lib/templateCardProjection.js";
 import { getVisualOverlayPixelBox, resolveVisualOverlayTransform, snapVisualOverlayTransform } from "../lib/visualOverlayTimeline.js";
 import { getAnchoredResize } from "../lib/anchoredResize.js";
 import { getVisualFitRect } from "../lib/visualGeometry.js";
@@ -1066,9 +1067,10 @@ export function PreviewStage({
               );
               const overlayMask = overlay.mask ?? { type: "none" };
               const hasOverlayMask = overlayMask.type && overlayMask.type !== "none";
+              const projected = hasTemplateCardCorners(overlay.templateCardCorners) ? overlay.templateCardCorners : null;
               const overlayBox = {
-                width: containBox.width * animatedTransform.scale,
-                height: containBox.height * animatedTransform.scale,
+                width: containBox.width * (projected ? 1 : animatedTransform.scale),
+                height: containBox.height * (projected ? 1 : animatedTransform.scale),
               };
               const overlayMaskUrl = hasOverlayMask ? getVisualMaskSvgDataUrl(overlayMask, overlayBox) : "";
               const style = {
@@ -1077,7 +1079,10 @@ export function PreviewStage({
                 width: `${overlayBox.width}px`,
                 height: `${overlayBox.height}px`,
                 clipPath: overlayMaskUrl ? undefined : getSharpMaskClipPath(overlayMask, overlayBox),
-                transform: `translate(-50%, -50%) rotate(${animatedTransform.rotation}deg)`,
+                transform: projected
+                  ? `rotate(${animatedTransform.rotation}deg) ${templateCardCssTransform(projected, activePreviewFrameSize, overlayBox, animatedTransform.scale)}`
+                  : `translate(-50%, -50%) rotate(${animatedTransform.rotation}deg)`,
+                transformOrigin: projected ? "0 0" : undefined,
                 opacity: animatedTransform.opacity * (isVector ? vectorAppearance.opacity : 1),
                 mixBlendMode: isVector ? vectorAppearance.cssBlendMode : undefined,
                 WebkitMaskImage: overlayMaskUrl ? `url("${overlayMaskUrl}")` : undefined,
@@ -1087,7 +1092,7 @@ export function PreviewStage({
                 WebkitMaskRepeat: overlayMaskUrl ? "no-repeat" : undefined,
                 maskRepeat: overlayMaskUrl ? "no-repeat" : undefined,
               };
-              const mediaStyle = { filter: isVector ? vectorAppearance.filter : overlayFilter };
+              const mediaStyle = { filter: isVector ? vectorAppearance.filter : overlayFilter, objectFit: projected ? "cover" : undefined };
               const cutoutFilter = `${overlayFilter === "none" ? "" : overlayFilter} url(#${overlaySubjectFilterId})`.trim();
               const overlayRenderSrc = isVector
                 ? getVectorRenderSource(overlay, {
@@ -1160,12 +1165,12 @@ export function PreviewStage({
                 </div>
                 {!selected && !isPlaying && !standby && overlay.id === timelineSelectedOverlayId ? (
                   <TimelineVisualHighlight id={overlay.id} bounds={overlayBox} mask={overlayMask} splitCell={splitCell}
-                    style={{ left: style.left, top: style.top, width: style.width, height: style.height, transform: style.transform }} />
+                    style={{ left: style.left, top: style.top, width: style.width, height: style.height, transform: style.transform, transformOrigin: style.transformOrigin }} />
                 ) : null}
                 {selected && !isPlaying && !standby ? <div
                   className="visual-overlay-layer visual-overlay-controls is-selected"
                   data-preview-track="overlay" data-preview-clip-id={overlay.id}
-                  style={{ left: style.left, top: style.top, width: style.width, height: style.height, transform: style.transform }}
+                  style={{ left: style.left, top: style.top, width: style.width, height: style.height, transform: style.transform, transformOrigin: style.transformOrigin }}
                 >
                   {selected && !isPlaying && hasOverlayMask && visualOverlayMaskEditable ? <div
                     className={`visual-mask-editor is-${overlayMask.type}`}

@@ -1,3 +1,4 @@
+import { drawTemplateCard, getTemplateCardBox, hasTemplateCardCorners } from "./templateCardProjection.js";
 import { ensureFaceAttachmentAssets } from "./faceAttachmentAssets.js";
 import { drawTrackedFaceAttachments } from "./faceAttachments.js";
 import { normalizeSplitScreenRect } from "./previewAlignment.js";
@@ -860,6 +861,22 @@ function drawVisualEffectsMask(context, mask, canvas) {
   context.restore();
 }
 
+const projectedOverlayLayers = new WeakMap();
+function getProjectedOverlayLayers(canvas, box) {
+  let layers = projectedOverlayLayers.get(canvas);
+  if (!layers) {
+    layers = { visual: document.createElement("canvas"), mask: document.createElement("canvas") };
+    projectedOverlayLayers.set(canvas, layers);
+  }
+  const width = Math.max(2, Math.round(box.width));
+  const height = Math.max(2, Math.round(box.height));
+  for (const layer of Object.values(layers)) {
+    if (layer.width !== width) layer.width = width;
+    if (layer.height !== height) layer.height = height;
+  }
+  return layers;
+}
+
 function traceOverlayMaskShape(context, mask, canvas, visual) {
   const visualSize = getVisualDimensions(visual);
   const box = getVisualFitRect(visualSize, canvas, "contain");
@@ -1385,6 +1402,28 @@ export function drawPreviewFrame(context, visual, canvas, options) {
       : FILTER_OPTIONS.find((option) => option.id === overlay.filterId)?.css || "none";
     const mask = overlay.mask ?? { type: "none" };
     const hasMask = mask.type && mask.type !== "none";
+    if (hasTemplateCardCorners(overlay.templateCardCorners)) {
+      const box = getTemplateCardBox(height);
+      const layers = getProjectedOverlayLayers(canvas, box);
+      const texture = layers.visual.getContext("2d");
+      texture.clearRect(0, 0, layers.visual.width, layers.visual.height);
+      drawFittedVisual(texture, overlayVisual, layers.visual, "cover", overlayFilter, overlay.vision, overlay.subjectEffect);
+      if (hasMask) {
+        drawVisualEffectsMask(layers.mask.getContext("2d"), mask, layers.mask);
+        texture.save();
+        texture.globalCompositeOperation = "destination-in";
+        texture.drawImage(layers.mask, 0, 0);
+        texture.restore();
+      }
+      drawClickRippleEffect(texture, layers.visual, overlayClickRipple, overlayTime);
+      context.globalAlpha = animatedOverlayTransform.opacity;
+      context.translate(width * (0.5 + animatedOverlayTransform.x / 100), height * (0.5 + animatedOverlayTransform.y / 100));
+      context.rotate((animatedOverlayTransform.rotation * Math.PI) / 180);
+      context.scale(animatedOverlayTransform.scale, animatedOverlayTransform.scale);
+      drawTemplateCard(context, layers.visual, canvas, overlay.templateCardCorners);
+      context.restore();
+      return;
+    }
     const hardMask = hasMask && !mask.inverted && !(Number(mask.feather) > 0) && !overlayClickRipple.enabled;
     const paintOverlay = (targetContext) => {
       targetContext.save();

@@ -53,7 +53,8 @@ export function activeEffectClips(clips, time) {
     (clip) => !clip.hidden && time >= clip.start && time < clip.start + clip.duration,
   );
 }
-export const getDefaultEffectDuration = (effect) => effect === "shape-flash" ? 0.62 : effect === "seven-slat-reveal" ? 6.13 : 3;
+const EFFECT_DURATIONS = { "shape-flash": 0.62, "seven-slat-reveal": 6.13, "beat-strip": 2.4, "memory-vortex": 2.7 };
+export const getDefaultEffectDuration = (effect) => EFFECT_DURATIONS[effect] ?? 3;
 export function createEffectClip(effect, start, duration = getDefaultEffectDuration(effect)) {
   return normalizeEffectClips([
     {
@@ -64,6 +65,8 @@ export function createEffectClip(effect, start, duration = getDefaultEffectDurat
       intensity: effect !== "cat-face" && isFaceEffect({ effect }) ? (0.86 - 0.7) / 0.6 : 0.5,
       ...(effect === "seven-slat-reveal" ? { color: "#f3fbff", intensity: 0.9 }
       : effect === "film-orbit" ? { color: "#f463ca", intensity: 0.88 }
+      : effect === "beat-strip" ? { color: "#83e8af", intensity: 0.72 }
+      : effect === "memory-vortex" ? { color: "#e892ac", intensity: 0.82 }
       : effect === "cat-ears"
         ? { color: "#d4b3e7" }
         : effect === "cat-face"

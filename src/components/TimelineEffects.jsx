@@ -67,6 +67,8 @@ const EFFECT_PREVIEW_IMAGES = Object.freeze({
   "shape-flash": "/assets/effects/vfx/chromatic.webp",
   "seven-slat-reveal": "/assets/effects/vfx/halo.webp",
   "film-orbit": "/assets/effects/vfx/glitch.webp",
+  "beat-strip": "/assets/effects/vfx/glitch.webp",
+  "memory-vortex": "/assets/effects/vfx/glow.webp",
   "cat-ears": "/assets/effects/vfx/cat-ears-base.webp",
   "devil-horns": "/assets/effects/vfx/devil-horns-base.webp",
   "cat-face": "/assets/effects/vfx/cat-face-base.webp",

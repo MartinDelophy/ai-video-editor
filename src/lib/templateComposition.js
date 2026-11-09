@@ -1,15 +1,17 @@
 import { cardRotationCopy } from "../i18nCardRotationTemplate.js";
 import { referenceTemplateCopy } from "../i18nReferenceTemplates.js";
 import { templateCopy } from "../i18nTemplates.js";
+import { RATIO_OPTIONS } from "../config/editor.js";
 import { CARD_ROTATION_ID } from "./cardRotationTemplate.js";
 import { renderBeatTemplateMusic } from "./beatTemplateMusic.js";
 import { encodeAudioBufferAsWav, getAudioWaveformPeaks } from "./media.js";
 
 export function createTemplateComposition(template, { assets, bpm, intro, language, start, ratio, targetRatio, overlays, markers, builtInMusic }) {
   const card = template.id === CARD_ROTATION_ID ? cardRotationCopy(language) : null;
+  const outputRatio = RATIO_OPTIONS.find((item) => item.id === targetRatio) || ratio;
   const result = template.create({
     assets, bpm, start, intro, copy: card,
-    frameRatio: targetRatio === "1:1" ? 1 : targetRatio === "16:9" ? 16 / 9 : ratio.width / ratio.height,
+    frameRatio: outputRatio.width / outputRatio.height,
     firstLayer: Math.max(0, ...overlays.map((item) => item.layer || 0)) + 1,
   });
   const copy = templateCopy(language);

@@ -750,8 +750,8 @@ export function App({ hostSession = null }) {
     setAssetDropTargetTrack, setDraggedAssetId, setSelectedLibraryAssetId,
     setSelectedStickerId, setSelectedStickerSegmentId, suppressAssetClickRef,
     t, timelineDuration, timelineDurationRef, trackLocks, trackVisibility, trackScrollRef, userAssets, visualSegments,
-    audioSegments, captionSegments, captionTargetDuration, effectClips, musicSegments, setSnapGuide,
-    sourceAudioDuration, sourceAudioStart, stickerSegments, timelineMarkers, visualOverlaySegments,
+    audioSegments, captionSegments, captionTargetDuration, effectClips, musicDuration, musicSegments, musicStart, setSnapGuide,
+    linkedSourceAudioSegments, sourceAudioDuration, sourceAudioLinked, sourceAudioStart, stickerSegments, timelineMarkers, visualOverlaySegments,
   });
 
   const analyzeCurrentVisual = useVisionAnalysis({

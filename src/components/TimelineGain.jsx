@@ -78,6 +78,8 @@ export function TimelineGain({ volume = 1, disabled, onChange, t, compact = fals
         if (drag.current) { onChange(drag.current.volume); drag.current = null; setActive(false); }
         return;
       }
+      locate(event);
+      setFocused(true);
       const step = event.shiftKey ? 0.1 : 1;
       onChange(event.key === "Home" ? 1 : event.key === "End" ? 0 : toGain(Math.max(MIN_DB, Math.min(MAX_DB, db + (["ArrowUp", "ArrowRight"].includes(event.key) ? step : -step)))));
     }}

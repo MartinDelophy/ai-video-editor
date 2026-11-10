@@ -196,7 +196,7 @@ export function packTimedSegmentsIntoLanes(segments, { preferredLaneKey = "" } =
 export function findAvailableAudioLane(lanes, { id, start, duration }, locks, visibility, firstLane = 0) {
   let lane = firstLane;
   while (locks?.[`audio-${lane}`] || visibility?.[`audio-${lane}`] === false ||
-    lanes[lane]?.some((clip) => clip.id !== id &&
+    lanes[lane]?.some((clip) => (id === undefined || clip.id !== id) &&
       clip.start + clip.duration > start + 0.001 && start + duration > clip.start + 0.001)) {
     lane++;
   }

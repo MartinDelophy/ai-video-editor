@@ -21,6 +21,8 @@ license: mit
 
 # Timeline Studio
 
+[![GitHub stars](https://img.shields.io/github/stars/MartinDelophy/ai-video-editor?style=for-the-badge&logo=github&label=GitHub%20Stars&color=238636)](https://www.star-history.com/#MartinDelophy/ai-video-editor&Date)
+
 ## Responsible use of deep synthesis
 
 This tool uses deep-synthesis technology and is intended solely for technical research and learning.

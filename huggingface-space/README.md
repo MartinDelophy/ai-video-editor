@@ -56,3 +56,7 @@ Explore reproducible before/after examples and editing recipes:
 → [AI Video Editing Skills Handbook](https://github.com/MartinDelophy/timeline-studio-handbook)
 
 If this project helps you, please consider giving it a ⭐ Star. If you encounter a problem, please [open an Issue](https://github.com/MartinDelophy/ai-video-editor/issues).
+
+## Star History
+
+[![Star History Chart](https://api.star-history.com/chart?repos=MartinDelophy/ai-video-editor&type=date&legend=top-left)](https://www.star-history.com/?repos=MartinDelophy/ai-video-editor)

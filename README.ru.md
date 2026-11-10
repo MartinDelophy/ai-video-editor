@@ -129,3 +129,13 @@ npm run check
 ## Лицензия
 
 [MIT](LICENSE)
+
+## Star History
+
+<a href="https://www.star-history.com/?repos=MartinDelophy/ai-video-editor">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=MartinDelophy/ai-video-editor&amp;type=date&amp;theme=dark&amp;legend=top-left" />
+    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=MartinDelophy/ai-video-editor&amp;type=date&amp;legend=top-left" />
+    <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=MartinDelophy/ai-video-editor&amp;type=date&amp;legend=top-left" />
+  </picture>
+</a>

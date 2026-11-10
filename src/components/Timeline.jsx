@@ -57,7 +57,8 @@ import { extractVideoTrackFrames, getVideoTrackSampleCount } from "../lib/media.
 import { getVisualSourceTime } from "../lib/visualEffects.js";
 import { normalizeVisualSpeedCurve } from "../lib/visualSpeedCurve.js";
 import { rollVisualBoundary, slideVisualSegment, slipVisualSegment } from "../lib/fineEdit.js";
-import { collectTimelineSnapPoints, createTimelineSnapGuide, findClosestTimelineSnap, snapTimelineRange } from "../lib/timelineSnap.js";
+import { collectTimelineSnapPoints, createTimelineSnapGuide, findClosestTimelineSnap, snapTimelineGroupDelta, snapTimelineRange } from "../lib/timelineSnap.js";
+import { resolveVisualInsertion } from "../lib/visualDropInsertion.js";
 import {
   createTimelineEdgeAutoScroller,
   createTimelineVerticalEdgeAutoScroller,
@@ -380,6 +381,7 @@ export function Timeline({
   const [timelineSelectionMenuOpen, setTimelineSelectionMenuOpen] = useState(false);
   const [timelineRangeSelection, setTimelineRangeSelection] = useState(() => new Set());
   const [timelineRangeDrag, setTimelineRangeDrag] = useState(null);
+  const activeSnapGuide = timelineRangeDrag?.dragging ? timelineRangeDrag.guide : snapGuide;
   const [timelineMarquee, setTimelineMarquee] = useState(null);
   const [selectedEditPointIndex, setSelectedEditPointIndex] = useState(-1);
   const [activeFineEdit, setActiveFineEdit] = useState(null);
@@ -626,7 +628,32 @@ export function Timeline({
       selectedClips.map((clip) => timelineSelectionKey(clip.track, clip.id)),
     );
     const anchor = selectedClips.find((clip) => clip.track === track && clip.id === id) || selectedClips[0];
-    let latest = { delta: 0, dragging: false, x: startX, y: startY };
+    const selectedVisualIds = new Set(selectedClips.filter((clip) => clip.track === "image").map((clip) => clip.id));
+    const remainingVisuals = selectedVisualIds.size
+      ? displayedVisualSegments.filter((segment) => !selectedVisualIds.has(segment.id))
+      : [];
+    // The magnetic main track reorders at a boundary; only timed clips can
+    // follow an arbitrary shared delta. Linked source audio follows the visuals.
+    const movingEdges = selectedClips
+      .filter((clip) => clip.track !== "image" && (clip.track !== "source" || !sourceAudioLinked))
+      .flatMap((clip) => [{ time: clip.start, edge: "start" }, { time: clip.end, edge: "end" }]);
+    const snapPoints = collectTimelineSnapPoints({
+      timelineMarkers, timelineDuration, currentTime, effectClips,
+      visualSegments: displayedVisualSegments, visualOverlaySegments,
+      captionSegments: displayedCaptionSegments, captionTargetDuration,
+      stickerSegments, audioSegments, sourceAudioDuration, sourceAudioLinked, linkedSourceAudioSegments,
+      sourceAudioStart: sourceAudioStartPercent / 100 * timelineDuration,
+      musicDuration, musicSegments, musicStart: musicStartPercent / 100 * timelineDuration,
+    }).filter((point) => !selectedKeys.has(timelineSelectionKey(point.track, point.id))
+      && !(selectedVisualIds.size && (point.track === "image" || (point.track === "source" && sourceAudioLinked))));
+    const getVisualInsertion = (remaining, delta) => resolveVisualInsertion({
+      segments: remaining,
+      percent: (anchor.start + delta) / timelineDuration * 100,
+      timelineDuration,
+    });
+    const maxDelta = MAX_TIMELINE_DURATION_SECONDS - maximumEnd;
+    const snapThreshold = 10 / contentWidth * timelineDuration;
+    let latest = { delta: 0, dragging: false, x: startX, y: startY, altKey: event.altKey };
     const autoScroller = createTimelineEdgeAutoScroller({
       trackElement: trackCanvas,
       pointerType: event.pointerType,
@@ -635,6 +662,7 @@ export function Timeline({
         clientX,
         clientY: latest.y,
         pointerId,
+        altKey: latest.altKey,
         preventDefault() {},
       }, scrollOffset),
     });
@@ -653,11 +681,14 @@ export function Timeline({
         contentWidth,
         timelineDuration,
       });
-      const delta = Math.max(
-        -minimumStart,
-        Math.min(MAX_TIMELINE_DURATION_SECONDS - maximumEnd, rawDelta),
-      );
-      latest = { delta, dragging: true, x: moveEvent.clientX, y: moveEvent.clientY };
+      const boundedDelta = Math.max(-minimumStart, Math.min(maxDelta, rawDelta));
+      const { altKey } = moveEvent;
+      const { delta, guide } = altKey ? { delta: boundedDelta, guide: null }
+        : snapTimelineGroupDelta(boundedDelta, movingEdges, snapPoints, snapThreshold, -minimumStart, maxDelta);
+      const insertionGuide = !altKey && !movingEdges.length && remainingVisuals.length
+        ? createTimelineSnapGuide({ time: getVisualInsertion(remainingVisuals, delta).time, track: "image", edge: "start" }, "start")
+        : null;
+      latest = { delta, guide: guide ?? insertionGuide, dragging: true, x: moveEvent.clientX, y: moveEvent.clientY, altKey };
       setTimelineHorizon?.((value) => getTimelineActiveDragHorizon(value, timelineDuration, maximumEnd + delta));
       setTimelineRangeDrag(latest);
     };
@@ -697,27 +728,14 @@ export function Timeline({
           if (Math.abs(delta) < 0.001) return;
           timelineRangeDragClickGuardRef.current = pressedKey;
           setTimelineRangeSelection(new Set(selectedKeys));
-          const selectedVisualIds = new Set(
-            selectedClips.filter((clip) => clip.track === "image").map((clip) => clip.id),
-          );
           if (selectedVisualIds.size) {
             setVisualSegments((items) => {
               const moving = items.filter((segment) => selectedVisualIds.has(segment.id));
               const remaining = items.filter((segment) => !selectedVisualIds.has(segment.id));
               if (!moving.length || !remaining.length) return items;
-              const targetTime = Math.max(0, anchor.start + delta);
-              let elapsed = 0;
-              let insertIndex = remaining.length;
-              for (let index = 0; index < remaining.length; index += 1) {
-                const midpoint = elapsed + (remaining[index].duration || 0) / 2;
-                if (targetTime < midpoint) {
-                  insertIndex = index;
-                  break;
-                }
-                elapsed += remaining[index].duration || 0;
-              }
+              const { index } = getVisualInsertion(remaining, delta);
               const next = [...remaining];
-              next.splice(insertIndex, 0, ...moving);
+              next.splice(index, 0, ...moving);
               return next;
             });
           }
@@ -3226,15 +3244,15 @@ export function Timeline({
               style={{ left: 0, willChange: "transform" }}
               onPointerDown={handlePlayheadPointerDown}
             />
-            {snapGuide && timelineDuration > 0 ? (
+            {activeSnapGuide && timelineDuration > 0 ? (
               <div
-                className={`snap-guide-ruler ${snapGuide.time / timelineDuration > 0.82 ? "is-near-end" : ""}`}
+                className={`snap-guide-ruler ${activeSnapGuide.time / timelineDuration > 0.82 ? "is-near-end" : ""}`}
                 aria-hidden="true"
                 style={{
-                  left: `${Math.max(0, Math.min(100, (snapGuide.time / timelineDuration) * 100))}%`,
+                  left: `${Math.max(0, Math.min(100, (activeSnapGuide.time / timelineDuration) * 100))}%`,
                 }}
               >
-                <span>{snapGuide.label}</span>
+                <span>{activeSnapGuide.label}</span>
               </div>
             ) : null}
           </div>
@@ -3308,14 +3326,14 @@ export function Timeline({
               style={{ left: 0, willChange: "transform" }}
               onPointerDown={handlePlayheadPointerDown}
             />
-            {snapGuide && timelineDuration > 0 ? (
+            {activeSnapGuide && timelineDuration > 0 ? (
               <div
                 className="snap-guide"
-                data-target-track={snapGuide.targetTrack || undefined}
-                data-target-edge={snapGuide.targetEdge || undefined}
-                data-moving-edge={snapGuide.movingEdge || undefined}
+                data-target-track={activeSnapGuide.targetTrack || undefined}
+                data-target-edge={activeSnapGuide.targetEdge || undefined}
+                data-moving-edge={activeSnapGuide.movingEdge || undefined}
                 style={{
-                  left: `${Math.max(0, Math.min(100, (snapGuide.time / timelineDuration) * 100))}%`,
+                  left: `${Math.max(0, Math.min(100, (activeSnapGuide.time / timelineDuration) * 100))}%`,
                 }}
               />
             ) : null}

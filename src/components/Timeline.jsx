@@ -645,7 +645,8 @@ export function Timeline({
       sourceAudioStart: sourceAudioStartPercent / 100 * timelineDuration,
       musicDuration, musicSegments, musicStart: musicStartPercent / 100 * timelineDuration,
     }).filter((point) => !selectedKeys.has(timelineSelectionKey(point.track, point.id))
-      && !(selectedVisualIds.size && (point.track === "image" || (point.track === "source" && sourceAudioLinked))));
+      && !(selectedVisualIds.size && (point.track === "image" || (point.track === "source" && sourceAudioLinked))))
+      .sort((left, right) => left.time - right.time);
     const getVisualInsertion = (remaining, delta) => resolveVisualInsertion({
       segments: remaining,
       percent: (anchor.start + delta) / timelineDuration * 100,

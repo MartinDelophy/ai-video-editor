@@ -73,10 +73,19 @@ export function findClosestTimelineSnap(value, points, thresholdSeconds) {
   return closest;
 }
 
-export function snapTimelineGroupDelta(delta, movingEdges, points, thresholdSeconds, minDelta, maxDelta) {
+export function snapTimelineGroupDelta(delta, movingEdges, sortedPoints, thresholdSeconds, minDelta, maxDelta) {
   let closest = null;
   for (const edge of movingEdges) {
-    for (const point of points) {
+    const targetTime = edge.time + delta;
+    let firstAfter = 0;
+    let end = sortedPoints.length;
+    while (firstAfter < end) {
+      const middle = Math.floor((firstAfter + end) / 2);
+      if (sortedPoints[middle].time < targetTime) firstAfter = middle + 1;
+      else end = middle;
+    }
+    for (const point of [sortedPoints[firstAfter - 1], sortedPoints[firstAfter]]) {
+      if (!point) continue;
       const snappedDelta = point.time - edge.time;
       if (snappedDelta < minDelta || snappedDelta > maxDelta) continue;
       const distance = Math.abs(snappedDelta - delta);

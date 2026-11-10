@@ -10,8 +10,6 @@
   <img src="https://toolindex.net/badge/timeline-studio/small.svg?theme=dark" alt="Timeline Studio - Listed on Tool Index" width="130" height="30" />
 </a>
 
-[![GitHub stars](https://img.shields.io/github/stars/MartinDelophy/ai-video-editor?style=for-the-badge&logo=github&label=GitHub%20Stars&color=238636)](https://www.star-history.com/#MartinDelophy/ai-video-editor&Date)
-
 ## Create with Anna
 
 Try the Anna edition for AI-assisted editing and project continuity:

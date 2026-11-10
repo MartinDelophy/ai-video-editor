@@ -8,8 +8,6 @@
 [![skills.sh](https://skills.sh/b/MartinDelophy/ai-video-editor)](https://skills.sh/MartinDelophy/ai-video-editor)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](CONTRIBUTING.md) [![LINUX DO](https://shorturl.at/ggSqS)](https://linux.do)
 
-[![GitHub 星标数](https://img.shields.io/github/stars/MartinDelophy/ai-video-editor?style=for-the-badge&logo=github&label=GitHub%20Stars&color=238636)](https://www.star-history.com/#MartinDelophy/ai-video-editor&Date)
-
 ## 在 Anna 中体验更进一步的创作
 
 Anna 版将 AI 辅助剪辑与工程续作接入同一体验：

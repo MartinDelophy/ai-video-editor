@@ -1,7 +1,6 @@
-import { TimelineGain } from "./TimelineGain.jsx";
+import { TimelineAudioFades } from "./TimelineAudioFades.jsx";
 import { memo } from "react";
 import { formatCompactDuration, formatTime } from "../lib/timeline.js";
-import { WaveformStrip } from "./ui.jsx";
 
 // Geometry/selection changes rerender the affected clip. Playback ticks keep
 // the clip subtree intact; pointer actions always read the latest parent
@@ -10,11 +9,13 @@ export const TimelineAudioClip = memo(function TimelineAudioClip({
   segment,
   laneIndex,
   timelineDuration,
+  secondsPerPixel,
   selected,
   rangeSelected,
   waveformVisible,
   gainDisabled,
   t,
+  language,
   handlersRef,
 }) {
   const left = timelineDuration > 0 ? (segment.start / timelineDuration) * 100 : 0;
@@ -25,13 +26,17 @@ export const TimelineAudioClip = memo(function TimelineAudioClip({
       data-timeline-segment-track="audio"
       data-timeline-segment-id={segment.id}
       data-range-selected={rangeSelected || undefined}
+      title={segment.sourceKind === "sound-effect" ? segment.name : undefined}
       style={{ left: `${left}%`, width: `${width}%` }}
       onPointerDown={(event) => handlersRef.current.startAudioSegmentMove(event, segment.id, laneIndex)}
       onContextMenu={(event) => handlersRef.current.showTrackContextMenu(event, "audio", segment.id)}
       onClick={(event) => handlersRef.current.selectAudioClip(event, segment.id)}
     >
-      {waveformVisible ? <WaveformStrip peaks={segment.peaks} volume={segment.volume ?? 1} timeline active /> : null}
-      <TimelineGain volume={segment.volume ?? 1} disabled={gainDisabled} t={t} onChange={(volume) => handlersRef.current.setAudioSegments((items) => items.map((item) => item.id === segment.id ? { ...item, volume } : item))} />
+      <TimelineAudioFades segment={segment} selected={selected} disabled={gainDisabled} t={t} language={language}
+        clipWidth={secondsPerPixel > 0 ? segment.duration / secondsPerPixel : 0}
+        waveformVisible={waveformVisible} peaks={segment.peaks} volume={segment.volume ?? 1}
+        onChangeVolume={(volume) => handlersRef.current.setAudioSegments((items) => items.map((item) => item.id === segment.id ? { ...item, volume } : item))}
+        onChange={(field, value) => handlersRef.current.updateAudioFade("audio", segment.id, field, value)} />
       <span className="audio-clip-duration" data-compact-duration={formatCompactDuration(segment.duration)}>{formatTime(segment.duration)}</span>
     </div>
   );

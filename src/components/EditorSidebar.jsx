@@ -125,6 +125,9 @@ export function EditorSidebar({ model: d }) {
             applyAssetToTrack={d.applyAssetToTrack}
             closeMobilePanel={() => d.setMobilePanel?.("")}
             mobilePanelOpen={d.mobilePanel === "tools"}
+            soundAddDisabled={d.trackLocks.audio || d.trackVisibility.audio === false}
+            isPlaying={d.isPlaying}
+            pauseForTimelineEdit={d.pauseForTimelineEdit}
             language={d.activeLanguage}
             onGeneratedVector={d.handleGeneratedVector}
             onOpenAiMusic={() => {

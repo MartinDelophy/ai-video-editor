@@ -1,0 +1,189 @@
+.media-panel .library-type-tabs.has-sound-library {
+  gap: 3px;
+}
+
+.media-panel .library-type-tabs.has-sound-library > button {
+  flex: 1 0 auto;
+  min-width: 0;
+  padding-inline: 5px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.sound-library-hint {
+  flex: 0 0 auto;
+  margin-top: 9px;
+  color: #9aabb6;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.sound-library-categories {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 4px;
+  min-width: 0;
+  margin-top: 9px;
+  padding: 2px 2px 4px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+  scrollbar-color: #40545c transparent;
+}
+
+@supports selector(::-webkit-scrollbar) {
+  .sound-library-categories {
+    scrollbar-width: auto;
+    scrollbar-color: auto;
+  }
+
+  .sound-library-categories::-webkit-scrollbar { height: 2px; }
+  .sound-library-categories::-webkit-scrollbar-track { background: transparent; }
+  .sound-library-categories::-webkit-scrollbar-thumb {
+    border-radius: 999px;
+    background: #40545c;
+  }
+}
+
+.sound-library-categories button {
+  flex: 0 0 auto;
+  min-height: 26px;
+  padding: 2px 8px;
+  border: 1px solid rgba(255, 255, 255, .08);
+  border-radius: 6px;
+  color: #a2afb9;
+  background: rgba(255, 255, 255, .025);
+  font-size: 11px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.sound-library-categories button:hover,
+.sound-library-categories button[aria-pressed="true"] {
+  border-color: rgba(53, 234, 217, .32);
+  color: #bafff7;
+  background: rgba(53, 234, 217, .10);
+}
+
+.media-panel .sound-library-list {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.sound-library-row {
+  content-visibility: auto;
+  contain-intrinsic-height: auto 48px;
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) 34px;
+  align-items: center;
+  gap: 9px;
+  min-height: 62px;
+  padding: 6px 8px;
+  border: 1px solid rgba(255, 255, 255, .075);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, .026);
+}
+
+.sound-library-row:hover,
+.sound-library-row:focus-within,
+.sound-library-row.is-auditioning {
+  border-color: rgba(53, 234, 217, .28);
+  background: linear-gradient(125deg, rgba(53, 234, 217, .075), rgba(255, 255, 255, .025));
+}
+
+.sound-library-row button {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+.sound-library-row button:focus-visible {
+  outline: 2px solid #35ead9;
+  outline-offset: 2px;
+}
+
+.sound-library-row button:disabled {
+  cursor: not-allowed;
+  opacity: .45;
+}
+
+.sound-library-play {
+  background: rgba(53, 234, 217, .09);
+  color: #84f3e6;
+}
+
+.sound-library-play:hover,
+.is-auditioning .sound-library-play {
+  background: rgba(53, 234, 217, .17);
+  color: #c4fff7;
+}
+
+.sound-library-add {
+  background: transparent;
+  color: #a9b9c3;
+}
+
+.sound-library-add:not(:disabled):hover {
+  background: rgba(53, 234, 217, .10);
+  color: #aafff3;
+}
+
+.sound-library-drag {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  cursor: grab;
+  user-select: none;
+}
+
+.sound-library-drag:active { cursor: grabbing; }
+
+.sound-library-drag strong,
+.sound-library-drag small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sound-library-drag strong {
+  color: #e6eff2;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.sound-library-drag small {
+  color: #a2afb9;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.sound-library-waveform {
+  display: flex;
+  gap: 2px;
+  align-items: center;
+  width: min(100%, 132px);
+  height: 13px;
+  color: #4a938e;
+}
+
+.sound-library-waveform i {
+  flex: 1;
+  height: max(2px, calc(var(--peak) * 100%));
+  border-radius: 2px;
+  background: currentColor;
+}
+
+.is-auditioning .sound-library-waveform { color: #58e5d5; }
+
+@media (pointer: coarse) {
+  .sound-library-categories button { min-height: 32px; }
+  .sound-library-row { grid-template-columns: 44px minmax(0, 1fr) 44px; }
+  .sound-library-row button { width: 44px; height: 44px; }
+}

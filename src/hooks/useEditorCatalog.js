@@ -2,8 +2,9 @@ import { useEffect, useMemo, useState } from "react";
 import { VOICES } from "../config/editor.js";
 import { getRemoteAssetBlob } from "../lib/remoteAssetCache.js";
 import { VECTOR_ASSETS } from "../lib/vectorAssets.js";
+import { getSoundEffectAssets } from "../lib/soundEffects.js";
 
-const DEFAULT_QUERY = { image: "nature", video: "nature", audio: "ambient", vector: "" };
+const DEFAULT_QUERY = { image: "nature", video: "nature", audio: "ambient", vector: "", sound: "" };
 
 const formatDuration = (seconds = 0) => {
   const value = Math.max(0, Number(seconds) || 0);
@@ -121,7 +122,7 @@ async function searchOpenverseAudio(query, signal) {
     .slice(0, 24);
 }
 
-export function useEditorCatalog(voiceFilter) {
+export function useEditorCatalog(voiceFilter, language) {
   const [libraryType, setLibraryType] = useState("image");
   const [libraryQuery, setLibraryQuery] = useState(DEFAULT_QUERY.image);
   const [builtInAssets, setBuiltInAssets] = useState([]);
@@ -131,8 +132,20 @@ export function useEditorCatalog(voiceFilter) {
   const pexelsKey = String(import.meta.env.VITE_PEXELS_API_KEY || "").trim();
 
   const filteredVoices = useMemo(() => VOICES.filter((voice) => voiceFilter === "all" || voice.language === voiceFilter), [voiceFilter]);
+  const isSoundLibrary = libraryType === "sound";
+  const soundAssets = useMemo(() => isSoundLibrary ? getSoundEffectAssets(language) : [], [isSoundLibrary, language]);
+  const visibleSoundAssets = useMemo(() => {
+    const words = libraryQuery.normalize("NFKC").toLocaleLowerCase().trim().split(/\s+/).filter(Boolean);
+    if (!words.length) return soundAssets;
+    return soundAssets.filter((asset) => {
+      const text = `${asset.name} ${asset.categoryLabel} ${asset.category} ${asset.keywords} ${asset.id.replaceAll("-", " ")}`
+        .normalize("NFKC").toLocaleLowerCase();
+      return words.every((word) => text.includes(word));
+    });
+  }, [soundAssets, libraryQuery]);
 
   useEffect(() => {
+    if (libraryType === "sound") return;
     const controller = new AbortController();
     if (libraryType === "vector") {
       const query = libraryQuery.trim().toLocaleLowerCase();
@@ -178,5 +191,12 @@ export function useEditorCatalog(voiceFilter) {
       setAssetDownloadStates((states) => ({ ...states, [asset.id]: { status: "error", progress: 0 } }));
     }
   };
-  return { builtInAssets, filteredVoices, libraryType, libraryQuery, setLibraryQuery, selectLibraryType, libraryStatus, libraryError, assetDownloadStates, prefetchLibraryAsset, libraryProvider: libraryType === "vector" ? "Timeline Studio" : libraryType === "audio" ? "Openverse Music" : pexelsKey ? "Pexels" : "Wikimedia Commons" };
+  return {
+    builtInAssets: isSoundLibrary ? visibleSoundAssets : builtInAssets,
+    filteredVoices, libraryType, libraryQuery, setLibraryQuery, selectLibraryType,
+    libraryStatus: isSoundLibrary ? "ready" : libraryStatus,
+    libraryError: isSoundLibrary ? "" : libraryError,
+    assetDownloadStates, prefetchLibraryAsset,
+    libraryProvider: isSoundLibrary || libraryType === "vector" ? "Timeline Studio" : libraryType === "audio" ? "Openverse Music" : pexelsKey ? "Pexels" : "Wikimedia Commons",
+  };
 }

@@ -2,6 +2,9 @@ import { decodeWaveform, extractVideoTrackFrames, getVideoTrackImportFrameBudget
 import { getRemoteAssetBlob } from "./remoteAssetCache.js";
 import { getVisualInsertionHover, resolveVisualInsertion } from "./visualDropInsertion.js";
 import { loadProjectMediaBlob } from "./projectSnapshot.js";
+import { resolveAssetDropTrack } from "./assetDragControls.js";
+import { getSoundEffectLane } from "./soundEffects.js";
+import { getSoundEffectsCopy } from "../i18nSoundEffects.js";
 
 function getRemoteVideoImportFrameBudget(duration) {
   const seconds = Math.max(0, Number(duration) || 0);
@@ -34,6 +37,33 @@ export function createAssetDropActions(d) {
     if (asset?.type === "audio" && asset.kind === "music") track = "music";
     if (!d.canDropAssetOnTrack(asset, track)) {
       d.notify(tr("assetTrackMismatch", "请把素材拖到匹配的轨道"));
+      return;
+    }
+    if (asset.kind === "sound-effect") {
+      const start = options.startTime ?? d.currentTimeRef.current;
+      const copy = getSoundEffectsCopy(d.language);
+      let blob = asset.blob;
+      if (!blob) {
+        try {
+          const response = await fetch(asset.src);
+          if (!response.ok) throw new Error(response.statusText);
+          blob = await response.blob();
+          if (!blob.size) throw new Error("Empty sound effect");
+        } catch {
+          d.notify(copy.unavailable);
+          return;
+        }
+      }
+      const { trackLocks, trackVisibility } = d.soundEffectTracksRef.current;
+      if (trackLocks.audio || trackVisibility.audio === false) return;
+      d.checkpointHistory();
+      d.pauseForTimelineEdit();
+      const segment = d.replaceAudio(blob, asset.duration, asset.peaks, copy.added, {
+        start, name: asset.name, sourceKind: asset.kind, assetId: asset.id,
+        getLane: (segments) => getSoundEffectLane(segments, { start, duration: asset.duration }, trackLocks, trackVisibility),
+      });
+      d.revealAudioSegment(segment.id);
+      d.notify(copy.added);
       return;
     }
     const isRemoteVisual = (track === "image" || track === "overlay") && asset?.src && !asset.blob && /^https?:/i.test(asset.src);
@@ -157,7 +187,7 @@ export function createAssetDropActions(d) {
 
   function handleTrackAssetDrop(event, track) {
     const asset = d.getDraggedAsset(event);
-    let targetTrack = asset?.type === "sticker" ? "sticker" : track;
+    const targetTrack = resolveAssetDropTrack(asset, track);
     if (!d.canDropAssetOnTrack(asset, targetTrack)) return;
     event.preventDefault();
     event.stopPropagation();
@@ -179,10 +209,13 @@ export function createAssetDropActions(d) {
     d.setAssetDropTargetTrack("");
     d.setAssetDropPosition({ track: "", percent: 50 });
     d.triggerAssetDropPulse(targetTrack);
-    const startTime = targetTrack === "overlay"
+    const startTime = asset.kind === "sound-effect"
+      ? d.resolveSoundEffectDrop(event, rect).startTime
+      : targetTrack === "overlay"
       ? Math.max(0, percent / 100 * Math.max(0, Number(d.timelineDuration) || 0))
       : Number.isFinite(Number(event.currentTarget.dataset.dropStartTime)) ? Number(event.currentTarget.dataset.dropStartTime) : undefined;
     const layer = Number.isFinite(Number(event.currentTarget.dataset.dropLayer)) ? Number(event.currentTarget.dataset.dropLayer) : undefined;
+    if (asset.kind === "sound-effect") d.setSnapGuide(null);
     void applyAssetToTrack(asset, targetTrack, { percent, startTime, layer, insertIndex: insertion?.index });
   }
 

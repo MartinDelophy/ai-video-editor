@@ -8,7 +8,7 @@ const toDb = (gain) => gain > 0 ? Math.max(MIN_DB, Math.min(MAX_DB, 20 * Math.lo
 const toGain = (db) => db <= MIN_DB ? 0 : Math.min(4, 10 ** (db / 20));
 
 // Edits the existing linear gain, shared by project persistence, preview and export.
-export function TimelineGain({ volume = 1, disabled, onChange, t, compact = false }) {
+export function TimelineGain({ volume = 1, disabled, onChange, t, compact = false, fadePlateau }) {
   const drag = useRef(null);
   const [active, setActive] = useState(false);
   const [hovered, setHovered] = useState(false);
@@ -21,9 +21,10 @@ export function TimelineGain({ volume = 1, disabled, onChange, t, compact = fals
   const db = toDb(volume);
   // Reserve most of the rail above unity for boosting; keep attenuation below it.
   const unityPosition = 65;
-  const linePosition = db >= 0
+  const defaultLinePosition = db >= 0
     ? unityPosition - (db / MAX_DB) * (unityPosition - (compact ? 8 : 18))
     : unityPosition + (db / MIN_DB) * ((compact ? 80 : 82) - unityPosition);
+  const linePosition = fadePlateau?.peakY ?? defaultLinePosition;
   const label = volume <= 0 ? "−∞ dB" : `${db > 0 ? "+" : ""}${db.toFixed(1)} dB`;
   const finish = (event, cancel = false) => {
     if (!drag.current || event.pointerId !== drag.current.id) return;
@@ -34,15 +35,19 @@ export function TimelineGain({ volume = 1, disabled, onChange, t, compact = fals
     if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
   };
   return <><div
-    className={`timeline-gain ${active ? "is-adjusting" : ""}`}
-    style={{ top: `${linePosition}%` }}
+    className={`timeline-gain ${active ? "is-adjusting" : ""} ${fadePlateau ? "is-fade-plateau" : ""}`}
+    style={{
+      top: `${linePosition}%`,
+      left: fadePlateau ? `${fadePlateau.start}%` : undefined,
+      right: fadePlateau ? `${100 - fadePlateau.end}%` : undefined,
+    }}
     role="slider" tabIndex={disabled ? -1 : 0} aria-disabled={disabled}
     aria-label={t("timelineGain")} aria-valuemin={MIN_DB} aria-valuemax={MAX_DB}
     aria-valuenow={db} aria-valuetext={label} aria-orientation="vertical"
     aria-description={t("timelineGainHint")}
     onPointerEnter={(event) => { locate(event); setHovered(true); }}
     onPointerLeave={() => setHovered(false)}
-    onFocus={(event) => { locate(event); setFocused(true); }}
+    onFocus={(event) => { locate(event); setFocused(!fadePlateau || event.currentTarget.matches(":focus-visible")); }}
     onBlur={() => setFocused(false)}
     onClick={(event) => event.stopPropagation()}
     onDoubleClick={(event) => { event.stopPropagation(); if (!disabled) onChange(1); }}

@@ -56,7 +56,7 @@ export function createAudioTrackActions(d) {
     }
     d.setAudioSegments((segments) => [
       ...segments.filter((item) => item.id !== options.replaceSegmentId),
-      segment,
+      options.getLane ? { ...segment, lane: options.getLane(segments) } : segment,
     ]);
     d.setSelectedAudioSegmentId(id);
     d.setSelectedTrack("audio");

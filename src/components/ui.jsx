@@ -57,7 +57,10 @@ export function Popover({ children, onClose, closeLabel = "Close", className = "
 
 // The playhead updates its parent frequently; immutable peaks and CSS-driven
 // zoom sizing let the entire waveform subtree stay unchanged between edits.
-export const WaveformStrip = memo(function WaveformStrip({ peaks, active = false, hidden = false, sourceStart, sourceDuration, sourceAudioDuration = 0, timeline = false, volume = 1 }) {
+export const WaveformStrip = memo(function WaveformStrip({
+  peaks, active = false, hidden = false, sourceStart, sourceDuration, sourceAudioDuration = 0,
+  timeline = false, volume = 1, fadeInRatio, fadeOutRatio = 0,
+}) {
   const visiblePeaks = useMemo(() => Array.isArray(peaks) && sourceAudioDuration > 0
     ? sliceSourceAudioPeaks(peaks, { sourceStart, sourceDuration }, sourceAudioDuration)
     : peaks, [peaks, sourceStart, sourceDuration, sourceAudioDuration]);
@@ -79,7 +82,8 @@ export const WaveformStrip = memo(function WaveformStrip({ peaks, active = false
       if (placeholder) return;
       const gain = hidden ? 0 : Math.max(0, Math.min(4, volume));
       const count = Math.min(2048, Math.max(1, Math.floor(width / 3)));
-      const ceiling = height * 0.76;
+      const baseline = fadeInRatio === undefined ? height : height * 0.94;
+      const ceiling = height * (fadeInRatio === undefined ? 0.76 : 0.65);
       const amplitudes = Array.from({ length: count }, (_, i) => {
         const from = (offset + i / count * width) / fullWidth * safePeaks.length;
         const to = (offset + (i + 1) / count * width) / fullWidth * safePeaks.length;
@@ -92,7 +96,13 @@ export const WaveformStrip = memo(function WaveformStrip({ peaks, active = false
         } else {
           for (let j = Math.floor(from); j < Math.ceil(to); j++) peak = Math.max(peak, safePeaks[j] || 0);
         }
-        return peak * gain;
+        const position = (offset + (i + 0.5) / count * width) / fullWidth;
+        const fadeGain = Math.max(0, Math.min(
+          1,
+          fadeInRatio > 0 ? position / fadeInRatio : 1,
+          fadeOutRatio > 0 ? (1 - position) / fadeOutRatio : 1,
+        ));
+        return peak * gain * fadeGain;
       });
       const color = getComputedStyle(canvas).getPropertyValue("--waveform-color").trim() || "#20d2bf";
       const step = width / count;
@@ -101,7 +111,7 @@ export const WaveformStrip = memo(function WaveformStrip({ peaks, active = false
         const barHeight = Math.min(1, value) * ceiling;
         if (barHeight <= 0) return;
         const x = i * step;
-        const y = height - barHeight;
+        const y = baseline - barHeight;
         ctx.save();
         ctx.beginPath();
         ctx.roundRect(x, y, barWidth, barHeight, Math.min(barWidth / 2, barHeight / 2));
@@ -115,7 +125,7 @@ export const WaveformStrip = memo(function WaveformStrip({ peaks, active = false
         ctx.restore();
       });
     });
-  }, [timeline, safePeaks, placeholder, volume, hidden]);
+  }, [timeline, safePeaks, placeholder, volume, hidden, fadeInRatio, fadeOutRatio]);
   return (
     <div
       className={`waveform-strip ${timeline ? "is-timeline-waveform" : ""} ${active ? "is-active" : ""} ${hidden ? "is-muted" : ""} ${placeholder ? "is-placeholder" : ""}`}

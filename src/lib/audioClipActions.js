@@ -43,7 +43,9 @@ export function createAudioClipActions(d) {
       d.setCaptionSegments((captions) => captions.map((caption) => caption.audioSegmentId === id
         ? { ...caption, end: next.start + next.duration } : caption));
     }
-    d.setTimelineHorizon((value) => Math.max(value, Math.ceil((next.start + next.duration + 5) / 10) * 10));
+    if (next.start !== segment.start || next.duration !== segment.duration) {
+      d.setTimelineHorizon((value) => Math.max(value, Math.ceil((next.start + next.duration + 5) / 10) * 10));
+    }
     return next;
   }));
   const toggleAudioSegmentReverse = async (id) => {

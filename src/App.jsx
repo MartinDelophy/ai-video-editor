@@ -157,7 +157,7 @@ export function App({ hostSession = null }) {
   const [selectedSourceAudioSegmentId, setSelectedSourceAudioSegmentId] = useState("");
   const [selectedMusicSegmentId, setSelectedMusicSegmentId] = useState("");
   const [stickerTimelineDrag, setStickerTimelineDrag] = useState(null);
-  const [canvasVisualTarget, setCanvasVisualTarget] = useState("");
+  const [previewVisualFocus, setPreviewVisualFocus] = useState("");
   const [previewFrameReference, setPreviewFrameReference] = useState(null);
   const [showFirstVisualGuide, setShowFirstVisualGuide] = useState(false);
   const firstVisualGuideShownRef = useRef(false);
@@ -496,12 +496,14 @@ export function App({ hostSession = null }) {
     selectedVisualSegment,
   ]);
   useEffect(() => {
-    const clearCanvasVisualTarget = (event) => {
-      if (event.target instanceof Element && event.target.closest(".preview-frame")) return;
-      setCanvasVisualTarget("");
+    const updatePreviewVisualFocus = (event) => {
+      const target = event.target instanceof Element ? event.target : null;
+      if (target?.closest(".preview-frame")) return;
+      const clip = target?.closest('[data-timeline-segment-track="image"], [data-timeline-segment-track="overlay"]');
+      setPreviewVisualFocus(clip ? `timeline:${clip.dataset.timelineSegmentId}` : "");
     };
-    document.addEventListener("pointerdown", clearCanvasVisualTarget);
-    return () => document.removeEventListener("pointerdown", clearCanvasVisualTarget);
+    document.addEventListener("pointerdown", updatePreviewVisualFocus, true);
+    return () => document.removeEventListener("pointerdown", updatePreviewVisualFocus, true);
   }, []);
   const visualLocalTime = Math.max(0, Math.min(
     selectedVisualSegment?.duration ?? 0,
@@ -2100,17 +2102,18 @@ export function App({ hostSession = null }) {
             : previewVisualLocalTime}
           visualMaskEditable={selectedTrack === "image" && Boolean(selectedVisualSegment) && visualCanvasEditMode === "mask"}
           onUpdateVisualMask={(mask) => updateSelectedVisualEffects({ mask })}
-          timelineVisualSelected={selectedTrack === "image" && selectedVisualSegmentId === previewVisualSegment?.id}
-          visualTransformEditable={canvasVisualTarget === `visual:${previewVisualSegment?.id ?? ""}` && visualCanvasEditMode !== "mask" && !isPlaying}
+          timelineVisualSelected={selectedTrack === "image" && selectedVisualSegmentId === previewVisualSegment?.id
+            && previewVisualFocus === `timeline:${selectedVisualSegmentId}`}
+          visualTransformEditable={previewVisualFocus === `visual:${previewVisualSegment?.id ?? ""}` && visualCanvasEditMode !== "mask" && !isPlaying}
           onSelectVisual={() => {
             if (!previewVisualSegment?.id) return;
             setSelectedVisualSegmentId(previewVisualSegment.id);
             setSelectedVisualOverlayId("");
             selectTrackForInspector("image");
-            setCanvasVisualTarget(`visual:${previewVisualSegment.id}`);
+            setPreviewVisualFocus(`visual:${previewVisualSegment.id}`);
           }}
           onDeselectVisuals={() => {
-            setCanvasVisualTarget("");
+            setPreviewVisualFocus("");
           }}
           onUpdateVisualTransform={(transform) => updateSelectedVisualEffects({ baseTransform: transform })}
           previewRatio={previewRatio}
@@ -2167,13 +2170,14 @@ export function App({ hostSession = null }) {
           applyAssetToTrack={applyAssetToTrack}
           addVisualOverlay={addVisualOverlay}
           visualOverlays={previewVisualOverlaysWithDepth}
-          timelineSelectedOverlayId={selectedTrack === "overlay" ? selectedVisualOverlayId : ""}
-          selectedVisualOverlayId={canvasVisualTarget === `overlay:${selectedVisualOverlayId}` ? selectedVisualOverlayId : ""}
+          timelineSelectedOverlayId={selectedTrack === "overlay" && previewVisualFocus === `timeline:${selectedVisualOverlayId}`
+            ? selectedVisualOverlayId : ""}
+          selectedVisualOverlayId={previewVisualFocus === `overlay:${selectedVisualOverlayId}` ? selectedVisualOverlayId : ""}
           onSelectVisualOverlay={(id) => {
             setSelectedVisualOverlayId(id);
             setSelectedVisualSegmentId("");
             selectTrackForInspector("overlay");
-            setCanvasVisualTarget(`overlay:${id}`);
+            setPreviewVisualFocus(`overlay:${id}`);
           }}
           onUpdateVisualOverlay={updateVisualOverlayById}
           visualOverlayMaskEditable={visualCanvasEditMode === "mask"}

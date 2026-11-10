@@ -5,6 +5,8 @@
 [![skills.sh](https://skills.sh/b/MartinDelophy/ai-video-editor)](https://skills.sh/MartinDelophy/ai-video-editor)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](CONTRIBUTING.md) [![LINUX DO](https://shorturl.at/ggSqS)](https://linux.do)
 
+[![GitHub 스타 수](https://img.shields.io/github/stars/MartinDelophy/ai-video-editor?style=for-the-badge&logo=github&label=GitHub%20Stars&color=238636)](https://www.star-history.com/#MartinDelophy/ai-video-editor&Date)
+
 ## Anna에서 확장되는 영상 제작
 
 Anna 버전에서 AI 편집 지원과 프로젝트 이어 작업을 경험하세요.

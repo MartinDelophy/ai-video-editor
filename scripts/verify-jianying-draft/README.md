@@ -1,5 +1,7 @@
 # Jianying draft field-level comparison
 
+[![GitHub stars](https://img.shields.io/github/stars/MartinDelophy/ai-video-editor?style=for-the-badge&logo=github&label=GitHub%20Stars&color=238636)](https://www.star-history.com/#MartinDelophy/ai-video-editor&Date)
+
 Development-only verification; Python and the vendored package are not Host runtime dependencies.
 Run from the repository root with a Node runtime supporting TypeScript type stripping and Python 3.
 Build the web assets first (`npm run build`) because the harness inspects a bundled sticker:

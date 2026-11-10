@@ -60,7 +60,7 @@ export function createAudioTrackActions(d) {
     ]);
     d.setSelectedAudioSegmentId(id);
     d.setSelectedTrack("audio");
-    d.setCurrentTime(start);
+    if (options.seekToStart !== false) d.setCurrentTime(start);
     d.setStatus("done");
     d.setStatusText(nextStatusText);
     d.setProgress(100);

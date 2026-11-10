@@ -1005,7 +1005,7 @@ export function Timeline({
       }
     });
   };
-  const revealTimelineClip = useCallback((track, segmentId) => {
+  const revealTimelineClip = useCallback((track, segmentId, keepHorizontalPosition) => {
     if (!segmentId) return;
     window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
       const trackElement = trackScrollRef.current;
@@ -1019,9 +1019,9 @@ export function Timeline({
       const horizontalRect = horizontalScroller.getBoundingClientRect();
       const clipRect = clipElement.getBoundingClientRect();
       const horizontalPadding = 18;
-      if (clipRect.right > horizontalRect.right - horizontalPadding) {
+      if (!keepHorizontalPosition && clipRect.right > horizontalRect.right - horizontalPadding) {
         horizontalScroller.scrollTo({ left: horizontalScroller.scrollLeft + clipRect.right - horizontalRect.right + horizontalPadding, behavior: "smooth" });
-      } else if (clipRect.left < horizontalRect.left + horizontalPadding) {
+      } else if (!keepHorizontalPosition && clipRect.left < horizontalRect.left + horizontalPadding) {
         horizontalScroller.scrollTo({ left: Math.max(0, horizontalScroller.scrollLeft - (horizontalRect.left + horizontalPadding - clipRect.left)), behavior: "smooth" });
       }
       const boardRect = board.getBoundingClientRect();
@@ -1035,7 +1035,9 @@ export function Timeline({
     }));
   }, [trackScrollRef]);
   useEffect(() => {
-    if (playheadRevealRequest?.track) revealTimelineClip(playheadRevealRequest.track, playheadRevealRequest.id);
+    if (playheadRevealRequest?.track) revealTimelineClip(
+      playheadRevealRequest.track, playheadRevealRequest.id, playheadRevealRequest.keepHorizontalPosition,
+    );
   }, [playheadRevealRequest, revealTimelineClip]);
   const generateSelectedMobileAudioCaptions = () => {
     if (!selectedMobileAudioSegment || !generateCaptionsFromAudioClip) return;
@@ -1100,13 +1102,16 @@ export function Timeline({
     getTimelineClipLockKey(track, id),
   );
   const sourceAudioLaneDropActive = Number.isInteger(sourceAudioDragTargetLane) && sourceAudioDragTargetLane >= 0;
+  const audioDropLane = assetDropTargetTrack === "audio" ? assetDropPosition?.audioLane : undefined;
+  const draggingSound = assetDragPreview?.kind === "sound-effect";
   const showVoiceTrack = audioSegments.length > 0 || draggedAssetType === "audio" || sourceAudioLaneDropActive;
   const audioLanes = useMemo(() => {
     if (!showVoiceTrack) return [];
     const lanes = audioSegments.length ? packedAudioLanes.map((lane) => [...lane]) : [[]];
-    while (sourceAudioLaneDropActive && lanes.length <= sourceAudioDragTargetLane) lanes.push([]);
+    const previewLane = Math.max(sourceAudioLaneDropActive ? sourceAudioDragTargetLane : -1, audioDropLane ?? -1);
+    while (lanes.length <= previewLane) lanes.push([]);
     return lanes;
-  }, [audioSegments.length, packedAudioLanes, showVoiceTrack, sourceAudioDragTargetLane, sourceAudioLaneDropActive]);
+  }, [audioSegments.length, packedAudioLanes, showVoiceTrack, sourceAudioDragTargetLane, sourceAudioLaneDropActive, audioDropLane]);
   const stickerLanes = useMemo(
     () => packTimedSegmentsIntoLanes(stickerSegments, { preferredLaneKey: "lane" }),
     [stickerSegments],
@@ -1143,7 +1148,6 @@ export function Timeline({
       : item));
   };
   const showSourceTrack = Boolean(sourceAudioBlob || sourceAudioExtractionPendingId);
-  const draggingSound = assetDragPreview?.kind === "sound-effect";
   const showMusicTrack = Boolean(musicBlob) || (draggedAssetType === "audio" && !draggingSound);
   const captionLanes = useMemo(
     () => packCaptionSegmentsIntoLanes(displayedCaptionSegments, displayedCaptionTimeline),
@@ -2533,6 +2537,22 @@ export function Timeline({
         </div>
       );
     }
+    if ((track === "audio" || track === "music") && assetDropTargetTrack === track) {
+      if ((track === "audio" && laneIndex !== audioDropLane) || timelineDuration <= 0) return null;
+      const left = assetDropPosition.startTime / timelineDuration * 100;
+      const width = assetDropPosition.duration / timelineDuration * 100;
+      return (
+        <>
+          <i className="asset-drop-position-marker" style={{ "--drop-x": `${left}%` }} />
+          {width > 0 ? (
+            <div className="asset-drop-slot is-timed-audio" style={{ "--drop-x": `${left}%`, width: `${width}%` }}>
+              <strong>{assetDragPreview?.name ?? t("assetAudio")}</strong>
+            </div>
+          ) : null}
+        </>
+      );
+    }
+    if (track === "audio" || track === "music") return null;
     const dropPercent = assetDropPosition?.track === track ? assetDropPosition.percent : 50;
     return assetDropTargetTrack === track ? <>
       {track !== "image" ? <i className="asset-drop-position-marker" style={{ "--drop-x": `${dropPercent}%` }} /> : null}
@@ -2555,7 +2575,7 @@ export function Timeline({
         ) : null}
         <span>{track === "overlay" ? <><PictureInPicture size={12} />{t("dropAsOverlay", "作为画中画")}</> : track === "image" ? <><PlusCircle size={12} />{t("appendAfter", "添加到后面")}</> : t("dropSlot", "释放到这里")}</span>
         <strong>
-          {draggingSound ? assetDragPreview.name : track === "overlay" || track === "image"
+          {track === "overlay" || track === "image"
             ? assetDragPreview?.name || (assetDragPreview?.type === "video" ? t("assetVideo") : t("assetImage"))
             : assetDragPreview?.type === "audio"
             ? t("assetAudio")
@@ -3684,26 +3704,27 @@ export function Timeline({
               const rowKey = `audio-${laneIndex}`;
               const rowVisible = isRowVisible(rowKey);
               const rowLocked = isTimelineRowLocked("audio", rowKey);
+              const isAssetTarget = assetDropTargetTrack === "audio" && laneIndex === (audioDropLane ?? 0);
               return (
               <button
                 className={`audio-track ${selectedTrack === "audio" ? "is-selected" : ""} ${
                   !rowVisible ? "is-track-disabled" : ""
                 } ${rowLocked ? "is-track-locked" : ""} ${
-                  laneIndex === 0 && assetDropTargetTrack === "audio" ? "is-drop-target" : ""
+                  isAssetTarget ? "is-drop-target" : ""
                 } ${sourceAudioDragTargetLane === laneIndex ? "is-source-audio-drop-target" : ""
                 } ${laneIndex === 0 && assetDropPulseTrack === "audio" ? "is-drop-landing" : ""}`}
                 type="button"
                 disabled={!rowVisible}
                 key={`audio-lane-${laneIndex}`}
                 onClick={(event) => selectTimelineTrackBackground(event, "audio")}
-                onDragOver={(event) => laneIndex === 0 && handleTrackAssetDragOver(event, "audio")}
-                onDragLeave={(event) => laneIndex === 0 && handleTrackAssetDragLeave(event, "audio")}
-                onDrop={(event) => laneIndex === 0 && handleTrackAssetDrop(event, "audio")}
-                data-asset-drop-track={laneIndex === 0 ? "audio" : undefined}
+                onDragOver={(event) => handleTrackAssetDragOver(event, "audio")}
+                onDragLeave={(event) => handleTrackAssetDragLeave(event, "audio")}
+                onDrop={(event) => handleTrackAssetDrop(event, "audio")}
+                data-asset-drop-track="audio"
                 data-audio-lane-index={laneIndex}
                 onContextMenu={(event) => showTrackContextMenu(event, "audio", "", rowKey, rowKey)}
               >
-                {laneIndex === 0 && assetDropTargetTrack === "audio" ? (
+                {isAssetTarget ? (
                     <div className="track-drop-hint">{draggingSound ? soundTrackName : t("dropVoiceHere")}</div>
                   ) : null}
                 {sourceAudioDragTargetLane === laneIndex ? (
@@ -3711,7 +3732,7 @@ export function Timeline({
                     {t(laneIndex >= (audioSegments.length ? packedAudioLanes.length : 0) ? "sourceAudioCreateTrackDrop" : "sourceAudioTrackDrop")}
                   </div>
                 ) : null}
-                {laneIndex === 0 ? renderAssetDropSlot("audio") : null}
+                {renderAssetDropSlot("audio", laneIndex)}
                 {lane.map((segment) => (
                   <TimelineAudioClip
                     key={segment.id}

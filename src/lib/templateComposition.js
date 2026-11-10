@@ -6,7 +6,8 @@ import { CARD_ROTATION_ID } from "./cardRotationTemplate.js";
 import { renderBeatTemplateMusic } from "./beatTemplateMusic.js";
 import { encodeAudioBufferAsWav, getAudioWaveformPeaks } from "./media.js";
 import { MEMORY_VORTEX_ID } from "./projectedBeatTemplates.js";
-import { getMemoryVortexSoundEffects, getSoundEffectLane } from "./soundEffects.js";
+import { getMemoryVortexSoundEffects } from "./soundEffects.js";
+import { getAvailableAudioLane } from "./timeline.js";
 
 export function createTemplateComposition(template, { assets, bpm, intro, language, start, ratio, targetRatio, overlays, markers, builtInMusic, audioSegments = [], trackLocks, trackVisibility }) {
   const card = template.id === CARD_ROTATION_ID ? cardRotationCopy(language) : null;
@@ -30,7 +31,7 @@ export function createTemplateComposition(template, { assets, bpm, intro, langua
   if (template.id === MEMORY_VORTEX_ID && !trackLocks?.audio && trackVisibility?.audio !== false) {
     const cues = getMemoryVortexSoundEffects({ bpm, defaultBpm: template.defaultBpm, start, duration: result.duration, language });
     cues.forEach((clip) => {
-      const lane = getSoundEffectLane([...audioSegments, ...audio], clip, trackLocks, trackVisibility);
+      const lane = getAvailableAudioLane([...audioSegments, ...audio], clip, trackLocks, trackVisibility);
       audio.push({ ...clip, lane });
     });
   }

@@ -3,7 +3,7 @@ import { getRemoteAssetBlob } from "./remoteAssetCache.js";
 import { getVisualInsertionHover, resolveVisualInsertion } from "./visualDropInsertion.js";
 import { loadProjectMediaBlob } from "./projectSnapshot.js";
 import { resolveAssetDropTrack } from "./assetDragControls.js";
-import { getSoundEffectLane } from "./soundEffects.js";
+import { getAvailableAudioLane } from "./timeline.js";
 import { getSoundEffectsCopy } from "../i18nSoundEffects.js";
 
 function getRemoteVideoImportFrameBudget(duration) {
@@ -40,6 +40,8 @@ export function createAssetDropActions(d) {
       return;
     }
     if (asset.kind === "sound-effect") {
+      const { audioLane } = options;
+      const isDrop = Number.isInteger(audioLane);
       const start = options.startTime ?? d.currentTimeRef.current;
       const copy = getSoundEffectsCopy(d.language);
       let blob = asset.blob;
@@ -54,15 +56,15 @@ export function createAssetDropActions(d) {
           return;
         }
       }
-      const { trackLocks, trackVisibility } = d.soundEffectTracksRef.current;
+      const { trackLocks, trackVisibility } = d.audioDropTracksRef.current;
       if (trackLocks.audio || trackVisibility.audio === false) return;
       d.checkpointHistory();
       d.pauseForTimelineEdit();
       const segment = d.replaceAudio(blob, asset.duration, asset.peaks, copy.added, {
-        start, name: asset.name, sourceKind: asset.kind, assetId: asset.id,
-        getLane: (segments) => getSoundEffectLane(segments, { start, duration: asset.duration }, trackLocks, trackVisibility),
+        start, name: asset.name, sourceKind: asset.kind, assetId: asset.id, seekToStart: !isDrop,
+        getLane: (segments) => getAvailableAudioLane(segments, { start, duration: asset.duration }, trackLocks, trackVisibility, audioLane),
       });
-      d.revealAudioSegment(segment.id);
+      d.revealAudioSegment(segment.id, isDrop);
       d.notify(copy.added);
       return;
     }
@@ -152,7 +154,7 @@ export function createAssetDropActions(d) {
       return;
     }
     if (track === "music") {
-      await d.selectAsset(asset, { focusAudio: false });
+      await d.selectAsset(asset, { focusAudio: false, start: options.startTime });
       return;
     }
     if (track === "audio") {
@@ -168,12 +170,22 @@ export function createAssetDropActions(d) {
         : Number.isFinite(Number(options.percent)) && Number.isFinite(Number(d.timelineDuration))
           ? Math.max(0, Number(options.percent) / 100 * Number(d.timelineDuration))
           : undefined;
-      d.replaceAudio(blob, decoded.duration, decoded.peaks, "音频已写入配音轨", {
+      const { trackLocks, trackVisibility } = d.audioDropTracksRef.current;
+      if (trackLocks.audio || trackVisibility.audio === false) return;
+      const isDrop = Number.isInteger(options.audioLane);
+      const segment = d.replaceAudio(blob, decoded.duration, decoded.peaks, "音频已写入配音轨", {
         sourceKind: "upload",
         assetId: asset.id,
         name: asset.name,
         start: dropStart,
+        ...(isDrop ? {
+          seekToStart: false,
+          getLane: (segments) => getAvailableAudioLane(
+            segments, { start: dropStart, duration: decoded.duration }, trackLocks, trackVisibility, options.audioLane,
+          ),
+        } : {}),
       });
+      if (isDrop) d.revealAudioSegment(segment.id, true);
       d.setSelectedTrack("audio");
       d.notify(tr("audioDroppedOnVoiceTrack", "音频已拖入配音音频轨"));
       return;
@@ -208,14 +220,17 @@ export function createAssetDropActions(d) {
     d.setDraggedAssetId("");
     d.setAssetDropTargetTrack("");
     d.setAssetDropPosition({ track: "", percent: 50 });
+    if (asset.type === "audio") {
+      const placement = d.resolveAudioDrop(event, asset, event.currentTarget, targetTrack);
+      d.setSnapGuide(null);
+      void applyAssetToTrack(asset, targetTrack, placement);
+      return;
+    }
     d.triggerAssetDropPulse(targetTrack);
-    const startTime = asset.kind === "sound-effect"
-      ? d.resolveSoundEffectDrop(event, rect).startTime
-      : targetTrack === "overlay"
+    const startTime = targetTrack === "overlay"
       ? Math.max(0, percent / 100 * Math.max(0, Number(d.timelineDuration) || 0))
       : Number.isFinite(Number(event.currentTarget.dataset.dropStartTime)) ? Number(event.currentTarget.dataset.dropStartTime) : undefined;
     const layer = Number.isFinite(Number(event.currentTarget.dataset.dropLayer)) ? Number(event.currentTarget.dataset.dropLayer) : undefined;
-    if (asset.kind === "sound-effect") d.setSnapGuide(null);
     void applyAssetToTrack(asset, targetTrack, { percent, startTime, layer, insertIndex: insertion?.index });
   }
 

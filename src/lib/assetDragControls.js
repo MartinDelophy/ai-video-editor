@@ -1,5 +1,6 @@
 import { ASSET_DRAG_MIME, STICKERS } from "../config/editor.js";
 import { getVisualInsertionHover, resolveVisualInsertion } from "./visualDropInsertion.js";
+import { getAvailableAudioLane } from "./timeline.js";
 import { collectTimelineSnapPoints, createTimelineSnapGuide, findClosestTimelineSnap } from "./timelineSnap.js";
 
 export function resolveAssetDropTrack(asset, track) {
@@ -29,8 +30,8 @@ export function createAssetDragControls(deps) {
     if (track === "image" || track === "overlay") return asset.type === "image" || asset.type === "video";
     if (track === "sticker") return asset.type === "sticker";
     if (track === "audio" || track === "music") {
-      if (asset.type !== "audio") return false;
-      if (asset.kind === "sound-effect") return track === "audio" && deps.trackVisibility.audio !== false;
+      if (asset.type !== "audio" || deps.trackVisibility[track] === false) return false;
+      if (asset.kind === "sound-effect") return track === "audio";
       return asset.kind === "music" ? track === "music" : true;
     }
     return track === "source" && asset.type === "video";
@@ -40,22 +41,26 @@ export function createAssetDragControls(deps) {
     event.dataTransfer.effectAllowed = "copy"; event.dataTransfer.setData(ASSET_DRAG_MIME, asset.id); event.dataTransfer.setData("text/plain", asset.id);
   };
   const handleAssetDragEnd = () => {
-    if (getActiveDraggedAsset()?.kind === "sound-effect") deps.setSnapGuide(null);
+    if (getActiveDraggedAsset()?.type === "audio") deps.setSnapGuide(null);
     deps.draggedAssetIdRef.current = ""; deps.setDraggedAssetId(""); deps.setAssetDropTargetTrack("");
     deps.setAssetDropPosition({ track: "", percent: 50 });
   };
-  const resolveSoundEffectDrop = (event, rect) => {
+  const resolveAudioDrop = (event, asset, target, track) => {
+    const rect = target.getBoundingClientRect();
     const percent = getTimelineDropPercent(event.clientX, rect);
-    const duration = deps.timelineDuration;
-    const startTime = percent / 100 * duration;
-    const snap = event.altKey || !rect.width || !duration ? null : findClosestTimelineSnap(
-      startTime, collectTimelineSnapPoints(deps), 9 / rect.width * duration,
+    const timelineDuration = deps.timelineDurationRef.current;
+    const rawStart = percent / 100 * timelineDuration;
+    const snap = event.altKey || !rect.width || !timelineDuration ? null : findClosestTimelineSnap(
+      rawStart, collectTimelineSnapPoints({ ...deps, currentTime: deps.currentTimeRef.current, timelineDuration }),
+      9 / rect.width * timelineDuration,
     );
-    return {
-      percent: snap ? snap.time / duration * 100 : percent,
-      startTime: snap?.time ?? startTime,
-      guide: createTimelineSnapGuide(snap, "start"),
-    };
+    const startTime = snap?.time ?? rawStart;
+    const duration = Math.max(0, Number(asset.duration) || 0);
+    const firstLane = Number(target.dataset.audioLaneIndex) || 0;
+    const audioLane = track === "audio" ? getAvailableAudioLane(
+      deps.audioSegments, { start: startTime, duration }, deps.trackLocks, deps.trackVisibility, firstLane,
+    ) : undefined;
+    return { track, startTime, duration, audioLane, guide: createTimelineSnapGuide(snap, "start") };
   };
   const getDropTrackInfoFromPoint = (event) => {
     const { clientX, clientY } = event;
@@ -66,11 +71,11 @@ export function createAssetDragControls(deps) {
       const rect = deps.trackScrollRef.current?.getBoundingClientRect() ?? timeline.getBoundingClientRect();
       return { track: "sticker", percent: getTimelineDropPercent(clientX, rect) };
     }
-    const trackElement = element.closest("[data-asset-drop-track]");
     const asset = getActiveDraggedAsset();
+    const trackElement = element.closest("[data-asset-drop-track]");
     const track = resolveAssetDropTrack(asset, trackElement?.dataset.assetDropTrack ?? "");
-    if (asset?.kind === "sound-effect" && track === "audio" && trackElement instanceof HTMLElement) {
-      return { track, ...resolveSoundEffectDrop(event, trackElement.getBoundingClientRect()) };
+    if (asset?.type === "audio" && (track === "audio" || track === "music")) {
+      return resolveAudioDrop(event, asset, trackElement, track);
     }
     const laneEnd = trackElement instanceof HTMLElement && Number.isFinite(Number(trackElement.dataset.dropStartTime))
       ? Number(trackElement.dataset.dropStartTime)
@@ -112,22 +117,34 @@ export function createAssetDragControls(deps) {
       const info = getDropTrackInfoFromPoint(e); const dragged = findAssetById(state.assetId);
       const track = dragged?.type === "sticker" && info.track ? "sticker" : info.track;
       const accepted = canDropAssetOnTrack(dragged, track) ? track : "";
-      if (asset.kind === "sound-effect") deps.setSnapGuide(accepted ? info.guide ?? null : null);
-      deps.setAssetDropTargetTrack(accepted); deps.setAssetDropPosition(accepted ? { track: accepted, percent: info.percent, startTime: info.startTime, layer: info.layer, insertIndex: info.insertIndex, insertTime: info.insertTime } : { track: "", percent: 50 });
+      if (asset.type === "audio") {
+        deps.setSnapGuide(accepted ? info.guide ?? null : null);
+        state.audioDrop = accepted ? { x: e.clientX, y: e.clientY, altKey: e.altKey, info } : null;
+      }
+      deps.setAssetDropTargetTrack(accepted);
+      deps.setAssetDropPosition(accepted ? { ...info, track: accepted } : { track: "", percent: 50 });
       deps.setAssetDragPreview({ id: asset.id, name: asset.name, type: asset.type, kind: asset.kind, src: asset.src, duration: asset.duration, x: e.clientX, y: e.clientY });
     };
     const cleanup = () => {
       removeEventListener("pointermove", move); removeEventListener("pointerup", up); removeEventListener("pointercancel", cleanup);
       deps.pointerAssetDragRef.current = null; deps.setAssetDragPreview(null); deps.setAssetDropTargetTrack("");
       deps.setAssetDropPosition({ track: "", percent: 50 }); deps.draggedAssetIdRef.current = ""; deps.setDraggedAssetId("");
-      if (asset.kind === "sound-effect") deps.setSnapGuide(null);
+      if (asset.type === "audio") deps.setSnapGuide(null);
     };
     const up = (e) => {
-      const state = deps.pointerAssetDragRef.current; const info = getDropTrackInfoFromPoint(e); cleanup();
+      const state = deps.pointerAssetDragRef.current;
+      const shown = state?.audioDrop;
+      const info = shown && shown.x === e.clientX && shown.y === e.clientY && shown.altKey === e.altKey
+        ? shown.info
+        : getDropTrackInfoFromPoint(e);
+      cleanup();
       if (!state?.dragging) return;
       deps.suppressAssetClickRef.current = state.assetId; setTimeout(() => { if (deps.suppressAssetClickRef.current === state.assetId) deps.suppressAssetClickRef.current = ""; }, 300);
       const dragged = findAssetById(state.assetId); const track = dragged?.type === "sticker" && info.track ? "sticker" : info.track;
-      if (canDropAssetOnTrack(dragged, track)) { triggerAssetDropPulse(track); void deps.applyAssetToTrack(dragged, track, { percent: info.percent, startTime: info.startTime, layer: info.layer, insertIndex: info.insertIndex }); }
+      if (canDropAssetOnTrack(dragged, track)) {
+        if (dragged.type !== "audio") triggerAssetDropPulse(track);
+        void deps.applyAssetToTrack(dragged, track, info);
+      }
     };
     addEventListener("pointermove", move, { passive: false }); addEventListener("pointerup", up); addEventListener("pointercancel", cleanup);
   };
@@ -154,14 +171,14 @@ export function createAssetDragControls(deps) {
     const target = resolveAssetDropTrack(asset, track);
     if (!canDropAssetOnTrack(asset, target)) return;
     event.preventDefault(); event.dataTransfer.dropEffect = "copy";
-    const rect = target === "sticker" ? deps.trackScrollRef.current?.getBoundingClientRect() ?? event.currentTarget.getBoundingClientRect() : event.currentTarget.getBoundingClientRect();
-    if (asset.kind === "sound-effect") {
-      const { percent, startTime, guide } = resolveSoundEffectDrop(event, rect);
-      deps.setSnapGuide(guide);
+    if (asset.type === "audio") {
+      const placement = resolveAudioDrop(event, asset, event.currentTarget, target);
+      deps.setSnapGuide(placement.guide);
       deps.setAssetDropTargetTrack(target);
-      deps.setAssetDropPosition({ track: target, percent, startTime });
+      deps.setAssetDropPosition(placement);
       return;
     }
+    const rect = target === "sticker" ? deps.trackScrollRef.current?.getBoundingClientRect() ?? event.currentTarget.getBoundingClientRect() : event.currentTarget.getBoundingClientRect();
     const percent = getTimelineDropPercent(event.clientX, rect);
     const layer = target === "overlay" && Number.isFinite(Number(event.currentTarget.dataset.dropLayer))
       ? Number(event.currentTarget.dataset.dropLayer)
@@ -183,11 +200,11 @@ export function createAssetDragControls(deps) {
     if (event.relatedTarget instanceof Node && event.currentTarget.contains(event.relatedTarget)) return;
     const asset = getActiveDraggedAsset();
     const target = resolveAssetDropTrack(asset, track);
-    if (asset?.kind === "sound-effect") deps.setSnapGuide(null);
+    if (asset?.type === "audio") deps.setSnapGuide(null);
     deps.setAssetDropTargetTrack((current) => current === target ? "" : current);
     deps.setAssetDropPosition((current) => current.track === target ? { track: "", percent: 50 } : current);
   };
-  return { canDropAssetOnTrack, findAssetById, getActiveDraggedAsset, getDraggedAsset, getTimelineDropPercent, resolveSoundEffectDrop,
+  return { canDropAssetOnTrack, findAssetById, getActiveDraggedAsset, getDraggedAsset, getTimelineDropPercent, resolveAudioDrop,
     confirmStickerSelection, handleAssetClick, handleAssetDragEnd, handleAssetDragStart, handleAssetPointerDown, handleStickerClick,
     handleTrackAssetDragLeave, handleTrackAssetDragOver, triggerAssetDropPulse };
 }

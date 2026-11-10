@@ -2,7 +2,6 @@ import { getRecordedSoundLabel, getSoundCategoryLabel, getSoundEffectsCopy } fro
 import { encodeAudioBufferAsWav, getAudioWaveformPeaks } from "./media.js";
 import { RECORDED_SOUND_EFFECTS } from "./soundEffectsCatalog.js";
 import { SOUND_EFFECTS, SOUND_EFFECT_SAMPLE_RATE, synthesizeSoundEffect } from "./synthesizeSoundEffect.js";
-import { packTimedSegmentsIntoLanes } from "./timeline.js";
 import { getMemoryVortexCuts, MEMORY_VORTEX_INTRO } from "./projectedBeatTemplates.js";
 
 const audioCache = new Map();
@@ -52,15 +51,6 @@ export function getSoundEffectAssets(language) {
   return [...originals, ...recordings].map((asset) => ({
     ...asset, categoryLabel: getSoundCategoryLabel(language, asset.category),
   }));
-}
-
-export function getSoundEffectLane(segments, { start, duration }, locks, visibility) {
-  const lanes = packTimedSegmentsIntoLanes(segments, { preferredLaneKey: "lane" });
-  const available = (index) => !locks?.[`audio-${index}`] && visibility?.[`audio-${index}`] !== false
-    && (lanes[index] || []).every((clip) => clip.start + clip.duration <= start + 0.001 || start + duration <= clip.start + 0.001);
-  let lane = 0;
-  while (!available(lane)) lane++;
-  return lane;
 }
 
 export function getMemoryVortexSoundEffects({ bpm, defaultBpm, start, duration, language }) {

@@ -740,16 +740,16 @@ export function App({ hostSession = null }) {
 
   const {
     canDropAssetOnTrack, findAssetById, getActiveDraggedAsset, getDraggedAsset,
-    getTimelineDropPercent, resolveSoundEffectDrop, handleAssetClick, handleAssetDragEnd, handleAssetDragStart,
+    getTimelineDropPercent, resolveAudioDrop, handleAssetClick, handleAssetDragEnd, handleAssetDragStart,
     confirmStickerSelection, handleAssetPointerDown, handleStickerClick, handleTrackAssetDragLeave,
     handleTrackAssetDragOver, triggerAssetDropPulse,
   } = createAssetDragControls({
-    addStickerAssetToTimeline: (...args) => addStickerAssetToTimeline(...args), applyAssetToTrack: (...args) => applyAssetToTrack(...args), assetDropPulseTimerRef, builtInAssets, currentTime, draggedAssetId,
+    addStickerAssetToTimeline: (...args) => addStickerAssetToTimeline(...args), applyAssetToTrack: (...args) => applyAssetToTrack(...args), assetDropPulseTimerRef, builtInAssets, currentTime, currentTimeRef, draggedAssetId,
     draggedAssetIdRef, getStickerDragAsset, notify, pointerAssetDragRef, prefetchAsset: prefetchLibraryAsset,
     setAssetDragPreview, setAssetDropPosition, setAssetDropPulseTrack,
     setAssetDropTargetTrack, setDraggedAssetId, setSelectedLibraryAssetId,
     setSelectedStickerId, setSelectedStickerSegmentId, suppressAssetClickRef,
-    t, timelineDuration, trackLocks, trackVisibility, trackScrollRef, userAssets, visualSegments,
+    t, timelineDuration, timelineDurationRef, trackLocks, trackVisibility, trackScrollRef, userAssets, visualSegments,
     audioSegments, captionSegments, captionTargetDuration, effectClips, musicSegments, setSnapGuide,
     sourceAudioDuration, sourceAudioStart, stickerSegments, timelineMarkers, visualOverlaySegments,
   });
@@ -1357,8 +1357,8 @@ export function App({ hostSession = null }) {
     userAssets, visualSegments,
   });
 
-  const soundEffectTracksRef = useRef(null);
-  soundEffectTracksRef.current = { trackLocks, trackVisibility };
+  const audioDropTracksRef = useRef(null);
+  audioDropTracksRef.current = { trackLocks, trackVisibility };
   const { applyAssetToTrack, handleTrackAssetDrop, handleVisualStyleDrop } = createAssetDropActions({
     addStickerAssetToTimeline, addVisualOverlay: (...args) => addVisualOverlay(...args), appendVisualAssetToTimeline, canDropAssetOnTrack, clearImageTrack,
     draggedAssetIdRef, extractVideoSourceAudio, getDraggedAsset, getTimelineDropPercent, imageUrlRefs,
@@ -1367,10 +1367,10 @@ export function App({ hostSession = null }) {
     setSelectedLibraryAssetId, setSelectedTrack, setSelectedTransitionId,
     setSelectedVisualSegmentId, setVisualSegments, trackScrollRef, resolveVisualDropIntent, updateVisualAssetInTimeline,
     t, timelineDuration, triggerAssetDropPulse, visualSegments,
-    checkpointHistory, currentTimeRef, language: activeLanguage, pauseForTimelineEdit, resolveSoundEffectDrop,
-    setSnapGuide, soundEffectTracksRef,
-    revealAudioSegment: (id) => {
-      setPlayheadRevealRequest({ track: "audio", id });
+    checkpointHistory, currentTimeRef, language: activeLanguage, pauseForTimelineEdit, resolveAudioDrop,
+    setSnapGuide, audioDropTracksRef,
+    revealAudioSegment: (id, keepHorizontalPosition) => {
+      setPlayheadRevealRequest({ track: "audio", id, keepHorizontalPosition });
       selectTrackForInspector("audio");
       if (isCompactViewport) changeMobilePanel("inspector");
     },

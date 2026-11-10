@@ -9336,6 +9336,20 @@ button:disabled {
   height: 42px;
 }
 
+.audio-track .asset-drop-slot.is-timed-audio {
+  box-sizing: border-box;
+  left: var(--drop-x);
+  min-width: 0;
+  height: 32px;
+  padding: 0;
+  animation: none;
+  transform: translateY(-50%);
+}
+
+.asset-drop-slot.is-timed-audio strong {
+  max-width: calc(100% - 12px);
+}
+
 @keyframes asset-drop-slot-in {
   from {
     opacity: 0;
@@ -9814,7 +9828,8 @@ button:disabled {
     height: calc(var(--timeline-track-row-height, 48px) - 12px);
   }
 
-  .audio-clip {
+  .audio-clip,
+  .audio-track .asset-drop-slot.is-timed-audio {
     height: calc(var(--timeline-track-row-height, 48px) - 16px);
   }
 }

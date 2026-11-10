@@ -5,8 +5,6 @@
 [![skills.sh](https://skills.sh/b/MartinDelophy/ai-video-editor)](https://skills.sh/MartinDelophy/ai-video-editor)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](CONTRIBUTING.vi.md) [![LINUX DO](https://shorturl.at/ggSqS)](https://linux.do)
 
-[![Số sao trên GitHub](https://img.shields.io/github/stars/MartinDelophy/ai-video-editor?style=for-the-badge&logo=github&label=GitHub%20Stars&color=238636)](https://www.star-history.com/#MartinDelophy/ai-video-editor&Date)
-
 ## Sáng tạo cùng Anna
 
 Phiên bản Anna kết hợp hỗ trợ dựng bằng AI và khả năng tiếp tục dự án:

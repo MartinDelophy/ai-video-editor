@@ -205,3 +205,13 @@ npx netlify-cli deploy --prod --dir=dist
 Timeline Studio 的原创源代码采用 [MIT License](LICENSE)。
 
 本仓库的 MIT License **不自动适用于**第三方模型、模型权重、数据集、字体、图库媒体或其他随仓库提供及运行时远程下载的资源。无论这些资源存放在哪里，也无论项目通过下载脚本、缓存、镜像或集成方式使用它们，均应继续遵守各自的上游许可证和使用条款。重新分发或商业使用前，请查阅 [MODEL_LICENSES.md](MODEL_LICENSES.md)。
+
+## Star History
+
+<a href="https://www.star-history.com/?repos=MartinDelophy/ai-video-editor">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=MartinDelophy/ai-video-editor&amp;type=date&amp;theme=dark&amp;legend=top-left" />
+    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=MartinDelophy/ai-video-editor&amp;type=date&amp;legend=top-left" />
+    <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=MartinDelophy/ai-video-editor&amp;type=date&amp;legend=top-left" />
+  </picture>
+</a>

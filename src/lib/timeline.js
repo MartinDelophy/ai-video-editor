@@ -193,6 +193,20 @@ export function packTimedSegmentsIntoLanes(segments, { preferredLaneKey = "" } =
   return lanes.length ? lanes : [[]];
 }
 
+export function findAvailableAudioLane(lanes, { id, start, duration }, locks, visibility, firstLane = 0) {
+  let lane = firstLane;
+  while (locks?.[`audio-${lane}`] || visibility?.[`audio-${lane}`] === false ||
+    lanes[lane]?.some((clip) => (id === undefined || clip.id !== id) &&
+      clip.start + clip.duration > start + 0.001 && start + duration > clip.start + 0.001)) {
+    lane++;
+  }
+  return lane;
+}
+
+export function getAvailableAudioLane(segments, range, locks, visibility, firstLane) {
+  return findAvailableAudioLane(packTimedSegmentsIntoLanes(segments, { preferredLaneKey: "lane" }), range, locks, visibility, firstLane);
+}
+
 export function getTimedSegmentLaneStateKey(segments, segmentId, track = "audio") {
   const laneIndex = packTimedSegmentsIntoLanes(segments, {
     preferredLaneKey: track === "audio" ? "lane" : "",

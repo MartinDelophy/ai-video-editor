@@ -92,6 +92,7 @@ import { IconButton, WaveformStrip } from "./ui.jsx";
 import { TimelineThumbnails } from "./TimelineThumbnails.jsx";
 import { VideoClipAudio } from "./VideoClipAudio.jsx";
 import { TimelineGain } from "./TimelineGain.jsx";
+import { TimelineAudioFades } from "./TimelineAudioFades.jsx";
 import { TimelineAudioClip, TimelineCaptionClip } from "./TimelineClips.jsx";
 import { TimelineMarkerRail, TimelineMarkerToolbar } from "./TimelineMarkers.jsx";
 import { useTimelineMarkers } from "../hooks/useTimelineMarkers.js";
@@ -99,6 +100,7 @@ import { useTimelinePlayhead } from "../hooks/useTimelinePlayhead.js";
 import { TimelineEffectLane } from "./TimelineEffects.jsx";
 import { packEffectLanes, EFFECT_ASSET_DRAG_EVENT } from "../lib/timelineEffects.js";
 import { SPECIAL_EFFECTS_LABELS } from "../i18nEffectClips.js";
+import { getSoundEffectsCopy } from "../i18nSoundEffects.js";
 import { PLAYBACK_UI_FRAME_MS } from "../lib/editorRuntime.js";
 
 import { VisualClipKeyframes } from "./VisualClipKeyframes.jsx";
@@ -269,6 +271,7 @@ export function Timeline({
   trackScrollRef,
   startTimelineSeek,
   onMoveVisualKeyframe,
+  onChangeAudioFade,
   timelineDuration,
   timelineContentDuration = timelineDuration,
   setTimelineHorizon,
@@ -1002,7 +1005,7 @@ export function Timeline({
       }
     });
   };
-  const revealTimelineClip = (track, segmentId) => {
+  const revealTimelineClip = useCallback((track, segmentId, keepHorizontalPosition) => {
     if (!segmentId) return;
     window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
       const trackElement = trackScrollRef.current;
@@ -1016,9 +1019,9 @@ export function Timeline({
       const horizontalRect = horizontalScroller.getBoundingClientRect();
       const clipRect = clipElement.getBoundingClientRect();
       const horizontalPadding = 18;
-      if (clipRect.right > horizontalRect.right - horizontalPadding) {
+      if (!keepHorizontalPosition && clipRect.right > horizontalRect.right - horizontalPadding) {
         horizontalScroller.scrollTo({ left: horizontalScroller.scrollLeft + clipRect.right - horizontalRect.right + horizontalPadding, behavior: "smooth" });
-      } else if (clipRect.left < horizontalRect.left + horizontalPadding) {
+      } else if (!keepHorizontalPosition && clipRect.left < horizontalRect.left + horizontalPadding) {
         horizontalScroller.scrollTo({ left: Math.max(0, horizontalScroller.scrollLeft - (horizontalRect.left + horizontalPadding - clipRect.left)), behavior: "smooth" });
       }
       const boardRect = board.getBoundingClientRect();
@@ -1030,7 +1033,12 @@ export function Timeline({
         board.scrollTo({ top: Math.max(0, board.scrollTop - (boardRect.top + stickyRulerHeight + verticalPadding - clipRect.top)), behavior: "smooth" });
       }
     }));
-  };
+  }, [trackScrollRef]);
+  useEffect(() => {
+    if (playheadRevealRequest?.track) revealTimelineClip(
+      playheadRevealRequest.track, playheadRevealRequest.id, playheadRevealRequest.keepHorizontalPosition,
+    );
+  }, [playheadRevealRequest, revealTimelineClip]);
   const generateSelectedMobileAudioCaptions = () => {
     if (!selectedMobileAudioSegment || !generateCaptionsFromAudioClip) return;
     const blob = selectedMobileClipTrack === "music" ? musicBlob : selectedMobileClipTrack === "source" ? sourceAudioBlob : selectedMobileAudioSegment.blob;
@@ -1094,13 +1102,16 @@ export function Timeline({
     getTimelineClipLockKey(track, id),
   );
   const sourceAudioLaneDropActive = Number.isInteger(sourceAudioDragTargetLane) && sourceAudioDragTargetLane >= 0;
+  const audioDropLane = assetDropTargetTrack === "audio" ? assetDropPosition?.audioLane : undefined;
+  const draggingSound = assetDragPreview?.kind === "sound-effect";
   const showVoiceTrack = audioSegments.length > 0 || draggedAssetType === "audio" || sourceAudioLaneDropActive;
   const audioLanes = useMemo(() => {
     if (!showVoiceTrack) return [];
     const lanes = audioSegments.length ? packedAudioLanes.map((lane) => [...lane]) : [[]];
-    while (sourceAudioLaneDropActive && lanes.length <= sourceAudioDragTargetLane) lanes.push([]);
+    const previewLane = Math.max(sourceAudioLaneDropActive ? sourceAudioDragTargetLane : -1, audioDropLane ?? -1);
+    while (lanes.length <= previewLane) lanes.push([]);
     return lanes;
-  }, [audioSegments.length, packedAudioLanes, showVoiceTrack, sourceAudioDragTargetLane, sourceAudioLaneDropActive]);
+  }, [audioSegments.length, packedAudioLanes, showVoiceTrack, sourceAudioDragTargetLane, sourceAudioLaneDropActive, audioDropLane]);
   const stickerLanes = useMemo(
     () => packTimedSegmentsIntoLanes(stickerSegments, { preferredLaneKey: "lane" }),
     [stickerSegments],
@@ -1137,7 +1148,7 @@ export function Timeline({
       : item));
   };
   const showSourceTrack = Boolean(sourceAudioBlob || sourceAudioExtractionPendingId);
-  const showMusicTrack = Boolean(musicBlob) || draggedAssetType === "audio";
+  const showMusicTrack = Boolean(musicBlob) || (draggedAssetType === "audio" && !draggingSound);
   const captionLanes = useMemo(
     () => packCaptionSegmentsIntoLanes(displayedCaptionSegments, displayedCaptionTimeline),
     [displayedCaptionSegments, displayedCaptionTimeline],
@@ -1166,6 +1177,7 @@ export function Timeline({
   const timelineTrackRows = contentRows.join(" ");
   const timelineLabelRows = contentRows.join(" ");
   const effectTrackName = SPECIAL_EFFECTS_LABELS[effectLanguage] || SPECIAL_EFFECTS_LABELS.en;
+  const soundTrackName = getSoundEffectsCopy(effectLanguage).tab;
   const timelineTrackLabels = [
     ["image", t("imageTrack")],
     ...overlayLanes.map((_, index) => ["overlay", `${t("overlayTrack", "Overlay")} ${index + 1}`, `overlay-${index}`, `overlay-${index}`]),
@@ -1173,7 +1185,10 @@ export function Timeline({
     ...effectLanes.map((_, index) => ["effects", `${effectTrackName} ${index + 1}`, `effects-${index}`, "effects", "effects"]),
     ...captionLanes.map((_, index) => ["caption", `${t("caption")} ${index + 1}`, `caption-${index}`, `caption-${index}`]),
     ...(showSourceTrack ? [["source", t("sourceTrack")]] : []),
-    ...audioLanes.map((_, index) => ["audio", `${t("voiceTrack")} ${index + 1}`, `audio-${index}`, `audio-${index}`, `audio-${index}`]),
+    ...audioLanes.map((lane, index) => [
+      "audio", `${(lane.length ? lane.every((clip) => clip.sourceKind === "sound-effect") : draggingSound) ? soundTrackName : t("voiceTrack")} ${index + 1}`,
+      `audio-${index}`, `audio-${index}`, `audio-${index}`,
+    ]),
     ...(showMusicTrack ? [["music", t("musicTrack")]] : []),
   ];
   const isRowVisible = (track) => {
@@ -1399,10 +1414,15 @@ export function Timeline({
     };
   }, [contextMenu]);
   const [localTimelineZoom, setLocalTimelineZoom] = useState(() => clampTimelineZoom(timelineZoom));
+  const updateAudioFade = (track, id, field, value) => {
+    const lane = getTimelineClipLockKey(track, id);
+    if (isRowVisible(lane) && !isTimelineClipLocked(track, id)) onChangeAudioFade(track, id, field, value);
+  };
   const timelineClipHandlersRef = useRef(null);
   useLayoutEffect(() => {
     timelineClipHandlersRef.current = {
       setAudioSegments,
+      updateAudioFade,
       startAudioSegmentMove,
       startTimelineClipDrag,
       startCaptionResize,
@@ -1451,7 +1471,7 @@ export function Timeline({
   const { playheadRef, rulerPlayheadRef, suspendPlayheadFollow, returnToPlayhead, showReturnToPlayhead } = useTimelinePlayhead({
     currentTime, currentTimeRef, isPlaying, timelineDuration, playbackDuration,
     visualPlaybackStartTimeRef, visualPlaybackStartedAtRef, trackScrollRef, rulerCanvasRef,
-    revealRequest: playheadRevealRequest,
+    revealRequest: typeof playheadRevealRequest === "string" ? playheadRevealRequest : null,
   });
   const zoomReadoutRef = useRef(null);
   const pendingWheelDeltaRef = useRef(0);
@@ -2517,6 +2537,22 @@ export function Timeline({
         </div>
       );
     }
+    if ((track === "audio" || track === "music") && assetDropTargetTrack === track) {
+      if ((track === "audio" && laneIndex !== audioDropLane) || timelineDuration <= 0) return null;
+      const left = assetDropPosition.startTime / timelineDuration * 100;
+      const width = assetDropPosition.duration / timelineDuration * 100;
+      return (
+        <>
+          <i className="asset-drop-position-marker" style={{ "--drop-x": `${left}%` }} />
+          {width > 0 ? (
+            <div className="asset-drop-slot is-timed-audio" style={{ "--drop-x": `${left}%`, width: `${width}%` }}>
+              <strong>{assetDragPreview?.name ?? t("assetAudio")}</strong>
+            </div>
+          ) : null}
+        </>
+      );
+    }
+    if (track === "audio" || track === "music") return null;
     const dropPercent = assetDropPosition?.track === track ? assetDropPosition.percent : 50;
     return assetDropTargetTrack === track ? <>
       {track !== "image" ? <i className="asset-drop-position-marker" style={{ "--drop-x": `${dropPercent}%` }} /> : null}
@@ -3668,42 +3704,45 @@ export function Timeline({
               const rowKey = `audio-${laneIndex}`;
               const rowVisible = isRowVisible(rowKey);
               const rowLocked = isTimelineRowLocked("audio", rowKey);
+              const isAssetTarget = assetDropTargetTrack === "audio" && laneIndex === (audioDropLane ?? 0);
               return (
               <button
                 className={`audio-track ${selectedTrack === "audio" ? "is-selected" : ""} ${
                   !rowVisible ? "is-track-disabled" : ""
                 } ${rowLocked ? "is-track-locked" : ""} ${
-                  laneIndex === 0 && assetDropTargetTrack === "audio" ? "is-drop-target" : ""
+                  isAssetTarget ? "is-drop-target" : ""
                 } ${sourceAudioDragTargetLane === laneIndex ? "is-source-audio-drop-target" : ""
                 } ${laneIndex === 0 && assetDropPulseTrack === "audio" ? "is-drop-landing" : ""}`}
                 type="button"
                 disabled={!rowVisible}
                 key={`audio-lane-${laneIndex}`}
                 onClick={(event) => selectTimelineTrackBackground(event, "audio")}
-                onDragOver={(event) => laneIndex === 0 && handleTrackAssetDragOver(event, "audio")}
-                onDragLeave={(event) => laneIndex === 0 && handleTrackAssetDragLeave(event, "audio")}
-                onDrop={(event) => laneIndex === 0 && handleTrackAssetDrop(event, "audio")}
-                data-asset-drop-track={laneIndex === 0 ? "audio" : undefined}
+                onDragOver={(event) => handleTrackAssetDragOver(event, "audio")}
+                onDragLeave={(event) => handleTrackAssetDragLeave(event, "audio")}
+                onDrop={(event) => handleTrackAssetDrop(event, "audio")}
+                data-asset-drop-track="audio"
                 data-audio-lane-index={laneIndex}
                 onContextMenu={(event) => showTrackContextMenu(event, "audio", "", rowKey, rowKey)}
               >
-                {laneIndex === 0 && assetDropTargetTrack === "audio" ? (
-                    <div className="track-drop-hint">{t("dropVoiceHere")}</div>
+                {isAssetTarget ? (
+                    <div className="track-drop-hint">{draggingSound ? soundTrackName : t("dropVoiceHere")}</div>
                   ) : null}
                 {sourceAudioDragTargetLane === laneIndex ? (
                   <div className="source-audio-lane-drop-hint">
                     {t(laneIndex >= (audioSegments.length ? packedAudioLanes.length : 0) ? "sourceAudioCreateTrackDrop" : "sourceAudioTrackDrop")}
                   </div>
                 ) : null}
-                {laneIndex === 0 ? renderAssetDropSlot("audio") : null}
+                {renderAssetDropSlot("audio", laneIndex)}
                 {lane.map((segment) => (
                   <TimelineAudioClip
                     key={segment.id}
                     segment={segment}
                     laneIndex={laneIndex}
                     t={t}
+                    language={effectLanguage}
                     gainDisabled={rowLocked || !rowVisible}
                     timelineDuration={timelineDuration}
+                    secondsPerPixel={secondsPerPixel}
                     selected={selectedAudioSegmentId === segment.id}
                     rangeSelected={isRangeSelected("audio", segment.id)}
                     waveformVisible={rulerViewport.viewportWidth <= 0 || (
@@ -3737,11 +3776,19 @@ export function Timeline({
               {renderAssetDropSlot("music")}
               {musicBlob ? (musicSegments.length ? musicSegments : [{ id: "music-audio", start: musicStartPercent / 100 * timelineDuration, duration: musicDuration, peaks: musicPeaks }]).map((segment) => (
                 <div className={`audio-clip is-music ${selectedMusicSegmentId === segment.id ? "is-selected" : ""}`} key={segment.id} data-timeline-segment-track="music" data-timeline-segment-id={segment.id} data-range-selected={isRangeSelected("music", segment.id) || undefined} style={{ width: `${timelineDuration > 0 ? segment.duration / timelineDuration * 100 : 0}%`, left: `${timelineDuration > 0 ? segment.start / timelineDuration * 100 : 0}%` }} onPointerDown={(event) => startMusicMove(event, segment.id)} onContextMenu={(event) => showTrackContextMenu(event, "music", segment.id)} onClick={(event) => { event.stopPropagation(); if (suppressTimelineClipClickRef.current === "music") return void (suppressTimelineClipClickRef.current = ""); setSelectedTrack("music"); activateAudioToolForClipSelection(); clearClipSelections("music"); setSelectedMusicSegmentId?.(segment.id); ensureMobileTimedClipVisible(segment.id); revealMobileClipActions("music"); }}>
-                  <TimelineGain volume={segment.volume ?? musicVolume} disabled={trackLocks.music || !trackVisibility.music} t={t} onChange={(volume) => { if (musicSegments.length) setMusicSegments((items) => items.map((item) => item.id === segment.id ? { ...item, volume } : item)); else setMusicVolume(volume); }} />
-                  {(rulerViewport.viewportWidth <= 0 || (
-                    segment.start + segment.duration >= rulerVisibleStart - 240 * secondsPerPixel
-                    && segment.start <= rulerVisibleEnd + 240 * secondsPerPixel
-                  )) ? <WaveformStrip timeline volume={segment.volume ?? musicVolume} peaks={segment.peaks?.length ? segment.peaks : musicPeaks} active /> : null}
+                  <TimelineAudioFades segment={segment} selected={selectedMusicSegmentId === segment.id}
+                    disabled={trackLocks.music || !trackVisibility.music} t={t} language={effectLanguage}
+                    clipWidth={secondsPerPixel > 0 ? segment.duration / secondsPerPixel : 0}
+                    waveformVisible={rulerViewport.viewportWidth <= 0 || (
+                      segment.start + segment.duration >= rulerVisibleStart - 240 * secondsPerPixel
+                      && segment.start <= rulerVisibleEnd + 240 * secondsPerPixel
+                    )}
+                    peaks={segment.peaks?.length ? segment.peaks : musicPeaks} volume={segment.volume ?? musicVolume}
+                    onChangeVolume={(volume) => {
+                      if (musicSegments.length) setMusicSegments((items) => items.map((item) => item.id === segment.id ? { ...item, volume } : item));
+                      else setMusicVolume(volume);
+                    }}
+                    onChange={(field, value) => updateAudioFade("music", segment.id, field, value)} />
                   <span className="audio-clip-duration" data-compact-duration={formatCompactDuration(segment.duration)}>{formatTime(segment.duration)}</span>
                 </div>
               )) : null}

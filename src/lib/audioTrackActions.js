@@ -56,11 +56,11 @@ export function createAudioTrackActions(d) {
     }
     d.setAudioSegments((segments) => [
       ...segments.filter((item) => item.id !== options.replaceSegmentId),
-      segment,
+      options.getLane ? { ...segment, lane: options.getLane(segments) } : segment,
     ]);
     d.setSelectedAudioSegmentId(id);
     d.setSelectedTrack("audio");
-    d.setCurrentTime(start);
+    if (options.seekToStart !== false) d.setCurrentTime(start);
     d.setStatus("done");
     d.setStatusText(nextStatusText);
     d.setProgress(100);

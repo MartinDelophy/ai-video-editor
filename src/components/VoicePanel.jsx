@@ -61,6 +61,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import { formatTime, getSegmentStartTime } from "../lib/timeline.js";
+import { AUDIO_FADE_FIELDS, formatAudioFadeDuration, getAudioFadeControl } from "../lib/audioFade.js";
 import { decodeWaveform } from "../lib/media.js";
 import { AudioClipExportControl } from "./AudioClipExportControl.jsx";
 import { SilenceRemovalPanel } from "./SilenceRemovalPanel.jsx";
@@ -1056,14 +1057,14 @@ function AudioClipContextPanel({ t, language, visualAssociation, processingDisab
       </div> : null}
       {shownTab === "fade" && canFade ? <div className="audio-context-section audio-fade-section">
         <p>{t("audioFadeHint")}</p>
-        <label className="audio-property-slider">
-          <span><b>{t("fadeIn")}</b><em>{(segment.fadeIn ?? 0).toFixed(1)}s</em></span>
-          <input aria-label={t("fadeIn")} type="range" min="0" max={Math.min(3, segment.duration / 2)} step="0.1" value={segment.fadeIn ?? 0} onChange={(event) => updateAudioSegment(segment.id, { fadeIn: Number(event.target.value) })} />
-        </label>
-        <label className="audio-property-slider">
-          <span><b>{t("fadeOut")}</b><em>{(segment.fadeOut ?? 0).toFixed(1)}s</em></span>
-          <input aria-label={t("fadeOut")} type="range" min="0" max={Math.min(3, segment.duration / 2)} step="0.1" value={segment.fadeOut ?? 0} onChange={(event) => updateAudioSegment(segment.id, { fadeOut: Number(event.target.value) })} />
-        </label>
+        {AUDIO_FADE_FIELDS.map((field) => {
+          const { value, max, step, digits } = getAudioFadeControl(segment, field);
+          return <label className="audio-property-slider" key={field}>
+            <span><b>{t(field)}</b><em>{formatAudioFadeDuration(value, digits, language)}</em></span>
+            <input aria-label={t(field)} type="range" min="0" max={max} step={step} value={value}
+              onChange={(event) => updateAudioSegment(segment.id, { [field]: Number(event.target.value) })} />
+          </label>;
+        })}
       </div> : null}
       {shownTab === "spatial" && canSpatial ? <div className="audio-context-section audio-spatial-section">
         <p>{t("audioSpaceHint")}</p>

@@ -8,7 +8,7 @@ import {
   getTimelineDragTimeDelta,
   settleTimelineDrag,
 } from "./timelineEdgeAutoScroll.js";
-import { isTimedSegmentLaneLocked } from "./timeline.js";
+import { findAvailableAudioLane, isTimedSegmentLaneLocked, packTimedSegmentsIntoLanes } from "./timeline.js";
 import { moveLinkedSourceAudioSegment } from "./sourceAudioSync.js";
 
 export function createTimelineMoveControls(d) {
@@ -233,27 +233,34 @@ export function createTimelineMoveControls(d) {
     if (!rect) return;
     event.preventDefault(); event.stopPropagation(); d.setSelectedTrack("audio"); d.setSelectedAudioSegmentId(segment.id);
     const startX = event.clientX; const startY = event.clientY; const start = segment.start || 0;
+    let lastY = startY;
+    let bypassSnap = event.altKey;
     const autoScroller = createTimelineEdgeAutoScroller({
       trackElement: d.trackScrollRef.current,
       pointerType: event.pointerType,
       timelineDuration: duration,
-      onScrollFrame: (clientX, scrollOffset) => move({ clientX, clientY: startY, preventDefault() {} }, scrollOffset),
+      onScrollFrame: (clientX, scrollOffset) => move({ clientX, clientY: lastY, altKey: bypassSnap, preventDefault() {} }, scrollOffset),
     });
-    const originalLane = Number.isInteger(segment.lane) ? segment.lane : Math.max(0, Number(initialLane) || 0);
+    const originalLane = Math.max(0, Number(initialLane) || 0);
+    const occupiedLanes = packTimedSegmentsIntoLanes(d.audioSegments, { preferredLaneKey: "lane" });
+    const lanesById = new Map(occupiedLanes.flatMap((lane, index) => lane.map((clip) => [clip.id, index])));
+    const originalClipsById = new Map(d.audioSegments.map((clip) => [clip.id, clip]));
     const rowHeight = event.currentTarget?.closest?.(".audio-track")?.getBoundingClientRect?.().height || 48;
     const maxLane = Math.max(originalLane, globalThis.document?.querySelectorAll?.("[data-audio-lane-index]")?.length || 0);
     const snapPoints = collectTimelineSnapPoints(d, { track: "audio", id: segment.id });
     let moved = false; let latest = start; let latestLane = originalLane; let cancelledByPinch = false;
-    const applyPosition = (nextStart, nextLane = latestLane) => {
+    const applyPosition = (nextStart, nextLane, restore = false) => {
       const delta = nextStart - start;
-      const normalizedLane = Math.max(0, nextLane);
       d.setAudioSegments((items) => {
         let changed = false;
         const next = items.map((item) => {
-          if (item.id !== segment.id) return item;
-          if (Math.abs((item.start || 0) - nextStart) < 0.0001 && item.lane === normalizedLane) return item;
+          if (!originalClipsById.has(item.id)) return item;
+          const itemStart = item.id === segment.id ? nextStart : item.start;
+          const itemLane = restore ? originalClipsById.get(item.id).lane
+            : item.id === segment.id ? nextLane : lanesById.get(item.id);
+          if (item.start === itemStart && item.lane === itemLane) return item;
           changed = true;
-          return { ...item, start: nextStart, lane: normalizedLane };
+          return { ...item, start: itemStart, lane: itemLane };
         });
         return changed ? next : items;
       });
@@ -274,6 +281,8 @@ export function createTimelineMoveControls(d) {
     };
     const move = (e, scrollOffset = autoScroller.getScrollOffset()) => {
       if (cancelledByPinch || d.trackScrollRef.current?.classList.contains("is-pinching")) return;
+      lastY = e.clientY;
+      bypassSnap = e.altKey;
       const deltaX = e.clientX - startX; const deltaY = e.clientY - startY;
       if (!moved && Math.hypot(deltaX, deltaY) < 4) return;
       if (!moved) d.pauseForTimelineEdit?.();
@@ -287,21 +296,25 @@ export function createTimelineMoveControls(d) {
         contentWidth: rect.width,
         timelineDuration: duration,
       });
-      const snapped = snapTimelineRange(unsnapped, segment.duration, snapPoints, (10 / Math.max(rect.width, 1)) * duration);
+      const snapped = bypassSnap ? { start: unsnapped, guide: null }
+        : snapTimelineRange(unsnapped, segment.duration, snapPoints, (10 / Math.max(rect.width, 1)) * duration);
       const groupFloor = Math.max(0, start - Math.min(start, ...captions.map(caption => caption.start)));
       latest = Math.max(groupFloor, Math.min(MAX_TIMELINE_DURATION_SECONDS - segment.duration, snapped.start));
       const laneElement = globalThis.document?.elementFromPoint?.(e.clientX, e.clientY)?.closest?.("[data-audio-lane-index]");
       const pointedLane = Number(laneElement?.dataset?.audioLaneIndex);
-      latestLane = Number.isInteger(pointedLane) && pointedLane >= 0
+      const targetLane = Number.isInteger(pointedLane) && pointedLane >= 0
         ? pointedLane
         : Math.max(0, Math.min(maxLane, originalLane + Math.round(deltaY / Math.max(rowHeight, 1))));
+      latestLane = findAvailableAudioLane(
+        occupiedLanes, { id: segment.id, start: latest, duration: segment.duration }, d.trackLocks, d.trackVisibility, targetLane,
+      );
       d.setSnapGuide?.(snapped.guide);
       d.setTimelineHorizon((value) => getTimelineActiveDragHorizon(value, duration, latest + segment.duration));
       applyPosition(latest, latestLane);
     };
     const cancelForPinch = () => {
       cancelledByPinch = true;
-      cleanup(() => applyPosition(start, originalLane));
+      cleanup(() => { if (moved) applyPosition(start, originalLane, true); });
     };
     const cleanup = (settle) => {
       settleTimelineDrag(autoScroller, { active: moved, setTimelineHorizon: d.setTimelineHorizon, settle });
@@ -311,10 +324,10 @@ export function createTimelineMoveControls(d) {
       removeEventListener("timeline-mobile-pinch-start", cancelForPinch);
       d.setSnapGuide?.(null);
     };
-    const cancel = () => cleanup(() => applyPosition(start, originalLane));
+    const cancel = () => cleanup(() => { if (moved) applyPosition(start, originalLane, true); });
     const up = () => { cleanup(); if (moved) {
       if (cancelledByPinch) return;
-      if (Math.abs(latest - start) > 0.000001) {
+      if (Math.abs(latest - start) > 0.000001 && (segment.visualSegmentId || captions.some((caption) => caption.visualSegmentId))) {
         const delta = latest - start;
         const group = rebindMovedVisualGroup([
           { ...segment, start: latest, lane: latestLane },

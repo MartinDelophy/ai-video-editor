@@ -1,0 +1,146 @@
+.audio-clip {
+  --timeline-fade-accent: #74e1d1;
+  --timeline-fade-visibility: hidden;
+  --timeline-fade-duration-visibility: visible;
+}
+
+.audio-clip.is-music {
+  --timeline-fade-accent: #8dbaf0;
+}
+
+.audio-clip.is-video-source {
+  --timeline-fade-accent: #f7c256;
+}
+
+.audio-clip:is(.is-selected, :has(> :is(.timeline-audio-fade-handle, .timeline-gain.is-fade-plateau):is(.is-adjusting, :focus-visible))) {
+  --timeline-fade-visibility: visible;
+  --timeline-fade-duration-visibility: hidden;
+}
+
+@media (hover: hover) {
+  .audio-clip:hover {
+    --timeline-fade-visibility: visible;
+    --timeline-fade-duration-visibility: hidden;
+  }
+}
+
+.audio-clip > :is(.timeline-audio-fade-envelope, .timeline-audio-fade-handle, .is-fade-plateau) {
+  visibility: var(--timeline-fade-visibility);
+}
+
+.timeline-audio-fade-envelope {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.timeline-audio-fade-envelope path {
+  fill: none;
+  stroke: var(--timeline-fade-accent);
+  stroke-width: 1;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.timeline .audio-clip.is-selected:has(> .timeline-audio-fade-envelope) {
+  outline: none;
+  box-shadow: none;
+  filter: none;
+}
+
+.timeline .audio-clip.is-music.is-selected:has(> .timeline-audio-fade-envelope) > .waveform-strip {
+  border-color: #8cc9f5;
+  background: #1a293b;
+}
+
+.audio-clip:has(> .timeline-audio-fade-envelope) > .audio-clip-duration {
+  visibility: var(--timeline-fade-duration-visibility);
+}
+
+.timeline-gain.is-fade-plateau::before {
+  background: var(--timeline-fade-accent);
+  opacity: 1;
+}
+
+.timeline-gain.is-fade-plateau:is(:hover, :focus-visible, .is-adjusting)::before {
+  background: #eef6fa;
+  opacity: 1;
+}
+
+.timeline-audio-fade-handle {
+  position: absolute;
+  z-index: 4;
+  width: min(14px, 34%);
+  height: 16px;
+  transform: translate(-50%, -50%);
+  cursor: ew-resize;
+  touch-action: none;
+  outline: none;
+}
+
+.timeline-audio-fade-handle::before {
+  position: absolute;
+  inset: 50% auto auto 50%;
+  box-sizing: border-box;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1px solid var(--timeline-fade-accent);
+  background: #f4f8ff;
+  box-shadow: 0 0 0 1px #101822;
+  transform: translate(-50%, -50%);
+  content: "";
+}
+
+.timeline-audio-fade-handle:is(:hover, :focus-visible, .is-adjusting) {
+  z-index: 5;
+}
+
+.timeline-audio-fade-handle:is(:hover, :focus-visible, .is-adjusting)::before {
+  box-shadow: 0 0 0 1px #101822, 0 0 0 2px var(--timeline-fade-accent);
+}
+
+.timeline-audio-fade-tooltip {
+  position: fixed;
+  z-index: 100000;
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  padding: 3px 8px;
+  border: 1px solid #46505c;
+  border-radius: 5px;
+  background: #1c232c;
+  color: #c8d1dc;
+  font-size: 11px;
+  line-height: 16px;
+  white-space: nowrap;
+  pointer-events: none;
+  transform: translate(-50%, -100%);
+}
+
+.timeline-audio-fade-tooltip::after {
+  position: absolute;
+  top: 100%;
+  left: clamp(4px, calc(50% + var(--fade-leader-offset)), calc(100% - 4px));
+  width: 1px;
+  height: var(--fade-leader-height);
+  background: #627181;
+  content: "";
+}
+
+.timeline-audio-fade-tooltip strong {
+  color: #eef6fa;
+  font-variant-numeric: tabular-nums;
+  font-weight: 650;
+}
+
+@container (max-width: 32px) {
+  .timeline-audio-fade-handle::before { width: 6px; height: 6px; border-width: 1px; }
+}
+
+@media (pointer: coarse) {
+  .timeline-audio-fade-handle { height: 22px; }
+}

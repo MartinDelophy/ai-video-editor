@@ -2,6 +2,9 @@ import { decodeWaveform, extractVideoTrackFrames, getVideoTrackImportFrameBudget
 import { getRemoteAssetBlob } from "./remoteAssetCache.js";
 import { getVisualInsertionHover, resolveVisualInsertion } from "./visualDropInsertion.js";
 import { loadProjectMediaBlob } from "./projectSnapshot.js";
+import { resolveAssetDropTrack } from "./assetDragControls.js";
+import { getAvailableAudioLane } from "./timeline.js";
+import { getSoundEffectsCopy } from "../i18nSoundEffects.js";
 
 function getRemoteVideoImportFrameBudget(duration) {
   const seconds = Math.max(0, Number(duration) || 0);
@@ -34,6 +37,35 @@ export function createAssetDropActions(d) {
     if (asset?.type === "audio" && asset.kind === "music") track = "music";
     if (!d.canDropAssetOnTrack(asset, track)) {
       d.notify(tr("assetTrackMismatch", "请把素材拖到匹配的轨道"));
+      return;
+    }
+    if (asset.kind === "sound-effect") {
+      const { audioLane } = options;
+      const isDrop = Number.isInteger(audioLane);
+      const start = options.startTime ?? d.currentTimeRef.current;
+      const copy = getSoundEffectsCopy(d.language);
+      let blob = asset.blob;
+      if (!blob) {
+        try {
+          const response = await fetch(asset.src);
+          if (!response.ok) throw new Error(response.statusText);
+          blob = await response.blob();
+          if (!blob.size) throw new Error("Empty sound effect");
+        } catch {
+          d.notify(copy.unavailable);
+          return;
+        }
+      }
+      const { trackLocks, trackVisibility } = d.audioDropTracksRef.current;
+      if (trackLocks.audio || trackVisibility.audio === false) return;
+      d.checkpointHistory();
+      d.pauseForTimelineEdit();
+      const segment = d.replaceAudio(blob, asset.duration, asset.peaks, copy.added, {
+        start, name: asset.name, sourceKind: asset.kind, assetId: asset.id, seekToStart: !isDrop,
+        getLane: (segments) => getAvailableAudioLane(segments, { start, duration: asset.duration }, trackLocks, trackVisibility, audioLane),
+      });
+      d.revealAudioSegment(segment.id, isDrop);
+      d.notify(copy.added);
       return;
     }
     const isRemoteVisual = (track === "image" || track === "overlay") && asset?.src && !asset.blob && /^https?:/i.test(asset.src);
@@ -122,7 +154,7 @@ export function createAssetDropActions(d) {
       return;
     }
     if (track === "music") {
-      await d.selectAsset(asset, { focusAudio: false });
+      await d.selectAsset(asset, { focusAudio: false, start: options.startTime });
       return;
     }
     if (track === "audio") {
@@ -138,12 +170,22 @@ export function createAssetDropActions(d) {
         : Number.isFinite(Number(options.percent)) && Number.isFinite(Number(d.timelineDuration))
           ? Math.max(0, Number(options.percent) / 100 * Number(d.timelineDuration))
           : undefined;
-      d.replaceAudio(blob, decoded.duration, decoded.peaks, "音频已写入配音轨", {
+      const { trackLocks, trackVisibility } = d.audioDropTracksRef.current;
+      if (trackLocks.audio || trackVisibility.audio === false) return;
+      const isDrop = Number.isInteger(options.audioLane);
+      const segment = d.replaceAudio(blob, decoded.duration, decoded.peaks, "音频已写入配音轨", {
         sourceKind: "upload",
         assetId: asset.id,
         name: asset.name,
         start: dropStart,
+        ...(isDrop ? {
+          seekToStart: false,
+          getLane: (segments) => getAvailableAudioLane(
+            segments, { start: dropStart, duration: decoded.duration }, trackLocks, trackVisibility, options.audioLane,
+          ),
+        } : {}),
       });
+      if (isDrop) d.revealAudioSegment(segment.id, true);
       d.setSelectedTrack("audio");
       d.notify(tr("audioDroppedOnVoiceTrack", "音频已拖入配音音频轨"));
       return;
@@ -157,7 +199,7 @@ export function createAssetDropActions(d) {
 
   function handleTrackAssetDrop(event, track) {
     const asset = d.getDraggedAsset(event);
-    let targetTrack = asset?.type === "sticker" ? "sticker" : track;
+    const targetTrack = resolveAssetDropTrack(asset, track);
     if (!d.canDropAssetOnTrack(asset, targetTrack)) return;
     event.preventDefault();
     event.stopPropagation();
@@ -178,6 +220,12 @@ export function createAssetDropActions(d) {
     d.setDraggedAssetId("");
     d.setAssetDropTargetTrack("");
     d.setAssetDropPosition({ track: "", percent: 50 });
+    if (asset.type === "audio") {
+      const placement = d.resolveAudioDrop(event, asset, event.currentTarget, targetTrack);
+      d.setSnapGuide(null);
+      void applyAssetToTrack(asset, targetTrack, placement);
+      return;
+    }
     d.triggerAssetDropPulse(targetTrack);
     const startTime = targetTrack === "overlay"
       ? Math.max(0, percent / 100 * Math.max(0, Number(d.timelineDuration) || 0))

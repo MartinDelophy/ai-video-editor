@@ -40,6 +40,8 @@ import {
   VOICES,
 } from "../config/editor.js";
 import { APP_LANGUAGES } from "../i18n.js";
+import { getSoundEffectsCopy } from "../i18nSoundEffects.js";
+import { SoundEffectsLibrary } from "./SoundEffectsLibrary.jsx";
 import { AI_MUSIC_PRESETS, buildEnglishMusicPrompt } from "../lib/aiMusicPrompt.js";
 import {
   ensureCaptionFontLoaded,
@@ -146,11 +148,18 @@ export function MediaPanel({
   applyAssetToTrack,
   closeMobilePanel,
   mobilePanelOpen,
+  soundAddDisabled,
+  isPlaying,
+  pauseForTimelineEdit,
   language = "en",
   onGeneratedVector,
   onOpenAiMusic,
 }) {
   const assets = mediaTab === "library" ? builtInAssets : userAssets;
+  const soundCopy = getSoundEffectsCopy(language);
+  const showSoundLibrary = mediaTab === "library" && libraryType === "sound";
+  const searchLabel = libraryType === "sound" ? soundCopy.search
+    : t(libraryType === "vector" ? "librarySearchVectorPlaceholder" : libraryType === "audio" ? "librarySearchMusicPlaceholder" : "librarySearchPlaceholder");
   const [vectorCategory, setVectorCategory] = useState("all");
   const visibleAssets = libraryType === "vector" && vectorCategory !== "all"
     ? assets.filter((asset) => asset.category === vectorCategory)
@@ -272,9 +281,9 @@ export function MediaPanel({
         </>
       ) : mediaTab === "library" ? (
         <>
-          <LibraryTypeTabs t={t} activeType={libraryType} onSelect={selectLibraryType} />
+          <LibraryTypeTabs t={t} activeType={libraryType} soundLabel={soundCopy.tab} onSelect={selectLibraryType} />
           <form className="library-search" onSubmit={(event) => event.preventDefault()}>
-            <input value={libraryQuery} onChange={(event) => setLibraryQuery(event.target.value)} placeholder={t(libraryType === "vector" ? "librarySearchVectorPlaceholder" : libraryType === "audio" ? "librarySearchMusicPlaceholder" : "librarySearchPlaceholder")} aria-label={t(libraryType === "vector" ? "librarySearchVectorPlaceholder" : libraryType === "audio" ? "librarySearchMusicPlaceholder" : "librarySearchPlaceholder")} />
+            <input value={libraryQuery} onChange={(event) => setLibraryQuery(event.target.value)} placeholder={searchLabel} aria-label={searchLabel} />
           </form>
           {libraryType === "vector" ? (
             <div className="vector-category-row" role="group" aria-label={t("vectorCategories", "矢量素材分类")}>
@@ -291,8 +300,15 @@ export function MediaPanel({
               ))}
             </div>
           ) : null}
-          <div className="library-provider">{t("libraryProvidedBy")} <strong>{libraryProvider}</strong></div>
-          {renderAssetList(visibleAssets, {
+          {showSoundLibrary ? (
+            <SoundEffectsLibrary
+              assets={assets} copy={soundCopy} language={language} empty={t("libraryEmpty")}
+              addDisabled={soundAddDisabled} isPlaying={isPlaying} onPointerDown={handleAssetPointerDown}
+              pauseTimeline={pauseForTimelineEdit}
+              onAdd={(asset) => applyAssetToTrack?.(asset, "audio")}
+            />
+          ) : <div className="library-provider">{t("libraryProvidedBy")} <strong>{libraryProvider}</strong></div>}
+          {showSoundLibrary ? null : renderAssetList(visibleAssets, {
             prepend: libraryType === "audio" ? (
               <AiMusicLibraryCard
                 language={language}
@@ -310,7 +326,7 @@ export function MediaPanel({
         renderAssetList(assets, { deletable: mediaTab === "mine" })
       )}
 
-      {selectedAsset && mobilePanelOpen ? createPortal((
+      {selectedAsset && mobilePanelOpen && !showSoundLibrary ? createPortal((
         <div className="mobile-asset-actions" aria-label={t("mobileAssetActions")}>
           <span><strong>{selectedAsset.name}</strong><small>{t("mobileAssetSelected")}</small></span>
           {selectedAsset.type === "audio" ? (
@@ -625,7 +641,7 @@ function AiVectorDesignDialog({ language, onClose, onGenerated }) {
   );
 }
 
-function LibraryTypeTabs({ t, activeType, onSelect }) {
+function LibraryTypeTabs({ t, activeType, onSelect, soundLabel }) {
   const viewportRef = useRef(null);
   const [edges, setEdges] = useState({ left: false, right: false });
   const updateEdges = useCallback(() => {
@@ -659,9 +675,9 @@ function LibraryTypeTabs({ t, activeType, onSelect }) {
       const activeRect = active.getBoundingClientRect();
       const maxScroll = Math.max(0, viewport.scrollWidth - viewport.clientWidth);
       if (activeRect.left < viewportRect.left + 4) {
-        viewport.scrollTo({ left: Math.max(0, viewport.scrollLeft + activeRect.left - viewportRect.left - 4), behavior: "smooth" });
-      } else if (activeRect.right > viewportRect.right - 4) {
-        viewport.scrollTo({ left: Math.min(maxScroll, viewport.scrollLeft + activeRect.right - viewportRect.right + 4), behavior: "smooth" });
+        viewport.scrollTo({ left: Math.max(0, viewport.scrollLeft + activeRect.left - viewportRect.left - 36), behavior: "smooth" });
+      } else if (activeRect.right > viewportRect.right - (maxScroll > 2 ? 36 : 4)) {
+        viewport.scrollTo({ left: Math.min(maxScroll, viewport.scrollLeft + activeRect.right - viewportRect.right + 36), behavior: "smooth" });
       }
     }
     const timer = setTimeout(updateEdges, 220);
@@ -691,10 +707,10 @@ function LibraryTypeTabs({ t, activeType, onSelect }) {
           <CaretLeft size={16} weight="bold" />
         </button>
       ) : null}
-      <div className="library-type-tabs" role="tablist" aria-label={t("libraryMediaType")} ref={viewportRef}>
-        {["image", "video", "audio", "vector"].map((type) => (
+      <div className="library-type-tabs has-sound-library" role="tablist" aria-label={t("libraryMediaType")} ref={viewportRef}>
+        {["image", "video", "audio", "sound", "vector"].map((type) => (
           <button type="button" role="tab" aria-selected={activeType === type} className={activeType === type ? "is-active" : ""} key={type} onClick={() => onSelect(type)}>
-            {t(`library${type[0].toUpperCase()}${type.slice(1)}`)}
+            {type === "sound" ? soundLabel : t(`library${type[0].toUpperCase()}${type.slice(1)}`)}
           </button>
         ))}
       </div>

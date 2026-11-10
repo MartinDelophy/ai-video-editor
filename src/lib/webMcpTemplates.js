@@ -104,6 +104,7 @@ export async function buildBrowserTemplateReview(project, request, options, { la
   const result = createTemplateComposition(template, {
     assets, bpm, intro, language, start, ratio, targetRatio, builtInMusic,
     overlays: project.visualOverlaySegments || [], markers: project.timelineMarkers || [],
+    audioSegments: project.audioSegments, trackLocks: project.trackLocks, trackVisibility: project.trackVisibility,
   });
   const stripMedia = ({ src: _src, blob: _blob, trackFrames: _frames, thumbnail: _thumbnail, originalSrc: _originalSrc, ...clip }) => clip;
   const musicSegments = result.music ? [{
@@ -115,6 +116,7 @@ export async function buildBrowserTemplateReview(project, request, options, { la
     visualSegments: [...(project.visualSegments || []), ...result.visualSegments.map(stripMedia)],
     visualOverlaySegments: [...(project.visualOverlaySegments || []), ...result.overlays.map(stripMedia)],
     effectClips: [...(project.effectClips || []), ...result.effects],
+    audioSegments: [...(project.audioSegments || []), ...result.audio.map(({ blob: _blob, peaks: _peaks, ...clip }) => clip)],
     timelineMarkers: [...(project.timelineMarkers || []), ...result.markers],
     ...(result.music ? { musicSegments, musicStart: start, musicName: result.music.name, musicDuration: result.music.duration } : {}),
   };
@@ -124,7 +126,7 @@ export async function buildBrowserTemplateReview(project, request, options, { la
   return {
     ...review, title: result.message,
     template: { templateId: template.id, bpm, start, duration: result.duration, soundtrackAdded: Boolean(result.music) },
-    templateMedia: { visuals: result.visualSegments, overlays: result.overlays, music: result.music,
+    templateMedia: { visuals: result.visualSegments, overlays: result.overlays, music: result.music, audio: result.audio,
       personalizedIntroId: intro?.personalized ? result.visualSegments[0].id : undefined },
   };
 }

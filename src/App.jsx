@@ -672,7 +672,7 @@ export function App({ hostSession = null }) {
   });
 
   const { builtInAssets, filteredVoices, libraryType, libraryQuery, setLibraryQuery,
-    selectLibraryType, libraryStatus, libraryError, libraryProvider, assetDownloadStates, prefetchLibraryAsset } = useEditorCatalog(voiceFilter);
+    selectLibraryType, libraryStatus, libraryError, libraryProvider, assetDownloadStates, prefetchLibraryAsset } = useEditorCatalog(voiceFilter, activeLanguage);
   const generationPlugins = useGenerationPlugins({
     imageUrlRefs,
     notify,
@@ -740,16 +740,18 @@ export function App({ hostSession = null }) {
 
   const {
     canDropAssetOnTrack, findAssetById, getActiveDraggedAsset, getDraggedAsset,
-    getTimelineDropPercent, handleAssetClick, handleAssetDragEnd, handleAssetDragStart,
+    getTimelineDropPercent, resolveAudioDrop, handleAssetClick, handleAssetDragEnd, handleAssetDragStart,
     confirmStickerSelection, handleAssetPointerDown, handleStickerClick, handleTrackAssetDragLeave,
     handleTrackAssetDragOver, triggerAssetDropPulse,
   } = createAssetDragControls({
-    addStickerAssetToTimeline: (...args) => addStickerAssetToTimeline(...args), applyAssetToTrack: (...args) => applyAssetToTrack(...args), assetDropPulseTimerRef, builtInAssets, currentTime, draggedAssetId,
+    addStickerAssetToTimeline: (...args) => addStickerAssetToTimeline(...args), applyAssetToTrack: (...args) => applyAssetToTrack(...args), assetDropPulseTimerRef, builtInAssets, currentTime, currentTimeRef, draggedAssetId,
     draggedAssetIdRef, getStickerDragAsset, notify, pointerAssetDragRef, prefetchAsset: prefetchLibraryAsset,
     setAssetDragPreview, setAssetDropPosition, setAssetDropPulseTrack,
     setAssetDropTargetTrack, setDraggedAssetId, setSelectedLibraryAssetId,
     setSelectedStickerId, setSelectedStickerSegmentId, suppressAssetClickRef,
-    t, timelineDuration, trackLocks, trackScrollRef, userAssets, visualSegments,
+    t, timelineDuration, timelineDurationRef, trackLocks, trackVisibility, trackScrollRef, userAssets, visualSegments,
+    audioSegments, captionSegments, captionTargetDuration, effectClips, musicDuration, musicSegments, musicStart, setSnapGuide,
+    linkedSourceAudioSegments, sourceAudioDuration, sourceAudioLinked, sourceAudioStart, stickerSegments, timelineMarkers, visualOverlaySegments,
   });
 
   const analyzeCurrentVisual = useVisionAnalysis({
@@ -966,14 +968,20 @@ export function App({ hostSession = null }) {
     sourceAudioBlob, sourceAudioName, replaceAudio, replaceSourceAudio, replaceMusic, notify, t,
   });
   const selectedSourceAudioPiece = linkedSourceAudioSegments.find((segment) => segment.id === selectedSourceAudioSegmentId) ?? null;
-  const selectedMusicSegment = musicSegments.find((segment) => segment.id === selectedMusicSegmentId) ?? null;
+  const legacyMusicSegment = musicBlob && !musicSegments.length
+    ? { id: "music-audio", start: musicStart, duration: musicDuration, sourceStart: 0, sourceDuration: musicDuration, playbackRate: 1, peaks: musicPeaks }
+    : null;
+  const selectedMusicSegment = (legacyMusicSegment?.id === selectedMusicSegmentId
+    ? legacyMusicSegment
+    : musicSegments.find((segment) => segment.id === selectedMusicSegmentId)) ?? null;
+  const hasSelectedMusicSegment = Boolean(selectedMusicSegment);
   useEffect(() => {
-    if (selectedMusicSegmentId && !selectedMusicSegment) setSelectedMusicSegmentId("");
-  }, [selectedMusicSegment, selectedMusicSegmentId]);
+    if (selectedMusicSegmentId && !hasSelectedMusicSegment) setSelectedMusicSegmentId("");
+  }, [hasSelectedMusicSegment, selectedMusicSegmentId]);
   const selectedAudioToolTarget = selectedTrack === "audio" && selectedAudioSegmentId && selectedAudioSegment
     ? { ...selectedAudioSegment, segmentId: selectedAudioSegment.id, track: "audio", canChangeSpeed: true }
     : selectedTrack === "music" && musicBlob
-      ? { ...(selectedMusicSegment ?? musicSegments[0] ?? { id: "music-audio", start: musicStart, duration: musicDuration, sourceStart: 0, sourceDuration: musicDuration, playbackRate: 1 }), blob: musicBlob, name: musicName || t("musicTrack"), segmentId: selectedMusicSegment?.id || musicSegments[0]?.id || "music-audio", track: "music", volume: selectedMusicSegment?.volume ?? musicSegments[0]?.volume ?? musicVolume, canChangeSpeed: true }
+      ? { ...(selectedMusicSegment ?? musicSegments[0] ?? legacyMusicSegment), blob: musicBlob, name: musicName || t("musicTrack"), segmentId: selectedMusicSegment?.id || musicSegments[0]?.id || "music-audio", track: "music", volume: selectedMusicSegment?.volume ?? musicSegments[0]?.volume ?? musicVolume, canChangeSpeed: true }
       : selectedTrack === "source" && sourceAudioBlob
         ? { ...(selectedSourceAudioPiece ?? {}), blob: sourceAudioBlob, url: sourceAudioUrl, peaks: selectedSourceAudioPiece ? sliceSourceAudioPeaks(sourceAudioPeaks, selectedSourceAudioPiece, sourceAudioDuration) : sourceAudioPeaks, name: sourceAudioName, start: selectedSourceAudioPiece?.start ?? sourceAudioStart, sourceStart: selectedSourceAudioPiece?.sourceStart ?? 0, duration: selectedSourceAudioPiece?.duration ?? sourceAudioDuration, sourceDuration: selectedSourceAudioPiece?.sourceDuration ?? sourceAudioDuration, playbackRate: selectedSourceAudioPiece?.playbackRate ?? 1, segmentId: selectedSourceAudioSegmentId || "source-audio", track: "source", volume: selectedSourceAudioPiece?.volume ?? sourceAudioVolume, spatialEffect: sourceAudioSpatialEffect, spatialAmount: sourceAudioSpatialAmount, canChangeStart: !sourceAudioLinked, canChangeSpeed: Boolean(sourceAudioLinked && selectedSourceAudioPiece), voiceColorOriginalBlob: sourceVoiceColorOriginalRef.current?.blob || null }
         : selectedTrack === "image" && selectedVisualSegment?.type === "video"
@@ -1149,6 +1157,26 @@ export function App({ hostSession = null }) {
     notify(t("voiceColorOriginalRestored", "已恢复原始声音"));
     return true;
   };
+
+  const updateMusicSegment = (id, patch) => {
+    if (!musicBlob || trackLocks.music) return;
+    const normalizedPatch = Number.isFinite(patch.volume)
+      ? { ...patch, volume: Math.max(0, Math.min(4, patch.volume)) }
+      : patch;
+    setMusicSegments((segments) => {
+      const source = segments.length ? segments : legacyMusicSegment ? [legacyMusicSegment] : segments;
+      if (!source.some((segment) => segment.id === id)) return segments;
+      const next = source.map((segment) => {
+        if (segment.id !== id) return segment;
+        const updated = Number.isFinite(normalizedPatch.playbackRate)
+          ? updateAudioSegmentPlaybackRate(segment, normalizedPatch.playbackRate)
+          : segment;
+        return { ...updated, ...normalizedPatch };
+      });
+      if (Number.isFinite(normalizedPatch.start)) setMusicStart(Math.min(...next.map((segment) => segment.start)));
+      return next;
+    });
+  };
   const updateSelectedTrackAudioSegment = (id, patch) => {
     if (["image", "overlay"].includes(selectedTrack)) {
       const lock = selectedTrack === "image" ? trackLocks.image : trackLocks.overlay;
@@ -1162,24 +1190,7 @@ export function App({ hostSession = null }) {
       return;
     }
     if (selectedTrack === "audio") return updateAudioSegment(id, patch);
-    if (selectedTrack === "music") {
-      setMusicSegments((segments) => {
-        const source = segments.length ? segments : [{ id: "music-audio", start: musicStart, duration: musicDuration, sourceStart: 0, sourceDuration: musicDuration, playbackRate: 1, peaks: musicPeaks }];
-        const next = source.map((segment) => {
-          if (segment.id !== id) return segment;
-          const normalizedPatch = Number.isFinite(patch.volume)
-            ? { ...patch, volume: Math.max(0, Math.min(4, patch.volume)) }
-            : patch;
-          return Number.isFinite(normalizedPatch.playbackRate)
-            ? { ...updateAudioSegmentPlaybackRate(segment, normalizedPatch.playbackRate), ...normalizedPatch }
-            : { ...segment, ...normalizedPatch };
-        });
-        const nextStart = Math.min(...next.map((segment) => segment.start));
-        setMusicStart(nextStart);
-        return next;
-      });
-      return;
-    }
+    if (selectedTrack === "music") return updateMusicSegment(id, patch);
     if (selectedTrack === "source") {
       if (patch.blob instanceof Blob) {
         const lane = getSourceProcessingLane(audioSegments, trackLocks);
@@ -1346,6 +1357,8 @@ export function App({ hostSession = null }) {
     userAssets, visualSegments,
   });
 
+  const audioDropTracksRef = useRef(null);
+  audioDropTracksRef.current = { trackLocks, trackVisibility };
   const { applyAssetToTrack, handleTrackAssetDrop, handleVisualStyleDrop } = createAssetDropActions({
     addStickerAssetToTimeline, addVisualOverlay: (...args) => addVisualOverlay(...args), appendVisualAssetToTimeline, canDropAssetOnTrack, clearImageTrack,
     draggedAssetIdRef, extractVideoSourceAudio, getDraggedAsset, getTimelineDropPercent, imageUrlRefs,
@@ -1354,6 +1367,13 @@ export function App({ hostSession = null }) {
     setSelectedLibraryAssetId, setSelectedTrack, setSelectedTransitionId,
     setSelectedVisualSegmentId, setVisualSegments, trackScrollRef, resolveVisualDropIntent, updateVisualAssetInTimeline,
     t, timelineDuration, triggerAssetDropPulse, visualSegments,
+    checkpointHistory, currentTimeRef, language: activeLanguage, pauseForTimelineEdit, resolveAudioDrop,
+    setSnapGuide, audioDropTracksRef,
+    revealAudioSegment: (id, keepHorizontalPosition) => {
+      setPlayheadRevealRequest({ track: "audio", id, keepHorizontalPosition });
+      selectTrackForInspector("audio");
+      if (isCompactViewport) changeMobilePanel("inspector");
+    },
   });
   const addVisualOverlay = (asset, options = {}) => {
     if (!asset?.src || (asset.type !== "image" && asset.type !== "video")) return;
@@ -1600,6 +1620,7 @@ export function App({ hostSession = null }) {
       });
       runtime.visualSegments = [...runtime.visualSegments, ...added];
       runtime.visualOverlaySegments = [...runtime.visualOverlaySegments, ...templateMedia.overlays];
+      runtime.audioSegments = [...runtime.audioSegments, ...attachTemplateAudio(templateMedia.audio || [])];
       if (templateMedia.music) {
         runtime.musicSegments = review.project.musicSegments.map((clip) => ({ ...clip, peaks: templateMedia.music.peaks }));
         runtime.musicBlob = templateMedia.music.blob;
@@ -1732,6 +1753,13 @@ export function App({ hostSession = null }) {
         || musicBlob || script.trim() || selectedFilterId !== "none"
         || Object.keys(visionRecords).length || Object.keys(depthRecords).length);
   };
+  function attachTemplateAudio(clips) {
+    return clips.map((clip) => {
+      const url = URL.createObjectURL(clip.blob);
+      imageUrlRefs.current.add(url);
+      return { ...clip, url };
+    });
+  }
   const applyTimelineTemplate = ({ assets, bpm, music, builtInMusic, intro }) => {
     if (!selectedTemplate || templateTracksBlocked) return;
     const copy = templateCopy(activeLanguage);
@@ -1752,6 +1780,7 @@ export function App({ hostSession = null }) {
     const result = createTemplateComposition(selectedTemplate, {
       assets, bpm, intro, language: activeLanguage, start, ratio, targetRatio,
       overlays: visualOverlaySegments, markers: timelineMarkers, builtInMusic: canAddMusic && builtInMusic,
+      audioSegments, trackLocks, trackVisibility,
     });
     music = result.music || music;
     checkpointHistory();
@@ -1770,6 +1799,10 @@ export function App({ hostSession = null }) {
     setTimelineMarkers((items) => [...items, ...result.markers]);
     setVisualOverlaySegments((items) => [...items, ...result.overlays]);
     setEffectClips((items) => [...items, ...result.effects]);
+    if (result.audio.length) {
+      const clips = attachTemplateAudio(result.audio);
+      setAudioSegments((items) => [...items, ...clips]);
+    }
     const selectedIndex = getVisualSegmentIndexAtTime(result.visualSegments, result.previewTime - start);
     commitVisualSegments([...previous, ...result.visualSegments], result.message, previous.length + selectedIndex);
     // Publish the new clock and the clips together. seekTo still sees the
@@ -2004,7 +2037,7 @@ export function App({ hostSession = null }) {
             if (isCompactViewport) changeMobilePanel("inspector");
           },
           visualLocalTime, updateSelectedVisualEffects, updateSelectedSubjectEffect, updateSelectedClickRipple, removeSelectedSubjectEffect, miganRepair, hdRestoration, smartDenoise,
-          mobilePanel, setMobilePanel: changeMobilePanel, applyAssetToTrack, handleGeneratedVector, generationPlugins,
+          mobilePanel, setMobilePanel: changeMobilePanel, applyAssetToTrack, handleGeneratedVector, generationPlugins, trackVisibility, isPlaying, pauseForTimelineEdit,
           showPluginInspector: () => {
             showToolInspector();
             if (isCompactViewport) changeMobilePanel("inspector");
@@ -2411,6 +2444,11 @@ export function App({ hostSession = null }) {
         toggleTrackLock={toggleTrackLock}
         trackScrollRef={trackScrollRef}
         startTimelineSeek={startTimelineSeek}
+        onChangeAudioFade={(track, id, field, value) => {
+          checkpointHistory();
+          if (track === "music") updateMusicSegment(id, { [field]: value });
+          else updateAudioSegment(id, { [field]: value });
+        }}
         onMoveVisualKeyframe={(track, id, from, to) => {
           const overlay = track === "overlay";
           const segments = overlay ? visualOverlaySegments : visualSegments;

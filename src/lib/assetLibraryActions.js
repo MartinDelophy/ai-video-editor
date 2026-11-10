@@ -18,7 +18,7 @@ export function createAssetLibraryActions(deps) {
         decoded.peaks,
         asset.name,
         undefined,
-        { focusAudio: options.focusAudio !== false },
+        { focusAudio: options.focusAudio !== false, start: options.start },
       );
       return;
     }

@@ -21,7 +21,7 @@ import {
   X,
 } from "@phosphor-icons/react";
 
-import { requestTimelineMediaPlay, setTimelineAudioGain } from "../lib/editorRuntime.js";
+import { getAudioSegmentPreviewVolume, requestTimelineMediaPlay, setTimelineAudioGain } from "../lib/editorRuntime.js";
 import { formatTime } from "../lib/timeline.js";
 import { getTaperedMaskPoints, getVisualMaskGeometry, getVisualMaskSvgDataUrl, getVisualSourceTime, getVisualPlaybackRateAtTime, resolveVisualTransform, snapVisualScaleToFrameEdges } from "../lib/visualEffects.js";
 import { resolveVisualClipAnimation } from "../lib/visualClipAnimations.js";
@@ -173,7 +173,7 @@ function VisualOverlayMedia({ overlay, src, style, isPlaying, localTime, timelin
           scrubbing: timelineScrubbingRef.current,
         });
       }
-      setTimelineAudioGain(video, overlay.volume ?? 1, overlay.spatialEffect, overlay.spatialAmount);
+      setTimelineAudioGain(video, getAudioSegmentPreviewVolume({ ...overlay, start: 0 }, localTime), overlay.spatialEffect, overlay.spatialAmount);
       if (isPlaying && video.paused) requestTimelineMediaPlay(video);
       else if (!isPlaying && !video.paused) video.pause();
     };
@@ -970,7 +970,7 @@ export function PreviewStage({
                     video.pause();
                     video.playbackRate = getVisualPlaybackRateAtTime(previewVisualSegment, visualLocalTime);
                     if ("preservesPitch" in video) video.preservesPitch = true;
-                    setTimelineAudioGain(video, previewVisualSegment?.volume ?? 1, previewVisualSegment?.spatialEffect, previewVisualSegment?.spatialAmount);
+                    setTimelineAudioGain(video, getAudioSegmentPreviewVolume({ ...previewVisualSegment, start: 0 }, visualLocalTime), previewVisualSegment?.spatialEffect, previewVisualSegment?.spatialAmount);
                     syncSmartBackgroundVideo(video);
                     requestLatestVideoFrame(video, Math.max(0, Math.min(sourceTime, maxTime)), {
                       immediate: true,

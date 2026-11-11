@@ -144,3 +144,22 @@
 @media (pointer: coarse) {
   .timeline-audio-fade-handle { height: 22px; }
 }
+
+.video-clip-audio {
+  --timeline-fade-accent: #74e1d1;
+  --timeline-fade-visibility: hidden;
+}
+
+.video-clip-audio.is-selected,
+.video-clip-audio:hover,
+.video-clip-audio:focus-within {
+  --timeline-fade-visibility: visible;
+}
+
+.video-clip-audio > :is(.timeline-audio-fade-envelope, .timeline-audio-fade-handle, .is-fade-plateau) {
+  visibility: var(--timeline-fade-visibility);
+}
+
+.video-clip-audio > .timeline-audio-fade-handle {
+  height: 16px;
+}

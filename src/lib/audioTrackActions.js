@@ -132,6 +132,7 @@ export function createAudioTrackActions(d) {
     d.setSourceAudioDuration(duration || 0);
     d.setSourceAudioPeaks(nextPeaks);
     d.setSourceAudioVolume(1);
+    d.setSourceAudioFades({});
     d.setSourceAudioSpatialEffect?.("original");
     d.setSourceAudioSpatialAmount?.(1);
     d.setSourceAudioStart(nextStart);

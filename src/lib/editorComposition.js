@@ -30,7 +30,7 @@ export async function prepareEditorComposition(d, { exportSettings, exportRange,
       : embeddedVideoAudio.blob
     : null;
   const exportSourceAudioSegments = d.sourceAudioBlob
-    ? d.sourceAudioLinked ? d.linkedSourceAudioSegments : []
+    ? d.sourceAudioLinked ? d.linkedSourceAudioSegments : [{ start: d.sourceAudioStart, duration: d.sourceAudioDuration, ...d.sourceAudioFades }]
     : embeddedVideoAudio.segments;
   const exportedVisualSegments = d.renderedVisualSegments.map((segment) => {
     const record = d.visionRecords[getVisionKey(segment)];

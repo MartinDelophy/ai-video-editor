@@ -42,7 +42,7 @@ function FadeEnvelope({ fadeIn, fadeOut, start, end, peakY }) {
   );
 }
 
-export function TimelineAudioFades({ segment, selected, disabled, clipWidth, waveformVisible, peaks, volume, t, language, onChange, onChangeVolume }) {
+export function TimelineAudioFades({ segment, selected, disabled, clipWidth, waveformVisible, peaks, sourceStart, sourceDuration, sourceAudioDuration, renderWaveform, volume, t, language, onChange, onChangeVolume }) {
   const pointer = useRef(null);
   const [draft, setDraft] = useState(null);
   const [tooltip, setTooltip] = useState(null);
@@ -83,13 +83,15 @@ export function TimelineAudioFades({ segment, selected, disabled, clipWidth, wav
   const tooltipY = tooltip && Math.max(30, tooltip.top - 9);
 
   function showTooltip(field, target) {
-    const clip = target.closest(".audio-clip").getBoundingClientRect();
+    const clip = target.closest(".audio-clip, .video-clip-audio").getBoundingClientRect();
     setTooltip({ field, left: clip.left, top: clip.top, width: clip.width, height: clip.height });
   }
 
   return <>
-    {waveformVisible && (
-      <WaveformStrip timeline active peaks={peaks} volume={volume} fadeInRatio={fadeIn / 100} fadeOutRatio={fadeOut / 100} />
+    {renderWaveform ? renderWaveform(fadeIn / 100, fadeOut / 100) : waveformVisible && (
+      <WaveformStrip timeline active peaks={peaks} volume={volume} sourceStart={sourceStart}
+        sourceDuration={sourceDuration} sourceAudioDuration={sourceAudioDuration}
+        fadeInRatio={fadeIn / 100} fadeOutRatio={fadeOut / 100} />
     )}
     {editable && <>
       <TimelineGain segment={segment} volume={volume} t={t} onChange={onChangeVolume} fadePlateau={geometry} />
@@ -117,7 +119,7 @@ export function TimelineAudioFades({ segment, selected, disabled, clipWidth, wav
           event.stopPropagation();
           if (event.button !== 0 || !event.isPrimary || pointer.current || max <= 0) return;
           const target = event.currentTarget;
-          const width = target.closest(".audio-clip").getBoundingClientRect().width;
+          const width = target.closest(".audio-clip, .video-clip-audio").getBoundingClientRect().width;
           if (width <= 0) return;
           event.preventDefault();
           target.focus({ preventScroll: true });

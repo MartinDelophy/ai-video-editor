@@ -5,6 +5,8 @@ import { collectTimelineSnapPoints, createTimelineSnapGuide, findClosestTimeline
 
 export function resolveAssetDropTrack(asset, track) {
   if (asset?.type === "sticker") return "sticker";
+  if (asset?.type === "audio" && track === "source") return asset.kind === "music" ? "music" : "audio";
+  if (asset?.kind === "music" && track === "audio") return "music";
   return asset?.kind === "sound-effect" && track === "image" ? "audio" : track;
 }
 

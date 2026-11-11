@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getVideoAudioWaveform } from "../lib/videoAudioWaveform.js";
 import { getVisualSourceTime } from "../lib/visualEffects.js";
-import { TimelineGain } from "./TimelineGain.jsx";
+import { TimelineAudioFades } from "./TimelineAudioFades.jsx";
 import "./VideoClipAudio.css";
 import { observeViewportCanvas } from "../lib/viewportCanvas.js";
 
-export function VideoClipAudio({ segment, disabled, muted, onChange, t }) {
+function VideoAudioWaveform({ segment, muted, fadeIn, fadeOut, t }) {
   const [waveform, setWaveform] = useState(null);
   const [loading, setLoading] = useState(true);
   const canvasRef = useRef(null);
@@ -34,6 +34,10 @@ export function VideoClipAudio({ segment, disabled, muted, onChange, t }) {
         const last = Math.min(waveform.peaks.length - 1, Math.floor(end / waveform.duration * waveform.peaks.length));
         let peak = 0;
         for (let j = first; j <= last; j += 1) peak = Math.max(peak, waveform.peaks[j]);
+        const position = (offset + (i + 0.5) * width / count) / fullWidth;
+        const fadeGain = Math.max(0, Math.min(1, fadeIn > 0 ? position / fadeIn : 1,
+          fadeOut > 0 ? (1 - position) / fadeOut : 1));
+        peak *= fadeGain;
         const amplitude = Math.min(1, peak * gain) * (height - 3);
         context.fillStyle = muted ? "#647a7c" : "#27b6b4";
         if (amplitude <= 0) continue;
@@ -50,10 +54,19 @@ export function VideoClipAudio({ segment, disabled, muted, onChange, t }) {
         context.restore();
       }
     });
-  }, [waveform, timing, segment.volume, muted]);
-  return <div className={`video-clip-audio ${muted ? "is-muted" : ""}`}>
+  }, [waveform, timing, segment.volume, muted, fadeIn, fadeOut]);
+  return <>
     <canvas ref={canvasRef} aria-hidden="true" />
     {loading || !waveform ? <span className="video-clip-audio-status">{t(loading ? "videoWaveformLoading" : "videoWaveformUnavailable")}</span> : null}
-    <TimelineGain volume={segment.volume ?? 1} disabled={disabled || muted} onChange={onChange} t={t} compact />
+  </>;
+}
+
+export function VideoClipAudio({ segment, selected, disabled, muted, onChange, onFade, clipWidth, language, t }) {
+  return <div className={`video-clip-audio ${muted ? "is-muted" : ""} ${selected ? "is-selected" : ""}`}>
+    <TimelineAudioFades segment={segment} selected={selected} disabled={disabled || muted}
+      clipWidth={clipWidth} waveformVisible volume={segment.volume ?? 1} language={language} t={t}
+      onChange={onFade} onChangeVolume={onChange}
+      renderWaveform={(fadeIn, fadeOut) => <VideoAudioWaveform segment={segment} muted={muted} fadeIn={fadeIn} fadeOut={fadeOut} t={t} />}
+    />
   </div>;
 }

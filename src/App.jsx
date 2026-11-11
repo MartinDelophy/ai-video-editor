@@ -195,9 +195,9 @@ export function App({ hostSession = null }) {
     setMusicSegments, setMusicUrl, setMusicVolume, setRecordedVoices, setRecordingElapsed,
     setRecordingState, setSelectedAudioSegmentId, setSelectedVoiceId, setSourceAudioBlob,
     setSourceAudioAssetId, setSourceAudioDuration, setSourceAudioLinked, setSourceAudioName, setSourceAudioPeaks, setSourceAudioStart,
-    setSourceAudioUrl, setSourceAudioVolume, setSourceAudioSpatialEffect, setSourceAudioSpatialAmount, setSpeed, setTimelineHorizon, setVolume,
+    setSourceAudioUrl, setSourceAudioVolume, setSourceAudioSpatialEffect, setSourceAudioSpatialAmount, setSourceAudioFades, setSpeed, setTimelineHorizon, setVolume,
     sourceAudioAssetId, sourceAudioBlob, sourceAudioDuration, sourceAudioLinked, sourceAudioName, sourceAudioPeaks,
-    sourceAudioStart, sourceAudioUrl, sourceAudioVolume, sourceAudioSpatialEffect, sourceAudioSpatialAmount, speed, timelineHorizon, volume,
+    sourceAudioStart, sourceAudioUrl, sourceAudioVolume, sourceAudioSpatialEffect, sourceAudioSpatialAmount, sourceAudioFades, speed, timelineHorizon, volume,
   } = useAudioTrackState();
   const {
     fitMode, imageClipCount, imageDuration, imageMeta, imageName, imageSrc,
@@ -273,7 +273,7 @@ export function App({ hostSession = null }) {
   const lastSaved = useAutosaveTimestamp([
     script, imageSrc, visualType, imageDuration, captionPlacement, selectedVoiceId, speed,
     volume, musicName, musicDuration, musicStart, musicVolume, sourceAudioName, sourceAudioDuration,
-    sourceAudioStart, sourceAudioVolume, sourceAudioSpatialEffect, sourceAudioSpatialAmount, ratioId, fitMode, selectedFilterId, selectedStickerId,
+    sourceAudioStart, sourceAudioVolume, sourceAudioSpatialEffect, sourceAudioSpatialAmount, sourceAudioFades, ratioId, fitMode, selectedFilterId, selectedStickerId,
     captionSegments, visualSegments, visualOverlaySegments, visionRecords, timelineZoom, timelineMarkers, effectClips,
   ]);
 
@@ -318,10 +318,10 @@ export function App({ hostSession = null }) {
     setSelectedStickerId, setSelectedStickerSegmentId, setSelectedTrack,
     setSelectedTransitionId, setSelectedVisualSegmentId, setSourceAudioBlob,
     setSourceAudioAssetId, setSourceAudioDuration, setSourceAudioLinked, setSourceAudioName, setSourceAudioPeaks, setSourceAudioStart,
-    setSourceAudioUrl, setSourceAudioVolume, setStickerSegments, setTimelineHorizon,
+    setSourceAudioUrl, setSourceAudioVolume, setSourceAudioFades, setStickerSegments, setTimelineHorizon,
     setTrackLocks, setTrackVisibility, setUserAssets, setVisualSegments, setVisualType,
     sourceAudioAssetId, sourceAudioBlob, sourceAudioDuration, sourceAudioLinked, sourceAudioName, sourceAudioPeaks,
-    sourceAudioStart, sourceAudioUrl, sourceAudioUrlRef, sourceAudioVolume, stickerSegments,
+    sourceAudioStart, sourceAudioUrl, sourceAudioUrlRef, sourceAudioVolume, sourceAudioFades, stickerSegments,
     timelineHorizon, trackLocks, trackVisibility, userAssets, visualSegments, visualType,
     visualOverlaySegments, selectedVisualOverlayId, setVisualOverlaySegments, setSelectedVisualOverlayId,
   });
@@ -855,7 +855,7 @@ export function App({ hostSession = null }) {
     setIsPlaying, setMusicBlob, setMusicDuration, setMusicName, setMusicPeaks, setMusicSegments,
     setMusicStart, setMusicUrl, setProgress, setSelectedAudioSegmentId, setSelectedMusicSegmentId, setSelectedSegmentId,
     setSelectedTrack, setSourceAudioAssetId, setSourceAudioBlob, setSourceAudioDuration, setSourceAudioLinked, setSourceAudioName,
-    setSourceAudioPeaks, setSourceAudioStart, setSourceAudioUrl, setSourceAudioVolume, setSourceAudioSpatialEffect, setSourceAudioSpatialAmount,
+    setSourceAudioPeaks, setSourceAudioStart, setSourceAudioUrl, setSourceAudioVolume, setSourceAudioSpatialEffect, setSourceAudioSpatialAmount, setSourceAudioFades,
     setStatus, setStatusText, setTimelineHorizon, sourceAudioBlob, sourceAudioDuration,
     sourceAudioAssetId, sourceAudioRef, sourceAudioStart, sourceAudioUrlRef, t,
   });
@@ -890,8 +890,8 @@ export function App({ hostSession = null }) {
         : sourceAudioPeaks,
       volume: linkedPiece?.volume ?? sourceAudioVolume,
       ...(linkedPiece?.speedCurve ? { speedCurve: linkedPiece.speedCurve } : {}),
-      fadeIn: 0,
-      fadeOut: 0,
+      fadeIn: (linkedPiece || sourceAudioFades).fadeIn ?? 0,
+      fadeOut: (linkedPiece || sourceAudioFades).fadeOut ?? 0,
       reversed: false,
       spatialEffect: sourceAudioSpatialEffect,
       spatialAmount: sourceAudioSpatialAmount,
@@ -964,8 +964,8 @@ export function App({ hostSession = null }) {
     notify(t("sourceAudioMovedToAudioTrack"));
     return true;
   };
-  const { separateAudioClipVocals, separateSourceVocals, vocalSeparationJob } = useVocalSeparation({
-    sourceAudioBlob, sourceAudioName, replaceAudio, replaceSourceAudio, replaceMusic, notify, t,
+  const { separateAudioClipVocals, vocalSeparationJob } = useVocalSeparation({
+    replaceAudio, replaceMusic, notify, t,
   });
   const selectedSourceAudioPiece = linkedSourceAudioSegments.find((segment) => segment.id === selectedSourceAudioSegmentId) ?? null;
   const legacyMusicSegment = musicBlob && !musicSegments.length
@@ -989,9 +989,7 @@ export function App({ hostSession = null }) {
           : selectedTrack === "overlay" && selectedVisualOverlay?.type === "video"
             ? { ...selectedVisualOverlay, segmentId: selectedVisualOverlay.id, track: "overlay", canChangeStart: false, canChangeSpeed: false, embeddedVideo: true }
             : null;
-  const separateSelectedAudioVocals = () => selectedAudioToolTarget?.track === "source"
-    ? separateSourceVocals()
-    : selectedAudioToolTarget && separateAudioClipVocals(selectedAudioToolTarget);
+
 
   const {
     chooseInterfaceLanguage, clearAllVisionState, selectTool: selectEditorTool, toggleTrackLock,
@@ -1288,7 +1286,7 @@ export function App({ hostSession = null }) {
     estimatedDuration, isPlaying, musicDuration, musicSegments, musicRef, musicStart, musicUrl, notify,
     linkedSourceAudioSegments, previewVideoRef, previewVisualType, setCurrentTime, setIsPlaying, setPreviewVideoMediaTime, sourceAudioDuration,
     sourceAudioLinked,
-    sourceAudioRef, sourceAudioStart, sourceAudioUrl, sourceAudioVolume, sourceAudioSpatialEffect, sourceAudioSpatialAmount, timelineDuration,
+    sourceAudioRef, sourceAudioStart, sourceAudioUrl, sourceAudioVolume, sourceAudioSpatialEffect, sourceAudioSpatialAmount, sourceAudioFades, timelineDuration,
     timelineDurationRef, trackScrollRef, trackVisibility, visualSegments, visualTimeline, previewVisualSegment,
     visualPlaybackLastUpdateRef, visualPlaybackStartedAtRef, visualPlaybackStartTimeRef,
   });
@@ -1300,12 +1298,13 @@ export function App({ hostSession = null }) {
 
   useMediaSync({
     audioRef, audioSegmentRefs, audioSegments, currentTime, currentTimeRef, estimatedDuration, timelineScrubbingRef,
+    previewVisualLocalTime,
     isPlaying, musicDuration, musicSegments, musicRef, musicStart, musicUrl, musicVolume, pauseTimelineMedia, previewVideoRef,
     previewVisualSegment, previewVisualSourceTime, previewVisualSrc: previewPlaybackSrc, previewVisualType,
     previewVisualRange, previewVisualKey: currentPreviewKey,
     linkedSourceAudioSegments, setCurrentTime, setIsPlaying, setPreviewVideoMediaTime, sourceAudioDuration,
     sourceAudioLinked,
-    sourceAudioRef, sourceAudioStart, sourceAudioUrl, sourceAudioVolume, sourceAudioSpatialEffect, sourceAudioSpatialAmount, timelineDuration,
+    sourceAudioRef, sourceAudioStart, sourceAudioUrl, sourceAudioVolume, sourceAudioSpatialEffect, sourceAudioSpatialAmount, sourceAudioFades, timelineDuration,
     trackVisibility, visualPlaybackFrameRef, visualPlaybackLastUpdateRef,
     visualPlaybackStartedAtRef, visualPlaybackStartTimeRef,
   });
@@ -1505,11 +1504,11 @@ export function App({ hostSession = null }) {
     setAudioSegments, setCurrentTime, setFitMode, setImageClipCount, setImageDuration, setMusicSegments, setMusicStart, setMusicVolume, setSelectedAudioSegmentId,
     setRatioId, setScript, setSelectedFilterId, setSelectedSegmentId, setSelectedStickerId,
     setSelectedStickerSegmentId, setSelectedTransitionId, setSelectedVoiceId, setShowFileMenu,
-    setSourceAudioAssetId, setSourceAudioLinked, setSourceAudioVolume, setSourceAudioSpatialEffect, setSourceAudioSpatialAmount, setSpeed, setStickerSegments, setTimelineZoom, setTrackLocks, setTrackVisibility,
+    setSourceAudioAssetId, setSourceAudioLinked, setSourceAudioVolume, setSourceAudioSpatialEffect, setSourceAudioSpatialAmount, setSourceAudioFades, setSpeed, setStickerSegments, setTimelineZoom, setTrackLocks, setTrackVisibility,
     setTimelineHorizon,
     setVisualSegments, setVisualOverlaySegments, setSelectedVisualOverlayId, setVolume, setCurrentVisualAsset, sourceAudioBlob, sourceAudioDuration,
     markTimelineViewRestored: (hasContent) => { timelineImportRestoreRef.current = hasContent; },
-    sourceAudioAssetId, sourceAudioLinked, sourceAudioName, sourceAudioStart, sourceAudioVolume, sourceAudioSpatialEffect, sourceAudioSpatialAmount, speed, stickerSegments,
+    sourceAudioAssetId, sourceAudioLinked, sourceAudioName, sourceAudioStart, sourceAudioVolume, sourceAudioSpatialEffect, sourceAudioSpatialAmount, sourceAudioFades, speed, stickerSegments,
     timelineZoom, trackLocks, trackVisibility, visualSegments, visualOverlaySegments, volume,
   });
   const completeProject = useCompleteProject({ hostSession, language: activeLanguage, captureCompleteProject, prepareCompleteProject, handleNewProject, handleImportProject, projectFileInputRef, notify,
@@ -1550,7 +1549,7 @@ export function App({ hostSession = null }) {
     previewFrameSize, ratio, renderedVisualSegments, script, selectedFilter,
     selectedSticker, selectedTransitionId, setExporting, setExportError, setExportPhase,
     setExportProgress, setStatus, setStatusText, sourceAudioBlob, sourceAudioDuration,
-    linkedSourceAudioSegments, sourceAudioAssetId, sourceAudioLinked, sourceAudioStart, sourceAudioTimelineEnd, sourceAudioVolume, sourceAudioSpatialEffect, sourceAudioSpatialAmount, stickerDuration, stickerSegments,
+    linkedSourceAudioSegments, sourceAudioAssetId, sourceAudioLinked, sourceAudioStart, sourceAudioTimelineEnd, sourceAudioVolume, sourceAudioSpatialEffect, sourceAudioSpatialAmount, sourceAudioFades, stickerDuration, stickerSegments,
     trackVisibility, visionRecords, depthRecords, visualType, voiceTrackDuration, volume, exportSettings: {
       ...exportSettings,
       ...getExportDimensions(ratio, Number(exportSettings.resolution)),
@@ -1858,6 +1857,66 @@ export function App({ hostSession = null }) {
   const desktopSelectionLocked = Boolean(trackLocks[selectedTrack]
     || (selectedTrack === "audio" && isTimedSegmentLaneLocked(audioSegments, selectedAudioSegmentId, trackLocks))
     || (selectedTrack === "overlay" && isTimedSegmentLaneLocked(visualOverlaySegments, selectedVisualOverlayId, trackLocks, "overlay")));
+  const audioWorkspace = activeTool === "audio" ? (() => {
+    const visualChoices = [
+      ...visualSegments.flatMap((clip, index) => clip.type === "video"
+        ? [{ ...clip, track: "image", start: visualTimeline[index]?.start ?? 0 }] : []),
+      ...visualOverlaySegments.filter(clip => clip.type === "video").map(clip => ({ ...clip, track: "overlay" })),
+    ];
+    const pictureAudio = picture => {
+      if (!picture) return null;
+      const source = picture.track === "image" && linkedSourceAudioSegments.find(piece => piece.id === picture.id);
+      const routed = audioSegments.find(piece => piece.id === picture.sourceAudioRoutedToAudioSegmentId);
+      const identity = { visualId: picture.id, visualTrack: picture.track };
+      if (source) return { ...source, ...identity, track: "source", name: picture.name,
+        blob: sourceAudioBlob, peaks: sourceAudioPeaks, peaksDuration: sourceAudioDuration };
+      if (routed) return { ...routed, ...identity, track: "audio" };
+      return { ...picture, ...identity };
+    };
+    const selectedPicture = visualChoices.find(clip => clip.track === selectedTrack && clip.id ===
+      (selectedTrack === "image" ? selectedVisualSegmentId : selectedVisualOverlayId));
+    const voiceovers = audioSegments.filter(clip => clip.voiceId || /voice|narration|record/.test(clip.sourceKind || ""))
+      .map(clip => ({ ...clip, track: "audio", isVoice: true }));
+    const selected = pictureAudio(selectedPicture) || (selectedAudioToolTarget && {
+      ...selectedAudioToolTarget, id: selectedAudioToolTarget.segmentId,
+      isVoice: selectedTrack === "audio" && voiceovers.some(clip => clip.id === selectedAudioToolTarget.segmentId),
+    });
+    const audioAtPlayhead = audioSegments.find(clip => currentTime >= clip.start && currentTime < clip.start + clip.duration)
+      || audioSegments[0];
+    const musicAtPlayhead = musicSegments.find(clip => currentTime >= clip.start && currentTime < clip.start + clip.duration)
+      || musicSegments[0];
+    const fallback = pictureAudio(visualChoices.find(clip => clip.track === "image" && clip.id === previewVisualSegment?.id) || visualChoices[0])
+      || (sourceAudioBlob && { id: "source-audio", track: "source", name: sourceAudioName, blob: sourceAudioBlob,
+        start: sourceAudioStart, duration: sourceAudioDuration, peaks: sourceAudioPeaks })
+      || (audioAtPlayhead && { ...audioAtPlayhead, track: "audio",
+        isVoice: voiceovers.some(clip => clip.id === audioAtPlayhead.id) })
+      || (musicBlob && {
+        ...(musicAtPlayhead || { id: "music-audio", start: musicStart, duration: musicDuration, peaks: musicPeaks }),
+        track: "music", blob: musicBlob, name: musicName || t("musicTrack"),
+      });
+    return {
+      selected, fallback, visualChoices, voiceovers, currentTime, playing: isPlaying,
+      onImport: () => fileInputRef.current?.click(),
+      onSelect: clip => {
+        setSelectedTrack(clip.track);
+        if (clip.track === "image") setSelectedVisualSegmentId(clip.id);
+        else setSelectedVisualOverlayId(clip.id);
+        seekTo(clip.start);
+      },
+      onSelectVoice: id => {
+        setSelectedTrack("audio");
+        setSelectedAudioSegmentId(id);
+      },
+      onPlay: clip => {
+        const start = clip.start || 0;
+        if (!isPlaying && (currentTimeRef.current < start || currentTimeRef.current >= start + clip.duration)) {
+          seekTo(start, { immediate: true });
+        }
+        handlePlayToggle();
+      },
+    };
+  })() : null;
+
   return (
     <main className={`app-shell ${isCompactViewport ? "is-compact-workspace" : ""} ${mobilePanel ? `mobile-panel-${mobilePanel}` : ""} ${isCompactViewport && mobileInspectorSection ? `mobile-section-${mobileInspectorSection}` : ""} ${isCompactViewport && mobileInspectorSection === "mask" && (selectedVisualOverlay || selectedVisualSegment)?.mask?.type && (selectedVisualOverlay || selectedVisualSegment).mask.type !== "none" ? "mobile-mask-active" : ""} ${mobilePanelClosing ? "is-mobile-panel-closing" : ""}`} lang={activeLanguage} onDragOver={(event) => {
       if (event.dataTransfer?.types?.includes("Files")) event.preventDefault();
@@ -2016,10 +2075,10 @@ export function App({ hostSession = null }) {
           selectedLibraryAssetId, selectedSegmentId, selectedStickerId, selectedTransitionId,
           selectedVoice: selectedVoiceProfile ? { ...selectedVoice, name: selectedVoiceProfile.name } : selectedVoice,
           setCaptionSegments, setCaptionSize, setCaptionStyle, setCaptionStylePresetId, setCaptionStylePresets, setCaptionsEnabled, setIsDragging,
-          setMediaTab, setMusicVolume, setSelectedAudioSegmentId, setSelectedFilterId, setSelectedSegmentId,
-          setSelectedStickerId, setSelectedTrack, setSelectedTransitionId, setSourceAudioVolume, setVoiceTab,
-          sourceAudioBlob, sourceAudioDuration, sourceAudioLinked, sourceAudioName, sourceAudioVolume, status, t,
-          selectedAudioToolTarget, separateSelectedAudioVocals, separateSourceVocals, vocalSeparationJob,
+          setMediaTab, setSelectedAudioSegmentId, setSelectedFilterId, setSelectedSegmentId,
+          setSelectedStickerId, setSelectedTrack, setSelectedTransitionId, setVoiceTab,
+          sourceAudioBlob, sourceAudioDuration, sourceAudioName, status, t,
+          selectedAudioToolTarget, audioWorkspace, vocalSeparationJob,
           syncCaptionPositions, toggleCaptionSegmentHidden, trOption, updateCaptionSegmentText,
           updateScript, userAssets, visionJob, aiMusic, smartFrame,
           selectedVisualSegment, selectedEffectSegment, effectAnalysis, effectRunning, effectProgress, effectPhase,
@@ -2305,6 +2364,11 @@ export function App({ hostSession = null }) {
           sourceAudioBlob={sourceAudioBlob}
           sourceAudioLinked={sourceAudioLinked}
           generateCaptionsFromSourceAudio={generateCaptionsWhenIdle}
+          cancelAutomaticCaptions={generateCaptionsFromSourceAudio.cancel}
+          captionAudioTarget={selectedAudioToolTarget?.blob ? selectedAudioToolTarget
+            : !sourceAudioBlob && previewVisualSegment?.type === "video" && previewVisualSegment.blob
+              ? { ...previewVisualSegment, start: previewVisualRange?.start ?? 0 }
+              : null}
           isGeneratingCaptions={status === "captioning"}
           automaticCaptionProgress={status === "captioning" ? progress : 0}
           avatarPanelOpen={avatarPanelOpen}
@@ -2444,11 +2508,6 @@ export function App({ hostSession = null }) {
         toggleTrackLock={toggleTrackLock}
         trackScrollRef={trackScrollRef}
         startTimelineSeek={startTimelineSeek}
-        onChangeAudioFade={(track, id, field, value) => {
-          checkpointHistory();
-          if (track === "music") updateMusicSegment(id, { [field]: value });
-          else updateAudioSegment(id, { [field]: value });
-        }}
         onMoveVisualKeyframe={(track, id, from, to) => {
           const overlay = track === "overlay";
           const segments = overlay ? visualOverlaySegments : visualSegments;
@@ -2512,7 +2571,15 @@ export function App({ hostSession = null }) {
         generateImageCaption={autoEdit.generateImageCaption}
         extractVideoSourceAudio={extractVideoSourceAudio}
         generateCaptionsFromAudioClip={generateCaptionsWhenIdle}
-        separateAudioClipVocals={separateAudioClipVocals}
+        separateAudioClipVocals={(clip) => separateAudioClipVocals(clip, () => {
+          const mute = (items, patch) => items.map(item => item.id === clip.segmentId ? { ...item, ...patch } : item);
+          if (clip.track === "image") setVisualSegments(items => mute(items, { sourceAudioDisabled: true }));
+          if (clip.track === "overlay") setVisualOverlaySegments(items => mute(items, { muted: true }));
+          if (clip.track === "source") {
+            if (sourceAudioLinked) setVisualSegments(items => mute(items, { sourceAudioVolume: 0 }));
+            else setSourceAudioVolume(0);
+          }
+        })}
         audioProcessingBusy={vocalSeparationJob.running || status === "captioning"}
         setSelectedVisualSegmentId={setSelectedVisualSegmentId}
         seekTo={seekTo}
@@ -2530,6 +2597,21 @@ export function App({ hostSession = null }) {
         setSelectedSegmentId={setSelectedSegmentId}
         captionTargetDuration={captionTargetDuration}
         sourceAudioVolume={sourceAudioVolume}
+        onChangeAudioFade={(track, id, field, value) => {
+          checkpointHistory();
+          if (track === "source") {
+            if (sourceAudioLinked && id !== "source-audio") {
+              const key = field === "fadeIn" ? "sourceAudioFadeIn" : "sourceAudioFadeOut";
+              setVisualSegments(items => items.map(item => item.id === id ? { ...item, [key]: value } : item));
+            } else setSourceAudioFades(fades => ({ ...fades, [field]: value }));
+          } else if (track === "image" || track === "overlay") {
+            const update = track === "image" ? setVisualSegments : setVisualOverlaySegments;
+            update(items => items.map(item => item.id === id ? { ...item, [field]: value } : item));
+          } else if (track === "music") updateMusicSegment(id, { [field]: value });
+          else updateAudioSegment(id, { [field]: value });
+        }}
+        sourceAudioFades={sourceAudioFades}
+        audioFadeLanguage={activeLanguage}
         setSourceAudioVolume={setSourceAudioVolume}
         musicVolume={musicVolume}
         setMusicVolume={setMusicVolume}

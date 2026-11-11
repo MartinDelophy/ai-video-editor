@@ -581,6 +581,8 @@ function CaptionContextPanel({
   deleteCaptionSegment,
   seekTo,
   sourceAudioBlob,
+  captionAudioTarget,
+  cancelAutomaticCaptions,
   generateCaptionsFromSourceAudio,
   isGeneratingCaptions,
   automaticCaptionProgress,
@@ -718,9 +720,30 @@ function CaptionContextPanel({
 
   return (
     <div className="caption-context-panel">
-      <label className="field-label" htmlFor="caption-context-input">
-        {t("captionScriptLabel", "字幕文案")}
-      </label>
+      <div className="caption-script-heading">
+        <label className="field-label" htmlFor="caption-context-input">{t("captionScriptLabel", "字幕文案")}</label>
+        <label className="caption-auto-switch" title={sourceAudioBlob || captionAudioTarget ? undefined : t("autoCaptionsNeedsSource")}>
+          <span>{t("autoCaptionsTitle")}</span>
+          {isGeneratingCaptions && <span className="caption-auto-progress">{Math.round(automaticCaptionProgress)}%</span>}
+          <span className="mini-switch">
+            <input type="checkbox" role="switch" aria-label={t("autoCaptionsTitle")}
+              checked={isGeneratingCaptions} disabled={!sourceAudioBlob && !captionAudioTarget && !isGeneratingCaptions}
+              onChange={event => {
+                if (event.target.checked) {
+                  const target = captionAudioTarget;
+                  void generateCaptionsFromSourceAudio({
+                    grouping: captionGrouping,
+                    append: captionSegments.length > 0,
+                    ...(target && { blob: target.compatibilityAudioBlob || target.blob, start: target.start,
+                      sourceStart: target.sourceStart, duration: target.duration }),
+                    keepCaptionPanel: true,
+                  });
+                } else cancelAutomaticCaptions();
+              }} />
+            <i />
+          </span>
+        </label>
+      </div>
       {selectedCaptionSegment ? (
         <div className="script-box caption-sync-box">
           <textarea
@@ -828,27 +851,8 @@ function CaptionContextPanel({
         </button>
       </div>
 
-      {!captionSegments.length ? (
-        <>
-          <CaptionGroupingControl value={captionGrouping} onChange={setCaptionGrouping} disabled={isGeneratingCaptions} t={t} />
-          <button
-            className="audio-entry-card caption-entry-card"
-            type="button"
-            disabled={!sourceAudioBlob || isGeneratingCaptions}
-            onClick={() => generateCaptionsFromSourceAudio({ grouping: captionGrouping })}
-          >
-            <ClosedCaptioning size={24} weight="duotone" />
-            <span>
-              <strong>{isGeneratingCaptions ? t("autoCaptionsRunning") : t("autoCaptionsTitle")}</strong>
-              <em>{sourceAudioBlob ? t("autoCaptionsDesc") : t("autoCaptionsNeedsSource")}</em>
-            </span>
-            {isGeneratingCaptions ? (
-              <span className="inline-progress" aria-hidden="true">
-                <span style={{ width: `${automaticCaptionProgress}%` }} />
-              </span>
-            ) : null}
-          </button>
-        </>
+      {!captionSegments.length && (sourceAudioBlob || captionAudioTarget) ? (
+        <CaptionGroupingControl value={captionGrouping} onChange={setCaptionGrouping} disabled={isGeneratingCaptions} t={t} />
       ) : null}
 
       <div className="caption-context-heading">
@@ -1492,6 +1496,8 @@ export function VoicePanel({
   sourceAudioBlob,
   sourceAudioLinked,
   generateCaptionsFromSourceAudio,
+  captionAudioTarget,
+  cancelAutomaticCaptions,
   isGeneratingCaptions,
   automaticCaptionProgress,
   avatarPanelOpen,
@@ -1901,6 +1907,8 @@ export function VoicePanel({
             seekTo={seekTo}
             sourceAudioBlob={sourceAudioBlob}
             generateCaptionsFromSourceAudio={generateCaptionsFromSourceAudio}
+            captionAudioTarget={captionAudioTarget}
+            cancelAutomaticCaptions={cancelAutomaticCaptions}
             isGeneratingCaptions={isGeneratingCaptions}
             automaticCaptionProgress={automaticCaptionProgress}
           />

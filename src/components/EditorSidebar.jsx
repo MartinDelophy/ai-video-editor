@@ -205,16 +205,12 @@ export function EditorSidebar({ model: d }) {
             sourceAudioBlob={d.sourceAudioBlob}
             sourceAudioName={d.sourceAudioName}
             sourceAudioDuration={d.sourceAudioDuration}
-            sourceAudioVolume={d.sourceAudioVolume}
-            sourceAudioLinked={d.sourceAudioLinked}
-            setSourceAudioVolume={d.setSourceAudioVolume}
             clearSourceAudioTrack={d.clearSourceAudioTrack}
             generateCaptionsFromSourceAudio={d.generateCaptionsFromSourceAudio}
             isGeneratingCaptions={d.status === "captioning"}
             automaticCaptionProgress={d.status === "captioning" ? d.progress : 0}
-            separateSourceVocals={d.separateSourceVocals}
             selectedAudioToolTarget={d.selectedAudioToolTarget}
-            separateSelectedAudioVocals={d.separateSelectedAudioVocals}
+            audioWorkspace={d.audioWorkspace}
             vocalSeparationJob={d.vocalSeparationJob}
             hasVisual={Boolean(d.previewVisualSrc)}
             visualType={d.previewVisualType}
@@ -229,8 +225,6 @@ export function EditorSidebar({ model: d }) {
             musicBlob={d.musicBlob}
             musicName={d.musicName}
             musicDuration={d.musicDuration}
-            musicVolume={d.musicVolume}
-            setMusicVolume={d.setMusicVolume}
             clearMusicTrack={d.clearMusicTrack}
             selectedVoice={d.selectedVoice}
             downloadBlob={d.downloadBlob}

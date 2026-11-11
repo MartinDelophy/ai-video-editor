@@ -1,5 +1,5 @@
 import { ColorGradeScope } from "./ColorGradeScope.jsx";
-import { CaptionGroupingControl } from "./CaptionGroupingControl.jsx";
+import { AudioWorkspace } from "./AudioWorkspace.jsx";
 import { getCaptionEditingCopy, getCaptionSpacingCopy } from "../i18nCaptionEditing.js";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal, flushSync } from "react-dom";
@@ -1055,7 +1055,6 @@ function AssetRow({ asset, selected, t, downloadState }) {
 }
 
 export function ToolPanel(props) {
-  const [captionGrouping, setCaptionGrouping] = useState("phrases");
   const {
     activeTool,
     uiLanguage,
@@ -1101,35 +1100,22 @@ export function ToolPanel(props) {
     closeMobilePanel,
     mobilePanelOpen,
     audioBlob,
-    audioDuration,
     sourceAudioBlob,
     sourceAudioName,
-    sourceAudioDuration,
-    sourceAudioVolume,
-    sourceAudioLinked,
-    setSourceAudioVolume,
     clearSourceAudioTrack,
-    generateCaptionsFromSourceAudio,
-    isGeneratingCaptions,
-    automaticCaptionProgress,
-    separateSourceVocals,
     selectedAudioToolTarget,
-    separateSelectedAudioVocals,
+    audioWorkspace,
     vocalSeparationJob,
     analyzeCurrentVisual,
     analyzeEffectVisual,
     openAvatarPanel,
-    openVoiceSynthesis,
     smartMode,
     setSmartMode,
     openMobileInspector,
     musicBlob,
     musicName,
     musicDuration,
-    musicVolume,
-    setMusicVolume,
     clearMusicTrack,
-    selectedVoice,
     downloadBlob,
     notify,
     t,
@@ -1461,110 +1447,11 @@ export function ToolPanel(props) {
   if (activeTool === "audio") {
     const sourceSelected = selectedAudioToolTarget?.track === "source";
     return (
-      <div className="tool-panel audio-tool-panel mobile-panel-scroll-body">
-        <h2>{sourceSelected ? t("sourceAudio") : t("audioPanel")}</h2>
-        {sourceSelected ? <div className="source-audio-identity">
-          <span className="source-audio-identity-icon"><Waveform size={26} weight="duotone" /></span>
-          <div><strong>{t("sourceAudio")}</strong><span title={sourceAudioName}>{sourceAudioName}</span></div>
-        </div> : <button
-          className="audio-entry-card"
-          type="button"
-          onClick={openVoiceSynthesis}
-        >
-          <MicrophoneStage size={24} weight="duotone" />
-          <span>
-            <strong>{t("aiVoiceEntryTitle")}</strong>
-            <em>{t("aiVoiceEntryDesc")}</em>
-          </span>
-        </button>}
-        <button
-          className="audio-entry-card separation-entry-card"
-          type="button"
-          disabled={!selectedAudioToolTarget || vocalSeparationJob.running}
-          onClick={separateSelectedAudioVocals || separateSourceVocals}
-        >
-          <Waveform size={24} weight="duotone" />
-          <span>
-            <strong>{vocalSeparationJob.running ? t("vocalSeparationRunning") : t("vocalSeparationTitle")}</strong>
-            <em>{selectedAudioToolTarget ? (vocalSeparationJob.phase || t("vocalSeparationDesc")) : t("vocalSeparationNeedsSource")}</em>
-          </span>
-          {vocalSeparationJob.running ? <span className="inline-progress" aria-hidden="true"><span style={{ width: `${vocalSeparationJob.progress}%` }} /></span> : null}
-        </button>
-        <CaptionGroupingControl value={captionGrouping} onChange={setCaptionGrouping} disabled={isGeneratingCaptions} t={t} />
-        <button
-          className="audio-entry-card caption-entry-card"
-          type="button"
-          disabled={!selectedAudioToolTarget || isGeneratingCaptions}
-          onClick={() => selectedAudioToolTarget && generateCaptionsFromSourceAudio({
-            blob: selectedAudioToolTarget.blob,
-            grouping: captionGrouping,
-            start: selectedAudioToolTarget.start,
-            sourceStart: selectedAudioToolTarget.sourceStart,
-            duration: selectedAudioToolTarget.duration,
-            append: selectedAudioToolTarget.track !== "source",
-          })}
-        >
-          <ClosedCaptioning size={24} weight="duotone" />
-          <span>
-            <strong>{isGeneratingCaptions ? t("autoCaptionsRunning") : t("autoCaptionsTitle")}</strong>
-            <em>{selectedAudioToolTarget ? t("autoCaptionsDesc") : t("autoCaptionsNeedsSource")}</em>
-          </span>
-          {isGeneratingCaptions ? (
-            <span className="inline-progress" aria-hidden="true">
-              <span style={{ width: `${automaticCaptionProgress}%` }} />
-            </span>
-          ) : null}
-        </button>
-        <div className="audio-summary-list">
-          {!sourceSelected && <div className="audio-summary-row">
-            <span>{t("currentVoice")}</span>
-            <div><strong>{selectedVoice.name}</strong>{audioBlob && <small>{formatTime(audioDuration)}</small>}</div>
-          </div>}
-          {sourceSelected ? <div className="audio-summary-row"><span>{t("sourceDuration")}</span><strong>{formatTime(sourceAudioBlob ? sourceAudioDuration : 0)}</strong></div> : <>
-            <div className="audio-summary-row">
-              <span>{t("sourceAudio")}</span>
-              <div><strong title={sourceAudioName}>{sourceAudioBlob ? sourceAudioName : t("notSeparated")}</strong>{sourceAudioBlob && <small>{formatTime(sourceAudioDuration)}</small>}</div>
-            </div>
-            <div className="audio-summary-row">
-              <span>{t("bgm")}</span>
-              <div><strong title={musicName}>{musicBlob ? musicName : t("notAdded")}</strong>{musicBlob && <small>{formatTime(musicDuration)}</small>}</div>
-            </div>
-          </>}
-        </div>
-        <div className="slider-field compact-slider">
-          <div>
-            <label htmlFor="source-audio-volume">{t("sourceAudio")} {t("volume")}</label>
-            <span>{Math.round(sourceAudioVolume * 100)}%</span>
-          </div>
-          <input
-            id="source-audio-volume"
-            type="range"
-            min="0"
-            max="1"
-            step="0.01"
-            value={sourceAudioVolume}
-            disabled={!sourceAudioBlob}
-            onInput={(event) => setSourceAudioVolume(Number(event.currentTarget.value))}
-            onChange={(event) => setSourceAudioVolume(Number(event.target.value))}
-          />
-        </div>
-        {!sourceSelected && musicBlob && <div className="slider-field compact-slider">
-          <div>
-            <label htmlFor="music-volume">{t("bgm")} {t("volume")}</label>
-            <span>{Math.round(musicVolume * 100)}%</span>
-          </div>
-          <input
-            id="music-volume"
-            type="range"
-            min="0"
-            max="1"
-            step="0.01"
-            value={musicVolume}
-            onInput={(event) => setMusicVolume(Number(event.currentTarget.value))}
-            onChange={(event) => setMusicVolume(Number(event.target.value))}
-          />
-        </div>
-        }
+      <AudioWorkspace {...audioWorkspace} language={uiLanguage} t={t}>
+        {vocalSeparationJob.running && <div role="status">
+          <span>{vocalSeparationJob.phase}</span>
+          <progress value={vocalSeparationJob.progress} max={100} />
+        </div>}
         <div className="audio-download-actions">
           {!sourceSelected && <button
             className="panel-primary"
@@ -1599,7 +1486,7 @@ export function ToolPanel(props) {
             {t("deleteBgm")}
           </button>}
         </div>
-      </div>
+      </AudioWorkspace>
     );
   }
 

@@ -1,5 +1,7 @@
+import { TimelineAudioFades } from "./TimelineAudioFades.jsx";
 import { referenceEffectsCopy } from "../i18nReferenceTemplates.js";
 import { isMaskTransition } from "../lib/maskTransitions.js";
+import { videoHasAudio } from "../lib/audioAssetMetadata.js";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
@@ -89,11 +91,9 @@ import {
   getTimelineZoomForVisibleDuration,
   getTimelineZoomLabel,
 } from "../lib/timelineScale.js";
-import { IconButton, WaveformStrip } from "./ui.jsx";
+import { IconButton } from "./ui.jsx";
 import { TimelineThumbnails } from "./TimelineThumbnails.jsx";
 import { VideoClipAudio } from "./VideoClipAudio.jsx";
-import { TimelineGain } from "./TimelineGain.jsx";
-import { TimelineAudioFades } from "./TimelineAudioFades.jsx";
 import { TimelineAudioClip, TimelineCaptionClip } from "./TimelineClips.jsx";
 import { TimelineMarkerRail, TimelineMarkerToolbar } from "./TimelineMarkers.jsx";
 import { useTimelineMarkers } from "../hooks/useTimelineMarkers.js";
@@ -335,6 +335,8 @@ export function Timeline({
   setSelectedSegmentId,
   captionTargetDuration,
   sourceAudioVolume,
+  sourceAudioFades,
+  audioFadeLanguage,
   setSourceAudioVolume,
   musicVolume,
   setMusicVolume,
@@ -1266,6 +1268,41 @@ export function Timeline({
   const contextOverlaySegment = contextMenu?.track === "overlay" && contextMenu.segmentId
     ? visualOverlaySegments.find((segment) => segment.id === contextMenu.segmentId)
     : null;
+  const contextVideo = contextImageSegment || contextOverlaySegment;
+  const [contextAudioProbe, setContextAudioProbe] = useState(null);
+  useEffect(() => {
+    if (contextVideo?.type !== "video" || contextVideo.preparing) return;
+    const controller = new AbortController();
+    void videoHasAudio(contextVideo, controller.signal).then(hasAudio => {
+      if (!controller.signal.aborted) setContextAudioProbe({ video: contextVideo, hasAudio });
+    }).catch(() => {});
+    return () => controller.abort();
+  }, [contextVideo]);
+  const contextSourceClip = contextMenu?.track === "source" && contextMenu.kind === "clip" && sourceAudioBlob
+    ? sourceAudioLinked
+      ? linkedSourceAudioSegments.find(piece => piece.id === contextMenu.segmentId)
+      : { id: "source-audio", start: sourceAudioStartPercent / 100 * timelineDuration, duration: sourceAudioDuration }
+    : null;
+  const contextVideoSourcePiece = contextImageSegment && sourceAudioLinked
+    ? linkedSourceAudioSegments.find(piece => piece.id === contextImageSegment.id) : null;
+  const contextVideoRoutedAudio = contextVideo
+    ? audioSegments.find(piece => piece.id === contextVideo.sourceAudioRoutedToAudioSegmentId) : null;
+  const contextVideoHasAudio = contextAudioProbe?.video === contextVideo && contextAudioProbe?.hasAudio;
+  const contextVideoVocalTarget = contextVideoHasAudio && (
+    contextVideoSourcePiece && sourceAudioBlob
+      ? { ...contextVideoSourcePiece, blob: sourceAudioBlob, track: "source",
+        name: contextVideo.name, segmentId: contextVideoSourcePiece.id }
+      : contextVideoRoutedAudio
+        ? { ...contextVideoRoutedAudio, track: "audio", segmentId: contextVideoRoutedAudio.id }
+        : {
+          ...contextVideo,
+          track: contextMenu.track,
+          segmentId: contextVideo.id,
+          start: contextImageSegment
+            ? renderedVisualTimeline[displayedVisualSegments.indexOf(contextImageSegment)]?.start ?? 0
+            : contextVideo.start,
+        }
+  );
   const contextAudioSegment = contextMenu?.track === "audio" && contextMenu.segmentId
     ? audioSegments.find((segment) => segment.id === contextMenu.segmentId)
     : null;
@@ -2939,7 +2976,10 @@ export function Timeline({
             overlay
           />
           {segment.type === "video" ? <button className="clip-mute-toggle" type="button" aria-label={t(segment.muted ? "unmuteClip" : "muteClip", segment.muted ? "取消静音" : "静音")} title={t(segment.muted ? "unmuteClip" : "muteClip", segment.muted ? "取消静音" : "静音")} onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); if (trackLocks.overlay) return void notify("画中画轨已锁定，无法切换静音"); setVisualOverlaySegments((items) => items.map((item) => item.id === segment.id ? { ...item, muted: !item.muted } : item)); }}>{segment.muted ? <SpeakerSlash size={13} /> : <SpeakerHigh size={13} />}</button> : null}
-          {segment.type === "video" && !segment.audioSeparated ? <VideoClipAudio segment={segment} disabled={trackLocks.overlay || !isOverlayLaneVisible(lane)} muted={segment.muted} t={t} onChange={(volume) => setVisualOverlaySegments((items) => items.map((item) => item.id === segment.id ? { ...item, volume } : item))} /> : null}
+          {segment.type === "video" && !segment.audioSeparated ? <VideoClipAudio segment={segment} disabled={trackLocks.overlay || !isOverlayLaneVisible(lane)} muted={segment.muted} selected={selectedVisualOverlayId === segment.id}
+            clipWidth={secondsPerPixel > 0 ? segment.duration / secondsPerPixel : 0} language={audioFadeLanguage}
+            onFade={(field, value) => onChangeAudioFade("overlay", segment.id, field, value)}
+            t={t} onChange={(volume) => setVisualOverlaySegments((items) => items.map((item) => item.id === segment.id ? { ...item, volume } : item))} /> : null}
           <span className={segment.type === "video" ? "video-clip-name" : undefined}>{segment.name || t("overlayTrack", "Overlay")}</span>
           {segment.type === "video" ? <span className="image-clip-duration">{formatClock(segment.duration)}</span> : null}
           <VisualClipKeyframes keyframes={segment.keyframes} duration={segment.duration} label={t("visualKeyframes")}
@@ -3504,7 +3544,10 @@ export function Timeline({
                         ) : null}
                         {!segment.preparing && segmentType === "video" ? <>
                           <span className="video-clip-name">{segment.name}</span>
-                          {!Number.isFinite(segment.sourceAudioOffset) && !segment.audioSeparated ? <VideoClipAudio segment={segment} disabled={trackLocks.image || !trackVisibility.image} muted={segment.sourceAudioDisabled} t={t} onChange={(volume) => setVisualSegments((items) => items.map((item) => item.id === segment.id ? { ...item, volume } : item))} /> : null}
+                          {!Number.isFinite(segment.sourceAudioOffset) && !segment.audioSeparated ? <VideoClipAudio segment={segment} disabled={trackLocks.image || !trackVisibility.image} muted={segment.sourceAudioDisabled} selected={selectedVisualSegmentId === segment.id}
+            clipWidth={secondsPerPixel > 0 ? segment.duration / secondsPerPixel : 0} language={audioFadeLanguage}
+            onFade={(field, value) => onChangeAudioFade("image", segment.id, field, value)}
+            t={t} onChange={(volume) => setVisualSegments((items) => items.map((item) => item.id === segment.id ? { ...item, volume } : item))} /> : null}
                         </> : null}
                         {!segment.preparing && segment.speedCurve?.enabled ? (
                           <span className="image-clip-speed-markers" aria-label={t("visualSpeedCurveTitle", "速度曲线")}>
@@ -3686,8 +3729,13 @@ export function Timeline({
                     revealMobileClipActions("source");
                   }}
                 >
-                  <TimelineGain volume={segment.volume ?? sourceAudioVolume} disabled={trackLocks.source || !trackVisibility.source} t={t} onChange={(volume) => setVisualSegments((items) => items.map((item) => item.id === segment.id ? { ...item, sourceAudioVolume: volume } : item))} />
-                  <WaveformStrip timeline volume={segment.volume ?? sourceAudioVolume} peaks={sourceAudioPeaks} sourceStart={segment.sourceStart} sourceDuration={segment.sourceDuration} sourceAudioDuration={sourceAudioDuration} active />
+                  <TimelineAudioFades segment={segment} selected={selectedSourceAudioSegmentId === segment.id}
+                    disabled={trackLocks.source || trackLocks.image || !trackVisibility.source} t={t} language={audioFadeLanguage}
+                    clipWidth={secondsPerPixel > 0 ? segment.duration / secondsPerPixel : 0}
+                    waveformVisible peaks={sourceAudioPeaks} volume={segment.volume ?? sourceAudioVolume}
+                    sourceStart={segment.sourceStart} sourceDuration={segment.sourceDuration} sourceAudioDuration={sourceAudioDuration}
+                    onChangeVolume={(volume) => setVisualSegments(items => items.map(item => item.id === segment.id ? { ...item, sourceAudioVolume: volume } : item))}
+                    onChange={(field, value) => onChangeAudioFade("source", segment.id, field, value)} />
                   <span className="audio-clip-duration" data-compact-duration={formatCompactDuration(segment.duration)}>{formatTime(segment.duration)}</span>
                 </div>
               )) : sourceAudioBlob ? (
@@ -3713,8 +3761,11 @@ export function Timeline({
                     revealMobileClipActions("source");
                   }}
                 >
-                  <TimelineGain volume={sourceAudioVolume} disabled={trackLocks.source || !trackVisibility.source} t={t} onChange={setSourceAudioVolume} />
-                  <WaveformStrip timeline volume={sourceAudioVolume} peaks={sourceAudioPeaks} active />
+                  <TimelineAudioFades segment={{ duration: sourceAudioDuration, ...sourceAudioFades }}
+                    selected={selectedSourceAudioSegmentId === "source-audio"} disabled={trackLocks.source || !trackVisibility.source}
+                    t={t} language={audioFadeLanguage} clipWidth={secondsPerPixel > 0 ? sourceAudioDuration / secondsPerPixel : 0}
+                    waveformVisible peaks={sourceAudioPeaks} volume={sourceAudioVolume} onChangeVolume={setSourceAudioVolume}
+                    onChange={(field, value) => onChangeAudioFade("source", "source-audio", field, value)} />
                   <span className="audio-clip-duration" data-compact-duration={formatCompactDuration(sourceAudioDuration)}>{formatTime(sourceAudioDuration)}</span>
                 </div>
               ) : null}
@@ -3943,6 +3994,17 @@ export function Timeline({
                   </button>
                 </>
               ) : null}
+              {contextVideoVocalTarget ? <button type="button" role="menuitem"
+                disabled={audioProcessingBusy || Boolean(trackLocks[contextMenu.track])
+                  || (contextVideoVocalTarget.track === "source" && Boolean(trackLocks.source))
+                  || (contextVideoVocalTarget.track === "audio" && isTimelineClipLocked("audio", contextVideoVocalTarget.id))}
+                onClick={() => runContextAction(() => separateAudioClipVocals?.(contextVideoVocalTarget))}
+              ><Waveform size={16} />{t("separateVocalsFromClip")}</button> : null}
+              {contextSourceClip ? <button type="button" role="menuitem" disabled={audioProcessingBusy || Boolean(trackLocks.source || (sourceAudioLinked && trackLocks.image))}
+                onClick={() => runContextAction(() => separateAudioClipVocals?.({
+                  ...contextSourceClip, blob: sourceAudioBlob, segmentId: contextSourceClip.id,
+                  track: "source", name: t("sourceAudio"),
+                }))}><Waveform size={16} />{t("separateVocalsFromClip")}</button> : null}
               {contextMenu.track === "audio" && contextAudioSegment ? <>
                 <button type="button" role="menuitem" onClick={() => runContextAction(() => contextAudioHasLinkedCaption ? unlinkAudioCaptions?.(contextAudioSegment.id) : linkAudioToCaption?.(contextAudioSegment.id))}>{contextAudioHasLinkedCaption ? <LinkBreak size={16} /> : <LinkSimple size={16} />}{t(contextAudioHasLinkedCaption ? "captionUnlinkAudio" : "captionLinkAudio")}</button>
                 {contextAudioHasLinkedCaption ? <button type="button" role="menuitem" onClick={() => runContextAction(() => alignAudioCaptions?.(contextAudioSegment.id))}><ArrowsInLineHorizontal size={16} />{t("captionAlignToAudio")}</button> : null}

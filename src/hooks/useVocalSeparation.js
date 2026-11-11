@@ -1,40 +1,34 @@
 import { useCallback, useState } from "react";
-import { decodeWaveform, sliceAudioBlob } from "../lib/media.js";
+import { decodeWaveform, extractAudioFromVideo, sliceAudioBlob } from "../lib/media.js";
+import { loadProjectMediaBlob } from "../lib/projectSnapshot.js";
 import { separateVocals } from "../lib/vocalSeparation.js";
 
-export function useVocalSeparation({ sourceAudioBlob, sourceAudioName, replaceAudio, replaceSourceAudio, replaceMusic, notify, t }) {
+export function useVocalSeparation({ replaceAudio, replaceMusic, notify, t }) {
   const [job, setJob] = useState({ running: false, progress: 0, phase: "" });
-  const run = useCallback(async () => {
-    if (!sourceAudioBlob || job.running) return;
+  const runClip = useCallback(async (clip, onStemsPlaced) => {
+    const { blob, name, start = 0, sourceStart = 0, duration, segmentId = "", track } = clip;
+    const video = track === "image" || track === "overlay";
+    const renderClip = video || track === "source";
+    if ((!blob && !video) || job.running) return;
     setJob({ running: true, progress: 1, phase: t("vocalSeparationPreparing") });
     try {
-      const result = await separateVocals(sourceAudioBlob, (progress, phase) => setJob({
-        running: true,
-        progress,
-        phase: phase.key === "vocalSeparationProcessingChunk"
-          ? t(phase.key).replace("{current}", phase.current).replace("{total}", phase.total)
-          : t(phase.key),
-      }));
-      const [voiceMeta, musicMeta] = await Promise.all([decodeWaveform(result.vocals, 96), decodeWaveform(result.accompaniment, 96)]);
-      const base = (sourceAudioName || "source-audio").replace(/\.[^.]+$/, "");
-      replaceSourceAudio(result.vocals, voiceMeta.duration, voiceMeta.peaks, `${base}-${t("vocalStemFile")}.wav`, t("vocalStemPlaced"));
-      replaceMusic(result.accompaniment, musicMeta.duration, musicMeta.peaks, `${base}-${t("instrumentalStemFile")}.wav`, t("instrumentalStemPlaced"));
-      setJob({ running: false, progress: 100, phase: t("vocalSeparationComplete") }); notify(t("vocalSeparationComplete"));
-    } catch (error) {
-      console.error(error); setJob({ running: false, progress: 0, phase: "" });
-      const reason = error.message === "VOCAL_RUNTIME_DOWNLOAD_FAILED"
-        ? t("vocalSeparationRuntimeFailed")
-        : error.message === "VOCAL_BACKEND_UNAVAILABLE"
-          ? t("vocalSeparationBackendFailed")
-          : t("vocalSeparationModelFailed");
-      notify(`${t("vocalSeparationFailed")}：${reason}`);
-    }
-  }, [job.running, notify, replaceMusic, replaceSourceAudio, sourceAudioBlob, sourceAudioName, t]);
-  const runClip = useCallback(async ({ blob, name, start = 0, sourceStart = 0, duration, segmentId = "", track }) => {
-    if (!blob || job.running) return;
-    setJob({ running: true, progress: 1, phase: t("vocalSeparationPreparing") });
-    try {
-      const clipBlob = Number.isFinite(duration) ? await sliceAudioBlob(blob, sourceStart, duration) : blob;
+      let clipBlob = blob;
+      if (renderClip) {
+        let audioBlob = blob;
+        if (video) {
+          audioBlob = clip.compatibilityAudioBlob || clip.projectMedia?.bindings?.compatibilityAudioBlob
+            ? await loadProjectMediaBlob(clip, "compatibilityAudioBlob")
+            : await extractAudioFromVideo(await loadProjectMediaBlob(clip), name);
+        }
+        const { exportAudioClip } = await import("../lib/audioExport.js");
+        ({ blob: clipBlob } = await exportAudioClip({
+          segment: { ...clip, sourceAudioDisabled: false, muted: false },
+          blob: audioBlob,
+          volume: 1,
+        }));
+      } else if (Number.isFinite(duration)) {
+        clipBlob = await sliceAudioBlob(blob, sourceStart, duration);
+      }
       const result = await separateVocals(clipBlob, (progress, phase) => setJob({
         running: true,
         progress,
@@ -50,7 +44,15 @@ export function useVocalSeparation({ sourceAudioBlob, sourceAudioName, replaceAu
         sourceKind: "separated",
         replaceSegmentId: track === "audio" ? segmentId : "",
       });
-      replaceMusic(result.accompaniment, musicMeta.duration, musicMeta.peaks, `${base}-${t("instrumentalStemFile")}.wav`, t("instrumentalStemPlaced"), { start });
+      const instrumentalName = `${base}-${t("instrumentalStemFile")}.wav`;
+      if (renderClip) {
+        replaceAudio(result.accompaniment, musicMeta.duration, musicMeta.peaks, t("instrumentalStemPlaced"), {
+          start, name: instrumentalName, sourceKind: "separated",
+        });
+        onStemsPlaced?.();
+      } else {
+        replaceMusic(result.accompaniment, musicMeta.duration, musicMeta.peaks, instrumentalName, t("instrumentalStemPlaced"), { start });
+      }
       setJob({ running: false, progress: 100, phase: t("vocalSeparationComplete") });
       notify(t("vocalSeparationComplete"));
     } catch (error) {
@@ -63,5 +65,5 @@ export function useVocalSeparation({ sourceAudioBlob, sourceAudioName, replaceAu
       notify(`${t("vocalSeparationFailed")}：${reason}`);
     }
   }, [job.running, notify, replaceAudio, replaceMusic, t]);
-  return { vocalSeparationJob: job, separateAudioClipVocals: runClip, separateSourceVocals: run };
+  return { vocalSeparationJob: job, separateAudioClipVocals: runClip };
 }

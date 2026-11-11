@@ -253,7 +253,8 @@ export function createPlaybackControls(deps) {
       const sourceState = getSourceState(timelineTime);
       source.currentTime = sourceState.sourceTime;
       source.playbackRate = sourceState.playbackRate;
-      setTimelineAudioGain(source, sourceState.segment?.volume ?? deps.sourceAudioVolume, deps.sourceAudioSpatialEffect, deps.sourceAudioSpatialAmount);
+      const clip = sourceState.segment || { start: deps.sourceAudioStart, duration: deps.sourceAudioDuration, ...deps.sourceAudioFades };
+      setTimelineAudioGain(source, getAudioSegmentPreviewVolume({ ...clip, volume: clip.volume ?? deps.sourceAudioVolume }, timelineTime), deps.sourceAudioSpatialEffect, deps.sourceAudioSpatialAmount);
       if ("preservesPitch" in source) source.preservesPitch = true;
       playIf(source, sourceState.active);
     }

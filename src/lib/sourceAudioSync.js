@@ -69,6 +69,8 @@ export function getLinkedSourceAudioSegments(visualSegments = [], sourceAudioAss
       playbackRate,
       speedCurve: timing.speedCurve,
       volume: segment.sourceAudioVolume,
+      fadeIn: segment.sourceAudioFadeIn,
+      fadeOut: segment.sourceAudioFadeOut,
     }];
   });
 }

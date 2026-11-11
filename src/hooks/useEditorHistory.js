@@ -58,6 +58,7 @@ function createSnapshot(d) {
     sourceAudioDuration: d.sourceAudioDuration,
     sourceAudioPeaks: d.sourceAudioPeaks,
     sourceAudioVolume: d.sourceAudioVolume,
+    sourceAudioFades: d.sourceAudioFades,
     sourceAudioStart: d.sourceAudioStart,
     sourceAudioAssetId: d.sourceAudioAssetId,
     sourceAudioLinked: d.sourceAudioLinked,
@@ -129,6 +130,7 @@ export function createEditorSnapshotSignature(snapshot) {
       name: snapshot.sourceAudioName,
       duration: snapshot.sourceAudioDuration,
       volume: snapshot.sourceAudioVolume,
+      fades: snapshot.sourceAudioFades,
       start: snapshot.sourceAudioStart,
       assetId: snapshot.sourceAudioAssetId,
       linked: snapshot.sourceAudioLinked,
@@ -223,6 +225,7 @@ function restoreSnapshot(snapshot, d) {
   d.setSourceAudioDuration(snapshot.sourceAudioDuration);
   d.setSourceAudioPeaks(snapshot.sourceAudioPeaks);
   d.setSourceAudioVolume(snapshot.sourceAudioVolume);
+  d.setSourceAudioFades(snapshot.sourceAudioFades || {});
   d.setSourceAudioStart(snapshot.sourceAudioStart);
   d.setSourceAudioAssetId(snapshot.sourceAudioAssetId || "");
   d.setSourceAudioLinked(snapshot.sourceAudioLinked !== false);
@@ -286,6 +289,7 @@ export function useEditorHistory(d) {
     sourceAudioDuration: d.sourceAudioDuration,
     sourceAudioPeaks: d.sourceAudioPeaks,
     sourceAudioVolume: d.sourceAudioVolume,
+    sourceAudioFades: d.sourceAudioFades,
     sourceAudioStart: d.sourceAudioStart,
     sourceAudioAssetId: d.sourceAudioAssetId,
     sourceAudioLinked: d.sourceAudioLinked,
@@ -302,7 +306,7 @@ export function useEditorHistory(d) {
     d.musicBlob, d.musicSegments, d.musicStart, d.musicUrl, d.musicName,
     d.musicDuration, d.musicPeaks, d.musicVolume, d.sourceAudioBlob,
     d.sourceAudioUrl, d.sourceAudioName, d.sourceAudioDuration, d.sourceAudioPeaks,
-    d.sourceAudioVolume, d.sourceAudioStart, d.sourceAudioAssetId,
+    d.sourceAudioVolume, d.sourceAudioFades, d.sourceAudioStart, d.sourceAudioAssetId,
     d.sourceAudioLinked, d.trackVisibility, d.trackLocks, d.userAssets,
   ]);
   const signature = useMemo(() => createEditorSnapshotSignature(contentSnapshot), [contentSnapshot]);

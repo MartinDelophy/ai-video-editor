@@ -65,7 +65,14 @@ export function useMediaSync(d) {
       visibleSegmentIds: visibleAudioSegmentIds,
     });
   }, [d.audioSegments, d.currentTime, d.isPlaying, d.trackVisibility, visibleAudioSegmentIds]);
-  useEffect(() => { if (d.sourceAudioRef.current) setTimelineAudioGain(d.sourceAudioRef.current, d.sourceAudioLinked ? getLinkedSourceAudioState(d.linkedSourceAudioSegments, d.currentTime).segment?.volume ?? d.sourceAudioVolume : d.sourceAudioVolume, d.sourceAudioSpatialEffect, d.sourceAudioSpatialAmount); }, [d.currentTime, d.linkedSourceAudioSegments, d.sourceAudioLinked, d.sourceAudioSpatialAmount, d.sourceAudioSpatialEffect, d.sourceAudioVolume, d.sourceAudioUrl]);
+  useEffect(() => {
+    if (!d.sourceAudioRef.current) return;
+    const piece = d.sourceAudioLinked ? getLinkedSourceAudioState(d.linkedSourceAudioSegments, d.currentTime).segment : null;
+    const clip = piece || { start: d.sourceAudioStart, duration: d.sourceAudioDuration, ...d.sourceAudioFades };
+    const gain = getAudioSegmentPreviewVolume({ ...clip, volume: clip.volume ?? d.sourceAudioVolume }, d.currentTime);
+    setTimelineAudioGain(d.sourceAudioRef.current, gain, d.sourceAudioSpatialEffect, d.sourceAudioSpatialAmount);
+  }, [d.currentTime, d.linkedSourceAudioSegments, d.sourceAudioLinked, d.sourceAudioStart, d.sourceAudioDuration,
+    d.sourceAudioFades, d.sourceAudioSpatialAmount, d.sourceAudioSpatialEffect, d.sourceAudioVolume, d.sourceAudioUrl, d.sourceAudioRef]);
   useLayoutEffect(() => {
     const a = d.sourceAudioRef.current; if (!a || !d.sourceAudioUrl) return;
     const state = d.sourceAudioLinked
@@ -231,8 +238,11 @@ export function useMediaSync(d) {
     if (!d.isPlaying || d.trackVisibility?.image === false) v.pause(); else if (!v.__timelineFramePending) requestTimelineMediaPlay(v);
   }, [d.isPlaying, d.previewVisualSegment?.id, d.previewVisualSrc, d.previewVisualType, d.trackVisibility.image]);
   useEffect(() => {
-    if (d.previewVisualType === "video") setTimelineAudioGain(d.previewVideoRef.current, d.previewVisualSegment?.volume ?? 1, d.previewVisualSegment?.spatialEffect, d.previewVisualSegment?.spatialAmount);
-  }, [d.previewVideoRef, d.previewVisualType, d.previewVisualSrc, d.previewVisualKey, d.previewVisualSegment?.volume, d.previewVisualSegment?.spatialEffect, d.previewVisualSegment?.spatialAmount]);
+    if (d.previewVisualType !== "video" || !d.previewVisualSegment) return;
+    const clip = d.previewVisualSegment;
+    const gain = getAudioSegmentPreviewVolume({ ...clip, start: 0 }, d.previewVisualLocalTime);
+    setTimelineAudioGain(d.previewVideoRef.current, gain, clip.spatialEffect, clip.spatialAmount);
+  }, [d.previewVideoRef, d.previewVisualType, d.previewVisualSrc, d.previewVisualSegment, d.previewVisualLocalTime]);
   // Clip changes and filmstrip refinement must not re-anchor the master clock.
   // Explicit seeks update its refs directly; only playback state or the actual
   // project duration starts a new clock session.

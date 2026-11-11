@@ -99,7 +99,7 @@ export function useProjectFiles(deps) {
       trackVisibility: deps.trackVisibility, trackLocks: deps.trackLocks, timelineZoom: deps.timelineZoom, audioDuration: deps.audioDuration,
       musicName: deps.musicName, musicDuration: deps.musicDuration, musicVolume: deps.musicVolume,
       sourceAudioName: deps.sourceAudioName, sourceAudioDuration: deps.sourceAudioDuration,
-      sourceAudioStart: deps.sourceAudioStart, sourceAudioVolume: deps.sourceAudioVolume,
+      sourceAudioStart: deps.sourceAudioStart, sourceAudioVolume: deps.sourceAudioVolume, sourceAudioFades: deps.sourceAudioFades,
       sourceAudioSpatialEffect: deps.sourceAudioSpatialEffect, sourceAudioSpatialAmount: deps.sourceAudioSpatialAmount,
       musicStart: deps.musicStart,
       sourceAudioAssetId: deps.sourceAudioAssetId, sourceAudioLinked: deps.sourceAudioLinked,
@@ -326,6 +326,7 @@ export function useProjectFiles(deps) {
         if (Array.isArray(data.musicSegments) && data.musicSegments.length) deps.setMusicSegments(data.musicSegments.map((segment) => ({ ...segment, peaks: decodedMusic.peaks })));
       } else deps.clearMusicTrack("");
       deps.setMusicVolume(Number(data.musicVolume) || 0.35); deps.setSourceAudioVolume(Number(data.sourceAudioVolume) || 1);
+      deps.setSourceAudioFades(data.sourceAudioFades || {});
       deps.setSourceAudioSpatialEffect(data.sourceAudioSpatialEffect || "original"); deps.setSourceAudioSpatialAmount(Number.isFinite(Number(data.sourceAudioSpatialAmount)) ? Number(data.sourceAudioSpatialAmount) : 1);
       deps.setSourceAudioAssetId(data.sourceAudioAssetId || ""); deps.setSourceAudioLinked(data.sourceAudioLinked !== false);
       deps.setCurrentTime(0); deps.clearAllVisionState(); deps.setShowFileMenu(false);

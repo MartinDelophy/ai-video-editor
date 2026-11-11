@@ -1837,6 +1837,8 @@ export async function exportBrowserVideo({
           sourceDuration: Math.max(0, segment.sourceDuration || 0),
           playbackRate: normalizeVisualPlaybackRate(segment.playbackRate),
           outputDuration: Math.max(0, segment.duration || 0),
+          fadeIn: Math.max(0, segment.fadeIn || 0),
+          fadeOut: Math.max(0, segment.fadeOut || 0),
           spatialEffect: segment.spatialEffect ?? sourceAudioSpatialEffect,
           spatialAmount: segment.spatialAmount ?? sourceAudioSpatialAmount,
         }))

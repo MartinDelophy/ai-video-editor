@@ -13072,3 +13072,333 @@ canvas.relight-position { width:100%; height:auto; display:block; }
   text-align: center;
   font: 10px/1 monospace;
 }
+
+.media-panel > .audio-workspace.audio-tool-panel.mobile-panel-scroll-body {
+  overflow: hidden;
+  scrollbar-gutter: auto;
+}
+
+.audio-workspace > .audio-workspace-body {
+  container: audio-properties / inline-size;
+  display: grid;
+  flex: 1 1 0;
+  align-content: start;
+  gap: 12px;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden auto;
+  overscroll-behavior-y: contain;
+  touch-action: pan-y;
+  scrollbar-width: thin;
+  scrollbar-color: #53636f transparent;
+  scrollbar-gutter: stable;
+  padding: 3px 3px 8px;
+  scroll-padding-block: 3px 8px;
+}
+
+.audio-workspace-clip {
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 9px;
+  border: 1px solid #395968;
+  border-radius: 10px;
+  background: linear-gradient(115deg, #17262e, #1a2b34);
+}
+
+.audio-workspace-clip.is-selectable {
+  position: relative;
+  grid-template-columns: 88px minmax(0, 1fr) 16px;
+}
+
+.audio-workspace-clip.is-selectable:hover {
+  border-color: #5a8b9b;
+}
+
+.audio-workspace-clip:focus-within {
+  outline: 2px solid #35ead9;
+  outline-offset: 2px;
+}
+
+.audio-workspace-clip > select {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  color-scheme: dark;
+}
+
+.audio-workspace-clip > svg {
+  color: #a0b2bc;
+}
+
+.audio-workspace-clip > img,
+.audio-workspace-icon {
+  display: grid;
+  width: 88px;
+  aspect-ratio: 16 / 9;
+  place-items: center;
+  border-radius: 5px;
+  object-fit: cover;
+  color: #7fcbc8;
+  background: #112029;
+}
+
+.audio-workspace-clip strong,
+.audio-workspace-clip small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.audio-workspace-clip small,
+.audio-workspace-empty,
+.audio-workspace-ruler {
+  color: #99aab6;
+}
+
+.audio-workspace-clip small {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 3px;
+}
+
+.audio-workspace-clip small b {
+  overflow: hidden;
+  padding: 0 4px;
+  border: 1px solid #3c928f;
+  border-radius: 4px;
+  color: #82e4dd;
+  background: #163638;
+  font-weight: 500;
+  text-overflow: ellipsis;
+}
+
+.audio-workspace-preview {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.audio-workspace-preview > button {
+  align-self: end;
+  min-width: 34px;
+  min-height: 34px;
+  margin-bottom: 5px;
+  padding: 6px;
+  border-color: #357f7e;
+  background: #153338;
+}
+
+.audio-workspace-waveform {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+}
+
+.audio-workspace-ruler {
+  display: flex;
+  justify-content: space-between;
+  gap: 2px;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.audio-workspace-ruler span {
+  display: grid;
+  justify-items: center;
+  gap: 3px;
+}
+
+.audio-workspace-ruler span::after {
+  content: "";
+  width: 1px;
+  height: 5px;
+  background: #60717e;
+}
+
+.audio-workspace-waveform-progress {
+  position: relative;
+}
+
+.audio-workspace-waveform-playhead {
+  position: absolute;
+  inset-block: 2px;
+  inset-inline-start: var(--audio-workspace-played);
+  width: 1px;
+  background: #c7fff8;
+  pointer-events: none;
+}
+
+.audio-workspace-waveform .waveform-strip {
+  justify-content: space-between;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  background: none;
+  mask-image: linear-gradient(90deg, #000 var(--audio-workspace-played), #0006 var(--audio-workspace-played));
+}
+
+.audio-workspace-waveform .waveform-strip span {
+  max-width: 3px;
+  height: calc(2px + var(--bar) * 30px);
+  opacity: 1;
+  background: #2ee9da;
+}
+
+.audio-workspace-empty {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid #35434d;
+  border-radius: 8px;
+}
+
+.audio-workspace-empty button {
+  margin-inline-start: auto;
+}
+
+.audio-workspace-heading {
+  padding-bottom: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.audio-workspace-heading h2 {
+  margin: 0;
+}
+
+.audio-workspace-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0;
+  padding: 10px 0;
+  border-block: 1px solid #35434d;
+}
+
+.audio-workspace-stats > div {
+  padding-inline: 8px;
+  border-inline-start: 1px solid #35434d;
+  min-width: 0;
+}
+
+.audio-workspace-stats > div:first-child {
+  padding-inline-start: 0;
+  border: 0;
+}
+
+.audio-workspace-stats dt,
+.audio-workspace-information dt {
+  color: #99aab6;
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+.audio-workspace-stats dd,
+.audio-workspace-information dd {
+  margin: 0;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.audio-workspace-stats dd {
+  margin-top: 3px;
+}
+
+.audio-workspace-stats dt {
+  overflow-wrap: normal;
+  hyphens: auto;
+}
+
+.audio-workspace-stats dd {
+  white-space: nowrap;
+}
+
+@container audio-properties (max-width: 420px) {
+  .audio-workspace-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    row-gap: 10px;
+  }
+
+  .audio-workspace-stats > div:nth-child(odd) {
+    padding-inline-start: 0;
+    border-inline-start: 0;
+  }
+}
+
+
+.audio-workspace-information {
+  border-top: 1px solid #35434d;
+  padding-top: 12px;
+}
+
+.audio-workspace-information h3 {
+  margin: 0 0 4px;
+  font-size: 14px;
+}
+
+.audio-workspace-information dl {
+  margin: 0;
+}
+
+.audio-workspace-information dl > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2.5fr);
+  gap: 10px;
+  align-items: baseline;
+  padding-block: 7px;
+  border-bottom: 1px solid #2b383f;
+}
+
+.caption-script-heading,
+.caption-auto-switch {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.caption-script-heading {
+  justify-content: space-between;
+  min-height: 32px;
+}
+
+.caption-auto-switch {
+  justify-content: flex-end;
+  font-size: 12px;
+  line-height: 1.3;
+  text-align: end;
+  color: #b5c4ce;
+  cursor: pointer;
+}
+
+.caption-auto-switch:has(input:disabled) {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.caption-auto-switch .mini-switch {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.caption-auto-switch input:focus-visible + i {
+  outline: 2px solid #35ead9;
+  outline-offset: 3px;
+}
+
+.caption-auto-progress {
+  color: #35ead9;
+  font-variant-numeric: tabular-nums;
+}

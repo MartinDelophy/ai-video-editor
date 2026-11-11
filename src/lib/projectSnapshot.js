@@ -5,7 +5,7 @@ const stateFields = [
   "visualSegments", "visualOverlaySegments", "imageName", "imageMeta", "visualType", "imageDuration", "imageClipCount",
   "fitMode", "ratioId", "selectedFilterId", "selectedTransitionId", "stickerSegments", "timelineMarkers", "selectedStickerId",
   "audioSegments", "audioDuration", "timelineHorizon", "musicSegments", "musicStart", "musicName", "musicDuration", "musicVolume",
-  "sourceAudioName", "sourceAudioDuration", "sourceAudioVolume", "sourceAudioStart", "sourceAudioAssetId", "sourceAudioLinked",
+  "sourceAudioName", "sourceAudioDuration", "sourceAudioVolume", "sourceAudioFades", "sourceAudioStart", "sourceAudioAssetId", "sourceAudioLinked",
   "sourceAudioSpatialEffect", "sourceAudioSpatialAmount", "sourceVoiceColorOriginal", "trackVisibility", "trackLocks", "userAssets", "timelineZoom",
   "selectedTrack", "selectedSegmentId", "selectedVisualSegmentId", "selectedVisualOverlayId", "selectedStickerSegmentId",
   "selectedAudioSegmentId", "currentTime",

@@ -66,6 +66,12 @@ Timeline Studio is a local-first AI video editor that runs in the browser. It co
 
 ## Video demo
 
+### Codex edits a three-panel beat template
+
+Codex proposes a three-panel beat edit through WebMCP. Review and apply the plan, adjust a picture-in-picture keyframe by hand, and export the result. This 37-second demo uses Chinese narration generated locally in Timeline Studio.
+
+https://github.com/user-attachments/assets/b290de2c-4ca8-46c2-b099-cb9d7f231fcb
+
 ### Auto Edit
 
 Visual analysis, keyframes, captions, and export.

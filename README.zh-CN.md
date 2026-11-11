@@ -58,6 +58,12 @@ Timeline Studio 是一个本地优先、直接运行在浏览器中的 AI 视频
 
 ## 视频演示
 
+### Codex 操作三分屏卡点模板
+
+Codex 通过 WebMCP 提交剪辑方案。审阅并应用后，可以手动微调画中画关键帧，再从编辑器导出成片。这段 37 秒演示使用 Timeline Studio 本地生成的「若溪」旁白。
+
+https://github.com/user-attachments/assets/b290de2c-4ca8-46c2-b099-cb9d7f231fcb
+
 ### 自动剪辑
 
 画面分析、关键帧、字幕与导出。

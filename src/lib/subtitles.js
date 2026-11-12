@@ -66,30 +66,53 @@ export function appendImportedCaptions(existing, imported) {
   });
 }
 
-function formatSrtTimestamp(seconds) {
+function formatTimestamp(seconds, separator) {
   const milliseconds = Math.max(0, Math.round((Number(seconds) || 0) * 1000));
   const hours = Math.floor(milliseconds / 3_600_000);
   const minutes = Math.floor((milliseconds % 3_600_000) / 60_000);
   const secs = Math.floor((milliseconds % 60_000) / 1000);
   const millis = milliseconds % 1000;
-  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(secs).padStart(2, "0")},${String(millis).padStart(3, "0")}`;
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(secs).padStart(2, "0")}${separator}${String(millis).padStart(3, "0")}`;
 }
 
-export function serializeSrt(captions, targetDuration = 0, options = {}) {
+// Visible captions as cues relative to options.start, in start-time order as
+// WebVTT requires. A blank line would end the cue early in both formats, so the
+// text keeps its non-empty lines only.
+function collectCaptionCues(captions, targetDuration, options) {
   const source = Array.isArray(captions) ? captions : [];
   const timeline = getCaptionTimeline(source, targetDuration);
   const rangeStart = Math.max(0, Number(options.start) || 0);
   const requestedEnd = Number(options.end);
   const rangeEnd = Number.isFinite(requestedEnd) ? Math.max(rangeStart, requestedEnd) : Number.POSITIVE_INFINITY;
-  const blocks = [];
+  const cues = [];
   source.forEach((caption, index) => {
-    const text = getCaptionDisplayText(caption?.text).replace(/\r\n?/g, "\n").trim();
+    const lines = getCaptionDisplayText(caption?.text).split(/\r\n?|\n/)
+      .map((line) => line.trim()).filter(Boolean);
     const range = timeline[index];
-    if (caption?.hidden || !text || !range) return;
-    const start = Math.max(range.start, rangeStart);
-    const end = Math.min(range.end, rangeEnd);
-    if (end <= start) return;
-    blocks.push(`${blocks.length + 1}\r\n${formatSrtTimestamp(start - rangeStart)} --> ${formatSrtTimestamp(end - rangeStart)}\r\n${text}`);
+    if (caption?.hidden || !lines.length || !range) return;
+    const start = Math.max(range.start, rangeStart) - rangeStart;
+    const end = Math.min(range.end, rangeEnd) - rangeStart;
+    // Both formats store milliseconds; a cue that rounds to zero length cannot be read back.
+    if (Math.round(end * 1000) <= Math.round(start * 1000)) return;
+    cues.push({ start, end, lines });
   });
+  return cues.sort((a, b) => a.start - b.start || a.end - b.end);
+}
+
+export function serializeSrt(captions, targetDuration = 0, options = {}) {
+  const blocks = collectCaptionCues(captions, targetDuration, options).map(({ start, end, lines }, index) => (
+    `${index + 1}\r\n${formatTimestamp(start, ",")} --> ${formatTimestamp(end, ",")}\r\n${lines.join("\r\n")}`
+  ));
   return blocks.length ? `${blocks.join("\r\n\r\n")}\r\n` : "";
+}
+
+function escapeVttText(line) {
+  return line.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+export function serializeVtt(captions, targetDuration = 0, options = {}) {
+  const blocks = collectCaptionCues(captions, targetDuration, options).map(({ start, end, lines }) => (
+    `${formatTimestamp(start, ".")} --> ${formatTimestamp(end, ".")}\n${lines.map(escapeVttText).join("\n")}`
+  ));
+  return blocks.length ? `WEBVTT\n\n${blocks.join("\n\n")}\n` : "";
 }

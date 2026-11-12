@@ -62,7 +62,7 @@ import { createPortal } from "react-dom";
 
 import { formatTime, getSegmentStartTime } from "../lib/timeline.js";
 import { AUDIO_FADE_FIELDS, formatAudioFadeDuration, getAudioFadeControl } from "../lib/audioFade.js";
-import { decodeWaveform } from "../lib/media.js";
+import { decodeWaveform, downloadBlob } from "../lib/media.js";
 import { AudioClipExportControl } from "./AudioClipExportControl.jsx";
 import { SilenceRemovalPanel } from "./SilenceRemovalPanel.jsx";
 import { cancelOpenVoiceTasks, convertVoiceBlob, extractVoiceEmbedding } from "../lib/openVoiceRuntime.js";
@@ -93,7 +93,7 @@ import {
   createVectorSelectionBody,
   updateVectorPart,
 } from "../lib/vectorDocument.js";
-import { MAX_SRT_FILE_BYTES, parseSrt } from "../lib/subtitles.js";
+import { MAX_SRT_FILE_BYTES, parseSrt, serializeSrt, serializeVtt } from "../lib/subtitles.js";
 import { AI_MUSIC_COPY, AiMusicGenerator, FavoriteVoicesPanel, HistoryPanel, MyVoicesPanel, VisualEffectsPanel, VoiceSynthesisPanel } from "./panels.jsx";
 import { SmartFramePanel } from "./SmartFramePanel.jsx";
 import { ClickRippleInspector, SubjectEffectsInspector } from "./SubjectEffectsPanel.jsx";
@@ -623,6 +623,7 @@ function CaptionContextPanel({
   const srtInputRef = useRef(null);
   const focusNewCaptionRef = useRef(false);
   const [pendingSrt, setPendingSrt] = useState(null);
+  const [isCaptionExportOpen, setIsCaptionExportOpen] = useState(false);
   const selectedIndex = Math.max(
     0,
     captionSegments.findIndex((segment) => segment.id === selectedCaptionSegment?.id),
@@ -716,6 +717,22 @@ function CaptionContextPanel({
     if (!pendingSrt) return;
     importCaptionSegments(pendingSrt.captions, mode, pendingSrt.skipped);
     setPendingSrt(null);
+  }
+
+  function openCaptionExport() {
+    if (!serializeSrt(captionSegments, captionTargetDuration)) {
+      window.alert(t("captionExportEmpty"));
+      return;
+    }
+    setIsCaptionExportOpen(true);
+  }
+
+  function downloadCaptionFile(format) {
+    const blob = format === "vtt"
+      ? new Blob([serializeVtt(captionSegments, captionTargetDuration)], { type: "text/vtt;charset=utf-8" })
+      : new Blob(["\uFEFF", serializeSrt(captionSegments, captionTargetDuration)], { type: "application/x-subrip;charset=utf-8" });
+    downloadBlob(blob, `captions.${format}`);
+    setIsCaptionExportOpen(false);
   }
 
   return (
@@ -865,6 +882,10 @@ function CaptionContextPanel({
             <button className="caption-import-button" type="button" onClick={() => srtInputRef.current?.click()}>
               <UploadSimple size={14} />{t("importSrt")}
             </button>
+            <button className="caption-import-button caption-export-button" type="button" onClick={openCaptionExport}
+              title={t("exportSrt")} aria-label={t("exportSrt")}>
+              <DownloadSimple size={14} />
+            </button>
           </>
         ) : null}
         <input
@@ -888,6 +909,19 @@ function CaptionContextPanel({
               <button className="panel-secondary" type="button" onClick={() => setPendingSrt(null)}>{t("cancel")}</button>
               <button className="panel-secondary" type="button" onClick={() => applyPendingSrt("append")}>{t("appendSrt")}</button>
               <button className="auto-edit-apply" type="button" onClick={() => applyPendingSrt("replace")}>{t("replaceSrt")}</button>
+            </div>
+          </section>
+        </div>, document.body,
+      ) : null}
+      {isCaptionExportOpen ? createPortal(
+        <div className="srt-import-backdrop" role="presentation">
+          <section className="srt-import-dialog" role="dialog" aria-modal="true" aria-label={t("captionExportTitle")}>
+            <strong>{t("captionExportTitle")}</strong>
+            <p>{t("captionExportDescription")}</p>
+            <div>
+              <button className="panel-secondary" type="button" onClick={() => setIsCaptionExportOpen(false)}>{t("cancel")}</button>
+              <button className="panel-secondary" type="button" onClick={() => downloadCaptionFile("vtt")}>WebVTT</button>
+              <button className="auto-edit-apply" type="button" onClick={() => downloadCaptionFile("srt")}>SRT</button>
             </div>
           </section>
         </div>, document.body,

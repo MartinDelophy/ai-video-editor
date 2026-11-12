@@ -6868,6 +6868,7 @@ button:disabled {
 .caption-context-heading > span { display:flex; align-items:center; gap:7px; min-width:0; }
 .caption-import-button { display:inline-flex; align-items:center; gap:5px; border:1px solid rgba(109,225,255,.24); border-radius:7px; padding:5px 8px; color:#bcefff; background:rgba(40,174,215,.08); font-size:11px; cursor:pointer; }
 .caption-import-button:hover { border-color:rgba(109,225,255,.5); background:rgba(40,174,215,.15); }
+.caption-export-button { flex-shrink:0; padding:5px 7px; }
 .caption-empty-import { display:inline-flex; align-items:center; justify-content:center; gap:6px; height:36px; min-height:36px; margin:0; padding:0 12px; border:1px solid rgba(86,232,216,.4); border-radius:8px; color:#d9fffa; background:rgba(38,195,181,.12); font-size:12px; line-height:1; font-weight:700; cursor:pointer; }
 .caption-empty-import:hover { border-color:rgba(86,232,216,.72); background:rgba(38,195,181,.2); }
 .caption-empty-actions { display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:8px; }
@@ -10959,7 +10960,7 @@ button:disabled {
   .voice-panel .voice-tab-body button { font-size: 11px; }
   .voice-panel.is-caption-context .caption-context-heading {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
     gap: 8px;
   }
   .voice-panel.is-caption-context .caption-context-heading > span {
@@ -10975,6 +10976,10 @@ button:disabled {
     justify-content: center;
     line-height: 1;
     white-space: nowrap;
+  }
+  .voice-panel.is-caption-context .caption-export-button {
+    width: 34px;
+    padding: 0;
   }
 
   /* Tool drawers have one fixed header and one scrolling body. Pinning the

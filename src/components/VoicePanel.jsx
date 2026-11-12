@@ -871,7 +871,7 @@ function CaptionContextPanel({
           ref={srtInputRef}
           className="sr-only"
           type="file"
-          accept=".srt,application/x-subrip,text/plain"
+          accept=".srt,.vtt,application/x-subrip,text/vtt,text/plain"
           data-testid="srt-file-input"
           onChange={(event) => {
             handleSrtFile(event.target.files?.[0]);

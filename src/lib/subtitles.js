@@ -5,23 +5,35 @@ export const MAX_SRT_FILE_BYTES = 5 * 1024 * 1024;
 export const MAX_SRT_CAPTIONS = 5000;
 
 function parseTimestamp(value) {
-  const match = String(value).trim().match(/^(\d{1,3}):(\d{2}):(\d{2})[,.](\d{1,3})$/);
+  // SRT always carries hours; WebVTT allows "MM:SS.mmm" when the hour is zero.
+  const match = String(value).trim().match(/^(?:(\d{1,3}):)?(\d{2}):(\d{2})[,.](\d{1,3})$/);
   if (!match) return null;
-  const [, hours, minutes, seconds, fraction] = match;
+  const [, hours = "0", minutes, seconds, fraction] = match;
   if (Number(minutes) > 59 || Number(seconds) > 59) return null;
   return Number(hours) * 3600 + Number(minutes) * 60 + Number(seconds) + Number(fraction.padEnd(3, "0")) / 1000;
 }
 
-function cleanSrtText(lines) {
-  return lines.join("\n")
-    .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<[^>]+>/g, "")
-    .replace(/\{\\[^}]+}/g, "")
-    .trim();
+const VTT_ENTITIES = { amp: "&", lt: "<", gt: ">", nbsp: "\u00a0", lrm: "\u200e", rlm: "\u200f" };
+
+function decodeVttEntities(text) {
+  return text.replace(/&(amp|lt|gt|nbsp|lrm|rlm);/g, (_, name) => VTT_ENTITIES[name]);
 }
 
+function cleanSrtText(lines, isVtt) {
+  const text = lines.join("\n")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<[^>]+>/g, "")
+    .replace(/\{\\[^}]+}/g, "");
+  return (isVtt ? decodeVttEntities(text) : text).trim();
+}
+
+// WebVTT blocks that carry no cues; they are metadata rather than malformed captions.
+const VTT_NON_CUE_BLOCK = /^(?:WEBVTT|NOTE|STYLE|REGION)(?:[ \t\n]|$)/;
+
 export function parseSrt(source, { maxCaptions = MAX_SRT_CAPTIONS } = {}) {
-  const normalized = String(source ?? "").replace(/^\uFEFF/, "").replace(/\r\n?/g, "\n");
+  const normalized = String(source ?? "").replace(/^\uFEFF/, "").replace(/\r\n?/g, "\n")
+    .replace(/^[ \t]+$/gm, "");
+  const isVtt = /^WEBVTT(?:[ \t\n]|$)/.test(normalized);
   const blocks = normalized.split(/\n{2,}/);
   const captions = [];
   let skipped = 0;
@@ -30,12 +42,13 @@ export function parseSrt(source, { maxCaptions = MAX_SRT_CAPTIONS } = {}) {
     const lines = block.split("\n").map((line) => line.trimEnd());
     while (lines.length && !lines[0].trim()) lines.shift();
     if (!lines.length) continue;
+    if (isVtt && VTT_NON_CUE_BLOCK.test(lines[0])) continue;
     const timingIndex = lines.findIndex((line) => line.includes("-->"));
     if (timingIndex < 0) { skipped += 1; continue; }
     const timing = lines[timingIndex].split(/\s*-->\s*/);
     const start = parseTimestamp(timing[0]);
     const end = parseTimestamp(timing[1]?.split(/\s+/)[0]);
-    const text = cleanSrtText(lines.slice(timingIndex + 1));
+    const text = cleanSrtText(lines.slice(timingIndex + 1), isVtt);
     if (start === null || end === null || end <= start || !text) { skipped += 1; continue; }
     if (captions.length >= maxCaptions) { skipped += 1; continue; }
     captions.push({ id: makeId("caption"), text, start, end, hidden: false });

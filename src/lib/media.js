@@ -312,9 +312,9 @@ async function extractVideoTrackFramesWithWebCodecs(src, sampleTimes, options) {
       onProgress?.(1);
       return frames;
     }
-    for (const timestamp of effectiveSampleTimes) {
+    // Reuse decoder work across timestamps while preserving request order.
+    for await (const result of sink.canvasesAtTimestamps(effectiveSampleTimes)) {
       if (signal?.aborted) throw signal.reason || new DOMException("Aborted", "AbortError");
-      const result = await sink.getCanvas(timestamp);
       if (!result?.canvas) continue;
       frames.push(createVideoTrackFrame(
         result.canvas.toDataURL("image/jpeg", quality),
@@ -322,6 +322,7 @@ async function extractVideoTrackFramesWithWebCodecs(src, sampleTimes, options) {
       ));
       onFrame?.(frames.at(-1), frames.length - 1, effectiveSampleTimes.length);
       onProgress?.(Math.min(0.98, 0.14 + 0.84 * frames.length / effectiveSampleTimes.length));
+      signal?.throwIfAborted();
       if (yieldEveryFrames > 0 && frames.length % yieldEveryFrames === 0) {
         await yieldVideoTrackFrameWork(signal);
       }

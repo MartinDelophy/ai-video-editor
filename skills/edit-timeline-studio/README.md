@@ -17,11 +17,11 @@ Users are solely responsible for any legal liability arising from violations of 
 
 ## Project updates
 
+- **2026-11-13** — Video imports extract timeline thumbnails in batches. Preview updates follow playhead dragging more closely, with the same frame timing.
 - **2026-11-10** — Memory Vortex Beats adds editable sound effects at key beats in the editor and in WebMCP template appends. The editor shows an alignment guide for grouped timeline drags and preserves clip spacing when snapping.
 - **2026-11-09** — WebMCP can review and append 3D Perspective Beats with 20 material slots and Memory Vortex Beats with 48. The Skill documents the overlay keyframes, the opening assembled from 48 photo or video frames and which tracks to verify.
 - **2026-11-08** — The Skill covers reviewed WebMCP appends for the six beat templates, including custom Spinning Cards faces. Agents can inspect timeline effects and set mask junctions with the shared command engine.
 - **2026-11-02** — Agents can use shared split-screen and reference-frame synchronization commands through CLI, STDIO MCP and browser preview/apply, with explicit source evidence, crop/keyframe reviews and rendering limits.
-- **2026-10-13** — Agent relighting and depth-video conversion now reuse the production browser pipeline through WebMCP prepare/start/inspect/cancel. Lighting parameters use shared reviewed, undoable commands; generated depth videos stay in My assets until a separate reviewed insertion. The editing Skill documents the complete workflow and local CLI limits.
 
 Timeline Studio is a local-first browser video editor plus an Agent Skill for creating editable, multi-track `.timeline` projects. It combines visual assembly, timed captions, multilingual AI voiceover, overlays, audio tools, and deterministic browser rendering without turning the project into an opaque one-off script.
 

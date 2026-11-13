@@ -2,6 +2,7 @@
 .timeline .image-clip.is-video:not(.is-preparing),
 .image-track .image-clip.is-video:not(.is-preparing),
 .visual-overlay-track .visual-overlay-clip.is-video {
+  --video-clip-audio-height: 18px;
   height: calc(var(--timeline-visual-row-height, 80px) - 10px);
   background: #063b40;
 }
@@ -28,9 +29,17 @@
 .image-clip.is-video > .clip-mute-toggle,
 .visual-overlay-clip.is-video > .clip-mute-toggle { top: 0; left: 5px; width: 18px; height: 17px; }
 .video-clip-audio {
-  position: absolute; bottom: 0; left: 0; right: 0; height: 18px;
+  position: absolute; bottom: 0; left: 0; right: 0; height: var(--video-clip-audio-height);
   background: #043d42; border-top: 1px solid #328487; z-index: 2;
 }
+
+/* Reserve the waveform and the space just above it for audio pointer targets. */
+:is(.image-clip, .visual-overlay-clip):has(> .video-clip-audio > .timeline-audio-fade-envelope) >
+  :is(.image-resize-handle, .visual-overlay-resize) {
+  bottom: calc(var(--video-clip-audio-height) + 6px);
+  height: auto;
+}
+
 .video-clip-audio canvas { display: block; width: 100%; height: 100%; pointer-events: none; }
 .video-clip-audio .timeline-gain {
   position: absolute; left: 7px; right: 7px; height: 14px; transform: translateY(-50%);

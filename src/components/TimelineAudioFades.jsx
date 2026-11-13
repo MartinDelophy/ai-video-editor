@@ -9,9 +9,9 @@ const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 const BASELINE = 91;
 const PLATEAU = 29;
 
-function fadeEnvelopeGeometry(fadeIn, fadeOut, clipWidth, volume) {
+function fadeEnvelopeGeometry(fadeIn, fadeOut, clipWidth, volume, handleInsetPx) {
   const width = clipWidth || 32;
-  const edge = Math.min(15, 500 / width);
+  const edge = Math.min(15, 100 * handleInsetPx / width);
   const halfGap = Math.min(25, 1100 / width);
   const overlap = Math.max(100, fadeIn + fadeOut);
   const left = clamp(100 * fadeIn / overlap, edge, 100 - edge);
@@ -42,7 +42,7 @@ function FadeEnvelope({ fadeIn, fadeOut, start, end, peakY }) {
   );
 }
 
-export function TimelineAudioFades({ segment, selected, disabled, clipWidth, waveformVisible, peaks, sourceStart, sourceDuration, sourceAudioDuration, renderWaveform, volume, t, language, onChange, onChangeVolume }) {
+export function TimelineAudioFades({ segment, selected, disabled, clipWidth, handleInsetPx = 5, waveformVisible, peaks, sourceStart, sourceDuration, sourceAudioDuration, renderWaveform, volume, t, language, onChange, onChangeVolume }) {
   const pointer = useRef(null);
   const [draft, setDraft] = useState(null);
   const [tooltip, setTooltip] = useState(null);
@@ -74,7 +74,7 @@ export function TimelineAudioFades({ segment, selected, disabled, clipWidth, wav
     return { ...control, field, value, percent: segment.duration > 0 ? (value / segment.duration) * 100 : 0 };
   });
   const [fadeIn, fadeOut] = controls.map((control) => control.percent);
-  const geometry = fadeEnvelopeGeometry(fadeIn, fadeOut, clipWidth, volume);
+  const geometry = fadeEnvelopeGeometry(fadeIn, fadeOut, clipWidth, volume, handleInsetPx);
   const { start, end, peakY } = geometry;
   const tooltipControl = tooltip && controls.find(({ field }) => field === tooltip.field);
   const pointX = tooltip && tooltip.left + tooltip.width * (tooltip.field === "fadeIn" ? start : end) / 100;

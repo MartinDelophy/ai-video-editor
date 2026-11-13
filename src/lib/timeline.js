@@ -322,6 +322,20 @@ export function getVisualSegmentTimeline(segments) {
   });
 }
 
+// The main visual track is contiguous, so segment ends are sorted even
+// when a clip has zero duration. An exact cut belongs to the next clip.
+export function getVisualTimelineIndexAtTime(timeline, time) {
+  const target = Math.max(0, time);
+  let low = 0;
+  let high = timeline.length;
+  while (low < high) {
+    const middle = Math.floor((low + high) / 2);
+    if (target < timeline[middle].end) high = middle;
+    else low = middle + 1;
+  }
+  return Math.min(low, timeline.length - 1);
+}
+
 export function getVisualSegmentIndexAtTime(segments, time) {
   if (!segments.length) {
     return -1;

@@ -48,6 +48,7 @@ export function useTimelinePlayhead(state) {
     let lastAriaTime = -1;
     let scrubTime = null;
     let scrubActive = false;
+    let lastScrubPosition = null;
 
     const stopAnimations = () => {
       animations.forEach((animation) => animation.cancel());
@@ -80,8 +81,15 @@ export function useTimelinePlayhead(state) {
       if (!canAnimate || key !== animationKey) {
         // Install the exact current position before cancelling an older native
         // animation so pause, seeking and zoom never reveal its stale origin.
-        line.style.transform = `translate3d(${ratio * trackWidth}px, 0, 0)`;
-        triangle.style.transform = `translate3d(${ratio * rulerWidth}px, 0, 0)`;
+        const lineX = ratio * trackWidth;
+        const triangleX = ratio * rulerWidth;
+        const previous = lastScrubPosition;
+        if (!scrubActive || previous?.line !== line || previous?.triangle !== triangle
+          || previous.lineX !== lineX || previous.triangleX !== triangleX) {
+          line.style.transform = `translate3d(${lineX}px, 0, 0)`;
+          triangle.style.transform = `translate3d(${triangleX}px, 0, 0)`;
+          lastScrubPosition = scrubActive ? { line, triangle, lineX, triangleX } : null;
+        }
         stopAnimations();
         if (canAnimate) {
           const remainingMs = (current.playbackDuration - time) * 1000;
@@ -104,7 +112,7 @@ export function useTimelinePlayhead(state) {
         // still publishes the lower-frequency viewport/thumbnail state.
         ruler.style.transform = `translateX(${-scroll.scrollLeft}px)`;
       }
-      if (!mobile?.matches) {
+      if (!mobile?.matches && (current.isPlaying || revealRef.current || suspendedRef.current || offscreenRef.current)) {
         const x = ratio * trackWidth;
         const width = scroll.clientWidth;
         const relative = x - scroll.scrollLeft;
@@ -153,7 +161,10 @@ export function useTimelinePlayhead(state) {
     };
     const seekState = (event) => {
       scrubActive = event.detail?.active === true;
-      if (!scrubActive) scrubTime = null;
+      if (!scrubActive) {
+        scrubTime = null;
+        lastScrubPosition = null;
+      }
     };
     window.addEventListener("timeline-seek-position", seekPosition);
     window.addEventListener("timeline-seek-state", seekState);

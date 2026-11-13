@@ -1,6 +1,6 @@
 import { MAX_TIMELINE_DURATION_SECONDS } from "../config/editor.js";
 import { getAudioSegmentPreviewVolume, getTimelineTrackLocalTime, isAudioSegmentAudible, isTimelineTimeInsideTrack, requestTimelineMediaPlay, setTimelineAudioGain } from "./editorRuntime.js";
-import { filterTimedSegmentsByLaneVisibility, getVisualSegmentIndexAtTime } from "./timeline.js";
+import { filterTimedSegmentsByLaneVisibility, getVisualTimelineIndexAtTime } from "./timeline.js";
 import { getLinkedSourceAudioState } from "./sourceAudioSync.js";
 import { getVisualPlaybackRateAtTime, getVisualSourceTime } from "./visualEffects.js";
 import { requestLatestVideoFrame } from "./videoFrameSync.js";
@@ -38,7 +38,7 @@ export function createPlaybackControls(deps) {
   const syncPreviewVideoTime = (timelineTime, { immediate = false } = {}) => {
     const video = deps.previewVideoRef.current;
     if (!video) return;
-    const index = getVisualSegmentIndexAtTime(deps.visualSegments, timelineTime);
+    const index = getVisualTimelineIndexAtTime(deps.visualTimeline, timelineTime);
     if (index < 0) return;
     const segment = deps.visualSegments[index];
     // When a seek crosses into another clip React will replace/update the
@@ -104,7 +104,7 @@ export function createPlaybackControls(deps) {
     seekRunningTrack(deps.musicRef.current, getMusicState(clamped), "music");
     if (shouldPlay) {
       const video = deps.previewVideoRef.current;
-      const index = getVisualSegmentIndexAtTime(deps.visualSegments, clamped);
+      const index = getVisualTimelineIndexAtTime(deps.visualTimeline, clamped);
       const segment = index >= 0 ? deps.visualSegments[index] : null;
       if (video && deps.previewVisualType === "video" && (!deps.previewVisualSegment?.id || segment?.id === deps.previewVisualSegment.id)) {
         requestTimelineMediaPlay(video);
@@ -157,10 +157,7 @@ export function createPlaybackControls(deps) {
         // The preview synchronizes from this committed time. Sending every
         // pointer position directly to the decoder can keep the compositor
         // waiting for a seek while React still shows an older clip.
-        const range = deps.visualTimeline[lastUiSegment];
-        const segment = range && targetTime >= range.start && targetTime < range.end
-          ? lastUiSegment
-          : getVisualSegmentIndexAtTime(deps.visualSegments, targetTime);
+        const segment = getVisualTimelineIndexAtTime(deps.visualTimeline, targetTime);
         const now = performance.now();
         if (segment !== lastUiSegment || now - lastUiUpdate >= SCRUB_PREVIEW_INTERVAL_MS) {
           deps.setCurrentTime(targetTime);

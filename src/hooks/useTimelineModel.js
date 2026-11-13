@@ -17,7 +17,7 @@ import {
   getSegmentIndexAtTime,
   getTimedSegmentIndexAtTime,
   getTimedSegmentsEnd,
-  getVisualSegmentIndexAtTime,
+  getVisualTimelineIndexAtTime,
   getVisualSegmentTimeline,
   packCaptionSegmentsIntoLanes,
 } from "../lib/timeline.js";
@@ -189,7 +189,7 @@ export function useTimelineModel(d) {
           visionOptions: record.options,
         } : overlay;
       });
-  const currentVisualSegmentIndex = getVisualSegmentIndexAtTime(d.visualSegments, d.currentTime);
+  const currentVisualSegmentIndex = getVisualTimelineIndexAtTime(visualTimeline, d.currentTime);
   const currentVisualSegment = currentVisualSegmentIndex >= 0
     ? d.visualSegments[currentVisualSegmentIndex] ?? null
     : null;

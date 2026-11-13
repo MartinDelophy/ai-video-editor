@@ -7,6 +7,10 @@ import { requestLatestVideoFrame } from "./videoFrameSync.js";
 import { normalizeTimelineMarkers } from "./timelineMarkers.js";
 import { createTimelineSnapGuide, findClosestTimelineSnap } from "./timelineSnap.js";
 
+// One preview update per display frame on a 60 Hz screen, with a small
+// tolerance for rAF jitter. Faster screens still coalesce pointer events.
+const SCRUB_PREVIEW_INTERVAL_MS = 15;
+
 export function createPlaybackControls(deps) {
   const isTrackAudible = (track) => deps.trackVisibility?.[track] !== false;
   const getSourceState = (timelineTime) => deps.sourceAudioLinked
@@ -107,8 +111,8 @@ export function createPlaybackControls(deps) {
       }
     }
   };
-  const getTimelineTimeFromClientX = (clientX) => {
-    const rect = deps.trackScrollRef.current?.getBoundingClientRect(); const duration = deps.timelineDurationRef.current;
+  const getTimelineTimeFromClientX = (clientX, rect = deps.trackScrollRef.current?.getBoundingClientRect()) => {
+    const duration = deps.timelineDurationRef.current;
     if (!rect || duration <= 0) return 0;
     return Math.max(0, Math.min(duration, ((clientX - rect.left) / Math.max(rect.width, 1)) * duration));
   };
@@ -136,8 +140,9 @@ export function createPlaybackControls(deps) {
     ]).filter((point) => point.time <= deps.timelineDurationRef.current);
     const commit = (immediate = false) => {
       pendingFrame = 0;
-      const time = getTimelineTimeFromClientX(latestClientX);
-      const width = deps.trackScrollRef.current?.getBoundingClientRect().width;
+      const rect = deps.trackScrollRef.current?.getBoundingClientRect() ?? null;
+      const time = getTimelineTimeFromClientX(latestClientX, rect);
+      const width = rect?.width;
       const snap = !bypassSnap && width > 0
         ? findClosestTimelineSnap(time, snapPoints, 10 / width * deps.timelineDurationRef.current) : null;
       if (snap?.time !== lastSnap?.time || snap?.edge !== lastSnap?.edge) {
@@ -145,8 +150,6 @@ export function createPlaybackControls(deps) {
         lastSnap = snap;
       }
       const targetTime = snap?.time ?? time;
-      const segment = getVisualSegmentIndexAtTime(deps.visualSegments, targetTime);
-      const now = performance.now();
       if (immediate) {
         seekTo(targetTime, { immediate: true, pause: true });
       } else {
@@ -154,7 +157,12 @@ export function createPlaybackControls(deps) {
         // The preview synchronizes from this committed time. Sending every
         // pointer position directly to the decoder can keep the compositor
         // waiting for a seek while React still shows an older clip.
-        if (segment !== lastUiSegment || now - lastUiUpdate >= 32) {
+        const range = deps.visualTimeline[lastUiSegment];
+        const segment = range && targetTime >= range.start && targetTime < range.end
+          ? lastUiSegment
+          : getVisualSegmentIndexAtTime(deps.visualSegments, targetTime);
+        const now = performance.now();
+        if (segment !== lastUiSegment || now - lastUiUpdate >= SCRUB_PREVIEW_INTERVAL_MS) {
           deps.setCurrentTime(targetTime);
           lastUiUpdate = now;
           lastUiSegment = segment;

@@ -26,7 +26,7 @@ This desktop preview plans from metadata, without analyzing video frames or audi
 
 Run into any issues? Scan the QR code to join our WeChat group. We really need your suggestions and feedback!
 
-<img src="docs/images/wechat-feedback-qr-2026-11-13.png" alt="WeChat group QR code" width="280" />
+<img src="docs/images/wechat-feedback-qr-2026-11-14.png" alt="WeChat group QR code" width="280" />
 
 ## Responsible use of deep synthesis
 

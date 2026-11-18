@@ -789,19 +789,19 @@ const PROJECT_CHROME_COPY = {
 };
 
 const CORE_LABEL_COPY = {
-  zh: { smart: "智能", fit: "适应", visualSelectClip: "请在画面轨道中选择一个片段" },
-  en: { smart: "Smart", fit: "Fit", visualSelectClip: "Select a clip on the Visuals track" },
-  ja: { smart: "スマート", fit: "全体表示", visualSelectClip: "映像トラックのクリップを選択してください" },
-  ko: { smart: "스마트", fit: "화면 맞춤", visualSelectClip: "화면 트랙에서 클립을 선택하세요" },
-  es: { smart: "Inteligente", fit: "Ajustar", visualSelectClip: "Selecciona un clip en la pista de imagen" },
-  fr: { smart: "Intelligent", fit: "Ajuster", visualSelectClip: "Sélectionnez un clip dans la piste visuelle" },
-  de: { smart: "Intelligent", fit: "Einpassen", visualSelectClip: "Clip in der Bildspur auswählen" },
-  pt: { smart: "Inteligente", fit: "Ajustar", visualSelectClip: "Selecione um clipe na faixa visual" },
-  th: { smart: "อัจฉริยะ", fit: "พอดี", visualSelectClip: "เลือกคลิปในแทร็กภาพ" },
-  vi: { smart: "Thông minh", fit: "Vừa khung", visualSelectClip: "Chọn một clip trong rãnh hình ảnh" },
-  ru: { smart: "Умные", fit: "Вписать", visualSelectClip: "Выберите клип на видеодорожке" },
-  it: { smart: "Smart", fit: "Adatta", visualSelectClip: "Seleziona una clip nella traccia video", complete: "Completa", cancel: "Annulla", reset: "Ripristina", apply: "Applica" },
-  id: { smart: "Cerdas", fit: "Sesuaikan", visualSelectClip: "Pilih klip di trek visual", complete: "Selesai", cancel: "Batal", reset: "Atur ulang", apply: "Terapkan" },
+  zh: { smart: "智能", fit: "适应", upload: "上传", visualSelectClip: "请在画面轨道中选择一个片段" },
+  en: { smart: "Smart", fit: "Fit", upload: "Upload", visualSelectClip: "Select a clip on the Visuals track" },
+  ja: { smart: "スマート", fit: "全体表示", upload: "アップロード", visualSelectClip: "映像トラックのクリップを選択してください" },
+  ko: { smart: "스마트", fit: "화면 맞춤", upload: "업로드", visualSelectClip: "화면 트랙에서 클립을 선택하세요" },
+  es: { smart: "Inteligente", fit: "Ajustar", upload: "Subir", visualSelectClip: "Selecciona un clip en la pista de imagen" },
+  fr: { smart: "Intelligent", fit: "Ajuster", upload: "Importer", visualSelectClip: "Sélectionnez un clip dans la piste visuelle" },
+  de: { smart: "Intelligent", fit: "Einpassen", upload: "Hochladen", visualSelectClip: "Clip in der Bildspur auswählen" },
+  pt: { smart: "Inteligente", fit: "Ajustar", upload: "Enviar", visualSelectClip: "Selecione um clipe na faixa visual" },
+  th: { smart: "อัจฉริยะ", fit: "พอดี", upload: "อัปโหลด", visualSelectClip: "เลือกคลิปในแทร็กภาพ" },
+  vi: { smart: "Thông minh", fit: "Vừa khung", upload: "Tải lên", visualSelectClip: "Chọn một clip trong rãnh hình ảnh" },
+  ru: { smart: "Умные", fit: "Вписать", upload: "Загрузить", visualSelectClip: "Выберите клип на видеодорожке" },
+  it: { smart: "Smart", fit: "Adatta", upload: "Carica", visualSelectClip: "Seleziona una clip nella traccia video", complete: "Completa", cancel: "Annulla", reset: "Ripristina", apply: "Applica" },
+  id: { smart: "Cerdas", fit: "Sesuaikan", upload: "Unggah", visualSelectClip: "Pilih klip di trek visual", complete: "Selesai", cancel: "Batal", reset: "Atur ulang", apply: "Terapkan" },
 };
 
 const LOCALIZATION_REVIEW_COPY = {

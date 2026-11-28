@@ -13,7 +13,9 @@ Read this before planning long videos, chapter structure, music beat cues, revis
 
 Keep titles concise and write titles/notes in the user's language; Unicode text is preserved. Use `notes` for source evidence, the relevant clip ID, rationale, or an unresolved decision. Preserve existing annotations unless the task explicitly changes them. Quote supplied review comments faithfully and label the Agent's own suggestions as Agent observations; never invent comments and attribute them to the user or a reviewer.
 
-Markers remain project annotations. They neither draw into the video nor create MP4/container chapters, subtitles, chapter text exports, or exported loop ranges. They do not extend rendered media duration, including when placed beyond its current end. They remain at absolute project times when clips are reordered, trimmed, or ripple-edited; explicitly update affected annotations when an authorized media edit requires them to follow content.
+Markers remain project annotations. They neither draw into the video nor create MP4/container chapters, subtitles, or exported loop ranges. They do not extend rendered media duration, including when placed beyond its current end. They remain at absolute project times when clips are reordered, trimmed, or ripple-edited; explicitly update affected annotations when an authorized media edit requires them to follow content.
+
+In the editor, **Export chapters** in the Timeline markers panel downloads `chapter` annotations as YouTube description timestamps (`youtube-chapters.txt`) or a WebVTT chapter track (`chapters.vtt`). Each chapter runs until the next one starts and the last one until the media ends; chapters at or after the media end are left out, as is the earlier of two chapters at the same time (the same whole second for YouTube). Empty titles become the localized chapter label. YouTube shows chapters only when the first starts at `0`, there are at least three, and each lasts at least 10 seconds, so plan chapter markers that way when the user will publish there. CLI and MCP commands do not produce these files.
 
 ## Resolve exact project time
 

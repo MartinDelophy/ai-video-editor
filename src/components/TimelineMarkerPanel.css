@@ -507,6 +507,90 @@
   background: #72eee0;
 }
 
+.timeline-marker-panel-export-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(7, 10, 14, 0.68);
+}
+
+.timeline-marker-panel-export {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: min(390px, 100%);
+  max-height: 100%;
+  padding: 16px;
+  overflow-y: auto;
+  border: 1px solid rgba(154, 181, 195, 0.2);
+  border-radius: 12px;
+  background: #171d25;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
+}
+
+.timeline-marker-panel-export h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 1.35;
+}
+
+.timeline-marker-panel-export p {
+  margin: 0;
+  color: #9cabb5;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.timeline-marker-panel-export p + p {
+  margin-top: 8px;
+}
+
+.timeline-marker-panel-export .timeline-marker-panel-export-hint {
+  color: #71838e;
+  font-size: 11px;
+}
+
+.timeline-marker-panel-export-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.timeline-marker-panel-export-actions > button {
+  min-height: 32px;
+  padding: 6px 12px;
+  border: 1px solid rgba(133, 174, 185, 0.16);
+  border-radius: 7px;
+  background: transparent;
+  color: #c5d8de;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.timeline-marker-panel-export-actions > button:hover {
+  border-color: var(--desktop-hover-border, rgba(76, 238, 222, 0.34));
+  color: #e1fffc;
+}
+
+.timeline-marker-panel-export-actions > .timeline-marker-panel-export-primary {
+  border-color: transparent;
+  background: #55dfd0;
+  color: #072b2b;
+}
+
+.timeline-marker-panel-export-actions > .timeline-marker-panel-export-primary:hover {
+  border-color: transparent;
+  background: #72eee0;
+  color: #072b2b;
+}
+
 @media (max-width: 760px) {
   .timeline-marker-panel {
     top: auto !important;

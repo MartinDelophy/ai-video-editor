@@ -12,7 +12,7 @@ function markerClock(value) {
   return `${String(Math.floor(ms / 3600000)).padStart(2, "0")}:${String(Math.floor(ms / 60000) % 60).padStart(2, "0")}:${String(Math.floor(ms / 1000) % 60).padStart(2, "0")}.${String(ms % 1000).padStart(3, "0")}`;
 }
 
-export function TimelineMarkerToolbar({ controller, t, currentTime }) {
+export function TimelineMarkerToolbar({ controller, t, currentTime, mediaDuration }) {
   return <>
     <div className="timeline-marker-tools">
     <button
@@ -37,7 +37,7 @@ export function TimelineMarkerToolbar({ controller, t, currentTime }) {
     {controller.open && <TimelineMarkerPanel
       t={t} markers={controller.markers} selectedId={controller.selectedId}
       onSelect={controller.select} onAdd={controller.add} onUpdate={controller.update}
-      onDelete={controller.remove} onClose={controller.close} currentTime={currentTime} anchorRef={controller.anchorRef}
+      onDelete={controller.remove} onClose={controller.close} currentTime={currentTime} mediaDuration={mediaDuration} anchorRef={controller.anchorRef}
     />}
   </>;
 }

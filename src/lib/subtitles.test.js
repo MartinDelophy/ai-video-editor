@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { parseSrt, serializeSrt, serializeVtt } from "./subtitles.js";
+import { parseSrt, serializeSrt, serializeVtt, serializeVttChapters, serializeYouTubeChapters } from "./subtitles.js";
 
 const times = (captions) => captions.map(({ start, end }) => [start, end]);
 
@@ -103,4 +103,54 @@ test("caption serializers write cues in start-time order", () => {
   ];
   assert.equal(serializeSrt(captions), "1\r\n00:00:01,000 --> 00:00:02,000\r\nEarly\r\n\r\n2\r\n00:00:04,000 --> 00:00:05,000\r\nLate\r\n");
   assert.equal(serializeVtt(captions), "WEBVTT\n\n00:00:01.000 --> 00:00:02.000\nEarly\n\n00:00:04.000 --> 00:00:05.000\nLate\n");
+});
+
+const markers = [
+  { id: "outro", type: "chapter", time: 3725.5, title: "Wrap  up\n& <questions>" },
+  { id: "beat", type: "marker", time: 12, title: "Drop" },
+  { id: "intro", type: "chapter", time: 0, title: "Intro" },
+  { id: "review", type: "range", time: 30, endTime: 40, title: "Review" },
+  { id: "demo", type: "chapter", time: 75.25, title: "   " },
+];
+
+test("serializeYouTubeChapters lists chapter markers as description timestamps", () => {
+  assert.equal(serializeYouTubeChapters(markers, 3800), "00:00 Intro\n01:15 Chapter\n1:02:05 Wrap up & <questions>\n");
+  assert.equal(serializeYouTubeChapters(markers, 3800, { fallbackTitle: "章节" }).split("\n")[1], "01:15 章节");
+});
+
+test("serializeVttChapters ends each chapter where the next starts and the last at the media end", () => {
+  assert.equal(serializeVttChapters(markers, 3800), [
+    "WEBVTT",
+    "",
+    "00:00:00.000 --> 00:01:15.250",
+    "Intro",
+    "",
+    "00:01:15.250 --> 01:02:05.500",
+    "Chapter",
+    "",
+    "01:02:05.500 --> 01:03:20.000",
+    "Wrap up &amp; &lt;questions&gt;",
+    "",
+  ].join("\n"));
+  const { captions, skipped } = parseSrt(serializeVttChapters(markers, 3800));
+  assert.equal(skipped, 0);
+  assert.deepEqual(times(captions), [[0, 75.25], [75.25, 3725.5], [3725.5, 3800]]);
+  assert.deepEqual(captions.map((caption) => caption.text), ["Intro", "Chapter", "Wrap up & <questions>"]);
+});
+
+test("chapter serializers skip chapters at the media end and keep the later of two at one time", () => {
+  const crowded = [
+    { id: "a", type: "chapter", time: 10.2, title: "Draft" },
+    { id: "b", type: "chapter", time: 10.8, title: "Final" },
+    { id: "c", type: "chapter", time: 20, title: "Same time, first" },
+    { id: "d", type: "chapter", time: 20, title: "Same time, last" },
+    { id: "e", type: "chapter", time: 30, title: "At the end" },
+  ];
+  assert.equal(
+    serializeVttChapters(crowded, 30),
+    "WEBVTT\n\n00:00:10.200 --> 00:00:10.800\nDraft\n\n00:00:10.800 --> 00:00:20.000\nFinal\n\n00:00:20.000 --> 00:00:30.000\nSame time, last\n",
+  );
+  assert.equal(serializeYouTubeChapters(crowded, 30), "00:10 Final\n00:20 Same time, last\n");
+  assert.equal(serializeVttChapters(markers, 0), "");
+  assert.equal(serializeYouTubeChapters([{ id: "x", type: "marker", time: 1, title: "Not a chapter" }], 60), "");
 });

@@ -7,6 +7,7 @@ import {
   CaretRight,
   Check,
   CrosshairSimple,
+  DownloadSimple,
   Flag,
   MagnifyingGlass,
   NotePencil,
@@ -14,6 +15,8 @@ import {
   Trash,
   X,
 } from "@phosphor-icons/react";
+import { downloadBlob } from "../lib/media.js";
+import { serializeVttChapters, serializeYouTubeChapters } from "../lib/subtitles.js";
 import "./TimelineMarkerPanel.css";
 
 const TYPES = [
@@ -75,13 +78,17 @@ export function TimelineMarkerPanel({
   onDelete,
   onClose,
   currentTime = 0,
+  mediaDuration = 0,
   anchorRef,
 }) {
   const panelRef = useRef(null);
   const searchRef = useRef(null);
   const timeRef = useRef(null);
   const endTimeRef = useRef(null);
+  const exportButtonRef = useRef(null);
   const onCloseRef = useRef(onClose);
+  const chapterExportOpenRef = useRef(false);
+  const chapterExportShownRef = useRef(false);
   const id = useId();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("all");
@@ -90,12 +97,21 @@ export function TimelineMarkerPanel({
   const selectedSnapshot = selected ? JSON.stringify(makeDraft(selected)) : null;
   const [draft, setDraft] = useState(() => makeDraft(selected));
   const [error, setError] = useState(null);
+  const [chapterExportOpen, setChapterExportOpen] = useState(false);
   onCloseRef.current = onClose;
+  chapterExportOpenRef.current = chapterExportOpen;
 
   useEffect(() => {
     setDraft(selectedSnapshot ? JSON.parse(selectedSnapshot) : null);
     setError(null);
   }, [selectedSnapshot]);
+
+  // The export button is inert while the dialog is open, so focus can only
+  // return to it after the dialog has closed.
+  useEffect(() => {
+    if (chapterExportOpen) chapterExportShownRef.current = true;
+    else if (chapterExportShownRef.current) exportButtonRef.current?.focus({ preventScroll: true });
+  }, [chapterExportOpen]);
 
   useEffect(() => {
     const anchor = anchorRef?.current;
@@ -120,7 +136,8 @@ export function TimelineMarkerPanel({
       if (event.key !== "Escape" && !toggleShortcut) return;
       event.preventDefault();
       event.stopPropagation();
-      onCloseRef.current?.();
+      if (event.key === "Escape" && chapterExportOpenRef.current) setChapterExportOpen(false);
+      else onCloseRef.current?.();
     };
     updatePosition();
     searchRef.current?.focus({ preventScroll: true });
@@ -188,6 +205,24 @@ export function TimelineMarkerPanel({
     onAdd?.(type);
   };
   const select = (marker) => onSelect?.(marker);
+  const chapterFiles = useMemo(() => {
+    if (!chapterExportOpen) return null;
+    const options = { fallbackTitle: t("markersTypeChapter") };
+    return {
+      youtube: serializeYouTubeChapters(markers, mediaDuration, options),
+      vtt: serializeVttChapters(markers, mediaDuration, options),
+    };
+  }, [chapterExportOpen, markers, mediaDuration, t]);
+  const closeChapterExport = () => setChapterExportOpen(false);
+  const downloadChapters = (format) => {
+    downloadBlob(
+      format === "vtt"
+        ? new Blob([chapterFiles.vtt], { type: "text/vtt;charset=utf-8" })
+        : new Blob([chapterFiles.youtube], { type: "text/plain;charset=utf-8" }),
+      format === "vtt" ? "chapters.vtt" : "youtube-chapters.txt",
+    );
+    closeChapterExport();
+  };
 
   if (typeof document === "undefined") return null;
 
@@ -205,20 +240,21 @@ export function TimelineMarkerPanel({
       onDoubleClick={(event) => event.stopPropagation()}
       onWheel={(event) => event.stopPropagation()}
     >
-      <header className="timeline-marker-panel-header">
+      <header className="timeline-marker-panel-header" inert={chapterExportOpen ? true : undefined}>
         <div className="timeline-marker-panel-heading">
           <Flag size={20} weight="duotone" aria-hidden="true" />
           <h2 id={`${id}-heading`}>{t("markersTitle")}</h2>
           <span className="timeline-marker-panel-count">{markers.length}</span>
         </div>
         <div className="timeline-marker-panel-navigation">
+          <button ref={exportButtonRef} className="timeline-marker-panel-icon-button" type="button" aria-label={t("markersExportChapters")} title={t("markersExportChapters")} aria-haspopup="dialog" aria-expanded={chapterExportOpen} onClick={() => setChapterExportOpen(true)}><DownloadSimple size={16} /></button>
           <button className="timeline-marker-panel-icon-button" type="button" aria-label={t("markersPrevious")} title={t("markersPrevious")} disabled={!previousMarker} onClick={() => select(previousMarker)}><CaretLeft size={16} /></button>
           <button className="timeline-marker-panel-icon-button" type="button" aria-label={t("markersNext")} title={t("markersNext")} disabled={!nextMarker} onClick={() => select(nextMarker)}><CaretRight size={16} /></button>
           <button className="timeline-marker-panel-icon-button timeline-marker-panel-close" type="button" aria-label={t("markersClose")} onClick={onClose}><X size={18} /></button>
         </div>
       </header>
 
-      <div className="timeline-marker-panel-add" role="group" aria-label={t("markersAdd")}>
+      <div className="timeline-marker-panel-add" role="group" aria-label={t("markersAdd")} inert={chapterExportOpen ? true : undefined}>
         {TYPES.map(({ value, key }) => (
           <button type="button" key={value} aria-label={`${t("markersAdd")} · ${t(key)}`} title={`${t("markersAdd")} · ${t(key)}`} onClick={() => add(value)}>
             <Plus size={14} aria-hidden="true" /><span>{t(key)}</span>
@@ -226,7 +262,7 @@ export function TimelineMarkerPanel({
         ))}
       </div>
 
-      <div className={`timeline-marker-panel-body${!markers.length ? " is-empty" : ""}`}>
+      <div className={`timeline-marker-panel-body${!markers.length ? " is-empty" : ""}`} inert={chapterExportOpen ? true : undefined}>
         <div className="timeline-marker-panel-list-column">
           <div className="timeline-marker-panel-list-tools">
             <label className="timeline-marker-panel-search">
@@ -340,6 +376,27 @@ export function TimelineMarkerPanel({
           <div className="timeline-marker-panel-empty timeline-marker-panel-unselected"><NotePencil size={30} weight="duotone" aria-hidden="true" /><p>{t("markersSelectHint")}</p></div>
         )}
       </div>
+
+      {chapterFiles ? (
+        <div className="timeline-marker-panel-export-backdrop">
+          <section className="timeline-marker-panel-export" role="dialog" aria-modal="true" aria-labelledby={`${id}-export-heading`} aria-describedby={`${id}-export-description`}>
+            <h3 id={`${id}-export-heading`}>{t("markersExportChapters")}</h3>
+            {chapterFiles.vtt ? (
+              <div id={`${id}-export-description`}>
+                <p>{t("markersExportChaptersDescription")}</p>
+                <p className="timeline-marker-panel-export-hint">{t("markersExportChaptersYouTubeHint")}</p>
+              </div>
+            ) : <p id={`${id}-export-description`}>{t("markersExportChaptersEmpty")}</p>}
+            <div className="timeline-marker-panel-export-actions">
+              <button type="button" autoFocus={!chapterFiles.vtt} onClick={closeChapterExport}>{t("markersCancel")}</button>
+              {chapterFiles.vtt ? <>
+                <button type="button" onClick={() => downloadChapters("vtt")}>WebVTT</button>
+                <button className="timeline-marker-panel-export-primary" type="button" autoFocus onClick={() => downloadChapters("youtube")}>YouTube</button>
+              </> : null}
+            </div>
+          </section>
+        </div>
+      ) : null}
     </section>,
     document.body,
   );

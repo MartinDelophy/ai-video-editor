@@ -3095,7 +3095,7 @@ export function Timeline({
     }}>
       <div className="timeline-tools">
         <div className="timeline-icon-group">
-          <TimelineMarkerToolbar controller={markerController} t={t} currentTime={currentTime} />
+          <TimelineMarkerToolbar controller={markerController} t={t} currentTime={currentTime} mediaDuration={playbackDuration} />
           <IconButton label={t("undo")} shortcut={`${shortcutModifier}+Z`} tooltip releaseFocusOnPointer onClick={undo}>
             <ArrowCounterClockwise size={17} />
           </IconButton>

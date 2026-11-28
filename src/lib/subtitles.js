@@ -116,3 +116,48 @@ export function serializeVtt(captions, targetDuration = 0, options = {}) {
   ));
   return blocks.length ? `WEBVTT\n\n${blocks.join("\n\n")}\n` : "";
 }
+
+// Chapter markers split the media into back-to-back sections: each one runs
+// until the next chapter starts, and the last one until the media ends. A
+// chapter at or after the end has nothing to play, so it is left out. When two
+// chapters share a start time, the later one in marker order wins.
+function collectChapterSections(markers, mediaDuration, fallbackTitle) {
+  const mediaEnd = Math.round(Math.max(0, Number(mediaDuration) || 0) * 1000);
+  const chapters = (Array.isArray(markers) ? markers : [])
+    .filter((marker) => marker?.type === "chapter" && Number.isFinite(marker.time))
+    .map((marker) => ({
+      start: Math.round(Math.max(0, marker.time) * 1000),
+      title: String(marker.title ?? "").replace(/\s+/g, " ").trim() || fallbackTitle,
+    }))
+    .filter((chapter) => chapter.start < mediaEnd)
+    .sort((a, b) => a.start - b.start);
+  return chapters
+    .map((chapter, index) => ({ ...chapter, end: chapters[index + 1]?.start ?? mediaEnd }))
+    .filter((chapter) => chapter.end > chapter.start)
+    .map(({ start, end, title }) => ({ start: start / 1000, end: end / 1000, title }));
+}
+
+export function serializeVttChapters(markers, mediaDuration, { fallbackTitle = "Chapter" } = {}) {
+  const blocks = collectChapterSections(markers, mediaDuration, fallbackTitle).map(({ start, end, title }) => (
+    `${formatTimestamp(start, ".")} --> ${formatTimestamp(end, ".")}\n${escapeVttText(title)}`
+  ));
+  return blocks.length ? `WEBVTT\n\n${blocks.join("\n\n")}\n` : "";
+}
+
+// YouTube reads "MM:SS Title" lines from a video description, with "H:MM:SS"
+// past the first hour. Its timestamps only have whole seconds, so of two
+// chapters in the same second only the later one is kept, as above.
+function formatYouTubeTimestamp(seconds) {
+  const total = Math.floor(seconds);
+  const hours = Math.floor(total / 3600);
+  const clock = `${String(Math.floor(total / 60) % 60).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
+  return hours ? `${hours}:${clock}` : clock;
+}
+
+export function serializeYouTubeChapters(markers, mediaDuration, { fallbackTitle = "Chapter" } = {}) {
+  const lines = collectChapterSections(markers, mediaDuration, fallbackTitle)
+    .map(({ start, title }) => ({ timestamp: formatYouTubeTimestamp(start), title }))
+    .filter((chapter, index, chapters) => chapter.timestamp !== chapters[index + 1]?.timestamp)
+    .map(({ timestamp, title }) => `${timestamp} ${title}`);
+  return lines.length ? `${lines.join("\n")}\n` : "";
+}

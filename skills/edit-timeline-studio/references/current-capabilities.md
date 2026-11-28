@@ -4,7 +4,7 @@
 
 - Editable main Visuals sequence plus timed picture-in-picture overlays
 - Captions, stickers, voiceover, separated source audio, and music tracks
-- Persistent markers, chapters, ranges, and notes; compact ruler flags by default, expandable titles/ranges, and UI snapping with Alt bypass
+- Persistent markers, chapters, ranges, and notes; compact ruler flags by default, expandable titles/ranges, UI snapping with Alt bypass, and chapter export as YouTube timestamps or WebVTT from the markers panel
 - Visual transforms, property keyframes, masks, filters, effects, constant speed, and editable source-time speed curves with up to eight nodes and optional smooth joins
 - Keyframeable Color Wheels for shadows, midtones, highlights, and global offset, plus temperature, tint, and saturation controls
 - Person cutout for images and video, product/object cutout analysis, person and object outline styling, and local authorized face swap for a selected image or video target
